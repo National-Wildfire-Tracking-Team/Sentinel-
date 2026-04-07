@@ -1,0 +1,536 @@
+/**
+ * mockData.js
+ * Realistic demo data for all Sentinel data layers.
+ * Used as fallback when API keys are unavailable or APIs fail.
+ * All coordinates are real locations in fire-prone western US.
+ */
+
+// ─── Fire Hotspots (NASA FIRMS VIIRS format) ────────────────────────────────
+export const MOCK_FIRE_HOTSPOTS = [
+  // California – Sierra Nevada / Central Valley
+  { id: 'h-001', latitude: 37.52, longitude: -119.78, frp: 312.4, brightness: 420.1, confidence: 'high', satellite: 'NOAA-20', acq_date: '2024-08-01', acq_time: '0215', daynight: 'N' },
+  { id: 'h-002', latitude: 37.55, longitude: -119.81, frp: 198.7, brightness: 385.3, confidence: 'high', satellite: 'NOAA-20', acq_date: '2024-08-01', acq_time: '0215', daynight: 'N' },
+  { id: 'h-003', latitude: 37.49, longitude: -119.74, frp: 87.2, brightness: 356.8, confidence: 'nominal', satellite: 'Aqua',    acq_date: '2024-08-01', acq_time: '0230', daynight: 'N' },
+  { id: 'h-004', latitude: 37.61, longitude: -119.90, frp: 445.1, brightness: 455.2, confidence: 'high', satellite: 'NOAA-20', acq_date: '2024-08-01', acq_time: '0215', daynight: 'N' },
+  { id: 'h-005', latitude: 37.58, longitude: -119.86, frp: 267.9, brightness: 412.6, confidence: 'high', satellite: 'NOAA-20', acq_date: '2024-08-01', acq_time: '0215', daynight: 'N' },
+  // Northern California – Shasta / Trinity
+  { id: 'h-006', latitude: 40.82, longitude: -122.41, frp: 523.8, brightness: 467.4, confidence: 'high', satellite: 'NOAA-20', acq_date: '2024-08-01', acq_time: '0220', daynight: 'N' },
+  { id: 'h-007', latitude: 40.79, longitude: -122.38, frp: 389.2, brightness: 443.1, confidence: 'high', satellite: 'NOAA-20', acq_date: '2024-08-01', acq_time: '0220', daynight: 'N' },
+  { id: 'h-008', latitude: 40.85, longitude: -122.44, frp: 145.6, brightness: 371.8, confidence: 'nominal', satellite: 'Aqua', acq_date: '2024-08-01', acq_time: '0235', daynight: 'N' },
+  { id: 'h-009', latitude: 41.10, longitude: -122.70, frp: 62.3, brightness: 347.2, confidence: 'nominal', satellite: 'Terra', acq_date: '2024-08-01', acq_time: '0300', daynight: 'N' },
+  // Oregon – Cascade Range
+  { id: 'h-010', latitude: 43.55, longitude: -122.15, frp: 178.4, brightness: 382.7, confidence: 'high', satellite: 'NOAA-20', acq_date: '2024-08-01', acq_time: '0225', daynight: 'N' },
+  { id: 'h-011', latitude: 43.52, longitude: -122.11, frp: 234.8, brightness: 402.3, confidence: 'high', satellite: 'NOAA-20', acq_date: '2024-08-01', acq_time: '0225', daynight: 'N' },
+  { id: 'h-012', latitude: 43.59, longitude: -122.18, frp: 98.1, brightness: 360.4, confidence: 'nominal', satellite: 'Aqua', acq_date: '2024-08-01', acq_time: '0240', daynight: 'N' },
+  // Washington – Eastern WA
+  { id: 'h-013', latitude: 47.83, longitude: -120.04, frp: 156.9, brightness: 376.5, confidence: 'high', satellite: 'NOAA-20', acq_date: '2024-08-01', acq_time: '0230', daynight: 'N' },
+  { id: 'h-014', latitude: 47.80, longitude: -120.00, frp: 288.4, brightness: 423.8, confidence: 'high', satellite: 'NOAA-20', acq_date: '2024-08-01', acq_time: '0230', daynight: 'N' },
+  // Montana – Glacier / Bob Marshall
+  { id: 'h-015', latitude: 47.22, longitude: -113.45, frp: 412.7, brightness: 448.9, confidence: 'high', satellite: 'NOAA-20', acq_date: '2024-08-01', acq_time: '0235', daynight: 'N' },
+  { id: 'h-016', latitude: 47.18, longitude: -113.42, frp: 325.3, brightness: 432.1, confidence: 'high', satellite: 'NOAA-20', acq_date: '2024-08-01', acq_time: '0235', daynight: 'N' },
+  { id: 'h-017', latitude: 47.25, longitude: -113.48, frp: 89.7,  brightness: 358.3, confidence: 'low',  satellite: 'Terra',   acq_date: '2024-08-01', acq_time: '0305', daynight: 'N' },
+  // Idaho
+  { id: 'h-018', latitude: 45.12, longitude: -115.34, frp: 203.5, brightness: 393.6, confidence: 'high', satellite: 'NOAA-20', acq_date: '2024-08-01', acq_time: '0232', daynight: 'N' },
+  { id: 'h-019', latitude: 45.09, longitude: -115.31, frp: 134.2, brightness: 369.8, confidence: 'nominal', satellite: 'Aqua', acq_date: '2024-08-01', acq_time: '0248', daynight: 'N' },
+  // Colorado
+  { id: 'h-020', latitude: 39.82, longitude: -105.74, frp: 78.4, brightness: 351.2, confidence: 'nominal', satellite: 'Terra', acq_date: '2024-08-01', acq_time: '0315', daynight: 'N' },
+  { id: 'h-021', latitude: 38.44, longitude: -107.88, frp: 267.1, brightness: 415.7, confidence: 'high', satellite: 'NOAA-20', acq_date: '2024-08-01', acq_time: '0240', daynight: 'N' },
+  // New Mexico
+  { id: 'h-022', latitude: 33.48, longitude: -108.12, frp: 189.3, brightness: 386.4, confidence: 'high', satellite: 'NOAA-20', acq_date: '2024-08-01', acq_time: '0245', daynight: 'N' },
+  { id: 'h-023', latitude: 33.52, longitude: -108.15, frp: 356.8, brightness: 438.9, confidence: 'high', satellite: 'NOAA-20', acq_date: '2024-08-01', acq_time: '0245', daynight: 'N' },
+  // Arizona
+  { id: 'h-024', latitude: 34.22, longitude: -112.45, frp: 112.6, brightness: 365.3, confidence: 'nominal', satellite: 'Aqua', acq_date: '2024-08-01', acq_time: '0252', daynight: 'N' },
+  { id: 'h-025', latitude: 31.92, longitude: -110.88, frp: 445.9, brightness: 456.7, confidence: 'high', satellite: 'NOAA-20', acq_date: '2024-08-01', acq_time: '0248', daynight: 'N' },
+  // Nevada
+  { id: 'h-026', latitude: 40.12, longitude: -117.22, frp: 67.3, brightness: 348.9, confidence: 'low',  satellite: 'Terra', acq_date: '2024-08-01', acq_time: '0310', daynight: 'N' },
+  // Daytime detections
+  { id: 'h-027', latitude: 38.94, longitude: -120.12, frp: 234.7, brightness: 402.8, confidence: 'high', satellite: 'NOAA-20', acq_date: '2024-08-01', acq_time: '2100', daynight: 'D' },
+  { id: 'h-028', latitude: 38.91, longitude: -120.09, frp: 567.3, brightness: 478.2, confidence: 'high', satellite: 'NOAA-20', acq_date: '2024-08-01', acq_time: '2100', daynight: 'D' },
+  { id: 'h-029', latitude: 38.97, longitude: -120.14, frp: 312.1, brightness: 425.6, confidence: 'high', satellite: 'NOAA-20', acq_date: '2024-08-01', acq_time: '2100', daynight: 'D' },
+  { id: 'h-030', latitude: 36.72, longitude: -118.92, frp: 178.4, brightness: 381.3, confidence: 'nominal', satellite: 'Aqua', acq_date: '2024-08-01', acq_time: '2115', daynight: 'D' },
+];
+
+// ─── Fire Perimeters (NIFC/WFIGS GeoJSON format) ────────────────────────────
+export const MOCK_FIRE_PERIMETERS = {
+  type: 'FeatureCollection',
+  features: [
+    {
+      type: 'Feature',
+      geometry: {
+        type: 'Polygon',
+        coordinates: [[
+          [-119.90, 37.48], [-119.72, 37.48], [-119.68, 37.52],
+          [-119.70, 37.62], [-119.80, 37.67], [-119.92, 37.63],
+          [-119.95, 37.55], [-119.90, 37.48],
+        ]],
+      },
+      properties: {
+        UniqueFireIdentifier: 'CA-SQF-001122',
+        IncidentName: 'Oak Fire',
+        GISAcres: 19244,
+        PercentContained: 89,
+        FireDiscoveryDateTime: '2024-07-22T14:30:00Z',
+        ModifiedOnDateTime: '2024-08-01T08:00:00Z',
+        POOState: 'US-CA',
+        POOCounty: 'Mariposa',
+        IncidentTypeCategory: 'WF',
+        IncidentManagementOrganization: 'Type 1',
+        TotalIncidentPersonnel: 2456,
+        StructuresDestroyed: 127,
+        StructuresDamaged: 56,
+      },
+    },
+    {
+      type: 'Feature',
+      geometry: {
+        type: 'Polygon',
+        coordinates: [[
+          [-122.52, 40.75], [-122.28, 40.75], [-122.22, 40.80],
+          [-122.25, 40.92], [-122.38, 40.96], [-122.55, 40.91],
+          [-122.58, 40.82], [-122.52, 40.75],
+        ]],
+      },
+      properties: {
+        UniqueFireIdentifier: 'CA-SHU-003344',
+        IncidentName: 'Park Fire',
+        GISAcres: 429603,
+        PercentContained: 62,
+        FireDiscoveryDateTime: '2024-07-24T16:00:00Z',
+        ModifiedOnDateTime: '2024-08-01T07:30:00Z',
+        POOState: 'US-CA',
+        POOCounty: 'Butte',
+        IncidentTypeCategory: 'WF',
+        IncidentManagementOrganization: 'Type 1',
+        TotalIncidentPersonnel: 4817,
+        StructuresDestroyed: 399,
+        StructuresDamaged: 114,
+      },
+    },
+    {
+      type: 'Feature',
+      geometry: {
+        type: 'Polygon',
+        coordinates: [[
+          [-122.22, 43.48], [-122.05, 43.48], [-122.00, 43.53],
+          [-122.03, 43.64], [-122.14, 43.67], [-122.25, 43.63],
+          [-122.27, 43.54], [-122.22, 43.48],
+        ]],
+      },
+      properties: {
+        UniqueFireIdentifier: 'OR-RMD-005566',
+        IncidentName: 'Lookout Fire',
+        GISAcres: 28944,
+        PercentContained: 34,
+        FireDiscoveryDateTime: '2024-07-29T11:00:00Z',
+        ModifiedOnDateTime: '2024-08-01T06:00:00Z',
+        POOState: 'US-OR',
+        POOCounty: 'Lane',
+        IncidentTypeCategory: 'WF',
+        IncidentManagementOrganization: 'Type 2',
+        TotalIncidentPersonnel: 1234,
+        StructuresDestroyed: 12,
+        StructuresDamaged: 8,
+      },
+    },
+    {
+      type: 'Feature',
+      geometry: {
+        type: 'Polygon',
+        coordinates: [[
+          [-113.52, 47.15], [-113.36, 47.15], [-113.32, 47.20],
+          [-113.35, 47.30], [-113.46, 47.33], [-113.56, 47.29],
+          [-113.58, 47.20], [-113.52, 47.15],
+        ]],
+      },
+      properties: {
+        UniqueFireIdentifier: 'MT-FNF-007788',
+        IncidentName: 'Flat Creek Fire',
+        GISAcres: 54321,
+        PercentContained: 15,
+        FireDiscoveryDateTime: '2024-07-27T09:30:00Z',
+        ModifiedOnDateTime: '2024-08-01T05:30:00Z',
+        POOState: 'US-MT',
+        POOCounty: 'Missoula',
+        IncidentTypeCategory: 'WF',
+        IncidentManagementOrganization: 'Type 1',
+        TotalIncidentPersonnel: 1876,
+        StructuresDestroyed: 0,
+        StructuresDamaged: 3,
+      },
+    },
+    {
+      type: 'Feature',
+      geometry: {
+        type: 'Polygon',
+        coordinates: [[
+          [-120.18, 38.88], [-119.98, 38.88], [-119.92, 38.95],
+          [-119.96, 39.05], [-120.10, 39.08], [-120.22, 39.03],
+          [-120.24, 38.93], [-120.18, 38.88],
+        ]],
+      },
+      properties: {
+        UniqueFireIdentifier: 'CA-ELD-009900',
+        IncidentName: 'Caldor Fire',
+        GISAcres: 11832,
+        PercentContained: 98,
+        FireDiscoveryDateTime: '2024-07-14T18:00:00Z',
+        ModifiedOnDateTime: '2024-08-01T04:00:00Z',
+        POOState: 'US-CA',
+        POOCounty: 'El Dorado',
+        IncidentTypeCategory: 'WF',
+        IncidentManagementOrganization: 'Type 2',
+        TotalIncidentPersonnel: 312,
+        StructuresDestroyed: 1003,
+        StructuresDamaged: 92,
+      },
+    },
+  ],
+};
+
+// ─── AQI Monitoring Stations ─────────────────────────────────────────────────
+export const MOCK_AQI_STATIONS = [
+  { id: 'aqi-001', latitude: 37.77, longitude: -122.42, aqi: 145, category: 'USG',       pm25: 54.2, reportingArea: 'San Francisco Bay Area' },
+  { id: 'aqi-002', latitude: 38.58, longitude: -121.49, aqi: 178, category: 'Unhealthy', pm25: 72.1, reportingArea: 'Sacramento' },
+  { id: 'aqi-003', latitude: 36.74, longitude: -119.79, aqi: 212, category: 'VeryUnhealthy', pm25: 98.4, reportingArea: 'Fresno' },
+  { id: 'aqi-004', latitude: 34.05, longitude: -118.24, aqi: 67,  category: 'Moderate',  pm25: 22.3, reportingArea: 'Los Angeles' },
+  { id: 'aqi-005', latitude: 37.34, longitude: -121.89, aqi: 134, category: 'USG',       pm25: 49.8, reportingArea: 'San Jose' },
+  { id: 'aqi-006', latitude: 45.52, longitude: -122.68, aqi: 89,  category: 'Moderate',  pm25: 31.2, reportingArea: 'Portland' },
+  { id: 'aqi-007', latitude: 47.61, longitude: -122.33, aqi: 102, category: 'USG',       pm25: 37.4, reportingArea: 'Seattle' },
+  { id: 'aqi-008', latitude: 46.72, longitude: -117.00, aqi: 156, category: 'Unhealthy', pm25: 62.8, reportingArea: 'Pullman-Moscow' },
+  { id: 'aqi-009', latitude: 46.87, longitude: -114.02, aqi: 234, category: 'VeryUnhealthy', pm25: 112.6, reportingArea: 'Missoula' },
+  { id: 'aqi-010', latitude: 48.20, longitude: -114.31, aqi: 189, category: 'Unhealthy', pm25: 78.3, reportingArea: 'Kalispell' },
+  { id: 'aqi-011', latitude: 39.74, longitude: -104.98, aqi: 52,  category: 'Moderate',  pm25: 16.8, reportingArea: 'Denver' },
+  { id: 'aqi-012', latitude: 35.69, longitude: -105.94, aqi: 38,  category: 'Good',      pm25: 10.2, reportingArea: 'Santa Fe' },
+  { id: 'aqi-013', latitude: 33.45, longitude: -112.07, aqi: 71,  category: 'Moderate',  pm25: 24.7, reportingArea: 'Phoenix' },
+  { id: 'aqi-014', latitude: 40.76, longitude: -111.89, aqi: 88,  category: 'Moderate',  pm25: 30.9, reportingArea: 'Salt Lake City' },
+  { id: 'aqi-015', latitude: 43.62, longitude: -116.20, aqi: 115, category: 'USG',       pm25: 42.1, reportingArea: 'Boise' },
+  { id: 'aqi-016', latitude: 41.16, longitude: -122.39, aqi: 267, category: 'VeryUnhealthy', pm25: 134.7, reportingArea: 'Redding' },
+  { id: 'aqi-017', latitude: 39.73, longitude: -121.84, aqi: 198, category: 'Unhealthy', pm25: 85.2, reportingArea: 'Chico' },
+  { id: 'aqi-018', latitude: 37.65, longitude: -120.99, aqi: 301, category: 'Hazardous', pm25: 178.4, reportingArea: 'Modesto' },
+  { id: 'aqi-019', latitude: 38.68, longitude: -121.13, aqi: 245, category: 'VeryUnhealthy', pm25: 118.9, reportingArea: 'Folsom' },
+  { id: 'aqi-020', latitude: 35.37, longitude: -119.02, aqi: 156, category: 'Unhealthy', pm25: 63.4, reportingArea: 'Bakersfield' },
+];
+
+// ─── Weather Alerts (NOAA format) ────────────────────────────────────────────
+export const MOCK_WEATHER_ALERTS = [
+  {
+    id: 'alert-001',
+    type: 'Red Flag Warning',
+    headline: 'Red Flag Warning in effect through Thursday evening',
+    description: 'A Red Flag Warning means that critical fire weather conditions are either occurring now, or will shortly. A combination of strong winds, low relative humidity, and warm temperatures can contribute to extreme fire behavior.',
+    instruction: 'Avoid outdoor burning. If a fire does start, it can spread rapidly. Have an evacuation plan ready.',
+    severity: 'Extreme',
+    urgency: 'Expected',
+    certainty: 'Likely',
+    onset: '2024-08-01T12:00:00-07:00',
+    expires: '2024-08-02T21:00:00-07:00',
+    senderName: 'NWS Sacramento CA',
+    affectedArea: 'Sacramento and San Joaquin Valleys',
+    geometry: {
+      type: 'Polygon',
+      coordinates: [[
+        [-122.0, 37.4], [-119.5, 37.4], [-119.5, 38.8],
+        [-122.0, 38.8], [-122.0, 37.4],
+      ]],
+    },
+  },
+  {
+    id: 'alert-002',
+    type: 'Red Flag Warning',
+    headline: 'Red Flag Warning – North State Mountains',
+    description: 'Dangerously dry and windy conditions through tomorrow. West winds 25 to 35 mph with gusts 50 to 65 mph expected in mountain areas. Relative humidity will drop to 5 to 15 percent.',
+    instruction: 'Avoid any activity that could spark a fire. Report fires immediately.',
+    severity: 'Extreme',
+    urgency: 'Immediate',
+    certainty: 'Observed',
+    onset: '2024-08-01T08:00:00-07:00',
+    expires: '2024-08-02T18:00:00-07:00',
+    senderName: 'NWS Medford OR',
+    affectedArea: 'Siskiyou and Trinity Mountains',
+    geometry: {
+      type: 'Polygon',
+      coordinates: [[
+        [-123.0, 40.5], [-121.5, 40.5], [-121.5, 41.5],
+        [-123.0, 41.5], [-123.0, 40.5],
+      ]],
+    },
+  },
+  {
+    id: 'alert-003',
+    type: 'Fire Weather Watch',
+    headline: 'Fire Weather Watch through Saturday',
+    description: 'A Fire Weather Watch means that critical fire weather conditions may develop in the next 24-72 hours. Moderate to high winds and low relative humidity expected.',
+    instruction: 'Monitor fire danger and be ready for possible Red Flag Warning.',
+    severity: 'Severe',
+    urgency: 'Future',
+    certainty: 'Possible',
+    onset: '2024-08-02T12:00:00-07:00',
+    expires: '2024-08-03T21:00:00-07:00',
+    senderName: 'NWS Portland OR',
+    affectedArea: 'Cascade Mountains of Oregon',
+    geometry: {
+      type: 'Polygon',
+      coordinates: [[
+        [-122.5, 43.0], [-120.5, 43.0], [-120.5, 44.5],
+        [-122.5, 44.5], [-122.5, 43.0],
+      ]],
+    },
+  },
+  {
+    id: 'alert-004',
+    type: 'Red Flag Warning',
+    headline: 'Red Flag Warning – Northern Rockies',
+    description: 'Very critical fire weather conditions expected. Southwest winds 20 to 30 mph with higher gusts. Relative humidity 8 to 14 percent.',
+    instruction: 'Extreme fire danger. Campfires and outdoor burning strictly prohibited.',
+    severity: 'Extreme',
+    urgency: 'Expected',
+    certainty: 'Likely',
+    onset: '2024-08-01T14:00:00-06:00',
+    expires: '2024-08-02T22:00:00-06:00',
+    senderName: 'NWS Missoula MT',
+    affectedArea: 'Western and Central Montana',
+    geometry: {
+      type: 'Polygon',
+      coordinates: [[
+        [-115.0, 46.5], [-111.5, 46.5], [-111.5, 48.5],
+        [-115.0, 48.5], [-115.0, 46.5],
+      ]],
+    },
+  },
+];
+
+// ─── Active Incidents (InciWeb style) ─────────────────────────────────────────
+export const MOCK_INCIDENTS = [
+  {
+    id: 'inc-001',
+    name: 'Park Fire',
+    state: 'California',
+    county: 'Butte/Tehama',
+    lat: 40.85,
+    lng: -121.95,
+    acres: 429603,
+    contained: 62,
+    started: '2024-07-24',
+    updated: '2024-08-01T10:30:00Z',
+    cause: 'Human – Under Investigation',
+    status: 'active',
+    personnel: 4817,
+    structures_threatened: 5765,
+    structures_destroyed: 399,
+    evacuation_orders: 12,
+    evacuation_warnings: 8,
+    air_tankers: 12,
+    helicopters: 18,
+    dozers: 64,
+    engines: 248,
+    url: 'https://inciweb.nwcg.gov/incident/8684/',
+    updates: [
+      { time: '2024-08-01T08:00:00Z', text: 'Crews made significant progress on the northwest flank overnight. Structure protection in place for communities near Mineral.' },
+      { time: '2024-07-31T18:00:00Z', text: 'Firefighters held lines through afternoon wind event. Fire behavior moderated by evening.' },
+    ],
+  },
+  {
+    id: 'inc-002',
+    name: 'Oak Fire',
+    state: 'California',
+    county: 'Mariposa',
+    lat: 37.57,
+    lng: -119.82,
+    acres: 19244,
+    contained: 89,
+    started: '2024-07-22',
+    updated: '2024-08-01T09:00:00Z',
+    cause: 'Under Investigation',
+    status: 'active',
+    personnel: 2456,
+    structures_threatened: 2000,
+    structures_destroyed: 127,
+    evacuation_orders: 3,
+    evacuation_warnings: 5,
+    air_tankers: 4,
+    helicopters: 8,
+    dozers: 22,
+    engines: 112,
+    url: 'https://inciweb.nwcg.gov/incident/8542/',
+    updates: [
+      { time: '2024-08-01T07:30:00Z', text: '89% containment achieved. Remaining open line in steep terrain near Jerseydale.' },
+      { time: '2024-07-31T16:00:00Z', text: 'Good progress on south and east flanks. Some structures still threatened in the North Fork area.' },
+    ],
+  },
+  {
+    id: 'inc-003',
+    name: 'Lookout Fire',
+    state: 'Oregon',
+    county: 'Lane',
+    lat: 43.56,
+    lng: -122.13,
+    acres: 28944,
+    contained: 34,
+    started: '2024-07-29',
+    updated: '2024-08-01T08:00:00Z',
+    cause: 'Lightning',
+    status: 'active',
+    personnel: 1234,
+    structures_threatened: 450,
+    structures_destroyed: 12,
+    evacuation_orders: 6,
+    evacuation_warnings: 14,
+    air_tankers: 6,
+    helicopters: 10,
+    dozers: 28,
+    engines: 86,
+    url: 'https://inciweb.nwcg.gov/incident/8712/',
+    updates: [
+      { time: '2024-08-01T06:00:00Z', text: 'Fire held to 34% contained with active spread to the north halted overnight. Wind forecast remains concerning.' },
+    ],
+  },
+  {
+    id: 'inc-004',
+    name: 'Flat Creek Fire',
+    state: 'Montana',
+    county: 'Missoula',
+    lat: 47.21,
+    lng: -113.46,
+    acres: 54321,
+    contained: 15,
+    started: '2024-07-27',
+    updated: '2024-08-01T07:00:00Z',
+    cause: 'Lightning',
+    status: 'active',
+    personnel: 1876,
+    structures_threatened: 890,
+    structures_destroyed: 0,
+    evacuation_orders: 4,
+    evacuation_warnings: 9,
+    air_tankers: 8,
+    helicopters: 14,
+    dozers: 34,
+    engines: 102,
+    url: 'https://inciweb.nwcg.gov/incident/8698/',
+    updates: [
+      { time: '2024-08-01T05:30:00Z', text: 'Explosive growth yesterday – fire grew 18,000 acres in 24 hours driven by SW winds. Critical resources ordered.' },
+    ],
+  },
+  {
+    id: 'inc-005',
+    name: 'Caldor Fire',
+    state: 'California',
+    county: 'El Dorado',
+    lat: 38.95,
+    lng: -120.10,
+    acres: 11832,
+    contained: 98,
+    started: '2024-07-14',
+    updated: '2024-08-01T06:00:00Z',
+    cause: 'Under Investigation',
+    status: 'containment',
+    personnel: 312,
+    structures_threatened: 0,
+    structures_destroyed: 1003,
+    evacuation_orders: 0,
+    evacuation_warnings: 1,
+    air_tankers: 0,
+    helicopters: 2,
+    dozers: 4,
+    engines: 28,
+    url: 'https://inciweb.nwcg.gov/incident/8601/',
+    updates: [
+      { time: '2024-08-01T06:00:00Z', text: 'Fire approaching full containment. Mop-up operations continue in interior.' },
+    ],
+  },
+  {
+    id: 'inc-006',
+    name: 'Bridge Fire',
+    state: 'California',
+    county: 'Los Angeles',
+    lat: 34.28,
+    lng: -117.82,
+    acres: 7879,
+    contained: 22,
+    started: '2024-07-31',
+    updated: '2024-08-01T09:30:00Z',
+    cause: 'Under Investigation',
+    status: 'active',
+    personnel: 1456,
+    structures_threatened: 1200,
+    structures_destroyed: 89,
+    evacuation_orders: 8,
+    evacuation_warnings: 11,
+    air_tankers: 8,
+    helicopters: 12,
+    dozers: 18,
+    engines: 128,
+    url: 'https://inciweb.nwcg.gov/incident/8742/',
+    updates: [
+      { time: '2024-08-01T09:00:00Z', text: 'Fire grew rapidly overnight. Evacuation orders expanded to include additional communities in San Gabriel Mountains.' },
+    ],
+  },
+];
+
+// ─── Drought Monitor Zones ───────────────────────────────────────────────────
+// Simplified drought polygons based on USDM categories
+export const MOCK_DROUGHT_DATA = {
+  type: 'FeatureCollection',
+  features: [
+    {
+      type: 'Feature',
+      geometry: {
+        type: 'Polygon',
+        coordinates: [[
+          [-124, 42], [-116, 42], [-116, 46], [-124, 46], [-124, 42],
+        ]],
+      },
+      properties: { DM: 1, DESCRIPT: 'Moderate Drought' },
+    },
+    {
+      type: 'Feature',
+      geometry: {
+        type: 'Polygon',
+        coordinates: [[
+          [-122, 36], [-117, 36], [-117, 39], [-122, 39], [-122, 36],
+        ]],
+      },
+      properties: { DM: 2, DESCRIPT: 'Severe Drought' },
+    },
+    {
+      type: 'Feature',
+      geometry: {
+        type: 'Polygon',
+        coordinates: [[
+          [-120, 33], [-115, 33], [-115, 36], [-120, 36], [-120, 33],
+        ]],
+      },
+      properties: { DM: 3, DESCRIPT: 'Extreme Drought' },
+    },
+    {
+      type: 'Feature',
+      geometry: {
+        type: 'Polygon',
+        coordinates: [[
+          [-116, 46], [-110, 46], [-110, 49], [-116, 49], [-116, 46],
+        ]],
+      },
+      properties: { DM: 2, DESCRIPT: 'Severe Drought' },
+    },
+    {
+      type: 'Feature',
+      geometry: {
+        type: 'Polygon',
+        coordinates: [[
+          [-112, 43], [-107, 43], [-107, 48], [-112, 48], [-112, 43],
+        ]],
+      },
+      properties: { DM: 3, DESCRIPT: 'Extreme Drought' },
+    },
+    {
+      type: 'Feature',
+      geometry: {
+        type: 'Polygon',
+        coordinates: [[
+          [-110, 31], [-104, 31], [-104, 36], [-110, 36], [-110, 31],
+        ]],
+      },
+      properties: { DM: 4, DESCRIPT: 'Exceptional Drought' },
+    },
+  ],
+};

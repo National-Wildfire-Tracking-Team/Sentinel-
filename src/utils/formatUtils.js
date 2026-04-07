@@ -1,0 +1,163 @@
+/**
+ * formatUtils.js
+ * Formatting helpers for fire data, dates, numbers, and units.
+ */
+
+/**
+ * Format acreage with appropriate commas and abbreviation
+ * @param {number} acres
+ * @returns {string}
+ */
+export function formatAcres(acres) {
+  if (!acres && acres !== 0) return 'Unknown';
+  if (acres >= 1_000_000) return `${(acres / 1_000_000).toFixed(2)}M acres`;
+  if (acres >= 1_000)     return `${acres.toLocaleString()} acres`;
+  return `${acres} acres`;
+}
+
+/**
+ * Format FRP value with units
+ * @param {number} frp  Fire Radiative Power in MW
+ * @returns {string}
+ */
+export function formatFRP(frp) {
+  if (!frp && frp !== 0) return 'Unknown';
+  return `${frp.toFixed(1)} MW`;
+}
+
+/**
+ * Format AQI value with category label
+ * @param {number} aqi
+ * @param {string} category
+ * @returns {string}
+ */
+export function formatAQI(aqi, category) {
+  return `${aqi} – ${category}`;
+}
+
+/**
+ * Format a date string into a human-readable relative time
+ * e.g. "2 hours ago", "3 days ago"
+ * @param {string|Date} dateInput
+ * @returns {string}
+ */
+export function formatRelativeTime(dateInput) {
+  if (!dateInput) return 'Unknown';
+  const date = new Date(dateInput);
+  const now = new Date();
+  const diffMs = now - date;
+  const diffSecs = Math.floor(diffMs / 1000);
+  const diffMins = Math.floor(diffSecs / 60);
+  const diffHours = Math.floor(diffMins / 60);
+  const diffDays = Math.floor(diffHours / 24);
+
+  if (diffSecs < 60)    return 'Just now';
+  if (diffMins < 60)    return `${diffMins}m ago`;
+  if (diffHours < 24)   return `${diffHours}h ago`;
+  if (diffDays < 7)     return `${diffDays}d ago`;
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+/**
+ * Format a date for display in the detail panel
+ * @param {string|Date} dateInput
+ * @returns {string}
+ */
+export function formatDateTime(dateInput) {
+  if (!dateInput) return 'Unknown';
+  const date = new Date(dateInput);
+  return date.toLocaleString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    timeZoneName: 'short',
+  });
+}
+
+/**
+ * Format a date to just the date portion
+ * @param {string|Date} dateInput
+ * @returns {string}
+ */
+export function formatDate(dateInput) {
+  if (!dateInput) return 'Unknown';
+  const date = new Date(dateInput);
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+/**
+ * Format personnel count
+ * @param {number} count
+ * @returns {string}
+ */
+export function formatPersonnel(count) {
+  if (!count && count !== 0) return 'Unknown';
+  return count.toLocaleString();
+}
+
+/**
+ * Format wind speed
+ * @param {number} speedMph
+ * @returns {string}
+ */
+export function formatWindSpeed(speedMph) {
+  if (!speedMph && speedMph !== 0) return 'Unknown';
+  return `${speedMph} mph`;
+}
+
+/**
+ * Format temperature
+ * @param {number} tempF
+ * @returns {string}
+ */
+export function formatTemp(tempF) {
+  if (!tempF && tempF !== 0) return 'Unknown';
+  return `${Math.round(tempF)}°F`;
+}
+
+/**
+ * Format humidity
+ * @param {number} pct
+ * @returns {string}
+ */
+export function formatHumidity(pct) {
+  if (!pct && pct !== 0) return 'Unknown';
+  return `${Math.round(pct)}% RH`;
+}
+
+/**
+ * Format containment percentage
+ * @param {number} pct
+ * @returns {string}
+ */
+export function formatContainment(pct) {
+  if (pct === null || pct === undefined) return 'Unknown';
+  return `${pct}%`;
+}
+
+/**
+ * Returns a short status badge label
+ * @param {string} status
+ * @returns {string}
+ */
+export function formatStatus(status) {
+  const map = {
+    active: 'Active',
+    containment: 'In Containment',
+    controlled: 'Controlled',
+    out: 'Out',
+  };
+  return map[status] || status;
+}
+
+/**
+ * Abbreviate large numbers for cluster badges
+ * @param {number} num
+ * @returns {string}
+ */
+export function abbreviateNumber(num) {
+  if (num >= 1000) return `${(num / 1000).toFixed(1)}k`;
+  return String(num);
+}
