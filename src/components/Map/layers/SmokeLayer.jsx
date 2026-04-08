@@ -1,31 +1,16 @@
 /**
  * SmokeLayer.jsx
  * Renders smoke/AQI forecast imagery from NOAA HRRR-Smoke via WMS.
- * The Iowa Environmental Mesonet provides a convenient proxy WMS.
- *
- * Note: WMS raster layers add latency – disabled by default.
+ * Layer stays mounted; visibility is controlled via layout property.
  */
 
-import { Source, Layer } from 'react-map-gl/maplibre';
+import { Source, Layer } from 'react-map-gl';
 
-// NOAA HRRR-Smoke near-surface smoke forecast WMS
-// Provided via Iowa Environmental Mesonet
 const SMOKE_WMS_URL =
   'https://mesonet.agron.iastate.edu/cgi-bin/wms/smoke/smoke.cgi';
 
-const smokeRasterLayer = {
-  id: 'smoke-raster',
-  type: 'raster',
-  source: 'smoke-wms',
-  paint: {
-    'raster-opacity': 0.6,
-    'raster-resampling': 'linear',
-    'raster-fade-duration': 300,
-  },
-};
-
 export default function SmokeLayer({ visible }) {
-  if (!visible) return null;
+  const vis = visible ? 'visible' : 'none';
 
   return (
     <Source
@@ -40,7 +25,17 @@ export default function SmokeLayer({ visible }) {
       tileSize={256}
       attribution="NOAA HRRR-Smoke via Iowa Environmental Mesonet"
     >
-      <Layer {...smokeRasterLayer} />
+      <Layer
+        id="smoke-raster"
+        type="raster"
+        source="smoke-wms"
+        layout={{ visibility: vis }}
+        paint={{
+          'raster-opacity': 0.6,
+          'raster-resampling': 'linear',
+          'raster-fade-duration': 300,
+        }}
+      />
     </Source>
   );
 }

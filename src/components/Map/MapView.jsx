@@ -2,12 +2,12 @@
  * MapView.jsx
  * Main interactive map component.
  * Hosts all data layers and handles user interaction (click, hover).
- * Uses react-map-gl with MapLibre GL (free, no token required).
+ * Uses react-map-gl with Mapbox GL JS and satellite imagery.
  */
 
 import { useRef, useCallback, useMemo, useState } from 'react';
-import Map, { NavigationControl, ScaleControl, Popup } from 'react-map-gl/maplibre';
-import 'maplibre-gl/dist/maplibre-gl.css';
+import Map, { NavigationControl, ScaleControl, Popup } from 'react-map-gl';
+import 'mapbox-gl/dist/mapbox-gl.css';
 
 import { useApp } from '../../context/AppContext';
 import { formatAcres, formatContainment, formatFRP, formatRelativeTime } from '../../utils/formatUtils';
@@ -22,10 +22,11 @@ import DroughtLayer       from './layers/DroughtLayer';
 import SmokeLayer         from './layers/SmokeLayer';
 import GOESLayer          from './layers/GOESLayer';
 
-// Free dark base map style from CARTO – no API key required
-const MAP_STYLE = 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json';
+// Mapbox satellite streets style
+const MAP_STYLE = 'mapbox://styles/mapbox/satellite-streets-v12';
+const MAPBOX_TOKEN = 'pk.eyJ1Ijoia2Jlc2hvcmU2IiwiYSI6ImNtaG1kN3NvMjA5eTEyaW9nNG9uMjdqcWUifQ.JywdBqHqT3tcQ8IbyljLjg';
 
-/** Parse a value that MapLibre may have stringified back to a number */
+/** Parse a value that Mapbox may have stringified back to a number */
 function num(val) {
   if (typeof val === 'number') return val;
   const n = parseFloat(val);
@@ -128,15 +129,15 @@ export default function MapView({
   const [hoverLngLat,  setHoverLngLat]  = useState(null);
 
   // Only include interactive layer IDs for layers that are currently visible
-  // to avoid MapLibre warnings about querying non-existent layers
   const interactiveLayerIds = useMemo(() => {
     const ids = [];
-    if (layers.fireHotspots)   ids.push('fire-hotspots-circle');
-    if (layers.firePerimeters) ids.push('fire-perimeters-fill');
-    if (layers.aqi)            ids.push('aqi-stations-circle');
-    if (layers.weatherAlerts)  ids.push('weather-alerts-fill');
+    if (layers.fireHotspots && hotspotsGeoJSON)    ids.push('fire-hotspots-circle');
+    if (layers.firePerimeters && perimetersGeoJSON) ids.push('fire-perimeters-fill');
+    if (layers.aqi && aqiGeoJSON)                   ids.push('aqi-stations-circle');
+    if (layers.weatherAlerts && alertsGeoJSON)       ids.push('weather-alerts-fill');
     return ids;
-  }, [layers.fireHotspots, layers.firePerimeters, layers.aqi, layers.weatherAlerts]);
+  }, [layers.fireHotspots, layers.firePerimeters, layers.aqi, layers.weatherAlerts,
+      hotspotsGeoJSON, perimetersGeoJSON, aqiGeoJSON, alertsGeoJSON]);
 
   // Clear stale hover when layers change
   const prevLayersRef = useRef(layers);
@@ -159,8 +160,6 @@ export default function MapView({
     const feature = features[0];
     const p = feature.properties;
 
-    // Build a unified "selectedFire" object from whichever layer was clicked
-    // Parse numeric values that MapLibre may have stringified
     if (feature.layer.id === 'fire-hotspots-circle') {
       selectFire({
         type: 'hotspot',
@@ -212,7 +211,6 @@ export default function MapView({
     if (features?.length) {
       setHoverFeature(features[0]);
       setHoverLngLat(evt.lngLat);
-      // Change cursor to pointer
       if (mapRef.current) {
         mapRef.current.getCanvas().style.cursor = 'pointer';
       }
@@ -243,6 +241,7 @@ export default function MapView({
       <Map
         ref={mapRef}
         {...viewport}
+        mapboxAccessToken={MAPBOX_TOKEN}
         mapStyle={MAP_STYLE}
         style={{ width: '100%', height: '100%' }}
         interactiveLayerIds={interactiveLayerIds}
@@ -251,15 +250,15 @@ export default function MapView({
         onMouseLeave={handleMouseLeave}
         onMove={handleMove}
         attributionControl={false}
-        // Performance optimizations
         maxTileCacheSize={150}
         fadeDuration={150}
+        projection="mercator"
       >
         {/* Navigation controls */}
         <NavigationControl position="bottom-right" style={{ marginBottom: '6rem' }} />
         <ScaleControl position="bottom-left" style={{ marginLeft: '1rem', marginBottom: '1rem' }} />
 
-        {/* ── Data Layers (ordered back-to-front) ── */}
+        {/* ── Data Layers (ordered back-to-front, each independently controlled via visibility) ── */}
 
         {/* Drought layer – rendered first (bottom) */}
         <DroughtLayer
