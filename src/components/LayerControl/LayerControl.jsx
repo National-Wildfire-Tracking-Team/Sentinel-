@@ -6,7 +6,7 @@
 
 import { useState } from 'react';
 import {
-  Layers, Flame, MapPin, Wind, CloudRain, Sun, Eye, EyeOff, ChevronDown, ChevronRight,
+  Layers, Flame, MapPin, Wind, CloudRain, Eye, ChevronDown, ChevronRight,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 
@@ -29,8 +29,7 @@ const LAYER_GROUPS = [
   {
     label: 'Weather',
     layers: [
-      { key: 'weatherAlerts', label: 'Fire Weather Alerts', sublabel: 'NOAA NWS',        icon: Wind,    color: '#ef4444' },
-      { key: 'drought',       label: 'Drought Monitor',     sublabel: 'USDA/UNL USDM',  icon: Sun,     color: '#f59e0b' },
+      { key: 'weatherAlerts', label: 'Fire Weather Alerts', sublabel: 'NOAA NWS', icon: Wind, color: '#ef4444' },
     ],
   },
   {
