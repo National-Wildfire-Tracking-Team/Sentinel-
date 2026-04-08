@@ -6,7 +6,7 @@
  */
 
 import { useRef, useCallback, useMemo, useState } from 'react';
-import Map, { NavigationControl, ScaleControl, Popup } from 'react-map-gl';
+import Map, { NavigationControl, ScaleControl, Popup, Source, Layer } from 'react-map-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 
 import { useApp } from '../../context/AppContext';
@@ -17,6 +17,7 @@ import { frpToLabel } from '../../utils/colorUtils';
 import FireHotspotsLayer  from './layers/FireHotspotsLayer';
 import FirePerimetersLayer from './layers/FirePerimetersLayer';
 import FireIncidentsLayer  from './layers/FireIncidentsLayer';
+import IncidentLocationsLayer from './layers/IncidentLocationsLayer'; // Added missing import
 import AQILayer           from './layers/AQILayer';
 import WeatherAlertsLayer from './layers/WeatherAlertsLayer';
 import DroughtLayer       from './layers/DroughtLayer';
@@ -25,9 +26,10 @@ import GOESLayer          from './layers/GOESLayer';
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN || '';
 
+// Quick helper if you don't already have one exported from utils
+const num = (val) => Number(val); 
+
 // ─── Base map style ───────────────────────────────────────────────────────────
-// With Mapbox token: use native satellite-streets style.
-// Without token: use CARTO dark base + ESRI satellite raster overlay.
 const MAP_STYLE = MAPBOX_TOKEN
   ? 'mapbox://styles/mapbox/satellite-streets-v12'
   : 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json';
@@ -141,7 +143,8 @@ function HoverTooltip({ feature, lngLat }) {
  * @param {object} props
  * @param {object|null} props.hotspotsGeoJSON
  * @param {object|null} props.perimetersGeoJSON
- * @param {object|null} props.incidentDotsGeoJSON
+ * @param {object|null} props.incidentsGeoJSON // Fixed naming mismatch
+ * @param {object|null} props.incidentDotsGeoJSON 
  * @param {object|null} props.aqiGeoJSON
  * @param {object|null} props.alertsGeoJSON
  * @param {object|null} props.droughtGeoJSON
@@ -149,6 +152,7 @@ function HoverTooltip({ feature, lngLat }) {
 export default function MapView({
   hotspotsGeoJSON,
   perimetersGeoJSON,
+  incidentsGeoJSON, // Renamed to match usage inside
   incidentDotsGeoJSON,
   aqiGeoJSON,
   alertsGeoJSON,
@@ -168,7 +172,7 @@ export default function MapView({
     if (layers.firePerimeters && perimetersGeoJSON)     ids.push('fire-perimeters-fill');
     if (layers.incidentLocations && incidentsGeoJSON)   ids.push('incident-locations-circle');
     if (layers.aqi && aqiGeoJSON)                       ids.push('aqi-stations-circle');
-    if (layers.weatherAlerts && alertsGeoJSON)           ids.push('weather-alerts-fill');
+    if (layers.weatherAlerts && alertsGeoJSON)          ids.push('weather-alerts-fill');
     return ids;
   }, [layers.fireHotspots, layers.firePerimeters, layers.incidentLocations, layers.aqi, layers.weatherAlerts,
       hotspotsGeoJSON, perimetersGeoJSON, incidentsGeoJSON, aqiGeoJSON, alertsGeoJSON]);
@@ -355,6 +359,8 @@ export default function MapView({
         <IncidentLocationsLayer
           geoJSON={incidentsGeoJSON}
           visible={layers.incidentLocations}
+        /> {/* <-- FIXED CLOSING TAG */}
+
         {/* Incident dot markers – fires with no matching perimeter */}
         <FireIncidentsLayer
           geoJSON={incidentDotsGeoJSON}
