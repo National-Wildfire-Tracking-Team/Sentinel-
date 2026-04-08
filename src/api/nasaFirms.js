@@ -81,7 +81,7 @@ function normalizeConfidence(raw) {
 
 /**
  * Convert array of hotspot objects into a GeoJSON FeatureCollection
- * suitable for use as a Mapbox/MapLibre Source.
+ * suitable for use as a Mapbox Source.
  */
 export function hotspotsToGeoJSON(hotspots) {
   return {
