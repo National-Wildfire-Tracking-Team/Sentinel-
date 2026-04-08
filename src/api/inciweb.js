@@ -1,11 +1,21 @@
 /**
  * inciweb.js
+update/fix-map-bugs
+ * WFIGS – Wildland Fire Interagency Geospatial Services
+ * Fetches current active wildfire incident locations from the WFIGS
+ * Current endpoint (public ArcGIS FeatureServer, no key required).
+ *
+ * Endpoint:
+ *   https://services3.arcgis.com/T4QMspbfLg3qTGWY/arcgis/rest/services/
+ *     WFIGS_Incident_Locations_Current/FeatureServer/0/query
+=======
  * IRWIN – Integrated Reporting of Wildland-Fire Information
  * Authoritative source for active wildfire incidents (public ArcGIS endpoint).
  *
  * Service: WFIGS_Incident_Locations_Current (replaces deprecated YTD service)
  * https://services3.arcgis.com/T4QMspbfLg3qTGWY/ArcGIS/rest/services/
  *   WFIGS_Incident_Locations_Current/FeatureServer/0/query
+claude/wildfire-tracking-platform-8aHE2
  *
  * No API key required.
  */
@@ -13,14 +23,17 @@
 import { fetchWithCache } from '../utils/dataCache';
 import { MOCK_INCIDENTS } from '../data/mockData';
 
+const WFIGS_CURRENT =
+  'https://services3.arcgis.com/T4QMspbfLg3qTGWY/arcgis/rest/services' +
 const IRWIN_BASE =
   'https://services3.arcgis.com/T4QMspbfLg3qTGWY/ArcGIS/rest/services' +
   '/WFIGS_Incident_Locations_Current/FeatureServer/0/query';
 
 /**
- * Fetch active wildfire incidents.
+ * Fetch current active wildfire incidents.
+ * Scrubs fires below minAcres (default 0.1).
  * @param {object} [opts]
- * @param {number} [opts.minAcres=10]
+ * @param {number} [opts.minAcres=.10]
  * @param {number} [opts.limit=50]
  * @returns {Promise<Array>}  Normalized incident objects
  */
@@ -47,6 +60,8 @@ export async function fetchIncidents({ minAcres = 10, limit = 50 } = {}) {
     returnGeometry: 'true',
   });
 
+  const url = `${WFIGS_CURRENT}?${params}`;
+  const cacheKey = `wfigs:current:${minAcres}`;
   const url = `${IRWIN_BASE}?${params}`;
   const cacheKey = `irwin:incidents:active:${minAcres}`;
 
@@ -56,6 +71,9 @@ export async function fetchIncidents({ minAcres = 10, limit = 50 } = {}) {
     if (data?.features) return normalizeIncidents(data.features);
     throw new Error('Unexpected response format');
   } catch (err) {
+    console.warn('[WFIGS] Using mock incidents:', err.message);
+    // Filter mock data by minAcres too
+    return MOCK_INCIDENTS.filter(i => (i.acres || 0) >= minAcres);
     console.warn('[InciWeb/IRWIN] Using fallback incidents:', err.message);
     return MOCK_INCIDENTS;
   }
@@ -132,7 +150,7 @@ function normalizeIncidents(features) {
     return {
       id:           p.UniqueFireIdentifier || `inc-${i}`,
       name:         p.IncidentName || 'Unknown Fire',
-      state:        p.POOState?.replace('US-', '') || '?',
+      state:        (p.POOState || '').replace('US-', '') || '?',
       county:       p.POOCounty || '',
       lat,
       lng,
@@ -147,9 +165,40 @@ function normalizeIncidents(features) {
       cause:        p.FireCause || 'Under Investigation',
       status:       contained >= 100 ? 'controlled' : 'active',
       personnel:    p.TotalIncidentPersonnel || 0,
-      structures_destroyed: 0,
-      structures_damaged:   0,
+      structures_destroyed: p.StructuresDestroyed || 0,
+      structures_damaged:   p.StructuresDamaged   || 0,
+      structures_threatened: p.StructuresThreatened || 0,
+      evacuations:  p.Evacuations || '',
+      incidentType: p.IncidentTypeCategory || 'WF',
       updates: [],
     };
   });
+}
+
+/**
+ * Convert array of incidents to GeoJSON FeatureCollection
+ * for rendering as interactive point markers on the map.
+ */
+export function incidentsToGeoJSON(incidents) {
+  return {
+    type: 'FeatureCollection',
+    features: incidents
+      .filter(inc => inc.lat && inc.lng && inc.lat !== 0 && inc.lng !== 0)
+      .map(inc => ({
+        type: 'Feature',
+        geometry: { type: 'Point', coordinates: [inc.lng, inc.lat] },
+        properties: {
+          id:        inc.id,
+          name:      inc.name,
+          state:     inc.state,
+          county:    inc.county,
+          acres:     inc.acres,
+          contained: inc.contained,
+          status:    inc.status,
+          personnel: inc.personnel,
+          started:   inc.started,
+          updated:   inc.updated,
+        },
+      })),
+  };
 }
