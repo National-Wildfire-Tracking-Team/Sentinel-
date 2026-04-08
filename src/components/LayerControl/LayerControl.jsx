@@ -35,7 +35,7 @@ const LAYER_GROUPS = [
   {
     label: 'Satellite',
     layers: [
-      { key: 'goes', label: 'GOES Imagery', sublabel: 'NOAA GOES East + West', icon: Eye, color: '#8b5cf6' },
+      { key: 'goes', label: 'GOES Imagery', sublabel: 'NOAA GOES East', icon: Eye, color: '#8b5cf6' },
     ],
   },
 ];
