@@ -8,6 +8,8 @@ import { createContext, useContext, useReducer, useCallback } from 'react';
 
 // ─── Initial State ────────────────────────────────────────────────────────────
 const initialState = {
+  // Base map style: 'satellite' | 'dark' | 'streets'
+  baseMap: 'satellite',
   // Which map data layers are currently visible
   layers: {
     fireHotspots:   true,
@@ -42,6 +44,7 @@ const initialState = {
 
 // ─── Action Types ─────────────────────────────────────────────────────────────
 const A = {
+  SET_BASE_MAP:       'SET_BASE_MAP',
   TOGGLE_LAYER:       'TOGGLE_LAYER',
   SET_LAYER:          'SET_LAYER',
   SELECT_FIRE:        'SELECT_FIRE',
@@ -58,6 +61,8 @@ const A = {
 // ─── Reducer ─────────────────────────────────────────────────────────────────
 function reducer(state, action) {
   switch (action.type) {
+    case A.SET_BASE_MAP:
+      return { ...state, baseMap: action.value };
     case A.TOGGLE_LAYER:
       return {
         ...state,
@@ -97,6 +102,7 @@ const AppContext = createContext(null);
 export function AppProvider({ children }) {
   const [state, dispatch] = useReducer(reducer, initialState);
 
+  const setBaseMap       = useCallback((value) => dispatch({ type: A.SET_BASE_MAP, value }), []);
   const toggleLayer      = useCallback((layer) => dispatch({ type: A.TOGGLE_LAYER, layer }), []);
   const setLayer         = useCallback((layer, value) => dispatch({ type: A.SET_LAYER, layer, value }), []);
   const selectFire       = useCallback((fire) => dispatch({ type: A.SELECT_FIRE, fire }), []);
@@ -121,6 +127,7 @@ export function AppProvider({ children }) {
   return (
     <AppContext.Provider value={{
       ...state,
+      setBaseMap,
       toggleLayer,
       setLayer,
       selectFire,
