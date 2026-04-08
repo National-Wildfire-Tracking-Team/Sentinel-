@@ -34,6 +34,9 @@ export default function Footer() {
               <li>
                 <Link to="/live-tracker" className="text-sentinel-300 hover:text-fire-400 text-sm transition-colors">Live Wildfire Tracker</Link>
               </li>
+              <li>
+                <Link to="/terms" className="text-sentinel-300 hover:text-fire-400 text-sm transition-colors">Terms of Service</Link>
+              </li>
             </ul>
           </div>
 
