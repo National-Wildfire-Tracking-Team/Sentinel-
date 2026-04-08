@@ -10,29 +10,65 @@ import Map, { NavigationControl, ScaleControl, Popup } from 'react-map-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 
 import { useApp } from '../../context/AppContext';
-import { formatAcres, formatContainment, formatFRP, formatRelativeTime } from '../../utils/formatUtils';
+import { formatAcres, formatContainment, formatFRP } from '../../utils/formatUtils';
 import { frpToLabel } from '../../utils/colorUtils';
 
 // Data layer components
-import FireHotspotsLayer       from './layers/FireHotspotsLayer';
-import FirePerimetersLayer     from './layers/FirePerimetersLayer';
-import IncidentLocationsLayer  from './layers/IncidentLocationsLayer';
-import AQILayer                from './layers/AQILayer';
-import WeatherAlertsLayer      from './layers/WeatherAlertsLayer';
-import DroughtLayer            from './layers/DroughtLayer';
-import SmokeLayer              from './layers/SmokeLayer';
-import GOESLayer               from './layers/GOESLayer';
+import FireHotspotsLayer  from './layers/FireHotspotsLayer';
+import FirePerimetersLayer from './layers/FirePerimetersLayer';
+import FireIncidentsLayer  from './layers/FireIncidentsLayer';
+import AQILayer           from './layers/AQILayer';
+import WeatherAlertsLayer from './layers/WeatherAlertsLayer';
+import DroughtLayer       from './layers/DroughtLayer';
+import SmokeLayer         from './layers/SmokeLayer';
+import GOESLayer          from './layers/GOESLayer';
 
-// Mapbox satellite streets style
-const MAP_STYLE = 'mapbox://styles/mapbox/satellite-streets-v12';
-const MAPBOX_TOKEN = 'pk.eyJ1Ijoia2Jlc2hvcmU2IiwiYSI6ImNtaG1kN3NvMjA5eTEyaW9nNG9uMjdqcWUifQ.JywdBqHqT3tcQ8IbyljLjg';
+const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN || '';
 
-/** Parse a value that Mapbox may have stringified back to a number */
-function num(val) {
-  if (typeof val === 'number') return val;
-  const n = parseFloat(val);
-  return isNaN(n) ? 0 : n;
+// ─── Base map styles ──────────────────────────────────────────────────────────
+// Satellite style using free ESRI World Imagery tiles (no token required)
+const SATELLITE_STYLE = {
+  version: 8,
+  sources: {
+    satellite: {
+      type: 'raster',
+      tiles: ['https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'],
+      tileSize: 256,
+      attribution: 'Esri, Maxar, Earthstar Geographics',
+      maxzoom: 19,
+    },
+  },
+  layers: [
+    { id: 'satellite', type: 'raster', source: 'satellite', minzoom: 0, maxzoom: 19 },
+  ],
+};
+
+function getMapStyle(baseMap) {
+  if (MAPBOX_TOKEN) {
+    switch (baseMap) {
+      case 'satellite': return 'mapbox://styles/mapbox/satellite-streets-v12';
+      case 'streets':   return 'mapbox://styles/mapbox/streets-v12';
+      case 'dark':
+      default:          return 'mapbox://styles/mapbox/dark-v11';
+    }
+  }
+  // Free tile sources (no Mapbox token)
+  switch (baseMap) {
+    case 'satellite': return SATELLITE_STYLE;
+    case 'streets':   return 'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json';
+    case 'dark':
+    default:          return 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json';
+  }
 }
+
+// Layers that respond to click/hover events
+const INTERACTIVE_LAYERS = [
+  'fire-hotspots-circle',
+  'fire-perimeters-fill',
+  'fire-incidents-circle',
+  'aqi-stations-circle',
+  'weather-alerts-fill',
+];
 
 /**
  * Tooltip shown on hover
@@ -75,6 +111,17 @@ function HoverTooltip({ feature, lngLat }) {
             {' '}· {p.category}
           </div>
           <div className="text-gray-400 text-xs">PM2.5: {num(p.pm25)} µg/m³</div>
+        </>
+      );
+      break;
+    case 'fire-incidents-circle':
+      content = (
+        <>
+          <div className="font-semibold text-orange-400">{p.IncidentName}</div>
+          <div className="text-gray-300 text-xs mt-0.5">
+            {formatAcres(p.GISAcres)} · {formatContainment(p.PercentContained)} contained
+          </div>
+          <div className="text-gray-400 text-xs">{p.POOState} · {p.POOCounty} County</div>
         </>
       );
       break;
@@ -122,6 +169,7 @@ function HoverTooltip({ feature, lngLat }) {
  * @param {object} props
  * @param {object|null} props.hotspotsGeoJSON
  * @param {object|null} props.perimetersGeoJSON
+ * @param {object|null} props.incidentDotsGeoJSON
  * @param {object|null} props.aqiGeoJSON
  * @param {object|null} props.alertsGeoJSON
  * @param {object|null} props.droughtGeoJSON
@@ -129,12 +177,12 @@ function HoverTooltip({ feature, lngLat }) {
 export default function MapView({
   hotspotsGeoJSON,
   perimetersGeoJSON,
-  incidentsGeoJSON,
+  incidentDotsGeoJSON,
   aqiGeoJSON,
   alertsGeoJSON,
   droughtGeoJSON,
 }) {
-  const { layers, selectFire, viewport, setViewport } = useApp();
+  const { layers, baseMap, selectFire, viewport, setViewport } = useApp();
   const mapRef = useRef(null);
 
   // Hover tooltip state
@@ -205,21 +253,25 @@ export default function MapView({
         updated:     p.ModifiedOnDateTime,
         orgType:     p.IncidentManagementOrganization,
       });
-    } else if (feature.layer.id === 'incident-locations-circle') {
+    } else if (feature.layer.id === 'fire-incidents-circle') {
       selectFire({
-        type:      'incident',
-        id:        p.id,
-        name:      p.name,
-        lat:       evt.lngLat.lat,
-        lng:       evt.lngLat.lng,
-        state:     p.state,
-        county:    p.county,
-        acres:     num(p.acres),
-        contained: num(p.contained),
-        status:    p.status,
-        personnel: num(p.personnel),
-        started:   p.started,
-        updated:   p.updated,
+        type:       'incident',
+        id:         p.UniqueFireIdentifier,
+        name:       p.IncidentName,
+        lat:        evt.lngLat.lat,
+        lng:        evt.lngLat.lng,
+        acres:      p.GISAcres,
+        contained:  p.PercentContained,
+        state:      p.POOState,
+        county:     p.POOCounty,
+        personnel:  p.TotalIncidentPersonnel,
+        cause:      p.FireCause,
+        started:    p.FireDiscoveryDateTime
+                      ? new Date(p.FireDiscoveryDateTime).toISOString()
+                      : null,
+        updated:    p.ModifiedOnDateTime
+                      ? new Date(p.ModifiedOnDateTime).toISOString()
+                      : null,
       });
     } else if (feature.layer.id === 'aqi-stations-circle') {
       selectFire({
@@ -272,7 +324,7 @@ export default function MapView({
         ref={mapRef}
         {...viewport}
         mapboxAccessToken={MAPBOX_TOKEN}
-        mapStyle={MAP_STYLE}
+        mapStyle={getMapStyle(baseMap)}
         style={{ width: '100%', height: '100%' }}
         interactiveLayerIds={interactiveLayerIds}
         onClick={handleClick}
@@ -318,6 +370,10 @@ export default function MapView({
         <IncidentLocationsLayer
           geoJSON={incidentsGeoJSON}
           visible={layers.incidentLocations}
+        {/* Incident dot markers – fires with no matching perimeter */}
+        <FireIncidentsLayer
+          geoJSON={incidentDotsGeoJSON}
+          visible={layers.firePerimeters}
         />
 
         {/* AQI monitoring stations */}

@@ -19,11 +19,13 @@ const NOAA_BASE = 'https://api.weather.gov';
  * @returns {Promise<Array>}  Normalized alert objects
  */
 export async function fetchFireWeatherAlerts() {
+  // NOAA requires separate `event` params for multiple event types
   const params = new URLSearchParams({
-    event: 'Red Flag Warning,Fire Weather Watch',
     status: 'actual',
     message_type: 'alert,update',
   });
+  params.append('event', 'Red Flag Warning');
+  params.append('event', 'Fire Weather Watch');
 
   const url = `${NOAA_BASE}/alerts/active?${params}`;
   const cacheKey = 'noaa:fire-alerts';

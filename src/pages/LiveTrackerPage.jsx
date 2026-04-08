@@ -12,7 +12,7 @@ import { useApp } from '../context/AppContext';
 
 // Data hooks
 import { useFireHotspots } from '../hooks/useFireHotspots';
-import { useFirePerimeters } from '../hooks/useFirePerimeters';
+import { useMergedFireData } from '../hooks/useMergedFireData';
 import { useAQIData } from '../hooks/useAQIData';
 import { useWeatherAlerts } from '../hooks/useWeatherAlerts';
 import { useIncidents } from '../hooks/useIncidents';
@@ -42,11 +42,13 @@ export default function LiveTrackerPage() {
   } = useFireHotspots(US_BOUNDS);
 
   const {
-    geoJSON: perimetersGeoJSON,
+    perimetersGeoJSON,
+    incidentDotsGeoJSON,
     loading: perimetersLoading,
-    count: perimetersCount,
+    perimetersCount,
+    dotsCount,
     refresh: refreshPerimeters,
-  } = useFirePerimeters(100);
+  } = useMergedFireData(100);
 
   const {
     geoJSON: aqiGeoJSON,
@@ -128,7 +130,7 @@ export default function LiveTrackerPage() {
           <MapView
             hotspotsGeoJSON={hotspotsGeoJSON}
             perimetersGeoJSON={perimetersGeoJSON}
-            incidentsGeoJSON={incidentsGeoJSON}
+            incidentDotsGeoJSON={incidentDotsGeoJSON}
             aqiGeoJSON={aqiGeoJSON}
             alertsGeoJSON={alertsGeoJSON}
             droughtGeoJSON={droughtGeoJSON}
@@ -136,7 +138,7 @@ export default function LiveTrackerPage() {
 
           <LayerControl
             hotspotsCount={hotspotsCount}
-            perimetersCount={perimetersCount}
+            perimetersCount={perimetersCount + dotsCount}
           />
 
           <Legend />
