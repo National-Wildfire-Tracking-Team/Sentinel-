@@ -65,10 +65,10 @@ function LayerToggle({ layerKey, label, sublabel, icon: Icon, color }) {
 
       {/* Labels */}
       <div className="flex-1 min-w-0">
-        <div className={`text-sm font-medium truncate transition-colors ${active ? 'text-white' : 'text-sentinel-400'}`}>
+        <div className={`text-sm font-medium truncate transition-colors ${active ? 'text-white' : 'text-sentinel-200'}`}>
           {label}
         </div>
-        <div className="text-[10px] text-sentinel-500 truncate">{sublabel}</div>
+        <div className="text-[10px] text-sentinel-300 truncate">{sublabel}</div>
       </div>
 
       {/* Toggle switch */}
@@ -113,11 +113,11 @@ export default function LayerControl({ hotspotsCount = 0, perimetersCount = 0 })
           {/* Header */}
           <div className="px-3 py-2.5 border-b border-sentinel-700">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-sentinel-300 uppercase tracking-widest">
+              <span className="text-xs font-bold text-sentinel-100 uppercase tracking-widest">
                 Map Layers
               </span>
               {/* Quick counts */}
-              <div className="flex items-center gap-2 text-[10px] text-sentinel-500">
+              <div className="flex items-center gap-2 text-[10px] text-sentinel-300">
                 <span>{hotspotsCount} hotspots</span>
                 <span>·</span>
                 <span>{perimetersCount} fires</span>
@@ -133,8 +133,8 @@ export default function LayerControl({ hotspotsCount = 0, perimetersCount = 0 })
                 <button
                   onClick={() => toggleGroup(group.label)}
                   className="w-full flex items-center gap-2 px-3 py-1.5
-                             text-[10px] font-bold text-sentinel-500 uppercase tracking-widest
-                             hover:text-sentinel-300 transition-colors"
+                             text-[10px] font-bold text-sentinel-300 uppercase tracking-widest
+                             hover:text-white transition-colors"
                 >
                   {collapsed[group.label]
                     ? <ChevronRight size={10} />

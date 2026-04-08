@@ -7,7 +7,7 @@
 
 /* Remove default attribution clutter (we use custom) */
 .mapboxgl-ctrl-attrib {
-  @apply opacity-50 text-[10px];
+  @apply opacity-80 text-[10px] text-sentinel-100;
 }
 
 /* Navigation control dark theme */
@@ -16,7 +16,7 @@
 }
 
 .mapboxgl-ctrl-group button {
-  @apply text-sentinel-300 hover:bg-sentinel-700 hover:text-white transition-colors;
+  @apply text-sentinel-100 hover:bg-sentinel-700 hover:text-white transition-colors;
   width: 36px;
   height: 36px;
 }
@@ -27,7 +27,7 @@
 
 /* Scale control */
 .mapboxgl-ctrl-scale {
-  @apply border-sentinel-500 text-sentinel-400 bg-sentinel-900/80 text-[10px];
+  @apply border-sentinel-400 text-sentinel-100 bg-sentinel-900/85 text-[10px];
   border-width: 0 2px 2px;
   padding: 2px 6px;
   border-radius: 0 0 4px 4px;

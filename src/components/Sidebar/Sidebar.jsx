@@ -12,7 +12,7 @@ function StatPill({ icon: Icon, label, value, color = 'text-white' }) {
     <div className="flex flex-col items-center gap-0.5 px-3 py-2 bg-sentinel-800 rounded-lg border border-sentinel-700 min-w-[70px]">
       <Icon size={14} className={color} />
       <span className={`text-base font-bold ${color}`}>{value}</span>
-      <span className="text-sentinel-500 text-[10px] text-center leading-tight">{label}</span>
+      <span className="text-sentinel-300 text-[10px] text-center leading-tight">{label}</span>
     </div>
   );
 }
@@ -34,7 +34,7 @@ export default function Sidebar({ incidents, loading, error }) {
           className="absolute left-0 top-1/2 -translate-y-1/2 z-30
                      flex items-center justify-center w-6 h-12
                      bg-sentinel-800 border border-l-0 border-sentinel-700
-                     rounded-r-lg text-sentinel-400 hover:text-white
+                     rounded-r-lg text-sentinel-200 hover:text-white
                      hover:bg-sentinel-700 transition-colors shadow-lg"
           aria-label="Open sidebar"
         >
@@ -58,7 +58,7 @@ export default function Sidebar({ incidents, loading, error }) {
             <Flame size={16} className="text-fire-500" />
             <h2 className="font-semibold text-white text-sm">Active Incidents</h2>
             {activeCount > 0 && (
-              <span className="px-1.5 py-0.5 bg-fire-600/25 text-fire-400 text-xs font-bold rounded-full border border-fire-700/40">
+              <span className="px-1.5 py-0.5 bg-fire-600/25 text-fire-300 text-xs font-bold rounded-full border border-fire-700/40">
                 {activeCount}
               </span>
             )}
@@ -66,7 +66,7 @@ export default function Sidebar({ incidents, loading, error }) {
 
           <button
             onClick={toggleSidebar}
-            className="p-1 text-sentinel-400 hover:text-white hover:bg-sentinel-700 rounded transition-colors"
+            className="p-1 text-sentinel-200 hover:text-white hover:bg-sentinel-700 rounded transition-colors"
             aria-label="Collapse sidebar"
           >
             <ChevronLeft size={16} />
