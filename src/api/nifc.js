@@ -3,10 +3,11 @@
  * NIFC / WFIGS – National Interagency Fire Center
  * Fetches active fire perimeters from the public ArcGIS REST endpoint.
  *
- * Endpoint: https://services3.arcgis.com/T4QMspbfLg3qTGWY/arcgis/rest/services/
- *           WFIGS_Interagency_Perimeters_YTD/FeatureServer/0/query
+ * Service: WFIGS_Daily_Perimeters_Public (replaces deprecated YTD service)
+ * https://services3.arcgis.com/T4QMspbfLg3qTGWY/ArcGIS/rest/services/
+ *   WFIGS_Daily_Perimeters_Public/FeatureServer/0/query
  *
- * No API key required – this is a public government data service.
+ * No API key required – public government data service.
  */
 
 import { fetchWithCache } from '../utils/dataCache';
@@ -14,22 +15,24 @@ import { MOCK_FIRE_PERIMETERS } from '../data/mockData';
 
 const NIFC_BASE =
   'https://services3.arcgis.com/T4QMspbfLg3qTGWY/arcgis/rest/services' +
-  '/WFIGS_Interagency_Perimeters_YTD/FeatureServer/0/query';
+  '/WFIGS_Interagency_Perimeters_Current/FeatureServer/0/query';
 
 /**
- * Fetch current-year fire perimeters from NIFC WFIGS.
+ * Fetch current fire perimeters from NIFC WFIGS.
  * @param {object} [opts]
  * @param {number} [opts.minAcres=100]  Filter perimeters below this size
  * @returns {Promise<object>}  GeoJSON FeatureCollection
  */
 export async function fetchFirePerimeters({ minAcres = 100 } = {}) {
   const params = new URLSearchParams({
-    where: `GISAcres >= ${minAcres}`,
+    where: `attr_IncidentTypeCategory='WF' AND poly_GISAcres>=${minAcres}`,
     outFields: [
-      'UniqueFireIdentifier', 'IncidentName', 'GISAcres', 'PercentContained',
-      'FireDiscoveryDateTime', 'ModifiedOnDateTime', 'POOState', 'POOCounty',
-      'IncidentTypeCategory', 'IncidentManagementOrganization',
-      'TotalIncidentPersonnel', 'StructuresDestroyed', 'StructuresDamaged',
+      'poly_IncidentName', 'poly_GISAcres', 'poly_DateCurrent',
+      'attr_IncidentName', 'attr_IncidentTypeCategory',
+      'attr_PercentContained', 'attr_FireDiscoveryDateTime',
+      'attr_ModifiedOnDateTime_dt', 'attr_POOState', 'attr_POOCounty',
+      'attr_IncidentManagementOrg', 'attr_TotalIncidentPersonnel',
+      'attr_UniqueFireIdentifier', 'attr_FireCause',
     ].join(','),
     f: 'geojson',
     outSR: '4326',
@@ -40,11 +43,38 @@ export async function fetchFirePerimeters({ minAcres = 100 } = {}) {
   const cacheKey = `nifc:perimeters:${minAcres}`;
 
   try {
-    const data = await fetchWithCache(url, cacheKey, {}, 10 * 60 * 1000); // 10-min cache
-    if (!data?.features?.length) throw new Error('Empty response');
-    return data;
+    const data = await fetchWithCache(url, cacheKey, {}, 10 * 60 * 1000);
+    if (data?.error) throw new Error(data.error.message || 'ArcGIS error');
+    if (data?.features) return normalizePerimeters(data);
+    throw new Error('Unexpected response format');
   } catch (err) {
-    console.warn('[NIFC] Using mock perimeters:', err.message);
+    console.warn('[NIFC] Using fallback perimeters:', err.message);
     return MOCK_FIRE_PERIMETERS;
   }
+}
+
+/**
+ * Remap attr_/poly_ prefixed properties to the flat schema the map layers expect.
+ */
+function normalizePerimeters(geojson) {
+  return {
+    ...geojson,
+    features: geojson.features.map(f => ({
+      ...f,
+      properties: {
+        UniqueFireIdentifier:      f.properties.attr_UniqueFireIdentifier || '',
+        IncidentName:              f.properties.attr_IncidentName || f.properties.poly_IncidentName || 'Unknown Fire',
+        GISAcres:                  f.properties.poly_GISAcres || 0,
+        PercentContained:          f.properties.attr_PercentContained ?? 0,
+        FireDiscoveryDateTime:     f.properties.attr_FireDiscoveryDateTime,
+        ModifiedOnDateTime:        f.properties.attr_ModifiedOnDateTime_dt,
+        POOState:                  f.properties.attr_POOState || '',
+        POOCounty:                 f.properties.attr_POOCounty || '',
+        IncidentManagementOrganization: f.properties.attr_IncidentManagementOrg || '',
+        TotalIncidentPersonnel:    f.properties.attr_TotalIncidentPersonnel || 0,
+        IncidentTypeCategory:      f.properties.attr_IncidentTypeCategory || 'WF',
+        FireCause:                 f.properties.attr_FireCause || '',
+      },
+    })),
+  };
 }

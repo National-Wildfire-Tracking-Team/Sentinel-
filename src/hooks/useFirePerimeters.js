@@ -14,24 +14,32 @@ export function useFirePerimeters(minAcres = 100) {
   const [error,    setError]    = useState(null);
   const [count,    setCount]    = useState(0);
   const intervalRef = useRef(null);
+  const mountedRef  = useRef(true);
 
   const load = useCallback(async () => {
     try {
+      setLoading(true);
       setError(null);
       const data = await fetchFirePerimeters({ minAcres });
+      if (!mountedRef.current) return;
       setGeoJSON(data);
       setCount(data?.features?.length ?? 0);
     } catch (err) {
+      if (!mountedRef.current) return;
       setError(err.message);
     } finally {
-      setLoading(false);
+      if (mountedRef.current) setLoading(false);
     }
   }, [minAcres]);
 
   useEffect(() => {
+    mountedRef.current = true;
     load();
     intervalRef.current = setInterval(load, REFRESH_MS);
-    return () => clearInterval(intervalRef.current);
+    return () => {
+      mountedRef.current = false;
+      clearInterval(intervalRef.current);
+    };
   }, [load]);
 
   return { geoJSON, loading, error, count, refresh: load };

@@ -63,7 +63,12 @@ export async function fetchWithCache(url, cacheKey, options = {}, ttlMs = 5 * 60
 
   const res = await fetch(url, options);
   if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
-  const data = await res.json();
+  let data;
+  try {
+    data = await res.json();
+  } catch {
+    throw new Error(`Invalid JSON response from ${url}`);
+  }
   setCached(cacheKey, data, ttlMs);
   return data;
 }

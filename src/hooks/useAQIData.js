@@ -13,6 +13,7 @@ export function useAQIData(enabled = false) {
   const [loading,  setLoading]  = useState(false);
   const [error,    setError]    = useState(null);
   const intervalRef = useRef(null);
+  const mountedRef  = useRef(true);
 
   const load = useCallback(async () => {
     if (!enabled) return;
@@ -20,20 +21,26 @@ export function useAQIData(enabled = false) {
       setLoading(true);
       setError(null);
       const stations = await fetchAQIStations();
+      if (!mountedRef.current) return;
       setGeoJSON(aqiToGeoJSON(stations));
     } catch (err) {
+      if (!mountedRef.current) return;
       setError(err.message);
     } finally {
-      setLoading(false);
+      if (mountedRef.current) setLoading(false);
     }
   }, [enabled]);
 
   useEffect(() => {
+    mountedRef.current = true;
     load();
     if (enabled) {
       intervalRef.current = setInterval(load, REFRESH_MS);
     }
-    return () => clearInterval(intervalRef.current);
+    return () => {
+      mountedRef.current = false;
+      clearInterval(intervalRef.current);
+    };
   }, [load, enabled]);
 
   return { geoJSON, loading, error, refresh: load };
