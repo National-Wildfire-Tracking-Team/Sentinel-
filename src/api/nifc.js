@@ -14,8 +14,8 @@ import { fetchWithCache } from '../utils/dataCache';
 import { MOCK_FIRE_PERIMETERS } from '../data/mockData';
 
 const NIFC_BASE =
-  'https://services3.arcgis.com/T4QMspbfLg3qTGWY/ArcGIS/rest/services' +
-  '/WFIGS_Daily_Perimeters_Public/FeatureServer/0/query';
+  'https://services3.arcgis.com/T4QMspbfLg3qTGWY/arcgis/rest/services' +
+  '/WFIGS_Interagency_Perimeters_Current/FeatureServer/0/query';
 
 /**
  * Fetch current fire perimeters from NIFC WFIGS.
@@ -32,7 +32,7 @@ export async function fetchFirePerimeters({ minAcres = 100 } = {}) {
       'attr_PercentContained', 'attr_FireDiscoveryDateTime',
       'attr_ModifiedOnDateTime_dt', 'attr_POOState', 'attr_POOCounty',
       'attr_IncidentManagementOrg', 'attr_TotalIncidentPersonnel',
-      'attr_UniqueFireIdentifier',
+      'attr_UniqueFireIdentifier', 'attr_FireCause',
     ].join(','),
     f: 'geojson',
     outSR: '4326',
@@ -73,6 +73,7 @@ function normalizePerimeters(geojson) {
         IncidentManagementOrganization: f.properties.attr_IncidentManagementOrg || '',
         TotalIncidentPersonnel:    f.properties.attr_TotalIncidentPersonnel || 0,
         IncidentTypeCategory:      f.properties.attr_IncidentTypeCategory || 'WF',
+        FireCause:                 f.properties.attr_FireCause || '',
       },
     })),
   };

@@ -16,6 +16,7 @@ import { frpToLabel } from '../../utils/colorUtils';
 // Data layer components
 import FireHotspotsLayer  from './layers/FireHotspotsLayer';
 import FirePerimetersLayer from './layers/FirePerimetersLayer';
+import FireIncidentsLayer  from './layers/FireIncidentsLayer';
 import AQILayer           from './layers/AQILayer';
 import WeatherAlertsLayer from './layers/WeatherAlertsLayer';
 import DroughtLayer       from './layers/DroughtLayer';
@@ -64,6 +65,7 @@ function getMapStyle(baseMap) {
 const INTERACTIVE_LAYERS = [
   'fire-hotspots-circle',
   'fire-perimeters-fill',
+  'fire-incidents-circle',
   'aqi-stations-circle',
   'weather-alerts-fill',
 ];
@@ -112,6 +114,17 @@ function HoverTooltip({ feature, lngLat }) {
         </>
       );
       break;
+    case 'fire-incidents-circle':
+      content = (
+        <>
+          <div className="font-semibold text-orange-400">{p.IncidentName}</div>
+          <div className="text-gray-300 text-xs mt-0.5">
+            {formatAcres(p.GISAcres)} · {formatContainment(p.PercentContained)} contained
+          </div>
+          <div className="text-gray-400 text-xs">{p.POOState} · {p.POOCounty} County</div>
+        </>
+      );
+      break;
     case 'weather-alerts-fill':
       content = (
         <>
@@ -145,6 +158,7 @@ function HoverTooltip({ feature, lngLat }) {
  * @param {object} props
  * @param {object|null} props.hotspotsGeoJSON
  * @param {object|null} props.perimetersGeoJSON
+ * @param {object|null} props.incidentDotsGeoJSON
  * @param {object|null} props.aqiGeoJSON
  * @param {object|null} props.alertsGeoJSON
  * @param {object|null} props.droughtGeoJSON
@@ -152,6 +166,7 @@ function HoverTooltip({ feature, lngLat }) {
 export default function MapView({
   hotspotsGeoJSON,
   perimetersGeoJSON,
+  incidentDotsGeoJSON,
   aqiGeoJSON,
   alertsGeoJSON,
   droughtGeoJSON,
@@ -205,6 +220,26 @@ export default function MapView({
         discovered:  p.FireDiscoveryDateTime,
         updated:     p.ModifiedOnDateTime,
         orgType:     p.IncidentManagementOrganization,
+      });
+    } else if (feature.layer.id === 'fire-incidents-circle') {
+      selectFire({
+        type:       'incident',
+        id:         p.UniqueFireIdentifier,
+        name:       p.IncidentName,
+        lat:        evt.lngLat.lat,
+        lng:        evt.lngLat.lng,
+        acres:      p.GISAcres,
+        contained:  p.PercentContained,
+        state:      p.POOState,
+        county:     p.POOCounty,
+        personnel:  p.TotalIncidentPersonnel,
+        cause:      p.FireCause,
+        started:    p.FireDiscoveryDateTime
+                      ? new Date(p.FireDiscoveryDateTime).toISOString()
+                      : null,
+        updated:    p.ModifiedOnDateTime
+                      ? new Date(p.ModifiedOnDateTime).toISOString()
+                      : null,
       });
     } else if (feature.layer.id === 'aqi-stations-circle') {
       selectFire({
@@ -297,6 +332,12 @@ export default function MapView({
         {/* Fire perimeter polygons */}
         <FirePerimetersLayer
           geoJSON={perimetersGeoJSON}
+          visible={layers.firePerimeters}
+        />
+
+        {/* Incident dot markers – fires with no matching perimeter */}
+        <FireIncidentsLayer
+          geoJSON={incidentDotsGeoJSON}
           visible={layers.firePerimeters}
         />
 

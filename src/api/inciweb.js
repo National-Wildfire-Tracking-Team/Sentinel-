@@ -61,6 +61,67 @@ export async function fetchIncidents({ minAcres = 10, limit = 50 } = {}) {
   }
 }
 
+/**
+ * Fetch active wildfire incident locations as a GeoJSON FeatureCollection.
+ * Used for rendering incident dot markers on the map (fires without perimeters).
+ */
+export async function fetchIncidentLocationsGeoJSON({ minAcres = 10 } = {}) {
+  const where = [
+    `IncidentTypeCategory='WF'`,
+    `IncidentSize>=${minAcres}`,
+    `ControlDateTime IS NULL`,
+  ].join(' AND ');
+
+  const params = new URLSearchParams({
+    where,
+    outFields: [
+      'UniqueFireIdentifier', 'IncidentName', 'POOState', 'POOCounty',
+      'IncidentSize', 'PercentContained', 'FireDiscoveryDateTime',
+      'ModifiedOnDateTime_dt', 'FireCause', 'TotalIncidentPersonnel',
+    ].join(','),
+    orderByFields: 'IncidentSize DESC',
+    f: 'geojson',
+    outSR: '4326',
+    returnGeometry: 'true',
+  });
+
+  const url = `${IRWIN_BASE}?${params}`;
+  const cacheKey = `irwin:incidents:geojson:${minAcres}`;
+
+  try {
+    const data = await fetchWithCache(url, cacheKey, {}, 5 * 60 * 1000);
+    if (data?.error) throw new Error(data.error.message || 'ArcGIS error');
+    if (data?.features) return normalizeIncidentGeoJSON(data);
+    throw new Error('Unexpected response format');
+  } catch (err) {
+    console.warn('[InciWeb/IRWIN] Using empty incident GeoJSON:', err.message);
+    return { type: 'FeatureCollection', features: [] };
+  }
+}
+
+function normalizeIncidentGeoJSON(geojson) {
+  return {
+    ...geojson,
+    features: geojson.features
+      .filter(f => f.geometry)
+      .map(f => ({
+        ...f,
+        properties: {
+          UniqueFireIdentifier:  f.properties.UniqueFireIdentifier || '',
+          IncidentName:          f.properties.IncidentName || 'Unknown Fire',
+          GISAcres:              Math.round(f.properties.IncidentSize || 0),
+          PercentContained:      f.properties.PercentContained ?? 0,
+          FireDiscoveryDateTime: f.properties.FireDiscoveryDateTime,
+          ModifiedOnDateTime:    f.properties.ModifiedOnDateTime_dt,
+          POOState:              (f.properties.POOState || '').replace('US-', ''),
+          POOCounty:             f.properties.POOCounty || '',
+          TotalIncidentPersonnel: f.properties.TotalIncidentPersonnel || 0,
+          FireCause:             f.properties.FireCause || 'Under Investigation',
+        },
+      })),
+  };
+}
+
 function normalizeIncidents(features) {
   return features.map((f, i) => {
     const p = f.attributes ?? f.properties ?? {};
