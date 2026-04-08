@@ -5,12 +5,12 @@
  * Uses react-map-gl with MapLibre GL (free, no token required).
  */
 
-import { useRef, useCallback, useEffect, useState } from 'react';
-import Map, { NavigationControl, ScaleControl, Popup } from 'react-map-gl/maplibre';
-import 'maplibre-gl/dist/maplibre-gl.css';
+import { useRef, useCallback, useState } from 'react';
+import Map, { NavigationControl, ScaleControl, Popup } from 'react-map-gl';
+import 'mapbox-gl/dist/mapbox-gl.css';
 
 import { useApp } from '../../context/AppContext';
-import { formatAcres, formatContainment, formatFRP, formatRelativeTime } from '../../utils/formatUtils';
+import { formatAcres, formatContainment, formatFRP } from '../../utils/formatUtils';
 import { frpToLabel } from '../../utils/colorUtils';
 
 // Data layer components
@@ -22,8 +22,11 @@ import DroughtLayer       from './layers/DroughtLayer';
 import SmokeLayer         from './layers/SmokeLayer';
 import GOESLayer          from './layers/GOESLayer';
 
-// Free dark base map style from CARTO – no API key required
-const MAP_STYLE = 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json';
+const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN || '';
+// Fall back to free CARTO dark tiles when no Mapbox token is configured
+const MAP_STYLE = MAPBOX_TOKEN
+  ? 'mapbox://styles/mapbox/dark-v11'
+  : 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json';
 
 // Layers that respond to click/hover events
 const INTERACTIVE_LAYERS = [
@@ -222,6 +225,7 @@ export default function MapView({
       <Map
         ref={mapRef}
         {...viewport}
+        mapboxAccessToken={MAPBOX_TOKEN}
         mapStyle={MAP_STYLE}
         style={{ width: '100%', height: '100%' }}
         interactiveLayerIds={INTERACTIVE_LAYERS}
