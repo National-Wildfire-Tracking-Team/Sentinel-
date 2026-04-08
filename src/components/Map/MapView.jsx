@@ -350,7 +350,7 @@ export default function MapView({
         {/* Incident dot markers – fires with no matching perimeter */}
         <FireIncidentsLayer
           geoJSON={incidentDotsGeoJSON}
-          visible={layers.firePerimeters}
+          visible={layers.incidentLocations}
         />
 
         {/* AQI monitoring stations */}
