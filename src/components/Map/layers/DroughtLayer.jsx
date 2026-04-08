@@ -33,7 +33,7 @@ export default function DroughtLayer({ geoJSON, visible }) {
 
   return (
     <Source id="drought" type="geojson" data={geoJSON}>
-      <Layer {...droughtFillLayer} beforeId="fire-perimeters-fill" />
+      <Layer {...droughtFillLayer} />
       <Layer {...droughtLineLayer} />
     </Source>
   );

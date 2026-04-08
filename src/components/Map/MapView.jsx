@@ -5,7 +5,7 @@
  * Uses react-map-gl with MapLibre GL (free, no token required).
  */
 
-import { useRef, useCallback, useEffect, useState } from 'react';
+import { useRef, useCallback, useMemo, useState } from 'react';
 import Map, { NavigationControl, ScaleControl, Popup } from 'react-map-gl/maplibre';
 import 'maplibre-gl/dist/maplibre-gl.css';
 
@@ -25,13 +25,12 @@ import GOESLayer          from './layers/GOESLayer';
 // Free dark base map style from CARTO – no API key required
 const MAP_STYLE = 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json';
 
-// Layers that respond to click/hover events
-const INTERACTIVE_LAYERS = [
-  'fire-hotspots-circle',
-  'fire-perimeters-fill',
-  'aqi-stations-circle',
-  'weather-alerts-fill',
-];
+/** Parse a value that MapLibre may have stringified back to a number */
+function num(val) {
+  if (typeof val === 'number') return val;
+  const n = parseFloat(val);
+  return isNaN(n) ? 0 : n;
+}
 
 /**
  * Tooltip shown on hover
@@ -47,8 +46,8 @@ function HoverTooltip({ feature, lngLat }) {
         <>
           <div className="font-semibold text-orange-400">Fire Hotspot</div>
           <div className="text-gray-300 text-xs mt-0.5">
-            FRP: <span className="text-white font-medium">{formatFRP(p.frp)}</span>
-            {' '}· {frpToLabel(p.frp)} intensity
+            FRP: <span className="text-white font-medium">{formatFRP(num(p.frp))}</span>
+            {' '}· {frpToLabel(num(p.frp))} intensity
           </div>
           <div className="text-gray-400 text-xs">{p.satellite} · {p.acq_date}</div>
         </>
@@ -59,7 +58,7 @@ function HoverTooltip({ feature, lngLat }) {
         <>
           <div className="font-semibold text-orange-400">{p.IncidentName}</div>
           <div className="text-gray-300 text-xs mt-0.5">
-            {formatAcres(p.GISAcres)} · {formatContainment(p.PercentContained)} contained
+            {formatAcres(num(p.GISAcres))} · {formatContainment(num(p.PercentContained))} contained
           </div>
           <div className="text-gray-400 text-xs">{p.POOState} · {p.POOCounty} County</div>
         </>
@@ -70,10 +69,10 @@ function HoverTooltip({ feature, lngLat }) {
         <>
           <div className="font-semibold text-blue-400">{p.reportingArea}</div>
           <div className="text-gray-300 text-xs mt-0.5">
-            AQI: <span className="text-white font-medium">{p.aqi}</span>
+            AQI: <span className="text-white font-medium">{num(p.aqi)}</span>
             {' '}· {p.category}
           </div>
-          <div className="text-gray-400 text-xs">PM2.5: {p.pm25} µg/m³</div>
+          <div className="text-gray-400 text-xs">PM2.5: {num(p.pm25)} µg/m³</div>
         </>
       );
       break;
@@ -128,6 +127,27 @@ export default function MapView({
   const [hoverFeature, setHoverFeature] = useState(null);
   const [hoverLngLat,  setHoverLngLat]  = useState(null);
 
+  // Only include interactive layer IDs for layers that are currently visible
+  // to avoid MapLibre warnings about querying non-existent layers
+  const interactiveLayerIds = useMemo(() => {
+    const ids = [];
+    if (layers.fireHotspots)   ids.push('fire-hotspots-circle');
+    if (layers.firePerimeters) ids.push('fire-perimeters-fill');
+    if (layers.aqi)            ids.push('aqi-stations-circle');
+    if (layers.weatherAlerts)  ids.push('weather-alerts-fill');
+    return ids;
+  }, [layers.fireHotspots, layers.firePerimeters, layers.aqi, layers.weatherAlerts]);
+
+  // Clear stale hover when layers change
+  const prevLayersRef = useRef(layers);
+  if (prevLayersRef.current !== layers) {
+    prevLayersRef.current = layers;
+    if (hoverFeature) {
+      setHoverFeature(null);
+      setHoverLngLat(null);
+    }
+  }
+
   // Handle map click – select fire for detail panel
   const handleClick = useCallback((evt) => {
     const features = evt.features;
@@ -140,14 +160,15 @@ export default function MapView({
     const p = feature.properties;
 
     // Build a unified "selectedFire" object from whichever layer was clicked
+    // Parse numeric values that MapLibre may have stringified
     if (feature.layer.id === 'fire-hotspots-circle') {
       selectFire({
         type: 'hotspot',
         id:   p.id,
         lat:  evt.lngLat.lat,
         lng:  evt.lngLat.lng,
-        frp:  p.frp,
-        brightness: p.brightness,
+        frp:  num(p.frp),
+        brightness: num(p.brightness),
         confidence: p.confidence,
         satellite:  p.satellite,
         acq_date:   p.acq_date,
@@ -160,13 +181,13 @@ export default function MapView({
         name:        p.IncidentName,
         lat:         evt.lngLat.lat,
         lng:         evt.lngLat.lng,
-        acres:       p.GISAcres,
-        contained:   p.PercentContained,
+        acres:       num(p.GISAcres),
+        contained:   num(p.PercentContained),
         state:       p.POOState,
         county:      p.POOCounty,
-        personnel:   p.TotalIncidentPersonnel,
-        destroyed:   p.StructuresDestroyed,
-        damaged:     p.StructuresDamaged,
+        personnel:   num(p.TotalIncidentPersonnel),
+        destroyed:   num(p.StructuresDestroyed),
+        damaged:     num(p.StructuresDamaged),
         discovered:  p.FireDiscoveryDateTime,
         updated:     p.ModifiedOnDateTime,
         orgType:     p.IncidentManagementOrganization,
@@ -178,9 +199,9 @@ export default function MapView({
         name:    p.reportingArea,
         lat:     evt.lngLat.lat,
         lng:     evt.lngLat.lng,
-        aqi:     p.aqi,
+        aqi:     num(p.aqi),
         category: p.category,
-        pm25:    p.pm25,
+        pm25:    num(p.pm25),
       });
     }
   }, [selectFire]);
@@ -224,7 +245,7 @@ export default function MapView({
         {...viewport}
         mapStyle={MAP_STYLE}
         style={{ width: '100%', height: '100%' }}
-        interactiveLayerIds={INTERACTIVE_LAYERS}
+        interactiveLayerIds={interactiveLayerIds}
         onClick={handleClick}
         onMouseMove={handleMouseMove}
         onMouseLeave={handleMouseLeave}
