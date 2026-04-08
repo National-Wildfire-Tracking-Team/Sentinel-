@@ -1,6 +1,5 @@
 import { Link } from 'react-router-dom';
 import {
-  Flame,
   Satellite,
   Radio,
   ShieldAlert,
@@ -91,13 +90,6 @@ export default function HomePage() {
             </p>
 
             <div className="mt-10 flex flex-wrap gap-4">
-              <Link
-                to="/live-tracker"
-                className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-fire-600 text-white font-semibold hover:bg-fire-500 transition-colors shadow-lg shadow-fire-600/25"
-              >
-                <Flame size={18} />
-                View Live Wildfires
-              </Link>
               <Link
                 to="/volunteer"
                 className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-sentinel-700 text-white font-semibold hover:bg-sentinel-600 transition-colors border border-sentinel-600"
