@@ -6,7 +6,11 @@
  */
 
 import { Source, Layer } from 'react-map-gl';
-import { AQI_COLOR_EXPRESSION, AQI_RADIUS_EXPRESSION } from '../../../utils/colorUtils';
+import {
+  AQI_COLOR_EXPRESSION,
+  AQI_HEATMAP_COLOR_EXPRESSION,
+  AQI_RADIUS_EXPRESSION,
+} from '../../../utils/colorUtils';
 
 const EMPTY_GEOJSON = { type: 'FeatureCollection', features: [] };
 
@@ -15,6 +19,38 @@ export default function AQILayer({ geoJSON, visible }) {
 
   return (
     <Source id="aqi-stations" type="geojson" data={geoJSON || EMPTY_GEOJSON}>
+      <Layer
+        id="aqi-heatmap"
+        type="heatmap"
+        source="aqi-stations"
+        maxzoom={8}
+        layout={{ visibility: vis }}
+        paint={{
+          'heatmap-weight': [
+            'interpolate', ['linear'], ['get', 'aqi'],
+            0, 0,
+            50, 0.2,
+            100, 0.45,
+            150, 0.65,
+            200, 0.85,
+            300, 1,
+          ],
+          'heatmap-intensity': [
+            'interpolate', ['linear'], ['zoom'],
+            0, 0.5,
+            8, 1.2,
+          ],
+          'heatmap-radius': [
+            'interpolate', ['linear'], ['zoom'],
+            0, 8,
+            6, 18,
+            8, 28,
+          ],
+          'heatmap-color': AQI_HEATMAP_COLOR_EXPRESSION,
+          'heatmap-opacity': 0.7,
+        }}
+      />
+
       <Layer
         id="aqi-stations-circle"
         type="circle"

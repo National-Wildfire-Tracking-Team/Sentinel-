@@ -78,6 +78,18 @@ export const AQI_COLOR_EXPRESSION = [
   301, '#7e0023',
 ];
 
+
+/** Mapbox GL expression for AQI heatmap color ramp */
+export const AQI_HEATMAP_COLOR_EXPRESSION = [
+  'interpolate', ['linear'], ['heatmap-density'],
+  0,   'rgba(0, 228, 0, 0)',
+  0.2, 'rgba(255, 255, 0, 0.35)',
+  0.4, 'rgba(255, 126, 0, 0.45)',
+  0.6, 'rgba(255, 0, 0, 0.55)',
+  0.8, 'rgba(143, 63, 151, 0.65)',
+  1,   'rgba(126, 0, 35, 0.75)',
+];
+
 /** Mapbox GL step expression for AQI circle radius */
 export const AQI_RADIUS_EXPRESSION = [
   'step', ['get', 'aqi'],
