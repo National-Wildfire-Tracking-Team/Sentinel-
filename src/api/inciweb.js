@@ -1,21 +1,12 @@
 /**
  * inciweb.js
-update/fix-map-bugs
- * WFIGS – Wildland Fire Interagency Geospatial Services
- * Fetches current active wildfire incident locations from the WFIGS
- * Current endpoint (public ArcGIS FeatureServer, no key required).
  *
- * Endpoint:
- *   https://services3.arcgis.com/T4QMspbfLg3qTGWY/arcgis/rest/services/
- *     WFIGS_Incident_Locations_Current/FeatureServer/0/query
-=======
  * IRWIN – Integrated Reporting of Wildland-Fire Information
  * Authoritative source for active wildfire incidents (public ArcGIS endpoint).
  *
  * Service: WFIGS_Incident_Locations_Current (replaces deprecated YTD service)
  * https://services3.arcgis.com/T4QMspbfLg3qTGWY/ArcGIS/rest/services/
- *   WFIGS_Incident_Locations_Current/FeatureServer/0/query
-claude/wildfire-tracking-platform-8aHE2
+ * WFIGS_Incident_Locations_Current/FeatureServer/0/query
  *
  * No API key required.
  */
@@ -23,8 +14,6 @@ claude/wildfire-tracking-platform-8aHE2
 import { fetchWithCache } from '../utils/dataCache';
 import { MOCK_INCIDENTS } from '../data/mockData';
 
-const WFIGS_CURRENT =
-  'https://services3.arcgis.com/T4QMspbfLg3qTGWY/arcgis/rest/services' +
 const IRWIN_BASE =
   'https://services3.arcgis.com/T4QMspbfLg3qTGWY/ArcGIS/rest/services' +
   '/WFIGS_Incident_Locations_Current/FeatureServer/0/query';
@@ -60,8 +49,6 @@ export async function fetchIncidents({ minAcres = 10, limit = 50 } = {}) {
     returnGeometry: 'true',
   });
 
-  const url = `${WFIGS_CURRENT}?${params}`;
-  const cacheKey = `wfigs:current:${minAcres}`;
   const url = `${IRWIN_BASE}?${params}`;
   const cacheKey = `irwin:incidents:active:${minAcres}`;
 
@@ -71,11 +58,9 @@ export async function fetchIncidents({ minAcres = 10, limit = 50 } = {}) {
     if (data?.features) return normalizeIncidents(data.features);
     throw new Error('Unexpected response format');
   } catch (err) {
-    console.warn('[WFIGS] Using mock incidents:', err.message);
+    console.warn('[InciWeb/IRWIN] Using fallback incidents:', err.message);
     // Filter mock data by minAcres too
     return MOCK_INCIDENTS.filter(i => (i.acres || 0) >= minAcres);
-    console.warn('[InciWeb/IRWIN] Using fallback incidents:', err.message);
-    return MOCK_INCIDENTS;
   }
 }
 
@@ -148,23 +133,23 @@ function normalizeIncidents(features) {
       : (f.geometry?.coordinates ?? [0, 0]);
     const contained = p.PercentContained ?? 0;
     return {
-      id:           p.UniqueFireIdentifier || `inc-${i}`,
-      name:         p.IncidentName || 'Unknown Fire',
-      state:        (p.POOState || '').replace('US-', '') || '?',
-      county:       p.POOCounty || '',
+      id:            p.UniqueFireIdentifier || `inc-${i}`,
+      name:          p.IncidentName || 'Unknown Fire',
+      state:         (p.POOState || '').replace('US-', '') || '?',
+      county:        p.POOCounty || '',
       lat,
       lng,
-      acres:        Math.round(p.IncidentSize || 0),
+      acres:         Math.round(p.IncidentSize || 0),
       contained,
-      started:      p.FireDiscoveryDateTime
-                      ? new Date(p.FireDiscoveryDateTime).toISOString()
-                      : null,
-      updated:      p.ModifiedOnDateTime_dt
-                      ? new Date(p.ModifiedOnDateTime_dt).toISOString()
-                      : null,
-      cause:        p.FireCause || 'Under Investigation',
-      status:       contained >= 100 ? 'controlled' : 'active',
-      personnel:    p.TotalIncidentPersonnel || 0,
+      started:       p.FireDiscoveryDateTime
+                       ? new Date(p.FireDiscoveryDateTime).toISOString()
+                       : null,
+      updated:       p.ModifiedOnDateTime_dt
+                       ? new Date(p.ModifiedOnDateTime_dt).toISOString()
+                       : null,
+      cause:         p.FireCause || 'Under Investigation',
+      status:        contained >= 100 ? 'controlled' : 'active',
+      personnel:     p.TotalIncidentPersonnel || 0,
       structures_destroyed: p.StructuresDestroyed || 0,
       structures_damaged:   p.StructuresDamaged   || 0,
       structures_threatened: p.StructuresThreatened || 0,
