@@ -1,13 +1,12 @@
 /**
  * inciweb.js
- * InciWeb / IRWIN – Incident information feed.
- * InciWeb doesn't have a formal public JSON API, so we use the
- * IRWIN (Integrated Reporting of Wildland-Fire Information) endpoint
- * which is the authoritative source for active incidents.
+ * WFIGS – Wildland Fire Interagency Geospatial Services
+ * Fetches current active wildfire incident locations from the WFIGS
+ * Current endpoint (public ArcGIS FeatureServer, no key required).
  *
- * IRWIN ArcGIS endpoint (public):
- * https://services3.arcgis.com/T4QMspbfLg3qTGWY/arcgis/rest/services/
- *   WFIGS_Incident_Locations_YTD/FeatureServer/0/query
+ * Endpoint:
+ *   https://services3.arcgis.com/T4QMspbfLg3qTGWY/arcgis/rest/services/
+ *     WFIGS_Incident_Locations_Current/FeatureServer/0/query
  *
  * Falls back to mock incident data when unavailable.
  */
@@ -15,26 +14,22 @@
 import { fetchWithCache } from '../utils/dataCache';
 import { MOCK_INCIDENTS } from '../data/mockData';
 
-const IRWIN_BASE =
+const WFIGS_CURRENT =
   'https://services3.arcgis.com/T4QMspbfLg3qTGWY/arcgis/rest/services' +
-  '/WFIGS_Incident_Locations_YTD/FeatureServer/0/query';
+  '/WFIGS_Incident_Locations_Current/FeatureServer/0/query';
 
 /**
- * Fetch active wildfire incidents.
+ * Fetch current active wildfire incidents.
+ * Scrubs fires below minAcres (default 0.1).
  * @param {object} [opts]
- * @param {number} [opts.minAcres=100]
- * @param {number} [opts.limit=50]
+ * @param {number} [opts.minAcres=0.1]  Filter out fires below this acreage
+ * @param {number} [opts.limit=500]
  * @returns {Promise<Array>}  Normalized incident objects
  */
-export async function fetchIncidents({ minAcres = 100, limit = 50 } = {}) {
+export async function fetchIncidents({ minAcres = 0.1, limit = 500 } = {}) {
   const params = new URLSearchParams({
-    where: `IncidentTypeCategory='WF' AND GISAcres>=${minAcres}`,
-    outFields: [
-      'UniqueFireIdentifier', 'IncidentName', 'POOState', 'POOCounty',
-      'GISAcres', 'PercentContained', 'FireDiscoveryDateTime',
-      'ModifiedOnDateTime', 'FireCause', 'TotalIncidentPersonnel',
-      'StructuresDestroyed', 'StructuresDamaged', 'IncidentManagementOrganization',
-    ].join(','),
+    where: `GISAcres>=${minAcres}`,
+    outFields: '*',
     orderByFields: 'GISAcres DESC',
     resultRecordCount: limit,
     f: 'json',
@@ -42,16 +37,17 @@ export async function fetchIncidents({ minAcres = 100, limit = 50 } = {}) {
     returnGeometry: 'true',
   });
 
-  const url = `${IRWIN_BASE}?${params}`;
-  const cacheKey = `irwin:incidents:${minAcres}`;
+  const url = `${WFIGS_CURRENT}?${params}`;
+  const cacheKey = `wfigs:current:${minAcres}`;
 
   try {
     const data = await fetchWithCache(url, cacheKey, {}, 5 * 60 * 1000);
     if (!data?.features?.length) throw new Error('No incidents returned');
     return normalizeIncidents(data.features);
   } catch (err) {
-    console.warn('[InciWeb/IRWIN] Using mock incidents:', err.message);
-    return MOCK_INCIDENTS;
+    console.warn('[WFIGS] Using mock incidents:', err.message);
+    // Filter mock data by minAcres too
+    return MOCK_INCIDENTS.filter(i => (i.acres || 0) >= minAcres);
   }
 }
 
@@ -64,11 +60,11 @@ function normalizeIncidents(features) {
     return {
       id:           p.UniqueFireIdentifier || `inc-${i}`,
       name:         p.IncidentName || 'Unknown Fire',
-      state:        p.POOState?.replace('US-', '') || '?',
+      state:        (p.POOState || '').replace('US-', '') || '?',
       county:       p.POOCounty || '',
       lat,
       lng,
-      acres:        Math.round(p.GISAcres || 0),
+      acres:        parseFloat(p.GISAcres) || 0,
       contained:    p.PercentContained ?? 0,
       started:      p.FireDiscoveryDateTime
                       ? new Date(p.FireDiscoveryDateTime).toISOString()
@@ -81,7 +77,38 @@ function normalizeIncidents(features) {
       personnel:    p.TotalIncidentPersonnel || 0,
       structures_destroyed: p.StructuresDestroyed || 0,
       structures_damaged:   p.StructuresDamaged   || 0,
+      structures_threatened: p.StructuresThreatened || 0,
+      evacuations:  p.Evacuations || '',
+      incidentType: p.IncidentTypeCategory || 'WF',
       updates: [],
     };
   });
+}
+
+/**
+ * Convert array of incidents to GeoJSON FeatureCollection
+ * for rendering as interactive point markers on the map.
+ */
+export function incidentsToGeoJSON(incidents) {
+  return {
+    type: 'FeatureCollection',
+    features: incidents
+      .filter(inc => inc.lat && inc.lng && inc.lat !== 0 && inc.lng !== 0)
+      .map(inc => ({
+        type: 'Feature',
+        geometry: { type: 'Point', coordinates: [inc.lng, inc.lat] },
+        properties: {
+          id:        inc.id,
+          name:      inc.name,
+          state:     inc.state,
+          county:    inc.county,
+          acres:     inc.acres,
+          contained: inc.contained,
+          status:    inc.status,
+          personnel: inc.personnel,
+          started:   inc.started,
+          updated:   inc.updated,
+        },
+      })),
+  };
 }

@@ -60,10 +60,11 @@ export default function LiveTrackerPage() {
 
   const {
     incidents,
+    geoJSON: incidentsGeoJSON,
     loading: incidentsLoading,
     error: incidentsError,
     refresh: refreshIncidents,
-  } = useIncidents(100);
+  } = useIncidents(0.1);
 
   // Drought data (low-frequency – load once)
   const [droughtGeoJSON, setDroughtGeoJSON] = useState(null);
@@ -127,6 +128,7 @@ export default function LiveTrackerPage() {
           <MapView
             hotspotsGeoJSON={hotspotsGeoJSON}
             perimetersGeoJSON={perimetersGeoJSON}
+            incidentsGeoJSON={incidentsGeoJSON}
             aqiGeoJSON={aqiGeoJSON}
             alertsGeoJSON={alertsGeoJSON}
             droughtGeoJSON={droughtGeoJSON}

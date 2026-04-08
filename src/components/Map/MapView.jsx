@@ -14,13 +14,14 @@ import { formatAcres, formatContainment, formatFRP, formatRelativeTime } from '.
 import { frpToLabel } from '../../utils/colorUtils';
 
 // Data layer components
-import FireHotspotsLayer  from './layers/FireHotspotsLayer';
-import FirePerimetersLayer from './layers/FirePerimetersLayer';
-import AQILayer           from './layers/AQILayer';
-import WeatherAlertsLayer from './layers/WeatherAlertsLayer';
-import DroughtLayer       from './layers/DroughtLayer';
-import SmokeLayer         from './layers/SmokeLayer';
-import GOESLayer          from './layers/GOESLayer';
+import FireHotspotsLayer       from './layers/FireHotspotsLayer';
+import FirePerimetersLayer     from './layers/FirePerimetersLayer';
+import IncidentLocationsLayer  from './layers/IncidentLocationsLayer';
+import AQILayer                from './layers/AQILayer';
+import WeatherAlertsLayer      from './layers/WeatherAlertsLayer';
+import DroughtLayer            from './layers/DroughtLayer';
+import SmokeLayer              from './layers/SmokeLayer';
+import GOESLayer               from './layers/GOESLayer';
 
 // Mapbox satellite streets style
 const MAP_STYLE = 'mapbox://styles/mapbox/satellite-streets-v12';
@@ -85,6 +86,17 @@ function HoverTooltip({ feature, lngLat }) {
         </>
       );
       break;
+    case 'incident-locations-circle':
+      content = (
+        <>
+          <div className="font-semibold text-orange-400">{p.name}</div>
+          <div className="text-gray-300 text-xs mt-0.5">
+            {formatAcres(num(p.acres))} · {formatContainment(num(p.contained))} contained
+          </div>
+          <div className="text-gray-400 text-xs">{p.county} Co., {p.state}</div>
+        </>
+      );
+      break;
     default:
       return null;
   }
@@ -117,6 +129,7 @@ function HoverTooltip({ feature, lngLat }) {
 export default function MapView({
   hotspotsGeoJSON,
   perimetersGeoJSON,
+  incidentsGeoJSON,
   aqiGeoJSON,
   alertsGeoJSON,
   droughtGeoJSON,
@@ -131,13 +144,14 @@ export default function MapView({
   // Only include interactive layer IDs for layers that are currently visible
   const interactiveLayerIds = useMemo(() => {
     const ids = [];
-    if (layers.fireHotspots && hotspotsGeoJSON)    ids.push('fire-hotspots-circle');
-    if (layers.firePerimeters && perimetersGeoJSON) ids.push('fire-perimeters-fill');
-    if (layers.aqi && aqiGeoJSON)                   ids.push('aqi-stations-circle');
-    if (layers.weatherAlerts && alertsGeoJSON)       ids.push('weather-alerts-fill');
+    if (layers.fireHotspots && hotspotsGeoJSON)        ids.push('fire-hotspots-circle');
+    if (layers.firePerimeters && perimetersGeoJSON)     ids.push('fire-perimeters-fill');
+    if (layers.incidentLocations && incidentsGeoJSON)   ids.push('incident-locations-circle');
+    if (layers.aqi && aqiGeoJSON)                       ids.push('aqi-stations-circle');
+    if (layers.weatherAlerts && alertsGeoJSON)           ids.push('weather-alerts-fill');
     return ids;
-  }, [layers.fireHotspots, layers.firePerimeters, layers.aqi, layers.weatherAlerts,
-      hotspotsGeoJSON, perimetersGeoJSON, aqiGeoJSON, alertsGeoJSON]);
+  }, [layers.fireHotspots, layers.firePerimeters, layers.incidentLocations, layers.aqi, layers.weatherAlerts,
+      hotspotsGeoJSON, perimetersGeoJSON, incidentsGeoJSON, aqiGeoJSON, alertsGeoJSON]);
 
   // Clear stale hover when layers change
   const prevLayersRef = useRef(layers);
@@ -190,6 +204,22 @@ export default function MapView({
         discovered:  p.FireDiscoveryDateTime,
         updated:     p.ModifiedOnDateTime,
         orgType:     p.IncidentManagementOrganization,
+      });
+    } else if (feature.layer.id === 'incident-locations-circle') {
+      selectFire({
+        type:      'incident',
+        id:        p.id,
+        name:      p.name,
+        lat:       evt.lngLat.lat,
+        lng:       evt.lngLat.lng,
+        state:     p.state,
+        county:    p.county,
+        acres:     num(p.acres),
+        contained: num(p.contained),
+        status:    p.status,
+        personnel: num(p.personnel),
+        started:   p.started,
+        updated:   p.updated,
       });
     } else if (feature.layer.id === 'aqi-stations-circle') {
       selectFire({
@@ -282,6 +312,12 @@ export default function MapView({
         <FirePerimetersLayer
           geoJSON={perimetersGeoJSON}
           visible={layers.firePerimeters}
+        />
+
+        {/* WFIGS incident location markers */}
+        <IncidentLocationsLayer
+          geoJSON={incidentsGeoJSON}
+          visible={layers.incidentLocations}
         />
 
         {/* AQI monitoring stations */}

@@ -1,15 +1,17 @@
 /**
  * useIncidents.js
- * Fetches active wildfire incident list (InciWeb / IRWIN).
+ * Fetches active wildfire incident list from WFIGS Current endpoint.
+ * Returns both the incident array (for sidebar) and GeoJSON (for map markers).
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { fetchIncidents } from '../api/inciweb';
+import { fetchIncidents, incidentsToGeoJSON } from '../api/inciweb';
 
 const REFRESH_MS = parseInt(import.meta.env.VITE_REFRESH_INTERVAL || '300000', 10);
 
-export function useIncidents(minAcres = 100) {
+export function useIncidents(minAcres = 0.1) {
   const [incidents, setIncidents] = useState([]);
+  const [geoJSON,   setGeoJSON]   = useState(null);
   const [loading,   setLoading]   = useState(true);
   const [error,     setError]     = useState(null);
   const intervalRef = useRef(null);
@@ -22,7 +24,9 @@ export function useIncidents(minAcres = 100) {
       const data = await fetchIncidents({ minAcres });
       if (!mountedRef.current) return;
       // Sort by acres desc (largest fires first)
-      setIncidents(data.sort((a, b) => b.acres - a.acres));
+      const sorted = data.sort((a, b) => b.acres - a.acres);
+      setIncidents(sorted);
+      setGeoJSON(incidentsToGeoJSON(sorted));
     } catch (err) {
       if (!mountedRef.current) return;
       setError(err.message);
@@ -41,5 +45,5 @@ export function useIncidents(minAcres = 100) {
     };
   }, [load]);
 
-  return { incidents, loading, error, count: incidents.length, refresh: load };
+  return { incidents, geoJSON, loading, error, count: incidents.length, refresh: load };
 }
