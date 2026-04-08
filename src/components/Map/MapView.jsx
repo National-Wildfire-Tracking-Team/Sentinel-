@@ -6,7 +6,7 @@
  */
 
 import { useRef, useCallback, useState } from 'react';
-import Map, { NavigationControl, ScaleControl, Popup } from 'react-map-gl';
+import Map, { NavigationControl, ScaleControl, Popup, Source, Layer } from 'react-map-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 
 import { useApp } from '../../context/AppContext';
@@ -25,23 +25,8 @@ import GOESLayer          from './layers/GOESLayer';
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN || '';
 
 // ─── Base map styles ──────────────────────────────────────────────────────────
-// Satellite style using free ESRI World Imagery tiles (no token required)
-const SATELLITE_STYLE = {
-  version: 8,
-  sources: {
-    satellite: {
-      type: 'raster',
-      tiles: ['https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'],
-      tileSize: 256,
-      attribution: 'Esri, Maxar, Earthstar Geographics',
-      maxzoom: 19,
-    },
-  },
-  layers: [
-    { id: 'satellite', type: 'raster', source: 'satellite', minzoom: 0, maxzoom: 19 },
-  ],
-};
-
+// For satellite mode without Mapbox token, we use CARTO as the underlying style
+// engine and overlay ESRI satellite raster tiles on top (rendered as a Source+Layer).
 function getMapStyle(baseMap) {
   if (MAPBOX_TOKEN) {
     switch (baseMap) {
@@ -53,12 +38,14 @@ function getMapStyle(baseMap) {
   }
   // Free tile sources (no Mapbox token)
   switch (baseMap) {
-    case 'satellite': return SATELLITE_STYLE;
-    case 'streets':   return 'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json';
+    case 'streets': return 'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json';
     case 'dark':
-    default:          return 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json';
+    default:        return 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json';
   }
 }
+
+// Whether we need the satellite raster overlay (free tier only)
+const needsSatelliteOverlay = (baseMap) => baseMap === 'satellite' && !MAPBOX_TOKEN;
 
 // Layers that respond to click/hover events
 const INTERACTIVE_LAYERS = [
@@ -275,6 +262,19 @@ export default function MapView({
         <ScaleControl position="bottom-left" style={{ marginLeft: '1rem', marginBottom: '1rem' }} />
 
         {/* ── Data Layers (ordered back-to-front) ── */}
+
+        {/* Satellite imagery raster overlay (free tier, covers base tiles) */}
+        {needsSatelliteOverlay(baseMap) && (
+          <Source
+            id="satellite-tiles"
+            type="raster"
+            tiles={['https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}']}
+            tileSize={256}
+            maxzoom={19}
+          >
+            <Layer id="satellite-base" type="raster" />
+          </Source>
+        )}
 
         {/* Drought layer – rendered first (bottom) */}
         <DroughtLayer
