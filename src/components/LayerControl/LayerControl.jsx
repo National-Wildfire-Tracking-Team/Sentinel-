@@ -46,8 +46,14 @@ function LayerToggle({ layerKey, label, sublabel, icon: Icon, color }) {
   const active = layers[layerKey];
 
   return (
-    <label className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg cursor-pointer
-                      hover:bg-sentinel-700/50 transition-colors group">
+    <button
+      type="button"
+      onClick={() => toggleLayer(layerKey)}
+      className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg
+                      hover:bg-sentinel-700/50 transition-colors group text-left"
+      aria-pressed={active}
+      aria-label={`Toggle ${label}`}
+    >
       {/* Color swatch / icon */}
       <div
         className="shrink-0 w-7 h-7 rounded-md flex items-center justify-center"
@@ -67,8 +73,7 @@ function LayerToggle({ layerKey, label, sublabel, icon: Icon, color }) {
 
       {/* Toggle switch */}
       <div
-        onClick={() => toggleLayer(layerKey)}
-        className={`shrink-0 relative w-9 h-5 rounded-full transition-colors duration-200 cursor-pointer
+        className={`shrink-0 relative w-9 h-5 rounded-full transition-colors duration-200
           ${active ? 'bg-fire-600' : 'bg-sentinel-600'}`}
       >
         <span
@@ -76,7 +81,7 @@ function LayerToggle({ layerKey, label, sublabel, icon: Icon, color }) {
                       transition-transform duration-200 ${active ? 'translate-x-4' : ''}`}
         />
       </div>
-    </label>
+    </button>
   );
 }
 
@@ -139,7 +144,7 @@ export default function LayerControl({ hotspotsCount = 0, perimetersCount = 0 })
                 </button>
 
                 {!collapsed[group.label] && group.layers.map(layer => (
-                  <LayerToggle key={layer.key} {...layer} />
+                  <LayerToggle key={layer.key} layerKey={layer.key} {...layer} />
                 ))}
               </div>
             ))}
