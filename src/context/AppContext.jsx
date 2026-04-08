@@ -10,13 +10,14 @@ import { createContext, useContext, useReducer, useCallback } from 'react';
 const initialState = {
   // Which map data layers are currently visible
   layers: {
-    fireHotspots:   true,
-    firePerimeters: true,
-    aqi:            false,
-    weatherAlerts:  true,
-    drought:        false,
-    smoke:          false,
-    goes:           false,
+    fireHotspots:      true,
+    firePerimeters:    true,
+    incidentLocations: true,
+    aqi:               false,
+    weatherAlerts:     true,
+    drought:           false,
+    smoke:             false,
+    goes:              false,
   },
   // Currently clicked/selected fire feature (hotspot or perimeter)
   selectedFire: null,

@@ -15,24 +15,32 @@ export function useFireHotspots(bounds) {
   const [error,   setError]     = useState(null);
   const [count,   setCount]     = useState(0);
   const intervalRef = useRef(null);
+  const mountedRef  = useRef(true);
 
   const load = useCallback(async () => {
     try {
+      setLoading(true);
       setError(null);
       const spots = await fetchFireHotspots(bounds);
+      if (!mountedRef.current) return;
       setGeoJSON(hotspotsToGeoJSON(spots));
       setCount(spots.length);
     } catch (err) {
+      if (!mountedRef.current) return;
       setError(err.message);
     } finally {
-      setLoading(false);
+      if (mountedRef.current) setLoading(false);
     }
   }, [bounds]);
 
   useEffect(() => {
+    mountedRef.current = true;
     load();
     intervalRef.current = setInterval(load, REFRESH_MS);
-    return () => clearInterval(intervalRef.current);
+    return () => {
+      mountedRef.current = false;
+      clearInterval(intervalRef.current);
+    };
   }, [load]);
 
   return { geoJSON, loading, error, count, refresh: load };

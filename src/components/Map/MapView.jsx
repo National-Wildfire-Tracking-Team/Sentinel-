@@ -2,11 +2,11 @@
  * MapView.jsx
  * Main interactive map component.
  * Hosts all data layers and handles user interaction (click, hover).
- * Uses react-map-gl with MapLibre GL (free, no token required).
+ * Uses react-map-gl with Mapbox GL JS and satellite imagery.
  */
 
-import { useRef, useCallback, useState } from 'react';
-import Map, { NavigationControl, ScaleControl, Popup, Source, Layer } from 'react-map-gl';
+import { useRef, useCallback, useMemo, useState } from 'react';
+import Map, { NavigationControl, ScaleControl, Popup } from 'react-map-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 
 import { useApp } from '../../context/AppContext';
@@ -16,6 +16,7 @@ import { frpToLabel } from '../../utils/colorUtils';
 // Data layer components
 import FireHotspotsLayer  from './layers/FireHotspotsLayer';
 import FirePerimetersLayer from './layers/FirePerimetersLayer';
+import FireIncidentsLayer  from './layers/FireIncidentsLayer';
 import AQILayer           from './layers/AQILayer';
 import WeatherAlertsLayer from './layers/WeatherAlertsLayer';
 import DroughtLayer       from './layers/DroughtLayer';
@@ -36,6 +37,7 @@ const NEEDS_SATELLITE_OVERLAY = !MAPBOX_TOKEN;
 const INTERACTIVE_LAYERS = [
   'fire-hotspots-circle',
   'fire-perimeters-fill',
+  'fire-incidents-circle',
   'aqi-stations-circle',
   'weather-alerts-fill',
 ];
@@ -54,8 +56,8 @@ function HoverTooltip({ feature, lngLat }) {
         <>
           <div className="font-semibold text-orange-400">Fire Hotspot</div>
           <div className="text-gray-300 text-xs mt-0.5">
-            FRP: <span className="text-white font-medium">{formatFRP(p.frp)}</span>
-            {' '}· {frpToLabel(p.frp)} intensity
+            FRP: <span className="text-white font-medium">{formatFRP(num(p.frp))}</span>
+            {' '}· {frpToLabel(num(p.frp))} intensity
           </div>
           <div className="text-gray-400 text-xs">{p.satellite} · {p.acq_date}</div>
         </>
@@ -66,7 +68,7 @@ function HoverTooltip({ feature, lngLat }) {
         <>
           <div className="font-semibold text-orange-400">{p.IncidentName}</div>
           <div className="text-gray-300 text-xs mt-0.5">
-            {formatAcres(p.GISAcres)} · {formatContainment(p.PercentContained)} contained
+            {formatAcres(num(p.GISAcres))} · {formatContainment(num(p.PercentContained))} contained
           </div>
           <div className="text-gray-400 text-xs">{p.POOState} · {p.POOCounty} County</div>
         </>
@@ -77,10 +79,21 @@ function HoverTooltip({ feature, lngLat }) {
         <>
           <div className="font-semibold text-blue-400">{p.reportingArea}</div>
           <div className="text-gray-300 text-xs mt-0.5">
-            AQI: <span className="text-white font-medium">{p.aqi}</span>
+            AQI: <span className="text-white font-medium">{num(p.aqi)}</span>
             {' '}· {p.category}
           </div>
-          <div className="text-gray-400 text-xs">PM2.5: {p.pm25} µg/m³</div>
+          <div className="text-gray-400 text-xs">PM2.5: {num(p.pm25)} µg/m³</div>
+        </>
+      );
+      break;
+    case 'fire-incidents-circle':
+      content = (
+        <>
+          <div className="font-semibold text-orange-400">{p.IncidentName}</div>
+          <div className="text-gray-300 text-xs mt-0.5">
+            {formatAcres(p.GISAcres)} · {formatContainment(p.PercentContained)} contained
+          </div>
+          <div className="text-gray-400 text-xs">{p.POOState} · {p.POOCounty} County</div>
         </>
       );
       break;
@@ -89,6 +102,17 @@ function HoverTooltip({ feature, lngLat }) {
         <>
           <div className="font-semibold text-red-400">{p.type}</div>
           <div className="text-gray-300 text-xs mt-0.5 max-w-[200px] line-clamp-2">{p.headline}</div>
+        </>
+      );
+      break;
+    case 'incident-locations-circle':
+      content = (
+        <>
+          <div className="font-semibold text-orange-400">{p.name}</div>
+          <div className="text-gray-300 text-xs mt-0.5">
+            {formatAcres(num(p.acres))} · {formatContainment(num(p.contained))} contained
+          </div>
+          <div className="text-gray-400 text-xs">{p.county} Co., {p.state}</div>
         </>
       );
       break;
@@ -117,6 +141,7 @@ function HoverTooltip({ feature, lngLat }) {
  * @param {object} props
  * @param {object|null} props.hotspotsGeoJSON
  * @param {object|null} props.perimetersGeoJSON
+ * @param {object|null} props.incidentDotsGeoJSON
  * @param {object|null} props.aqiGeoJSON
  * @param {object|null} props.alertsGeoJSON
  * @param {object|null} props.droughtGeoJSON
@@ -124,6 +149,7 @@ function HoverTooltip({ feature, lngLat }) {
 export default function MapView({
   hotspotsGeoJSON,
   perimetersGeoJSON,
+  incidentDotsGeoJSON,
   aqiGeoJSON,
   alertsGeoJSON,
   droughtGeoJSON,
@@ -134,6 +160,28 @@ export default function MapView({
   // Hover tooltip state
   const [hoverFeature, setHoverFeature] = useState(null);
   const [hoverLngLat,  setHoverLngLat]  = useState(null);
+
+  // Only include interactive layer IDs for layers that are currently visible
+  const interactiveLayerIds = useMemo(() => {
+    const ids = [];
+    if (layers.fireHotspots && hotspotsGeoJSON)        ids.push('fire-hotspots-circle');
+    if (layers.firePerimeters && perimetersGeoJSON)     ids.push('fire-perimeters-fill');
+    if (layers.incidentLocations && incidentsGeoJSON)   ids.push('incident-locations-circle');
+    if (layers.aqi && aqiGeoJSON)                       ids.push('aqi-stations-circle');
+    if (layers.weatherAlerts && alertsGeoJSON)           ids.push('weather-alerts-fill');
+    return ids;
+  }, [layers.fireHotspots, layers.firePerimeters, layers.incidentLocations, layers.aqi, layers.weatherAlerts,
+      hotspotsGeoJSON, perimetersGeoJSON, incidentsGeoJSON, aqiGeoJSON, alertsGeoJSON]);
+
+  // Clear stale hover when layers change
+  const prevLayersRef = useRef(layers);
+  if (prevLayersRef.current !== layers) {
+    prevLayersRef.current = layers;
+    if (hoverFeature) {
+      setHoverFeature(null);
+      setHoverLngLat(null);
+    }
+  }
 
   // Handle map click – select fire for detail panel
   const handleClick = useCallback((evt) => {
@@ -146,15 +194,14 @@ export default function MapView({
     const feature = features[0];
     const p = feature.properties;
 
-    // Build a unified "selectedFire" object from whichever layer was clicked
     if (feature.layer.id === 'fire-hotspots-circle') {
       selectFire({
         type: 'hotspot',
         id:   p.id,
         lat:  evt.lngLat.lat,
         lng:  evt.lngLat.lng,
-        frp:  p.frp,
-        brightness: p.brightness,
+        frp:  num(p.frp),
+        brightness: num(p.brightness),
         confidence: p.confidence,
         satellite:  p.satellite,
         acq_date:   p.acq_date,
@@ -167,16 +214,36 @@ export default function MapView({
         name:        p.IncidentName,
         lat:         evt.lngLat.lat,
         lng:         evt.lngLat.lng,
-        acres:       p.GISAcres,
-        contained:   p.PercentContained,
+        acres:       num(p.GISAcres),
+        contained:   num(p.PercentContained),
         state:       p.POOState,
         county:      p.POOCounty,
-        personnel:   p.TotalIncidentPersonnel,
-        destroyed:   p.StructuresDestroyed,
-        damaged:     p.StructuresDamaged,
+        personnel:   num(p.TotalIncidentPersonnel),
+        destroyed:   num(p.StructuresDestroyed),
+        damaged:     num(p.StructuresDamaged),
         discovered:  p.FireDiscoveryDateTime,
         updated:     p.ModifiedOnDateTime,
         orgType:     p.IncidentManagementOrganization,
+      });
+    } else if (feature.layer.id === 'fire-incidents-circle') {
+      selectFire({
+        type:       'incident',
+        id:         p.UniqueFireIdentifier,
+        name:       p.IncidentName,
+        lat:        evt.lngLat.lat,
+        lng:        evt.lngLat.lng,
+        acres:      p.GISAcres,
+        contained:  p.PercentContained,
+        state:      p.POOState,
+        county:     p.POOCounty,
+        personnel:  p.TotalIncidentPersonnel,
+        cause:      p.FireCause,
+        started:    p.FireDiscoveryDateTime
+                      ? new Date(p.FireDiscoveryDateTime).toISOString()
+                      : null,
+        updated:    p.ModifiedOnDateTime
+                      ? new Date(p.ModifiedOnDateTime).toISOString()
+                      : null,
       });
     } else if (feature.layer.id === 'aqi-stations-circle') {
       selectFire({
@@ -185,9 +252,9 @@ export default function MapView({
         name:    p.reportingArea,
         lat:     evt.lngLat.lat,
         lng:     evt.lngLat.lng,
-        aqi:     p.aqi,
+        aqi:     num(p.aqi),
         category: p.category,
-        pm25:    p.pm25,
+        pm25:    num(p.pm25),
       });
     }
   }, [selectFire]);
@@ -198,7 +265,6 @@ export default function MapView({
     if (features?.length) {
       setHoverFeature(features[0]);
       setHoverLngLat(evt.lngLat);
-      // Change cursor to pointer
       if (mapRef.current) {
         mapRef.current.getCanvas().style.cursor = 'pointer';
       }
@@ -232,21 +298,21 @@ export default function MapView({
         mapboxAccessToken={MAPBOX_TOKEN}
         mapStyle={MAP_STYLE}
         style={{ width: '100%', height: '100%' }}
-        interactiveLayerIds={INTERACTIVE_LAYERS}
+        interactiveLayerIds={interactiveLayerIds}
         onClick={handleClick}
         onMouseMove={handleMouseMove}
         onMouseLeave={handleMouseLeave}
         onMove={handleMove}
         attributionControl={false}
-        // Performance optimizations
         maxTileCacheSize={150}
         fadeDuration={150}
+        projection="mercator"
       >
         {/* Navigation controls */}
         <NavigationControl position="bottom-right" style={{ marginBottom: '6rem' }} />
         <ScaleControl position="bottom-left" style={{ marginLeft: '1rem', marginBottom: '1rem' }} />
 
-        {/* ── Data Layers (ordered back-to-front) ── */}
+        {/* ── Data Layers (ordered back-to-front, each independently controlled via visibility) ── */}
 
         {/* Satellite imagery raster overlay (free tier, covers base tiles) */}
         {NEEDS_SATELLITE_OVERLAY && (
@@ -282,6 +348,16 @@ export default function MapView({
         {/* Fire perimeter polygons */}
         <FirePerimetersLayer
           geoJSON={perimetersGeoJSON}
+          visible={layers.firePerimeters}
+        />
+
+        {/* WFIGS incident location markers */}
+        <IncidentLocationsLayer
+          geoJSON={incidentsGeoJSON}
+          visible={layers.incidentLocations}
+        {/* Incident dot markers – fires with no matching perimeter */}
+        <FireIncidentsLayer
+          geoJSON={incidentDotsGeoJSON}
           visible={layers.firePerimeters}
         />
 

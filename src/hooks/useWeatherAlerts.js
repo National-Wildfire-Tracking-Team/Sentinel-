@@ -16,25 +16,33 @@ export function useWeatherAlerts() {
   const [error,    setError]       = useState(null);
   const { setAlerts }              = useApp();
   const intervalRef = useRef(null);
+  const mountedRef  = useRef(true);
 
   const load = useCallback(async () => {
     try {
+      setLoading(true);
       setError(null);
       const data = await fetchFireWeatherAlerts();
+      if (!mountedRef.current) return;
       setAlertsState(data);
       setAlerts(data);
       setGeoJSON(alertsToGeoJSON(data));
     } catch (err) {
+      if (!mountedRef.current) return;
       setError(err.message);
     } finally {
-      setLoading(false);
+      if (mountedRef.current) setLoading(false);
     }
   }, [setAlerts]);
 
   useEffect(() => {
+    mountedRef.current = true;
     load();
     intervalRef.current = setInterval(load, REFRESH_MS);
-    return () => clearInterval(intervalRef.current);
+    return () => {
+      mountedRef.current = false;
+      clearInterval(intervalRef.current);
+    };
   }, [load]);
 
   return { alerts, geoJSON, loading, error, refresh: load };

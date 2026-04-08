@@ -1,28 +1,16 @@
 /**
  * GOESLayer.jsx
  * GOES-East / GOES-West near real-time satellite imagery.
- * Provided by Iowa Environmental Mesonet (IEM) GOES WMS – no key required.
+ * Layer stays mounted; visibility is controlled via layout property.
  */
 
-import { Source, Layer } from 'react-map-gl/maplibre';
+import { Source, Layer } from 'react-map-gl';
 
-// GOES-West visible channel via Iowa Mesonet WMS
 const GOES_WMS_BASE =
   'https://mesonet.agron.iastate.edu/cgi-bin/wms/goes/conus_ir.cgi';
 
-const goesRasterLayer = {
-  id: 'goes-raster',
-  type: 'raster',
-  source: 'goes-wms',
-  paint: {
-    'raster-opacity': 0.55,
-    'raster-resampling': 'linear',
-    'raster-fade-duration': 300,
-  },
-};
-
 export default function GOESLayer({ visible }) {
-  if (!visible) return null;
+  const vis = visible ? 'visible' : 'none';
 
   return (
     <Source
@@ -37,7 +25,17 @@ export default function GOESLayer({ visible }) {
       tileSize={256}
       attribution="NOAA GOES via Iowa Environmental Mesonet"
     >
-      <Layer {...goesRasterLayer} />
+      <Layer
+        id="goes-raster"
+        type="raster"
+        source="goes-wms"
+        layout={{ visibility: vis }}
+        paint={{
+          'raster-opacity': 0.55,
+          'raster-resampling': 'linear',
+          'raster-fade-duration': 300,
+        }}
+      />
     </Source>
   );
 }
