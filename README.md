@@ -1,7 +1,7 @@
 # Sentinel – Wildfire Intelligence Platform
 
 Real-time wildfire tracking dashboard inspired by Watch Duty and Ryan Hall Y'all.
-Built with React + MapLibre GL + Tailwind CSS.
+Built with React + Mapbox GL + Tailwind CSS.
 
 ## Features
 
@@ -47,7 +47,7 @@ Open http://localhost:3000
 ## Tech Stack
 
 - **React 18** + Hooks + Context API
-- **react-map-gl + MapLibre GL** (free, no token needed for base map)
+- **react-map-gl + Mapbox GL** (token-based Mapbox rendering)
 - **Tailwind CSS** v3 (dark theme)
 - **Lucide React** (icons)
 - **Vite** (build tool)
