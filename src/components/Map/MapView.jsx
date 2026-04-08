@@ -320,7 +320,7 @@ export default function MapView({
         {/* Drought layer – rendered first (bottom) */}
         <DroughtLayer
           geoJSON={droughtGeoJSON}
-          visible={layers.drought}
+          visible={false}
         />
 
         {/* GOES satellite imagery */}
