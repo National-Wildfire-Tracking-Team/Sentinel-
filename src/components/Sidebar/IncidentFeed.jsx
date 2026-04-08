@@ -18,13 +18,28 @@ export default function IncidentFeed({ incidents, loading, error }) {
   const { selectedFire } = useApp();
   const [search, setSearch] = useState('');
   const [sort,   setSort]   = useState('acres');
+  const [feedFilter, setFeedFilter] = useState('all');
+
+  const weekAgoMs = Date.now() - (7 * 24 * 60 * 60 * 1000);
 
   // Filter by search term
-  const filtered = incidents.filter(inc =>
-    inc.name.toLowerCase().includes(search.toLowerCase()) ||
-    inc.state.toLowerCase().includes(search.toLowerCase()) ||
-    inc.county.toLowerCase().includes(search.toLowerCase())
-  );
+  const filtered = incidents.filter(inc => {
+    const matchesSearch =
+      inc.name.toLowerCase().includes(search.toLowerCase()) ||
+      inc.state.toLowerCase().includes(search.toLowerCase()) ||
+      inc.county.toLowerCase().includes(search.toLowerCase());
+
+    if (!matchesSearch) return false;
+    if (feedFilter === 'all') return true;
+
+    const lastUpdatedMs = inc.updated ? new Date(inc.updated).getTime() : 0;
+    const startedMs = inc.started ? new Date(inc.started).getTime() : 0;
+    const mostRecentMs = Math.max(lastUpdatedMs, startedMs);
+    const olderThanWeek = mostRecentMs > 0 && mostRecentMs < weekAgoMs;
+    const mostlyContained = (inc.contained ?? 0) >= 95;
+
+    return !olderThanWeek && !mostlyContained;
+  });
 
   // Sort
   const sorted = [...filtered].sort((a, b) => {
@@ -71,6 +86,28 @@ export default function IncidentFeed({ incidents, loading, error }) {
             </button>
           ))}
           <span className="ml-auto text-sentinel-500 text-xs">{filtered.length} fires</span>
+        </div>
+
+        {/* Sidebar incident filter */}
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => setFeedFilter('all')}
+            className={`flex-1 px-2 py-1 rounded text-xs font-medium border transition-colors
+              ${feedFilter === 'all'
+                ? 'bg-fire-600/25 text-fire-400 border-fire-700/50'
+                : 'bg-sentinel-800 text-sentinel-300 border-sentinel-600 hover:text-white'}`}
+          >
+            All Fires
+          </button>
+          <button
+            onClick={() => setFeedFilter('focused')}
+            className={`flex-1 px-2 py-1 rounded text-xs font-medium border transition-colors
+              ${feedFilter === 'focused'
+                ? 'bg-fire-600/25 text-fire-400 border-fire-700/50'
+                : 'bg-sentinel-800 text-sentinel-300 border-sentinel-600 hover:text-white'}`}
+          >
+            Hide 95%+/Old
+          </button>
         </div>
       </div>
 
