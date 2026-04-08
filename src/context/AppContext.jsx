@@ -17,7 +17,8 @@ const initialState = {
     weatherAlerts:     true,
     drought:           false,
     smoke:             false,
-    goes:              false,
+    goesEast:          false,
+    goesWest:          false,
   },
   // Currently clicked/selected fire feature (hotspot or perimeter)
   selectedFire: null,
