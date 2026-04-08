@@ -25,41 +25,13 @@ import GOESLayer          from './layers/GOESLayer';
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN || '';
 
-// ─── Base map styles ──────────────────────────────────────────────────────────
-// Satellite style using free ESRI World Imagery tiles (no token required)
-const SATELLITE_STYLE = {
-  version: 8,
-  sources: {
-    satellite: {
-      type: 'raster',
-      tiles: ['https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'],
-      tileSize: 256,
-      attribution: 'Esri, Maxar, Earthstar Geographics',
-      maxzoom: 19,
-    },
-  },
-  layers: [
-    { id: 'satellite', type: 'raster', source: 'satellite', minzoom: 0, maxzoom: 19 },
-  ],
-};
-
-function getMapStyle(baseMap) {
-  if (MAPBOX_TOKEN) {
-    switch (baseMap) {
-      case 'satellite': return 'mapbox://styles/mapbox/satellite-streets-v12';
-      case 'streets':   return 'mapbox://styles/mapbox/streets-v12';
-      case 'dark':
-      default:          return 'mapbox://styles/mapbox/dark-v11';
-    }
-  }
-  // Free tile sources (no Mapbox token)
-  switch (baseMap) {
-    case 'satellite': return SATELLITE_STYLE;
-    case 'streets':   return 'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json';
-    case 'dark':
-    default:          return 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json';
-  }
-}
+// ─── Base map style ───────────────────────────────────────────────────────────
+// With Mapbox token: use native satellite-streets style.
+// Without token: use CARTO dark base + ESRI satellite raster overlay.
+const MAP_STYLE = MAPBOX_TOKEN
+  ? 'mapbox://styles/mapbox/satellite-streets-v12'
+  : 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json';
+const NEEDS_SATELLITE_OVERLAY = !MAPBOX_TOKEN;
 
 // Layers that respond to click/hover events
 const INTERACTIVE_LAYERS = [
@@ -182,7 +154,7 @@ export default function MapView({
   alertsGeoJSON,
   droughtGeoJSON,
 }) {
-  const { layers, baseMap, selectFire, viewport, setViewport } = useApp();
+  const { layers, selectFire, viewport, setViewport } = useApp();
   const mapRef = useRef(null);
 
   // Hover tooltip state
@@ -324,7 +296,7 @@ export default function MapView({
         ref={mapRef}
         {...viewport}
         mapboxAccessToken={MAPBOX_TOKEN}
-        mapStyle={getMapStyle(baseMap)}
+        mapStyle={MAP_STYLE}
         style={{ width: '100%', height: '100%' }}
         interactiveLayerIds={interactiveLayerIds}
         onClick={handleClick}
@@ -341,6 +313,19 @@ export default function MapView({
         <ScaleControl position="bottom-left" style={{ marginLeft: '1rem', marginBottom: '1rem' }} />
 
         {/* ── Data Layers (ordered back-to-front, each independently controlled via visibility) ── */}
+
+        {/* Satellite imagery raster overlay (free tier, covers base tiles) */}
+        {NEEDS_SATELLITE_OVERLAY && (
+          <Source
+            id="satellite-tiles"
+            type="raster"
+            tiles={['https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}']}
+            tileSize={256}
+            maxzoom={19}
+          >
+            <Layer id="satellite-base" type="raster" />
+          </Source>
+        )}
 
         {/* Drought layer – rendered first (bottom) */}
         <DroughtLayer
