@@ -21,12 +21,7 @@ const API_KEY = import.meta.env.VITE_AIRNOW_API_KEY;
  * @returns {Promise<Array>}  Array of AQI station objects
  */
 export async function fetchAQIStations(bounds = {}) {
-  if (!API_KEY || API_KEY === 'your_airnow_api_key_here') {
-    console.info('[AirNow] No API key – using demo data');
-    return MOCK_AQI_STATIONS;
-  }
-
-  // AirNow ArcGIS FeatureServer (public, no key needed for basic data)
+  // AirNow ArcGIS FeatureServer – public endpoint, no API key required
   const arcgisUrl =
     'https://services.arcgis.com/cJ9YHowT8TU7DUyn/arcgis/rest/services' +
     '/AirNowLatestContoursCombined/FeatureServer/0/query?' +
@@ -44,9 +39,36 @@ export async function fetchAQIStations(bounds = {}) {
     if (!data?.features?.length) throw new Error('Empty response');
     return normalizeAQIStations(data.features);
   } catch (err) {
-    console.warn('[AirNow] Using mock AQI data:', err.message);
+    // Fall back to AirNow private API if key is available
+    if (API_KEY && API_KEY !== 'your_airnow_api_key_here') {
+      try {
+        const params = new URLSearchParams({
+          format: 'application/json',
+          distance: 200,
+          API_KEY,
+        });
+        const privateUrl = `${AIRNOW_BASE}?${params}`;
+        const data2 = await fetchWithCache(privateUrl, `${cacheKey}:private`, {}, 15 * 60 * 1000);
+        if (Array.isArray(data2) && data2.length) return normalizeAQIPrivate(data2);
+      } catch (err2) {
+        console.warn('[AirNow] Private API also failed:', err2.message);
+      }
+    }
+    console.warn('[AirNow] Using fallback data:', err.message);
     return MOCK_AQI_STATIONS;
   }
+}
+
+function normalizeAQIPrivate(records) {
+  return records.map((r, i) => ({
+    id: `aqi-${i}`,
+    latitude:      r.Latitude ?? 0,
+    longitude:     r.Longitude ?? 0,
+    aqi:           r.AQI ?? 0,
+    category:      r.Category?.Name ?? 'Unknown',
+    pm25:          r.ParameterName === 'PM2.5' ? r.AQI : 0,
+    reportingArea: r.ReportingArea ?? '',
+  }));
 }
 
 function normalizeAQIStations(features) {

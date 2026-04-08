@@ -26,9 +26,16 @@ const IRWIN_BASE =
  * @param {number} [opts.limit=50]
  * @returns {Promise<Array>}  Normalized incident objects
  */
-export async function fetchIncidents({ minAcres = 100, limit = 50 } = {}) {
+export async function fetchIncidents({ minAcres = 10, limit = 50 } = {}) {
+  // Filter for active wildfires: not yet controlled (ControlDateTime is null)
+  const where = [
+    `IncidentTypeCategory='WF'`,
+    `GISAcres>=${minAcres}`,
+    `ControlDateTime IS NULL`,
+  ].join(' AND ');
+
   const params = new URLSearchParams({
-    where: `IncidentTypeCategory='WF' AND GISAcres>=${minAcres}`,
+    where,
     outFields: [
       'UniqueFireIdentifier', 'IncidentName', 'POOState', 'POOCounty',
       'GISAcres', 'PercentContained', 'FireDiscoveryDateTime',
@@ -43,14 +50,16 @@ export async function fetchIncidents({ minAcres = 100, limit = 50 } = {}) {
   });
 
   const url = `${IRWIN_BASE}?${params}`;
-  const cacheKey = `irwin:incidents:${minAcres}`;
+  const cacheKey = `irwin:incidents:active:${minAcres}`;
 
   try {
     const data = await fetchWithCache(url, cacheKey, {}, 5 * 60 * 1000);
-    if (!data?.features?.length) throw new Error('No incidents returned');
-    return normalizeIncidents(data.features);
+    if (data?.error) throw new Error(data.error.message || 'ArcGIS error');
+    // Return live results even if empty – fallback only on actual failures
+    if (data?.features) return normalizeIncidents(data.features);
+    throw new Error('Unexpected response format');
   } catch (err) {
-    console.warn('[InciWeb/IRWIN] Using mock incidents:', err.message);
+    console.warn('[InciWeb/IRWIN] Using fallback incidents:', err.message);
     return MOCK_INCIDENTS;
   }
 }

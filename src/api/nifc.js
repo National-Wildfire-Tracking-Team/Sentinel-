@@ -41,10 +41,12 @@ export async function fetchFirePerimeters({ minAcres = 100 } = {}) {
 
   try {
     const data = await fetchWithCache(url, cacheKey, {}, 10 * 60 * 1000); // 10-min cache
-    if (!data?.features?.length) throw new Error('Empty response');
-    return data;
+    if (data?.error) throw new Error(data.error.message || 'ArcGIS error');
+    // Return live result even if no perimeters exist yet this season
+    if (data?.features) return data;
+    throw new Error('Unexpected response format');
   } catch (err) {
-    console.warn('[NIFC] Using mock perimeters:', err.message);
+    console.warn('[NIFC] Using fallback perimeters:', err.message);
     return MOCK_FIRE_PERIMETERS;
   }
 }
