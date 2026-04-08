@@ -16,9 +16,10 @@ const NOAA_BASE = 'https://api.weather.gov';
 
 /**
  * Fetch all active weather alerts.
+ * Kept named fetchFireWeatherAlerts for backwards compatibility with hooks.
  * @returns {Promise<Array>}  Normalized alert objects
  */
-export async function fetchWeatherAlerts() {
+export async function fetchFireWeatherAlerts() {
   const params = new URLSearchParams({
     status: 'actual',
     message_type: 'alert,update',
