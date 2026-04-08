@@ -24,28 +24,13 @@ import GOESLayer          from './layers/GOESLayer';
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN || '';
 
-// ─── Base map styles ──────────────────────────────────────────────────────────
-// For satellite mode without Mapbox token, we use CARTO as the underlying style
-// engine and overlay ESRI satellite raster tiles on top (rendered as a Source+Layer).
-function getMapStyle(baseMap) {
-  if (MAPBOX_TOKEN) {
-    switch (baseMap) {
-      case 'satellite': return 'mapbox://styles/mapbox/satellite-streets-v12';
-      case 'streets':   return 'mapbox://styles/mapbox/streets-v12';
-      case 'dark':
-      default:          return 'mapbox://styles/mapbox/dark-v11';
-    }
-  }
-  // Free tile sources (no Mapbox token)
-  switch (baseMap) {
-    case 'streets': return 'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json';
-    case 'dark':
-    default:        return 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json';
-  }
-}
-
-// Whether we need the satellite raster overlay (free tier only)
-const needsSatelliteOverlay = (baseMap) => baseMap === 'satellite' && !MAPBOX_TOKEN;
+// ─── Base map style ───────────────────────────────────────────────────────────
+// With Mapbox token: use native satellite-streets style.
+// Without token: use CARTO dark base + ESRI satellite raster overlay.
+const MAP_STYLE = MAPBOX_TOKEN
+  ? 'mapbox://styles/mapbox/satellite-streets-v12'
+  : 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json';
+const NEEDS_SATELLITE_OVERLAY = !MAPBOX_TOKEN;
 
 // Layers that respond to click/hover events
 const INTERACTIVE_LAYERS = [
@@ -143,7 +128,7 @@ export default function MapView({
   alertsGeoJSON,
   droughtGeoJSON,
 }) {
-  const { layers, baseMap, selectFire, viewport, setViewport } = useApp();
+  const { layers, selectFire, viewport, setViewport } = useApp();
   const mapRef = useRef(null);
 
   // Hover tooltip state
@@ -245,7 +230,7 @@ export default function MapView({
         ref={mapRef}
         {...viewport}
         mapboxAccessToken={MAPBOX_TOKEN}
-        mapStyle={getMapStyle(baseMap)}
+        mapStyle={MAP_STYLE}
         style={{ width: '100%', height: '100%' }}
         interactiveLayerIds={INTERACTIVE_LAYERS}
         onClick={handleClick}
@@ -264,7 +249,7 @@ export default function MapView({
         {/* ── Data Layers (ordered back-to-front) ── */}
 
         {/* Satellite imagery raster overlay (free tier, covers base tiles) */}
-        {needsSatelliteOverlay(baseMap) && (
+        {NEEDS_SATELLITE_OVERLAY && (
           <Source
             id="satellite-tiles"
             type="raster"

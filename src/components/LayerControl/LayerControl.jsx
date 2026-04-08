@@ -7,15 +7,8 @@
 import { useState } from 'react';
 import {
   Layers, Flame, MapPin, Wind, CloudRain, Sun, Eye, EyeOff, ChevronDown, ChevronRight,
-  Globe, Moon, Map as MapIcon,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
-
-const BASE_MAP_OPTIONS = [
-  { key: 'satellite', label: 'Satellite', icon: Globe },
-  { key: 'dark',      label: 'Dark',      icon: Moon },
-  { key: 'streets',   label: 'Streets',   icon: MapIcon },
-];
 
 const LAYER_GROUPS = [
   {
@@ -86,34 +79,6 @@ function LayerToggle({ layerKey, label, sublabel, icon: Icon, color }) {
   );
 }
 
-function BaseMapSelector() {
-  const { baseMap, setBaseMap } = useApp();
-
-  return (
-    <div className="px-3 py-2 border-b border-sentinel-700">
-      <div className="text-[10px] font-bold text-sentinel-500 uppercase tracking-widest mb-1.5">
-        Base Map
-      </div>
-      <div className="flex gap-1.5">
-        {BASE_MAP_OPTIONS.map(({ key, label, icon: Icon }) => (
-          <button
-            key={key}
-            onClick={() => setBaseMap(key)}
-            className={`flex-1 flex flex-col items-center gap-1 px-2 py-1.5 rounded-lg text-[10px]
-                        font-medium transition-colors
-                        ${baseMap === key
-                          ? 'bg-fire-600/20 border border-fire-500/40 text-fire-400'
-                          : 'bg-sentinel-800 border border-sentinel-700 text-sentinel-400 hover:text-sentinel-300 hover:border-sentinel-600'}`}
-          >
-            <Icon size={14} />
-            {label}
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-}
-
 export default function LayerControl({ hotspotsCount = 0, perimetersCount = 0 }) {
   const { layerPanelOpen, toggleLayerPanel } = useApp();
   const [collapsed, setCollapsed] = useState({});
@@ -153,9 +118,6 @@ export default function LayerControl({ hotspotsCount = 0, perimetersCount = 0 })
               </div>
             </div>
           </div>
-
-          {/* Base map selector */}
-          <BaseMapSelector />
 
           {/* Layer groups */}
           <div className="py-1 max-h-[60vh] overflow-y-auto">
