@@ -22,7 +22,7 @@ const LAYER_GROUPS = [
   {
     label: 'Air Quality',
     layers: [
-      { key: 'aqi',   label: 'AQI Stations',   sublabel: 'EPA AirNow',   icon: Wind,    color: '#3b82f6' },
+      { key: 'aqi',   label: 'AQI Overlay',    sublabel: 'EPA AirNow + heatmap',   icon: Wind,    color: '#3b82f6' },
       { key: 'smoke', label: 'Smoke Forecast', sublabel: 'NOAA HRRR',   icon: CloudRain, color: '#94a3b8' },
     ],
   },
