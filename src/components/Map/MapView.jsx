@@ -30,10 +30,7 @@ const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN || '';
 const num = (val) => Number(val); 
 
 // ─── Base map style ───────────────────────────────────────────────────────────
-const MAP_STYLE = MAPBOX_TOKEN
-  ? 'mapbox://styles/mapbox/satellite-streets-v12'
-  : 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json';
-const NEEDS_SATELLITE_OVERLAY = !MAPBOX_TOKEN;
+const MAP_STYLE = 'mapbox://styles/mapbox/satellite-streets-v12';
 
 // Layers that respond to click/hover events
 const INTERACTIVE_LAYERS = [
@@ -318,18 +315,7 @@ export default function MapView({
 
         {/* ── Data Layers (ordered back-to-front, each independently controlled via visibility) ── */}
 
-        {/* Satellite imagery raster overlay (free tier, covers base tiles) */}
-        {NEEDS_SATELLITE_OVERLAY && (
-          <Source
-            id="satellite-tiles"
-            type="raster"
-            tiles={['https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}']}
-            tileSize={256}
-            maxzoom={19}
-          >
-            <Layer id="satellite-base" type="raster" />
-          </Source>
-        )}
+
 
         {/* Drought layer – rendered first (bottom) */}
         <DroughtLayer
