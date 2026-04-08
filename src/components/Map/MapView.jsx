@@ -324,7 +324,7 @@ export default function MapView({
         />
 
         {/* GOES satellite imagery */}
-        <GOESLayer visible={layers.goes} />
+        <GOESLayer eastVisible={layers.goesEast} westVisible={layers.goesWest} />
 
         {/* Smoke forecast */}
         <SmokeLayer visible={layers.smoke} />
