@@ -3,8 +3,8 @@
  * NOAA Weather API – Public US government data, no API key required.
  *
  * Endpoints used:
- *   - Active alerts: https://api.weather.gov/alerts/active
- *   - Red Flag Warnings + Fire Weather Watches
+ * - Active alerts: https://api.weather.gov/alerts/active
+ * - Fetches ALL active weather alerts
  *
  * Docs: https://www.weather.gov/documentation/services-web-api
  */
@@ -15,20 +15,17 @@ import { MOCK_WEATHER_ALERTS } from '../data/mockData';
 const NOAA_BASE = 'https://api.weather.gov';
 
 /**
- * Fetch active fire-weather alerts (Red Flag Warnings + Fire Weather Watches).
+ * Fetch all active weather alerts.
  * @returns {Promise<Array>}  Normalized alert objects
  */
-export async function fetchFireWeatherAlerts() {
-  // NOAA requires separate `event` params for multiple event types
+export async function fetchWeatherAlerts() {
   const params = new URLSearchParams({
     status: 'actual',
     message_type: 'alert,update',
   });
-  params.append('event', 'Red Flag Warning');
-  params.append('event', 'Fire Weather Watch');
 
   const url = `${NOAA_BASE}/alerts/active?${params}`;
-  const cacheKey = 'noaa:fire-alerts';
+  const cacheKey = 'noaa:all-alerts';
 
   try {
     const data = await fetchWithCache(url, cacheKey, {
