@@ -6,15 +6,15 @@
  */
 
 import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
-import { useEffect } from 'react';
+import { lazy, Suspense, useEffect } from 'react';
 
 import Navbar from './components/Navbar/Navbar';
 import Footer from './components/Footer/Footer';
 
-import HomePage from './pages/HomePage';
-import AboutPage from './pages/AboutPage';
-import VolunteerPage from './pages/VolunteerPage';
-import LiveTrackerPage from './pages/LiveTrackerPage';
+const HomePage = lazy(() => import('./pages/HomePage'));
+const AboutPage = lazy(() => import('./pages/AboutPage'));
+const VolunteerPage = lazy(() => import('./pages/VolunteerPage'));
+const LiveTrackerPage = lazy(() => import('./pages/LiveTrackerPage'));
 
 /** Scroll to top on route change */
 function ScrollToTop() {
@@ -36,40 +36,50 @@ function SiteLayout({ children }) {
   );
 }
 
+function RouteLoader() {
+  return (
+    <div className="min-h-[40vh] flex items-center justify-center text-sentinel-200">
+      Loading page...
+    </div>
+  );
+}
+
 export default function App() {
   return (
     <BrowserRouter>
       <ScrollToTop />
-      <Routes>
-        {/* Standard pages with Navbar + Footer */}
-        <Route
-          path="/"
-          element={
-            <SiteLayout>
-              <HomePage />
-            </SiteLayout>
-          }
-        />
-        <Route
-          path="/about"
-          element={
-            <SiteLayout>
-              <AboutPage />
-            </SiteLayout>
-          }
-        />
-        <Route
-          path="/volunteer"
-          element={
-            <SiteLayout>
-              <VolunteerPage />
-            </SiteLayout>
-          }
-        />
+      <Suspense fallback={<RouteLoader />}>
+        <Routes>
+          {/* Standard pages with Navbar + Footer */}
+          <Route
+            path="/"
+            element={
+              <SiteLayout>
+                <HomePage />
+              </SiteLayout>
+            }
+          />
+          <Route
+            path="/about"
+            element={
+              <SiteLayout>
+                <AboutPage />
+              </SiteLayout>
+            }
+          />
+          <Route
+            path="/volunteer"
+            element={
+              <SiteLayout>
+                <VolunteerPage />
+              </SiteLayout>
+            }
+          />
 
-        {/* Full-screen live tracker (no Navbar/Footer) */}
-        <Route path="/live-tracker" element={<LiveTrackerPage />} />
-      </Routes>
+          {/* Full-screen live tracker (no Navbar/Footer) */}
+          <Route path="/live-tracker" element={<LiveTrackerPage />} />
+        </Routes>
+      </Suspense>
     </BrowserRouter>
   );
 }
