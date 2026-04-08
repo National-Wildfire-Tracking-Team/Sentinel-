@@ -6,7 +6,7 @@
  */
 
 import { useRef, useCallback, useMemo, useState } from 'react';
-import Map, { NavigationControl, ScaleControl, Popup } from 'react-map-gl';
+import Map, { NavigationControl, ScaleControl, Popup, Source, Layer } from 'react-map-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 
 import { useApp } from '../../context/AppContext';
@@ -17,6 +17,7 @@ import { frpToLabel } from '../../utils/colorUtils';
 import FireHotspotsLayer  from './layers/FireHotspotsLayer';
 import FirePerimetersLayer from './layers/FirePerimetersLayer';
 import FireIncidentsLayer  from './layers/FireIncidentsLayer';
+import IncidentLocationsLayer from './layers/IncidentLocationsLayer'; // Added missing import
 import AQILayer           from './layers/AQILayer';
 import WeatherAlertsLayer from './layers/WeatherAlertsLayer';
 import DroughtLayer       from './layers/DroughtLayer';
@@ -25,41 +26,14 @@ import GOESLayer          from './layers/GOESLayer';
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN || '';
 
-// ─── Base map styles ──────────────────────────────────────────────────────────
-// Satellite style using free ESRI World Imagery tiles (no token required)
-const SATELLITE_STYLE = {
-  version: 8,
-  sources: {
-    satellite: {
-      type: 'raster',
-      tiles: ['https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'],
-      tileSize: 256,
-      attribution: 'Esri, Maxar, Earthstar Geographics',
-      maxzoom: 19,
-    },
-  },
-  layers: [
-    { id: 'satellite', type: 'raster', source: 'satellite', minzoom: 0, maxzoom: 19 },
-  ],
-};
+// Quick helper if you don't already have one exported from utils
+const num = (val) => Number(val); 
 
-function getMapStyle(baseMap) {
-  if (MAPBOX_TOKEN) {
-    switch (baseMap) {
-      case 'satellite': return 'mapbox://styles/mapbox/satellite-streets-v12';
-      case 'streets':   return 'mapbox://styles/mapbox/streets-v12';
-      case 'dark':
-      default:          return 'mapbox://styles/mapbox/dark-v11';
-    }
-  }
-  // Free tile sources (no Mapbox token)
-  switch (baseMap) {
-    case 'satellite': return SATELLITE_STYLE;
-    case 'streets':   return 'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json';
-    case 'dark':
-    default:          return 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json';
-  }
-}
+// ─── Base map style ───────────────────────────────────────────────────────────
+const MAP_STYLE = MAPBOX_TOKEN
+  ? 'mapbox://styles/mapbox/satellite-streets-v12'
+  : 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json';
+const NEEDS_SATELLITE_OVERLAY = !MAPBOX_TOKEN;
 
 // Layers that respond to click/hover events
 const INTERACTIVE_LAYERS = [
@@ -169,7 +143,8 @@ function HoverTooltip({ feature, lngLat }) {
  * @param {object} props
  * @param {object|null} props.hotspotsGeoJSON
  * @param {object|null} props.perimetersGeoJSON
- * @param {object|null} props.incidentDotsGeoJSON
+ * @param {object|null} props.incidentsGeoJSON // Fixed naming mismatch
+ * @param {object|null} props.incidentDotsGeoJSON 
  * @param {object|null} props.aqiGeoJSON
  * @param {object|null} props.alertsGeoJSON
  * @param {object|null} props.droughtGeoJSON
@@ -177,12 +152,13 @@ function HoverTooltip({ feature, lngLat }) {
 export default function MapView({
   hotspotsGeoJSON,
   perimetersGeoJSON,
+  incidentsGeoJSON, // Renamed to match usage inside
   incidentDotsGeoJSON,
   aqiGeoJSON,
   alertsGeoJSON,
   droughtGeoJSON,
 }) {
-  const { layers, baseMap, selectFire, viewport, setViewport } = useApp();
+  const { layers, selectFire, viewport, setViewport } = useApp();
   const mapRef = useRef(null);
 
   // Hover tooltip state
@@ -196,7 +172,7 @@ export default function MapView({
     if (layers.firePerimeters && perimetersGeoJSON)     ids.push('fire-perimeters-fill');
     if (layers.incidentLocations && incidentsGeoJSON)   ids.push('incident-locations-circle');
     if (layers.aqi && aqiGeoJSON)                       ids.push('aqi-stations-circle');
-    if (layers.weatherAlerts && alertsGeoJSON)           ids.push('weather-alerts-fill');
+    if (layers.weatherAlerts && alertsGeoJSON)          ids.push('weather-alerts-fill');
     return ids;
   }, [layers.fireHotspots, layers.firePerimeters, layers.incidentLocations, layers.aqi, layers.weatherAlerts,
       hotspotsGeoJSON, perimetersGeoJSON, incidentsGeoJSON, aqiGeoJSON, alertsGeoJSON]);
@@ -324,7 +300,7 @@ export default function MapView({
         ref={mapRef}
         {...viewport}
         mapboxAccessToken={MAPBOX_TOKEN}
-        mapStyle={getMapStyle(baseMap)}
+        mapStyle={MAP_STYLE}
         style={{ width: '100%', height: '100%' }}
         interactiveLayerIds={interactiveLayerIds}
         onClick={handleClick}
@@ -341,6 +317,19 @@ export default function MapView({
         <ScaleControl position="bottom-left" style={{ marginLeft: '1rem', marginBottom: '1rem' }} />
 
         {/* ── Data Layers (ordered back-to-front, each independently controlled via visibility) ── */}
+
+        {/* Satellite imagery raster overlay (free tier, covers base tiles) */}
+        {NEEDS_SATELLITE_OVERLAY && (
+          <Source
+            id="satellite-tiles"
+            type="raster"
+            tiles={['https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}']}
+            tileSize={256}
+            maxzoom={19}
+          >
+            <Layer id="satellite-base" type="raster" />
+          </Source>
+        )}
 
         {/* Drought layer – rendered first (bottom) */}
         <DroughtLayer
@@ -370,6 +359,8 @@ export default function MapView({
         <IncidentLocationsLayer
           geoJSON={incidentsGeoJSON}
           visible={layers.incidentLocations}
+        /> {/* <-- FIXED CLOSING TAG */}
+
         {/* Incident dot markers – fires with no matching perimeter */}
         <FireIncidentsLayer
           geoJSON={incidentDotsGeoJSON}
