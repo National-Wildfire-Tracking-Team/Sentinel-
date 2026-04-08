@@ -6,8 +6,8 @@
  */
 
 import { useRef, useCallback, useState } from 'react';
-import Map, { NavigationControl, ScaleControl, Popup } from 'react-map-gl';
-import 'mapbox-gl/dist/mapbox-gl.css';
+import Map, { NavigationControl, ScaleControl, Popup } from 'react-map-gl/maplibre';
+import 'maplibre-gl/dist/maplibre-gl.css';
 
 import { useApp } from '../../context/AppContext';
 import { formatAcres, formatContainment, formatFRP } from '../../utils/formatUtils';
