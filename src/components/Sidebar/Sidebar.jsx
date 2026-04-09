@@ -6,6 +6,7 @@
 import { Flame, TrendingUp, Wind, ChevronLeft } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import IncidentFeed from './IncidentFeed';
+import StormReportsFeed from './StormReportsFeed';
 
 function StatPill({ icon: Icon, label, value, color = 'text-white' }) {
   return (
@@ -17,13 +18,25 @@ function StatPill({ icon: Icon, label, value, color = 'text-white' }) {
   );
 }
 
-export default function Sidebar({ incidents, loading, error }) {
+export default function Sidebar({
+  incidents,
+  loading,
+  error,
+  activeMapTab = 'wildfire',
+  spcReports = [],
+  iemReports = [],
+  stormReportsLoading = false,
+  stormReportsError = null,
+}) {
   const { sidebarOpen, toggleSidebar, alerts } = useApp();
+  const isWeatherTab = activeMapTab === 'weather';
 
   const activeCount  = incidents.filter(i => i.status === 'active').length;
   const rfwCount     = alerts.filter(a => a.type === 'Red Flag Warning').length;
   const totalAcres   = incidents.reduce((sum, i) => sum + (i.acres || 0), 0);
   const acresDisplay = totalAcres >= 1000 ? `${(totalAcres / 1000).toFixed(0)}k` : totalAcres;
+  const stormCount = spcReports.length + iemReports.length;
+  const tornadoCount = [...spcReports, ...iemReports].filter(r => r.reportType === 'Tornado').length;
 
   return (
     <>
@@ -56,10 +69,17 @@ export default function Sidebar({ incidents, loading, error }) {
         <div className="flex items-center justify-between px-4 py-3 border-b border-sentinel-700 shrink-0">
           <div className="flex items-center gap-2">
             <Flame size={16} className="text-fire-500" />
-            <h2 className="font-semibold text-white text-sm">Active Incidents</h2>
-            {activeCount > 0 && (
+            <h2 className="font-semibold text-white text-sm">
+              {isWeatherTab ? 'Live Storm Reports' : 'Active Incidents'}
+            </h2>
+            {!isWeatherTab && activeCount > 0 && (
               <span className="px-1.5 py-0.5 bg-fire-600/25 text-fire-300 text-xs font-bold rounded-full border border-fire-700/40">
                 {activeCount}
+              </span>
+            )}
+            {isWeatherTab && stormCount > 0 && (
+              <span className="px-1.5 py-0.5 bg-cyan-600/25 text-cyan-300 text-xs font-bold rounded-full border border-cyan-700/40">
+                {stormCount}
               </span>
             )}
           </div>
@@ -76,15 +96,34 @@ export default function Sidebar({ incidents, loading, error }) {
         {/* Summary stats strip */}
         <div className="px-3 py-2 border-b border-sentinel-700 shrink-0">
           <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
-            <StatPill icon={Flame}     label="Active"       value={activeCount}  color="text-fire-400" />
-            <StatPill icon={TrendingUp} label="Acres"        value={acresDisplay} color="text-orange-400" />
-            <StatPill icon={Wind}      label="Red Flags"    value={rfwCount}     color="text-red-400" />
+            {isWeatherTab ? (
+              <>
+                <StatPill icon={Wind} label="Total Reports" value={stormCount} color="text-cyan-300" />
+                <StatPill icon={Flame} label="Tornado" value={tornadoCount} color="text-red-300" />
+                <StatPill icon={TrendingUp} label="SPC + IEM" value="LIVE" color="text-blue-300" />
+              </>
+            ) : (
+              <>
+                <StatPill icon={Flame}     label="Active"       value={activeCount}  color="text-fire-400" />
+                <StatPill icon={TrendingUp} label="Acres"        value={acresDisplay} color="text-orange-400" />
+                <StatPill icon={Wind}      label="Red Flags"    value={rfwCount}     color="text-red-400" />
+              </>
+            )}
           </div>
         </div>
 
         {/* Incident feed – takes remaining height */}
         <div className="flex-1 overflow-hidden">
-          <IncidentFeed incidents={incidents} loading={loading} error={error} />
+          {isWeatherTab ? (
+            <StormReportsFeed
+              spcReports={spcReports}
+              iemReports={iemReports}
+              loading={stormReportsLoading}
+              error={stormReportsError}
+            />
+          ) : (
+            <IncidentFeed incidents={incidents} loading={loading} error={error} />
+          )}
         </div>
       </aside>
     </>

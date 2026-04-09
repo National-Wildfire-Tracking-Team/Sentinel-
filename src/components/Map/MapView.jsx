@@ -6,7 +6,7 @@
  */
 
 import { useRef, useCallback, useMemo, useState } from 'react';
-import Map, { NavigationControl, ScaleControl, Popup, Source, Layer } from 'react-map-gl';
+import Map, { NavigationControl, ScaleControl, Popup } from 'react-map-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 
 import { useApp } from '../../context/AppContext';
@@ -23,6 +23,7 @@ import WeatherAlertsLayer from './layers/WeatherAlertsLayer';
 import DroughtLayer       from './layers/DroughtLayer';
 import SmokeLayer         from './layers/SmokeLayer';
 import GOESLayer          from './layers/GOESLayer';
+import StormReportsLayer  from './layers/StormReportsLayer';
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN || '';
 
@@ -31,15 +32,6 @@ const num = (val) => Number(val);
 
 // ─── Base map style ───────────────────────────────────────────────────────────
 const MAP_STYLE = 'mapbox://styles/mapbox/satellite-streets-v12';
-
-// Layers that respond to click/hover events
-const INTERACTIVE_LAYERS = [
-  'fire-hotspots-circle',
-  'fire-perimeters-fill',
-  'fire-incidents-circle',
-  'aqi-stations-circle',
-  'weather-alerts-fill',
-];
 
 /**
  * Tooltip shown on hover
@@ -104,6 +96,29 @@ function HoverTooltip({ feature, lngLat }) {
         </>
       );
       break;
+    case 'spc-reports-circle':
+    case 'iem-reports-circle':
+      content = (
+        <>
+          <div className="font-semibold text-sky-300">
+            {p.reportType} Report <span className="text-sentinel-300">({p.source})</span>
+          </div>
+          <div className="text-gray-300 text-xs mt-0.5">
+            {p.city ? `${p.city}, ` : ''}{p.state}
+            {p.county ? ` · ${p.county} County` : ''}
+          </div>
+          {p.magnitude && <div className="text-gray-300 text-xs">Magnitude: {p.magnitude}</div>}
+          {p.reportedAt && (
+            <div className="text-gray-400 text-xs">
+              {new Date(p.reportedAt).toLocaleString()}
+            </div>
+          )}
+          {p.comments && (
+            <div className="text-gray-400 text-xs mt-1 max-w-[220px] line-clamp-2">{p.comments}</div>
+          )}
+        </>
+      );
+      break;
     case 'incident-locations-circle':
       content = (
         <>
@@ -145,6 +160,8 @@ function HoverTooltip({ feature, lngLat }) {
  * @param {object|null} props.aqiGeoJSON
  * @param {object|null} props.alertsGeoJSON
  * @param {object|null} props.droughtGeoJSON
+ * @param {object|null} props.spcReportsGeoJSON
+ * @param {object|null} props.iemReportsGeoJSON
  * @param {'wildfire'|'weather'} [props.activeMapTab]
  */
 export default function MapView({
@@ -156,6 +173,8 @@ export default function MapView({
   aqiGeoJSON,
   alertsGeoJSON,
   droughtGeoJSON,
+  spcReportsGeoJSON,
+  iemReportsGeoJSON,
 }) {
   const { layers, selectFire, viewport, setViewport } = useApp();
   const mapRef = useRef(null);
@@ -174,9 +193,12 @@ export default function MapView({
     if (isWildfireTab && layers.incidentLocations && incidentsGeoJSON)   ids.push('incident-locations-circle');
     if (isWeatherTab && layers.aqi && aqiGeoJSON)                        ids.push('aqi-stations-circle');
     if (isWeatherTab && layers.weatherAlerts && alertsGeoJSON)           ids.push('weather-alerts-fill');
+    if (isWeatherTab && layers.spcReports && spcReportsGeoJSON)          ids.push('spc-reports-circle');
+    if (isWeatherTab && layers.iemReports && iemReportsGeoJSON)          ids.push('iem-reports-circle');
     return ids;
   }, [isWildfireTab, isWeatherTab, layers.fireHotspots, layers.firePerimeters, layers.incidentLocations, layers.aqi,
-      layers.weatherAlerts, hotspotsGeoJSON, perimetersGeoJSON, incidentsGeoJSON, aqiGeoJSON, alertsGeoJSON]);
+      layers.weatherAlerts, layers.spcReports, layers.iemReports, hotspotsGeoJSON, perimetersGeoJSON, incidentsGeoJSON,
+      aqiGeoJSON, alertsGeoJSON, spcReportsGeoJSON, iemReportsGeoJSON]);
 
   // Clear stale hover when layers change
   const prevLayersRef = useRef(layers);
@@ -364,6 +386,22 @@ export default function MapView({
         <AQILayer
           geoJSON={aqiGeoJSON}
           visible={isWeatherTab && layers.aqi}
+        />
+
+        {/* SPC storm reports */}
+        <StormReportsLayer
+          idPrefix="spc"
+          geoJSON={spcReportsGeoJSON}
+          visible={isWeatherTab && layers.spcReports}
+          opacity={0.95}
+        />
+
+        {/* IEM storm reports */}
+        <StormReportsLayer
+          idPrefix="iem"
+          geoJSON={iemReportsGeoJSON}
+          visible={isWeatherTab && layers.iemReports}
+          opacity={0.75}
         />
 
         {/* Fire hotspot points – rendered last (top) */}

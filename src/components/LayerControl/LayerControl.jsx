@@ -6,7 +6,7 @@
 
 import { useState } from 'react';
 import {
-  Layers, Flame, MapPin, Wind, CloudRain, Eye, ChevronDown, ChevronRight,
+  Layers, Flame, MapPin, Wind, CloudRain, Eye, ChevronDown, ChevronRight, CloudLightning,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 
@@ -30,6 +30,8 @@ const LAYER_GROUPS = [
     label: 'Weather',
     layers: [
       { key: 'weatherAlerts', label: 'Fire Weather Alerts', sublabel: 'NOAA NWS', icon: Wind, color: '#ef4444' },
+      { key: 'spcReports', label: 'SPC Storm Reports', sublabel: 'NOAA SPC live reports', icon: CloudLightning, color: '#06b6d4' },
+      { key: 'iemReports', label: 'IEM Storm Reports', sublabel: 'Iowa State Mesonet GeoJSON', icon: CloudLightning, color: '#60a5fa' },
     ],
   },
   {

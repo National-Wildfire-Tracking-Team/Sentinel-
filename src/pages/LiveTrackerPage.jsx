@@ -16,6 +16,7 @@ import { useMergedFireData } from '../hooks/useMergedFireData';
 import { useAQIData } from '../hooks/useAQIData';
 import { useWeatherAlerts } from '../hooks/useWeatherAlerts';
 import { useIncidents } from '../hooks/useIncidents';
+import { useStormReports } from '../hooks/useStormReports';
 import { fetchDroughtData } from '../api/droughtMonitor';
 
 // Components
@@ -74,6 +75,16 @@ export default function LiveTrackerPage() {
     refresh: refreshIncidents,
   } = useIncidents(0.1);
 
+  const {
+    spcReports,
+    iemReports,
+    spcGeoJSON,
+    iemGeoJSON,
+    loading: stormReportsLoading,
+    error: stormReportsError,
+    refresh: refreshStormReports,
+  } = useStormReports(activeMapTab === MAP_TABS.weather);
+
   // Drought data (low-frequency – load once)
   const [droughtGeoJSON, setDroughtGeoJSON] = useState(null);
   useEffect(() => {
@@ -95,8 +106,9 @@ export default function LiveTrackerPage() {
     refreshPerimeters();
     refreshAlerts();
     refreshIncidents();
+    refreshStormReports();
     if (layers.aqi) refreshAQI();
-  }, [refreshHotspots, refreshPerimeters, refreshAlerts, refreshIncidents, refreshAQI, layers.aqi]);
+  }, [refreshHotspots, refreshPerimeters, refreshAlerts, refreshIncidents, refreshStormReports, refreshAQI, layers.aqi]);
 
   return (
     <div className="h-screen w-screen flex flex-col bg-sentinel-900 text-white overflow-hidden select-none">
@@ -129,6 +141,11 @@ export default function LiveTrackerPage() {
           incidents={incidents}
           loading={incidentsLoading}
           error={incidentsError}
+          activeMapTab={activeMapTab}
+          spcReports={spcReports}
+          iemReports={iemReports}
+          stormReportsLoading={stormReportsLoading}
+          stormReportsError={stormReportsError}
         />
 
         {/* Map area */}
@@ -171,6 +188,8 @@ export default function LiveTrackerPage() {
             aqiGeoJSON={aqiGeoJSON}
             alertsGeoJSON={alertsGeoJSON}
             droughtGeoJSON={droughtGeoJSON}
+            spcReportsGeoJSON={spcGeoJSON}
+            iemReportsGeoJSON={iemGeoJSON}
           />
 
           <LayerControl
