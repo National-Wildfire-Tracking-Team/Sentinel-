@@ -6,7 +6,7 @@
  */
 
 import { useRef, useCallback, useMemo, useState } from 'react';
-import Map, { NavigationControl, ScaleControl, Popup } from 'react-map-gl/mapbox';
+import Map, { NavigationControl, ScaleControl, Popup } from 'react-map-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 
 import { useApp } from '../../context/AppContext';
@@ -26,12 +26,15 @@ import GOESLayer          from './layers/GOESLayer';
 import StormReportsLayer  from './layers/StormReportsLayer';
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN || '';
+const HAS_MAPBOX_TOKEN = Boolean(MAPBOX_TOKEN.trim());
 
 // Quick helper if you don't already have one exported from utils
 const num = (val) => Number(val); 
 
 // ─── Base map style ───────────────────────────────────────────────────────────
-const MAP_STYLE = 'mapbox://styles/mapbox/satellite-streets-v12';
+const MAP_STYLE = HAS_MAPBOX_TOKEN
+  ? 'mapbox://styles/mapbox/satellite-streets-v12'
+  : 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json';
 
 /**
  * Tooltip shown on hover
@@ -338,7 +341,7 @@ export default function MapView({
       <Map
         ref={mapRef}
         {...viewport}
-        mapboxAccessToken={MAPBOX_TOKEN}
+        mapboxAccessToken={HAS_MAPBOX_TOKEN ? MAPBOX_TOKEN : undefined}
         mapStyle={MAP_STYLE}
         style={{ width: '100%', height: '100%', background: '#0a0c0e' }}
         interactiveLayerIds={interactiveLayerIds}

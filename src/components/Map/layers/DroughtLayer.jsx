@@ -5,7 +5,7 @@
  * Layer stays mounted; visibility is controlled via layout property.
  */
 
-import { Source, Layer } from 'react-map-gl/mapbox';
+import { Source, Layer } from 'react-map-gl';
 import { DROUGHT_COLOR_EXPRESSION } from '../../../utils/colorUtils';
 
 const EMPTY_GEOJSON = { type: 'FeatureCollection', features: [] };
