@@ -96,7 +96,7 @@ export default function LayerControl({ hotspotsCount = 0, perimetersCount = 0 })
       {/* Toggle button */}
       <button
         onClick={toggleLayerPanel}
-        className="flex items-center gap-2 px-3 py-2 bg-sentinel-800/95 backdrop-blur-sm
+        className="flex items-center gap-2 px-3 py-2 bg-sentinel-800
                    border border-sentinel-700 rounded-xl shadow-xl
                    text-white text-sm font-medium
                    hover:bg-sentinel-700 transition-colors"
@@ -108,7 +108,7 @@ export default function LayerControl({ hotspotsCount = 0, perimetersCount = 0 })
 
       {/* Layer panel */}
       {layerPanelOpen && (
-        <div className="w-56 bg-sentinel-900/97 backdrop-blur-sm border border-sentinel-700
+        <div className="w-56 bg-sentinel-900 border border-sentinel-700
                         rounded-xl shadow-2xl overflow-hidden animate-fade-in">
           {/* Header */}
           <div className="px-3 py-2.5 border-b border-sentinel-700">

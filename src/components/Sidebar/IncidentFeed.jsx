@@ -106,7 +106,7 @@ export default function IncidentFeed({ incidents, loading, error }) {
                 ? 'bg-fire-600/25 text-fire-400 border-fire-700/50'
                 : 'bg-sentinel-800 text-sentinel-300 border-sentinel-600 hover:text-white'}`}
           >
-            Hide 95%+/Old
+            Hide Contained/Old Fires
           </button>
         </div>
       </div>
