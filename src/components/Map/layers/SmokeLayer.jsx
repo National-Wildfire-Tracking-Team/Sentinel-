@@ -1,29 +1,68 @@
 /**
  * SmokeLayer.jsx
- * Renders smoke/AQI forecast imagery from NOAA HRRR-Smoke via WMS.
+ * Renders smoke forecast imagery from NOAA NOMADS HRRR-Smoke via WMS.
  * Layer stays mounted; visibility is controlled via layout property.
  */
 
+import { useMemo } from 'react';
 import { Source, Layer } from 'react-map-gl';
 
-const SMOKE_WMS_URL =
-  'https://mesonet.agron.iastate.edu/cgi-bin/wms/smoke/smoke.cgi';
+const pad = (value) => String(value).padStart(2, '0');
+
+const LAYER_MAP = {
+  MASSDEN: 'massden8maboveground',
+  COLMD: 'colmdentirelayer',
+  EXTCOF55: 'extcof558maboveground',
+};
+
+const DEFAULT_VARIABLE = 'COLMD';
+const DEFAULT_FORECAST_HOUR = 0;
+
+function getLatestRunHour() {
+  const nowUtcHour = new Date().getUTCHours();
+  return Math.max(0, nowUtcHour - 1);
+}
+
+function getTodayUtcYmd() {
+  const date = new Date();
+  return `${date.getUTCFullYear()}${pad(date.getUTCMonth() + 1)}${pad(date.getUTCDate())}`;
+}
+
+function buildNomadsWmsUrl(runHour) {
+  const ymd = getTodayUtcYmd();
+  return `https://nomads.ncep.noaa.gov/dods/hrrr/hrrr${ymd}/hrrr_sfc.t${pad(runHour)}z/wms`;
+}
 
 export default function SmokeLayer({ visible }) {
   const vis = visible ? 'visible' : 'none';
+
+  const tileUrl = useMemo(() => {
+    const runHour = getLatestRunHour();
+    const layerName = LAYER_MAP[DEFAULT_VARIABLE];
+    const wmsUrl = buildNomadsWmsUrl(runHour);
+
+    return `${wmsUrl}?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap`
+      + `&LAYERS=${layerName}`
+      + '&STYLES=boxfill/rainbow'
+      + '&COLORSCALERANGE=0,200'
+      + '&BELOWMINCOLOR=transparent'
+      + '&ABOVEMAXCOLOR=extend'
+      + '&CRS=EPSG:3857'
+      + '&BBOX={bbox-epsg-3857}'
+      + '&WIDTH=256&HEIGHT=256'
+      + '&FORMAT=image/png'
+      + '&TRANSPARENT=true'
+      + '&ELEVATION=0'
+      + `&TIME=${pad(DEFAULT_FORECAST_HOUR)}`;
+  }, []);
 
   return (
     <Source
       id="smoke-wms"
       type="raster"
-      tiles={[
-        `${SMOKE_WMS_URL}?SERVICE=WMS&VERSION=1.1.1&REQUEST=GetMap` +
-        `&LAYERS=smoke_col_mass&FORMAT=image/png&TRANSPARENT=true` +
-        `&SRS=EPSG:3857&WIDTH=256&HEIGHT=256` +
-        `&BBOX={bbox-epsg-3857}`,
-      ]}
+      tiles={[tileUrl]}
       tileSize={256}
-      attribution="NOAA HRRR-Smoke via Iowa Environmental Mesonet"
+      attribution="NOAA NOMADS HRRR"
     >
       <Layer
         id="smoke-raster"
@@ -31,7 +70,7 @@ export default function SmokeLayer({ visible }) {
         source="smoke-wms"
         layout={{ visibility: vis }}
         paint={{
-          'raster-opacity': 0.6,
+          'raster-opacity': 0.7,
           'raster-resampling': 'linear',
           'raster-fade-duration': 300,
         }}
