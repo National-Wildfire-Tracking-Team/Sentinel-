@@ -155,7 +155,7 @@ export default function MapView({
   alertsGeoJSON,
   droughtGeoJSON,
 }) {
-  const { layers, selectFire, viewport, setViewport } = useApp();
+  const { layers, alerts, selectFire, viewport, setViewport } = useApp();
   const mapRef = useRef(null);
 
   // Hover tooltip state
@@ -257,8 +257,25 @@ export default function MapView({
         category: p.category,
         pm25:    num(p.pm25),
       });
+    } else if (feature.layer.id === 'weather-alerts-fill') {
+      // Look up the full alert object from context so we get description, instruction, etc.
+      // We spread full alert but override `type` with the routing key 'weather-alert',
+      // preserving the NOAA event name as `eventType` (e.g. "Flood Advisory").
+      const full = alerts?.find(a => a.id === p.id);
+      if (full) {
+        selectFire({ ...full, type: 'weather-alert', eventType: full.type });
+      } else {
+        selectFire({
+          type:      'weather-alert',
+          eventType: p.type,
+          id:        p.id,
+          headline:  p.headline,
+          severity:  p.severity,
+          expires:   p.expires,
+        });
+      }
     }
-  }, [selectFire]);
+  }, [alerts, selectFire]);
 
   // Handle mouse move for hover tooltip
   const handleMouseMove = useCallback((evt) => {

@@ -10,7 +10,7 @@ import { useApp } from '../../context/AppContext';
 import { alertTypeToColor } from '../../utils/colorUtils';
 
 export default function AlertBanner() {
-  const { alerts } = useApp();
+  const { alerts, selectFire } = useApp();
   const [dismissed, setDismissed] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
 
@@ -38,10 +38,13 @@ export default function AlertBanner() {
       {/* Divider */}
       <span className="hidden sm:inline text-red-700">·</span>
 
-      {/* Alert text */}
-      <span className="flex-1 truncate text-xs font-medium text-red-200">
+      {/* Alert text – tappable to open detail panel */}
+      <button
+        onClick={() => selectFire({ ...current, type: 'weather-alert', eventType: current.type })}
+        className="flex-1 truncate text-xs font-medium text-red-200 text-left hover:text-white transition-colors cursor-pointer"
+      >
         {current.headline}
-      </span>
+      </button>
 
       {/* Pagination if multiple alerts */}
       {rfwAlerts.length > 1 && (
