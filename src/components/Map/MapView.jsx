@@ -292,13 +292,13 @@ export default function MapView({
   }, [setViewport]);
 
   return (
-    <div className="absolute inset-0">
+    <div className="absolute inset-0 bg-sentinel-900">
       <Map
         ref={mapRef}
         {...viewport}
         mapboxAccessToken={MAPBOX_TOKEN}
         mapStyle={MAP_STYLE}
-        style={{ width: '100%', height: '100%' }}
+        style={{ width: '100%', height: '100%', background: '#0a0c0e' }}
         interactiveLayerIds={interactiveLayerIds}
         onClick={handleClick}
         onMouseMove={handleMouseMove}

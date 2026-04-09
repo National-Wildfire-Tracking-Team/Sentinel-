@@ -34,7 +34,7 @@ export default function Header({ onRefresh, isOnline = true }) {
             Sentinel
           </span>
           <span className="hidden sm:inline text-sentinel-400 text-sm font-light">
-            Wildfire Intelligence
+            All Hazard Intelligence
           </span>
         </div>
 

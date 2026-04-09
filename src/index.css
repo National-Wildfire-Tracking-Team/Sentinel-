@@ -92,6 +92,11 @@ body {
   color: #f1f5f9;
 }
 
+/* Match map background to sidebar (sentinel-900) */
+.mapboxgl-map {
+  background: #0a0c0e !important;
+}
+
 /* Prevent text selection during map drag */
 .mapboxgl-canvas-container {
   user-select: none;
