@@ -3,7 +3,7 @@
  * Generic storm reports point layer for SPC/IEM feeds.
  */
 
-import { Source, Layer } from 'react-map-gl';
+import { Source, Layer } from 'react-map-gl/mapbox';
 
 const EMPTY_GEOJSON = { type: 'FeatureCollection', features: [] };
 

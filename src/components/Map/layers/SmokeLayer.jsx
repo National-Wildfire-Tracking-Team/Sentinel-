@@ -5,7 +5,7 @@
  */
 
 import { useMemo } from 'react';
-import { Source, Layer } from 'react-map-gl';
+import { Source, Layer } from 'react-map-gl/mapbox';
 
 const pad = (value) => String(value).padStart(2, '0');
 

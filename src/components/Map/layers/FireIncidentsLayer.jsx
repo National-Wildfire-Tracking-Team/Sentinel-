@@ -4,7 +4,7 @@
  * a matching NIFC perimeter polygon. Styled as amber circle markers.
  */
 
-import { Source, Layer } from 'react-map-gl';
+import { Source, Layer } from 'react-map-gl/mapbox';
 
 const incidentCircleLayer = {
   id: 'fire-incidents-circle',
