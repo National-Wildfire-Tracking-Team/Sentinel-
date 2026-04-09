@@ -4,9 +4,9 @@
  * Refactored from the original App.jsx single-page layout.
  */
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Flame, ArrowLeft } from 'lucide-react';
+import { Flame, ArrowLeft, CloudSun } from 'lucide-react';
 
 import { useApp } from '../context/AppContext';
 
@@ -30,8 +30,51 @@ import FireDetailPanel from '../components/FireDetailPanel/FireDetailPanel';
 // US continental bounding box for data fetches
 const US_BOUNDS = { west: -130, south: 24, east: -65, north: 50 };
 
+const MAP_TABS = {
+  wildfire: 'wildfire',
+  weather: 'weather',
+};
+
+const WILDFIRE_LAYER_PRESET = {
+  fireHotspots: true,
+  firePerimeters: true,
+  incidentLocations: true,
+  weatherAlerts: false,
+  aqi: false,
+  smoke: false,
+  drought: false,
+  goesEast: false,
+  goesWest: false,
+};
+
+const WEATHER_LAYER_PRESET = {
+  fireHotspots: false,
+  firePerimeters: false,
+  incidentLocations: false,
+  weatherAlerts: true,
+  aqi: true,
+  smoke: true,
+  drought: true,
+  goesEast: true,
+  goesWest: false,
+};
+
 export default function LiveTrackerPage() {
-  const { layers, setRefreshed, setLoading } = useApp();
+  const { layers, setLayer, setRefreshed, setLoading } = useApp();
+  const [activeMapTab, setActiveMapTab] = useState(MAP_TABS.wildfire);
+
+  const layerPreset = useMemo(
+    () => (activeMapTab === MAP_TABS.wildfire ? WILDFIRE_LAYER_PRESET : WEATHER_LAYER_PRESET),
+    [activeMapTab],
+  );
+
+  useEffect(() => {
+    Object.entries(layerPreset).forEach(([layer, value]) => {
+      if (layers[layer] !== value) {
+        setLayer(layer, value);
+      }
+    });
+  }, [layerPreset, layers, setLayer]);
 
   // ── Data feeds ──
   const {
@@ -115,6 +158,39 @@ export default function LiveTrackerPage() {
 
       {/* ── Active alert banner ── */}
       <AlertBanner />
+
+      {/* ── Map mode tabs ── */}
+      <div className="px-4 pt-3 pb-2 border-b border-sentinel-700/70 bg-sentinel-900/95">
+        <div className="inline-flex rounded-xl border border-sentinel-700 bg-sentinel-800 p-1 gap-1">
+          <button
+            type="button"
+            onClick={() => setActiveMapTab(MAP_TABS.wildfire)}
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors ${
+              activeMapTab === MAP_TABS.wildfire
+                ? 'bg-fire-600 text-white'
+                : 'text-sentinel-200 hover:bg-sentinel-700'
+            }`}
+            aria-pressed={activeMapTab === MAP_TABS.wildfire}
+          >
+            <Flame size={13} />
+            Wildfire Tracking
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveMapTab(MAP_TABS.weather)}
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors ${
+              activeMapTab === MAP_TABS.weather
+                ? 'bg-sky-600 text-white'
+                : 'text-sentinel-200 hover:bg-sentinel-700'
+            }`}
+            aria-pressed={activeMapTab === MAP_TABS.weather}
+          >
+            <CloudSun size={13} />
+            Weather Tracking
+          </button>
+        </div>
+      </div>
 
       {/* ── Main content area ── */}
       <div className="flex flex-1 overflow-hidden relative">
