@@ -99,8 +99,8 @@ export default function Legend() {
             {/* Weather alerts */}
             {layers.weatherAlerts && (
               <Section title="Weather Alerts">
-                <ColorRow color="#ef4444" label="Red Flag Warning" />
-                <ColorRow color="#f59e0b" label="Fire Weather Watch" />
+                <ColorRow color="#ED368D" label="Red Flag Warning" />
+                <ColorRow color="#F8DCB1" label="Fire Weather Watch (hatched)" />
               </Section>
             )}
           </div>

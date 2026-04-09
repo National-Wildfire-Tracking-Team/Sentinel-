@@ -6,8 +6,24 @@
  */
 
 import { Source, Layer } from 'react-map-gl';
+import { ALERT_TYPE_COLORS, WATCH_ALERT_TYPES } from '../../../utils/colorUtils';
 
 const EMPTY_GEOJSON = { type: 'FeatureCollection', features: [] };
+const DEFAULT_ALERT_COLOR = '#3b82f6';
+
+const alertColorExpression = [
+  'match',
+  ['get', 'type'],
+  ...Object.entries(ALERT_TYPE_COLORS).flat(),
+  DEFAULT_ALERT_COLOR,
+];
+
+const watchDashExpression = [
+  'match',
+  ['get', 'type'],
+  ...WATCH_ALERT_TYPES.flatMap((type) => [type, ['literal', [4, 3]]]),
+  ['literal', [1, 0]],
+];
 
 export default function WeatherAlertsLayer({ geoJSON, visible }) {
   const vis = visible ? 'visible' : 'none';
@@ -20,12 +36,7 @@ export default function WeatherAlertsLayer({ geoJSON, visible }) {
         source="weather-alerts"
         layout={{ visibility: vis }}
         paint={{
-          'fill-color': [
-            'match', ['get', 'type'],
-            'Red Flag Warning', '#ef4444',
-            'Fire Weather Watch', '#f59e0b',
-            '#3b82f6',
-          ],
+          'fill-color': alertColorExpression,
           'fill-opacity': 0.12,
         }}
       />
@@ -35,15 +46,10 @@ export default function WeatherAlertsLayer({ geoJSON, visible }) {
         source="weather-alerts"
         layout={{ visibility: vis }}
         paint={{
-          'line-color': [
-            'match', ['get', 'type'],
-            'Red Flag Warning', '#ef4444',
-            'Fire Weather Watch', '#f59e0b',
-            '#3b82f6',
-          ],
+          'line-color': alertColorExpression,
           'line-width': 1.5,
           'line-opacity': 0.7,
-          'line-dasharray': [4, 3],
+          'line-dasharray': watchDashExpression,
         }}
       />
     </Source>
