@@ -5,7 +5,7 @@
  * Layers stay mounted; visibility is controlled via layout property.
  */
 
-import { Source, Layer } from 'react-map-gl';
+import { Source, Layer } from 'react-map-gl/mapbox';
 
 const IEM_WMS_EAST =
   'https://mesonet.agron.iastate.edu/cgi-bin/wms/goes_east.cgi' +
