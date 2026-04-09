@@ -153,7 +153,12 @@ function normalizeIncidents(features) {
       structures_destroyed: p.StructuresDestroyed || 0,
       structures_damaged:   p.StructuresDamaged   || 0,
       structures_threatened: p.StructuresThreatened || 0,
-      evacuations:  p.Evacuations || '',
+      evacuation_orders:   p.EvacuationOrders   || 0,
+      evacuation_warnings: p.EvacuationWarnings  || 0,
+      air_tankers: p.AirTankers  || 0,
+      helicopters: p.Helicopters || 0,
+      dozers:      p.Dozers      || 0,
+      engines:     p.Engines     || 0,
       incidentType: p.IncidentTypeCategory || 'WF',
       updates: [],
     };

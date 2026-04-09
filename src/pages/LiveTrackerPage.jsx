@@ -64,18 +64,13 @@ export default function LiveTrackerPage() {
   const { layers, setLayer, setRefreshed, setLoading } = useApp();
   const [activeMapTab, setActiveMapTab] = useState(MAP_TABS.wildfire);
 
-  const layerPreset = useMemo(
-    () => (activeMapTab === MAP_TABS.wildfire ? WILDFIRE_LAYER_PRESET : WEATHER_LAYER_PRESET),
-    [activeMapTab],
-  );
-
+  // Apply layer presets only when the active tab changes
   useEffect(() => {
-    Object.entries(layerPreset).forEach(([layer, value]) => {
-      if (layers[layer] !== value) {
-        setLayer(layer, value);
-      }
+    const preset = activeMapTab === MAP_TABS.wildfire ? WILDFIRE_LAYER_PRESET : WEATHER_LAYER_PRESET;
+    Object.entries(preset).forEach(([layer, value]) => {
+      setLayer(layer, value);
     });
-  }, [layerPreset, layers, setLayer]);
+  }, [activeMapTab, setLayer]);
 
   // ── Data feeds ──
   const {
@@ -122,13 +117,16 @@ export default function LiveTrackerPage() {
     refresh: refreshStormReports,
   } = useStormReports(activeMapTab === MAP_TABS.weather);
 
-  // Drought data (low-frequency – load once)
+  // Drought data (low-frequency – load once, refreshable)
   const [droughtGeoJSON, setDroughtGeoJSON] = useState(null);
+  const refreshDrought = useCallback(() => {
+    fetchDroughtData().then(setDroughtGeoJSON).catch(console.warn);
+  }, []);
   useEffect(() => {
     if (layers.drought && !droughtGeoJSON) {
-      fetchDroughtData().then(setDroughtGeoJSON).catch(console.warn);
+      refreshDrought();
     }
-  }, [layers.drought, droughtGeoJSON]);
+  }, [layers.drought, droughtGeoJSON, refreshDrought]);
 
   // ── Global loading state ──
   const anyLoading = hotspotsLoading || perimetersLoading || incidentsLoading;
@@ -145,7 +143,8 @@ export default function LiveTrackerPage() {
     refreshIncidents();
     refreshStormReports();
     if (layers.aqi) refreshAQI();
-  }, [refreshHotspots, refreshPerimeters, refreshAlerts, refreshIncidents, refreshStormReports, refreshAQI, layers.aqi]);
+    if (layers.drought) refreshDrought();
+  }, [refreshHotspots, refreshPerimeters, refreshAlerts, refreshIncidents, refreshStormReports, refreshAQI, refreshDrought, layers.aqi, layers.drought]);
 
   return (
     <div className="h-screen w-screen flex flex-col bg-sentinel-900 text-white overflow-hidden select-none">
