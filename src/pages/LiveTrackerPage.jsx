@@ -36,8 +36,15 @@ const MAP_TABS = {
 };
 
 export default function LiveTrackerPage() {
-  const { layers, setRefreshed, setLoading } = useApp();
+  const { layers, setLayer, setRefreshed, setLoading } = useApp();
   const [activeMapTab, setActiveMapTab] = useState(MAP_TABS.wildfire);
+
+  // Ensure weather tab always has at least one GOES imagery layer visible.
+  useEffect(() => {
+    if (activeMapTab === MAP_TABS.weather && !layers.goesEast && !layers.goesWest) {
+      setLayer('goesEast', true);
+    }
+  }, [activeMapTab, layers.goesEast, layers.goesWest, setLayer]);
 
   // ── Data feeds ──
   const {
