@@ -4,7 +4,7 @@
  * Layer stays mounted; visibility is controlled via layout property.
  */
 
-import { Source, Layer } from 'react-map-gl';
+import { Source, Layer } from 'react-map-gl/mapbox';
 
 const EMPTY_GEOJSON = { type: 'FeatureCollection', features: [] };
 
