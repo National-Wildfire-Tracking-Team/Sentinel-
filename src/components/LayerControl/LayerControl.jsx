@@ -6,7 +6,7 @@
 
 import { useState } from 'react';
 import {
-  Layers, Flame, MapPin, Wind, CloudRain, Eye, ChevronDown, ChevronRight,
+  Layers, Flame, MapPin, Wind, CloudRain, Eye, ChevronDown, ChevronRight, CloudLightning,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 
@@ -30,6 +30,8 @@ const LAYER_GROUPS = [
     label: 'Weather',
     layers: [
       { key: 'weatherAlerts', label: 'Fire Weather Alerts', sublabel: 'NOAA NWS', icon: Wind, color: '#ef4444' },
+      { key: 'spcReports', label: 'SPC Storm Reports', sublabel: 'NOAA SPC live reports', icon: CloudLightning, color: '#06b6d4' },
+      { key: 'iemReports', label: 'IEM Storm Reports', sublabel: 'Iowa State Mesonet GeoJSON', icon: CloudLightning, color: '#60a5fa' },
     ],
   },
   {
@@ -85,9 +87,13 @@ function LayerToggle({ layerKey, label, sublabel, icon: Icon, color }) {
   );
 }
 
-export default function LayerControl({ hotspotsCount = 0, perimetersCount = 0 }) {
+export default function LayerControl({ activeMapTab = 'wildfire', hotspotsCount = 0, perimetersCount = 0 }) {
   const { layerPanelOpen, toggleLayerPanel } = useApp();
   const [collapsed, setCollapsed] = useState({});
+  const visibleGroups = LAYER_GROUPS.filter((group) => {
+    if (activeMapTab === 'wildfire') return group.label === 'Fire Data';
+    return group.label !== 'Fire Data';
+  });
 
   const toggleGroup = (label) => setCollapsed(c => ({ ...c, [label]: !c[label] }));
 
@@ -127,7 +133,7 @@ export default function LayerControl({ hotspotsCount = 0, perimetersCount = 0 })
 
           {/* Layer groups */}
           <div className="py-1 max-h-[60vh] overflow-y-auto">
-            {LAYER_GROUPS.map(group => (
+            {visibleGroups.map(group => (
               <div key={group.label}>
                 {/* Group header */}
                 <button
