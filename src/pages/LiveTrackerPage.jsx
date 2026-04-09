@@ -16,6 +16,7 @@ import { useMergedFireData } from '../hooks/useMergedFireData';
 import { useAQIData } from '../hooks/useAQIData';
 import { useWeatherAlerts } from '../hooks/useWeatherAlerts';
 import { useIncidents } from '../hooks/useIncidents';
+import { useStormReports } from '../hooks/useStormReports';
 import { fetchDroughtData } from '../api/droughtMonitor';
 
 // Components
@@ -111,6 +112,16 @@ export default function LiveTrackerPage() {
     refresh: refreshIncidents,
   } = useIncidents(0.1);
 
+  const {
+    spcReports,
+    iemReports,
+    spcGeoJSON,
+    iemGeoJSON,
+    loading: stormReportsLoading,
+    error: stormReportsError,
+    refresh: refreshStormReports,
+  } = useStormReports(activeMapTab === MAP_TABS.weather);
+
   // Drought data (low-frequency – load once)
   const [droughtGeoJSON, setDroughtGeoJSON] = useState(null);
   useEffect(() => {
@@ -132,8 +143,9 @@ export default function LiveTrackerPage() {
     refreshPerimeters();
     refreshAlerts();
     refreshIncidents();
+    refreshStormReports();
     if (layers.aqi) refreshAQI();
-  }, [refreshHotspots, refreshPerimeters, refreshAlerts, refreshIncidents, refreshAQI, layers.aqi]);
+  }, [refreshHotspots, refreshPerimeters, refreshAlerts, refreshIncidents, refreshStormReports, refreshAQI, layers.aqi]);
 
   return (
     <div className="h-screen w-screen flex flex-col bg-sentinel-900 text-white overflow-hidden select-none">
@@ -199,20 +211,59 @@ export default function LiveTrackerPage() {
           incidents={incidents}
           loading={incidentsLoading}
           error={incidentsError}
+          activeMapTab={activeMapTab}
+          spcReports={spcReports}
+          iemReports={iemReports}
+          stormReportsLoading={stormReportsLoading}
+          stormReportsError={stormReportsError}
         />
 
         {/* Map area */}
         <div className="flex-1 relative overflow-hidden">
+          <div className="absolute top-4 left-1/2 -translate-x-1/2 z-30 bg-sentinel-900/85 border border-sentinel-700 rounded-xl p-1 backdrop-blur-sm shadow-xl">
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => setActiveMapTab(MAP_TABS.wildfire)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                  activeMapTab === MAP_TABS.wildfire
+                    ? 'bg-fire-600 text-white'
+                    : 'text-sentinel-200 hover:bg-sentinel-700/70'
+                }`}
+                aria-pressed={activeMapTab === MAP_TABS.wildfire}
+              >
+                Wildfire Tracking
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveMapTab(MAP_TABS.weather)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                  activeMapTab === MAP_TABS.weather
+                    ? 'bg-blue-600 text-white'
+                    : 'text-sentinel-200 hover:bg-sentinel-700/70'
+                }`}
+                aria-pressed={activeMapTab === MAP_TABS.weather}
+              >
+                Weather Tracking
+              </button>
+            </div>
+          </div>
+
           <MapView
+            activeMapTab={activeMapTab}
             hotspotsGeoJSON={hotspotsGeoJSON}
             perimetersGeoJSON={perimetersGeoJSON}
+            incidentsGeoJSON={incidentsGeoJSON}
             incidentDotsGeoJSON={incidentDotsGeoJSON}
             aqiGeoJSON={aqiGeoJSON}
             alertsGeoJSON={alertsGeoJSON}
             droughtGeoJSON={droughtGeoJSON}
+            spcReportsGeoJSON={spcGeoJSON}
+            iemReportsGeoJSON={iemGeoJSON}
           />
 
           <LayerControl
+            activeMapTab={activeMapTab}
             hotspotsCount={hotspotsCount}
             perimetersCount={perimetersCount + dotsCount}
           />
