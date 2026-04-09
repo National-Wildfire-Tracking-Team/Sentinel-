@@ -64,18 +64,13 @@ export default function LiveTrackerPage() {
   const { layers, setLayer, setRefreshed, setLoading } = useApp();
   const [activeMapTab, setActiveMapTab] = useState(MAP_TABS.wildfire);
 
-  const layerPreset = useMemo(
-    () => (activeMapTab === MAP_TABS.wildfire ? WILDFIRE_LAYER_PRESET : WEATHER_LAYER_PRESET),
-    [activeMapTab],
-  );
-
+  // Apply layer presets only when the active tab changes
   useEffect(() => {
-    Object.entries(layerPreset).forEach(([layer, value]) => {
-      if (layers[layer] !== value) {
-        setLayer(layer, value);
-      }
+    const preset = activeMapTab === MAP_TABS.wildfire ? WILDFIRE_LAYER_PRESET : WEATHER_LAYER_PRESET;
+    Object.entries(preset).forEach(([layer, value]) => {
+      setLayer(layer, value);
     });
-  }, [layerPreset, layers, setLayer]);
+  }, [activeMapTab, setLayer]);
 
   // ── Data feeds ──
   const {
