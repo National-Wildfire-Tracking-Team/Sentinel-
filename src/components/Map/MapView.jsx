@@ -145,8 +145,10 @@ function HoverTooltip({ feature, lngLat }) {
  * @param {object|null} props.aqiGeoJSON
  * @param {object|null} props.alertsGeoJSON
  * @param {object|null} props.droughtGeoJSON
+ * @param {'wildfire'|'weather'} [props.activeMapTab]
  */
 export default function MapView({
+  activeMapTab = 'wildfire',
   hotspotsGeoJSON,
   perimetersGeoJSON,
   incidentsGeoJSON, // Renamed to match usage inside
@@ -157,6 +159,8 @@ export default function MapView({
 }) {
   const { layers, selectFire, viewport, setViewport } = useApp();
   const mapRef = useRef(null);
+  const isWildfireTab = activeMapTab === 'wildfire';
+  const isWeatherTab = activeMapTab === 'weather';
 
   // Hover tooltip state
   const [hoverFeature, setHoverFeature] = useState(null);
@@ -165,14 +169,14 @@ export default function MapView({
   // Only include interactive layer IDs for layers that are currently visible
   const interactiveLayerIds = useMemo(() => {
     const ids = [];
-    if (layers.fireHotspots && hotspotsGeoJSON)        ids.push('fire-hotspots-circle');
-    if (layers.firePerimeters && perimetersGeoJSON)     ids.push('fire-perimeters-fill');
-    if (layers.incidentLocations && incidentsGeoJSON)   ids.push('incident-locations-circle');
-    if (layers.aqi && aqiGeoJSON)                       ids.push('aqi-stations-circle');
-    if (layers.weatherAlerts && alertsGeoJSON)          ids.push('weather-alerts-fill');
+    if (isWildfireTab && layers.fireHotspots && hotspotsGeoJSON)        ids.push('fire-hotspots-circle');
+    if (isWildfireTab && layers.firePerimeters && perimetersGeoJSON)     ids.push('fire-perimeters-fill');
+    if (isWildfireTab && layers.incidentLocations && incidentsGeoJSON)   ids.push('incident-locations-circle');
+    if (isWeatherTab && layers.aqi && aqiGeoJSON)                        ids.push('aqi-stations-circle');
+    if (isWeatherTab && layers.weatherAlerts && alertsGeoJSON)           ids.push('weather-alerts-fill');
     return ids;
-  }, [layers.fireHotspots, layers.firePerimeters, layers.incidentLocations, layers.aqi, layers.weatherAlerts,
-      hotspotsGeoJSON, perimetersGeoJSON, incidentsGeoJSON, aqiGeoJSON, alertsGeoJSON]);
+  }, [isWildfireTab, isWeatherTab, layers.fireHotspots, layers.firePerimeters, layers.incidentLocations, layers.aqi,
+      layers.weatherAlerts, hotspotsGeoJSON, perimetersGeoJSON, incidentsGeoJSON, aqiGeoJSON, alertsGeoJSON]);
 
   // Clear stale hover when layers change
   const prevLayersRef = useRef(layers);
@@ -320,49 +324,52 @@ export default function MapView({
         {/* Drought layer – rendered first (bottom) */}
         <DroughtLayer
           geoJSON={droughtGeoJSON}
-          visible={false}
+          visible={isWeatherTab && layers.drought}
         />
 
         {/* GOES satellite imagery */}
-        <GOESLayer eastVisible={layers.goesEast} westVisible={layers.goesWest} />
+        <GOESLayer
+          eastVisible={isWeatherTab && layers.goesEast}
+          westVisible={isWeatherTab && layers.goesWest}
+        />
 
         {/* Smoke forecast */}
-        <SmokeLayer visible={layers.smoke} />
+        <SmokeLayer visible={isWeatherTab && layers.smoke} />
 
         {/* Weather alert zones */}
         <WeatherAlertsLayer
           geoJSON={alertsGeoJSON}
-          visible={layers.weatherAlerts}
+          visible={isWeatherTab && layers.weatherAlerts}
         />
 
         {/* Fire perimeter polygons */}
         <FirePerimetersLayer
           geoJSON={perimetersGeoJSON}
-          visible={layers.firePerimeters}
+          visible={isWildfireTab && layers.firePerimeters}
         />
 
         {/* WFIGS incident location markers */}
         <IncidentLocationsLayer
           geoJSON={incidentsGeoJSON}
-          visible={layers.incidentLocations}
+          visible={isWildfireTab && layers.incidentLocations}
         /> {/* <-- FIXED CLOSING TAG */}
 
         {/* Incident dot markers – fires with no matching perimeter */}
         <FireIncidentsLayer
           geoJSON={incidentDotsGeoJSON}
-          visible={layers.incidentLocations}
+          visible={isWildfireTab && layers.incidentLocations}
         />
 
         {/* AQI monitoring stations */}
         <AQILayer
           geoJSON={aqiGeoJSON}
-          visible={layers.aqi}
+          visible={isWeatherTab && layers.aqi}
         />
 
         {/* Fire hotspot points – rendered last (top) */}
         <FireHotspotsLayer
           geoJSON={hotspotsGeoJSON}
-          visible={layers.fireHotspots}
+          visible={isWildfireTab && layers.fireHotspots}
         />
 
         {/* Hover tooltip */}

@@ -30,8 +30,14 @@ import FireDetailPanel from '../components/FireDetailPanel/FireDetailPanel';
 // US continental bounding box for data fetches
 const US_BOUNDS = { west: -130, south: 24, east: -65, north: 50 };
 
+const MAP_TABS = {
+  wildfire: 'wildfire',
+  weather: 'weather',
+};
+
 export default function LiveTrackerPage() {
   const { layers, setRefreshed, setLoading } = useApp();
+  const [activeMapTab, setActiveMapTab] = useState(MAP_TABS.wildfire);
 
   // ── Data feeds ──
   const {
@@ -127,9 +133,40 @@ export default function LiveTrackerPage() {
 
         {/* Map area */}
         <div className="flex-1 relative overflow-hidden">
+          <div className="absolute top-4 left-1/2 -translate-x-1/2 z-30 bg-sentinel-900/85 border border-sentinel-700 rounded-xl p-1 backdrop-blur-sm shadow-xl">
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => setActiveMapTab(MAP_TABS.wildfire)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                  activeMapTab === MAP_TABS.wildfire
+                    ? 'bg-fire-600 text-white'
+                    : 'text-sentinel-200 hover:bg-sentinel-700/70'
+                }`}
+                aria-pressed={activeMapTab === MAP_TABS.wildfire}
+              >
+                Wildfire Tracking
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveMapTab(MAP_TABS.weather)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                  activeMapTab === MAP_TABS.weather
+                    ? 'bg-blue-600 text-white'
+                    : 'text-sentinel-200 hover:bg-sentinel-700/70'
+                }`}
+                aria-pressed={activeMapTab === MAP_TABS.weather}
+              >
+                Weather Tracking
+              </button>
+            </div>
+          </div>
+
           <MapView
+            activeMapTab={activeMapTab}
             hotspotsGeoJSON={hotspotsGeoJSON}
             perimetersGeoJSON={perimetersGeoJSON}
+            incidentsGeoJSON={incidentsGeoJSON}
             incidentDotsGeoJSON={incidentDotsGeoJSON}
             aqiGeoJSON={aqiGeoJSON}
             alertsGeoJSON={alertsGeoJSON}
@@ -137,6 +174,7 @@ export default function LiveTrackerPage() {
           />
 
           <LayerControl
+            activeMapTab={activeMapTab}
             hotspotsCount={hotspotsCount}
             perimetersCount={perimetersCount + dotsCount}
           />
