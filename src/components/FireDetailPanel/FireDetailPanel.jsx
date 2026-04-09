@@ -66,7 +66,7 @@ function HotspotDetail({ fire }) {
       <div className="space-y-2 text-xs text-sentinel-400">
         <div className="flex items-center gap-2">
           <MapPin size={12} />
-          <span>{fire.lat?.toFixed(4)}°N, {Math.abs(fire.lng?.toFixed(4))}°W</span>
+          <span>{fire.lat?.toFixed(4)}°N, {Math.abs(fire.lng)?.toFixed(4)}°W</span>
         </div>
         <div className="flex items-center gap-2">
           <Calendar size={12} />
