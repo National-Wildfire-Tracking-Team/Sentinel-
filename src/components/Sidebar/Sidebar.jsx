@@ -56,7 +56,7 @@ export default function Sidebar({ incidents, loading, error }) {
         <div className="flex items-center justify-between px-4 py-3 border-b border-sentinel-700 shrink-0">
           <div className="flex items-center gap-2">
             <Flame size={16} className="text-fire-500" />
-            <h2 className="font-semibold text-white text-sm">Active Incidents</h2>
+            <h2 className="font-semibold text-white text-sm">Active Weather Alerts</h2>
             {activeCount > 0 && (
               <span className="px-1.5 py-0.5 bg-fire-600/25 text-fire-300 text-xs font-bold rounded-full border border-fire-700/40">
                 {activeCount}
