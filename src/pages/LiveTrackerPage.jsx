@@ -122,13 +122,16 @@ export default function LiveTrackerPage() {
     refresh: refreshStormReports,
   } = useStormReports(activeMapTab === MAP_TABS.weather);
 
-  // Drought data (low-frequency – load once)
+  // Drought data (low-frequency – load once, refreshable)
   const [droughtGeoJSON, setDroughtGeoJSON] = useState(null);
+  const refreshDrought = useCallback(() => {
+    fetchDroughtData().then(setDroughtGeoJSON).catch(console.warn);
+  }, []);
   useEffect(() => {
     if (layers.drought && !droughtGeoJSON) {
-      fetchDroughtData().then(setDroughtGeoJSON).catch(console.warn);
+      refreshDrought();
     }
-  }, [layers.drought, droughtGeoJSON]);
+  }, [layers.drought, droughtGeoJSON, refreshDrought]);
 
   // ── Global loading state ──
   const anyLoading = hotspotsLoading || perimetersLoading || incidentsLoading;
@@ -145,7 +148,8 @@ export default function LiveTrackerPage() {
     refreshIncidents();
     refreshStormReports();
     if (layers.aqi) refreshAQI();
-  }, [refreshHotspots, refreshPerimeters, refreshAlerts, refreshIncidents, refreshStormReports, refreshAQI, layers.aqi]);
+    if (layers.drought) refreshDrought();
+  }, [refreshHotspots, refreshPerimeters, refreshAlerts, refreshIncidents, refreshStormReports, refreshAQI, refreshDrought, layers.aqi, layers.drought]);
 
   return (
     <div className="h-screen w-screen flex flex-col bg-sentinel-900 text-white overflow-hidden select-none">

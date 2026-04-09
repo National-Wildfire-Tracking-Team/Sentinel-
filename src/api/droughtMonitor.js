@@ -14,8 +14,8 @@ import { MOCK_DROUGHT_DATA } from '../data/mockData';
 
 const DROUGHT_ARCGIS =
   'https://services.arcgis.com/ZzrwjTRez6FJiOq4/arcgis/rest/services' +
-  '/US_Drought_Monitor_Current/FeatureServer/1/query?' +
-  new URLSearchParams({ where: '1=1', outFields: 'DM,DESCRIPT', f: 'geojson' });
+  '/US_Drought_Monitor_Current/FeatureServer/1/query' +
+  '?where=1%3D1&outFields=DM%2CDESCRIPT&returnGeometry=true&outSR=4326&f=geojson';
 
 /**
  * Fetch current US drought monitor data.
