@@ -5,7 +5,7 @@
  * Layer stays mounted; visibility is controlled via layout property.
  */
 
-import { Source, Layer } from 'react-map-gl/mapbox';
+import { Source, Layer } from 'react-map-gl';
 import {
   AQI_COLOR_EXPRESSION,
   AQI_HEATMAP_COLOR_EXPRESSION,
