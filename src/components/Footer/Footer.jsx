@@ -68,9 +68,14 @@ export default function Footer() {
           <p className="text-sentinel-400 text-xs">
             &copy; {new Date().getFullYear()} National Wildfire Tracking Team. All rights reserved.
           </p>
-          <p className="text-sentinel-500 text-xs">
-            Data sourced from NASA FIRMS, NIFC, NOAA &amp; NWS
-          </p>
+          <div className="flex items-center gap-4 text-xs">
+            <Link to="/terms" className="text-sentinel-400 hover:text-fire-400 transition-colors">
+              Terms of Service
+            </Link>
+            <p className="text-sentinel-500">
+              Data sourced from NASA FIRMS, NIFC, NOAA &amp; NWS
+            </p>
+          </div>
         </div>
       </div>
     </footer>
