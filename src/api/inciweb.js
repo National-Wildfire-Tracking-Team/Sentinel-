@@ -12,11 +12,33 @@
  */
 
 import { fetchWithCache } from '../utils/dataCache';
-import { MOCK_INCIDENTS } from '../data/mockData';
 
-const IRWIN_BASE =
+const IRWIN_ENDPOINTS = [
   'https://services3.arcgis.com/T4QMspbfLg3qTGWY/ArcGIS/rest/services' +
-  '/WFIGS_Incident_Locations_Current/FeatureServer/0/query';
+  '/WFIGS_Incident_Locations_Current/FeatureServer/0/query',
+  'https://services3.arcgis.com/T4QMspbfLg3qTGWY/ArcGIS/rest/services' +
+  '/WFIGS_Incident_Locations/FeatureServer/0/query',
+];
+
+async function fetchFromIncidentEndpoints(params, cacheKeyPrefix, ttlMs) {
+  const errors = [];
+
+  for (const endpoint of IRWIN_ENDPOINTS) {
+    const url = `${endpoint}?${params}`;
+    const endpointName = endpoint.split('/ArcGIS/rest/services/')[1]?.split('/FeatureServer')[0] || 'incident-service';
+    const cacheKey = `${cacheKeyPrefix}:${endpointName}`;
+    try {
+      const data = await fetchWithCache(url, cacheKey, {}, ttlMs);
+      if (data?.error) throw new Error(data.error.message || 'ArcGIS error');
+      if (Array.isArray(data?.features)) return data;
+      throw new Error('Unexpected response format');
+    } catch (err) {
+      errors.push(`${endpointName}: ${err.message}`);
+    }
+  }
+
+  throw new Error(`Unable to load incident reports (${errors.join(' | ')})`);
+}
 
 /**
  * Fetch current active wildfire incidents.
@@ -49,19 +71,12 @@ export async function fetchIncidents({ minAcres = 10, limit = 50 } = {}) {
     returnGeometry: 'true',
   });
 
-  const url = `${IRWIN_BASE}?${params}`;
-  const cacheKey = `irwin:incidents:active:${minAcres}`;
-
-  try {
-    const data = await fetchWithCache(url, cacheKey, {}, 5 * 60 * 1000);
-    if (data?.error) throw new Error(data.error.message || 'ArcGIS error');
-    if (data?.features) return normalizeIncidents(data.features);
-    throw new Error('Unexpected response format');
-  } catch (err) {
-    console.warn('[InciWeb/IRWIN] Using fallback incidents:', err.message);
-    // Filter mock data by minAcres too
-    return MOCK_INCIDENTS.filter(i => (i.acres || 0) >= minAcres);
-  }
+  const data = await fetchFromIncidentEndpoints(
+    params,
+    `irwin:incidents:active:${minAcres}`,
+    5 * 60 * 1000,
+  );
+  return normalizeIncidents(data.features);
 }
 
 /**
@@ -88,18 +103,12 @@ export async function fetchIncidentLocationsGeoJSON({ minAcres = 10 } = {}) {
     returnGeometry: 'true',
   });
 
-  const url = `${IRWIN_BASE}?${params}`;
-  const cacheKey = `irwin:incidents:geojson:${minAcres}`;
-
-  try {
-    const data = await fetchWithCache(url, cacheKey, {}, 5 * 60 * 1000);
-    if (data?.error) throw new Error(data.error.message || 'ArcGIS error');
-    if (data?.features) return normalizeIncidentGeoJSON(data);
-    throw new Error('Unexpected response format');
-  } catch (err) {
-    console.warn('[InciWeb/IRWIN] Using empty incident GeoJSON:', err.message);
-    return { type: 'FeatureCollection', features: [] };
-  }
+  const data = await fetchFromIncidentEndpoints(
+    params,
+    `irwin:incidents:geojson:${minAcres}`,
+    5 * 60 * 1000,
+  );
+  return normalizeIncidentGeoJSON(data);
 }
 
 function normalizeIncidentGeoJSON(geojson) {

@@ -123,7 +123,14 @@ export default function IncidentFeed({ incidents, loading, error }) {
         {error && !loading && (
           <div className="flex items-start gap-2 p-3 bg-red-950/40 border border-red-800/50 rounded-lg text-red-300 text-sm">
             <AlertCircle size={15} className="shrink-0 mt-0.5" />
-            <span>Could not load live data. Showing demo incidents.</span>
+            <div className="space-y-1">
+              <p>Could not load incident reports from the live API.</p>
+              {error && (
+                <p className="text-xs text-red-200/80 break-words">
+                  Details: {error}
+                </p>
+              )}
+            </div>
           </div>
         )}
 
