@@ -16,6 +16,7 @@ const AboutPage = lazy(() => import('./pages/AboutPage'));
 const VolunteerPage = lazy(() => import('./pages/VolunteerPage'));
 const LiveTrackerPage = lazy(() => import('./pages/LiveTrackerPage'));
 const PrivacyPolicyPage = lazy(() => import('./pages/PrivacyPolicyPage'));
+const ReporterPage = lazy(() => import('./pages/ReporterPage'));
 
 /** Scroll to top on route change */
 function ScrollToTop() {
@@ -82,6 +83,15 @@ export default function App() {
             element={
               <SiteLayout>
                 <PrivacyPolicyPage />
+              </SiteLayout>
+            }
+          />
+
+          <Route
+            path="/reporter"
+            element={
+              <SiteLayout>
+                <ReporterPage />
               </SiteLayout>
             }
           />
