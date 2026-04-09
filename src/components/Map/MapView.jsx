@@ -17,7 +17,7 @@ import { frpToLabel } from '../../utils/colorUtils';
 import FireHotspotsLayer  from './layers/FireHotspotsLayer';
 import FirePerimetersLayer from './layers/FirePerimetersLayer';
 import FireIncidentsLayer  from './layers/FireIncidentsLayer';
-import IncidentLocationsLayer from './layers/IncidentLocationsLayer'; // Added missing import
+import IncidentLocationsLayer from './layers/IncidentLocationsLayer';
 import AQILayer           from './layers/AQILayer';
 import WeatherAlertsLayer from './layers/WeatherAlertsLayer';
 import DroughtLayer       from './layers/DroughtLayer';
@@ -272,6 +272,22 @@ export default function MapView({
                       ? new Date(p.ModifiedOnDateTime).toISOString()
                       : null,
       });
+    } else if (feature.layer.id === 'incident-locations-circle') {
+      selectFire({
+        type:      'incident',
+        id:        p.id,
+        name:      p.name,
+        lat:       evt.lngLat.lat,
+        lng:       evt.lngLat.lng,
+        acres:     num(p.acres),
+        contained: num(p.contained),
+        state:     p.state,
+        county:    p.county,
+        personnel: num(p.personnel),
+        cause:     p.cause || 'Under Investigation',
+        started:   p.started,
+        updated:   p.updated,
+      });
     } else if (feature.layer.id === 'aqi-stations-circle') {
       selectFire({
         type:    'aqi',
@@ -374,7 +390,7 @@ export default function MapView({
         <IncidentLocationsLayer
           geoJSON={incidentsGeoJSON}
           visible={isWildfireTab && layers.incidentLocations}
-        /> {/* <-- FIXED CLOSING TAG */}
+        />
 
         {/* Incident dot markers – fires with no matching perimeter */}
         <FireIncidentsLayer
