@@ -22,7 +22,7 @@ function ColorRow({ color, label }) {
   return (
     <div className="flex items-center gap-2">
       <span className="w-3 h-3 rounded-sm shrink-0" style={{ backgroundColor: color }} />
-      <span className="text-sentinel-300 text-[11px]">{label}</span>
+      <span className="text-sentinel-100 text-[11px]">{label}</span>
     </div>
   );
 }
@@ -30,7 +30,7 @@ function ColorRow({ color, label }) {
 function Section({ title, children }) {
   return (
     <div className="mb-3">
-      <div className="text-[10px] font-bold text-sentinel-500 uppercase tracking-widest mb-1.5">{title}</div>
+      <div className="text-[10px] font-bold text-sentinel-300 uppercase tracking-widest mb-1.5">{title}</div>
       <div className="space-y-1">{children}</div>
     </div>
   );
@@ -54,11 +54,11 @@ export default function Legend() {
           className="w-full flex items-center justify-between px-3 py-2 border-b border-sentinel-700
                      hover:bg-sentinel-800/50 transition-colors"
         >
-          <div className="flex items-center gap-1.5 text-sentinel-300">
+          <div className="flex items-center gap-1.5 text-sentinel-100">
             <Info size={12} />
             <span className="text-[10px] font-bold uppercase tracking-widest">Legend</span>
           </div>
-          {collapsed ? <ChevronDown size={12} className="text-sentinel-500" /> : <ChevronUp size={12} className="text-sentinel-500" />}
+          {collapsed ? <ChevronDown size={12} className="text-sentinel-300" /> : <ChevronUp size={12} className="text-sentinel-300" />}
         </button>
 
         {!collapsed && (
