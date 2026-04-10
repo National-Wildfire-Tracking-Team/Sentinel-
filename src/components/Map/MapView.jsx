@@ -28,10 +28,14 @@ import StormReportsLayer  from './layers/StormReportsLayer';
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN || '';
 
 // Quick helper if you don't already have one exported from utils
-const num = (val) => Number(val); 
+const num = (val) => Number(val);
 
 // ─── Base map style ───────────────────────────────────────────────────────────
-const MAP_STYLE = 'mapbox://styles/mapbox/satellite-streets-v12';
+// Use Mapbox satellite style when a token is available, otherwise fall back to
+// free Carto dark-matter tiles so the map still renders without crashing.
+const MAPBOX_STYLE = 'mapbox://styles/mapbox/satellite-streets-v12';
+const FREE_STYLE   = 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json';
+const MAP_STYLE    = MAPBOX_TOKEN ? MAPBOX_STYLE : FREE_STYLE;
 
 /**
  * Tooltip shown on hover
@@ -338,7 +342,7 @@ export default function MapView({
       <Map
         ref={mapRef}
         {...viewport}
-        mapboxAccessToken={MAPBOX_TOKEN}
+        mapboxAccessToken={MAPBOX_TOKEN || 'pk.free'}
         mapStyle={MAP_STYLE}
         style={{ width: '100%', height: '100%', background: '#0a0c0e' }}
         interactiveLayerIds={interactiveLayerIds}
