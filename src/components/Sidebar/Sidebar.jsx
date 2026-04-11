@@ -7,6 +7,7 @@ import { Flame, TrendingUp, Wind, ChevronLeft } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import IncidentFeed from './IncidentFeed';
 import StormReportsFeed from './StormReportsFeed';
+import AddressAlertSearch from './AddressAlertSearch';
 
 function StatPill({ icon: Icon, label, value, color = 'text-white' }) {
   return (
@@ -109,6 +110,9 @@ export default function Sidebar({
             )}
           </div>
         </div>
+
+        {/* Address alert search – weather tab only */}
+        {isWeatherTab && <AddressAlertSearch />}
 
         {/* Incident feed – takes remaining height */}
         <div className="flex-1 overflow-hidden">
