@@ -23,10 +23,9 @@ const IRWIN_BASE =
  * Scrubs fires below minAcres (default 0.1).
  * @param {object} [opts]
  * @param {number} [opts.minAcres=.10]
- * @param {number} [opts.limit=50]
  * @returns {Promise<Array>}  Normalized incident objects
  */
-export async function fetchIncidents({ minAcres = 10, limit = 50 } = {}) {
+export async function fetchIncidents({ minAcres = 10 } = {}) {
   // IncidentSize is the correct acreage field in the Current service
   const where = [
     `IncidentTypeCategory='WF'`,
@@ -43,7 +42,6 @@ export async function fetchIncidents({ minAcres = 10, limit = 50 } = {}) {
       'IncidentManagementOrganization',
     ].join(','),
     orderByFields: 'IncidentSize DESC',
-    resultRecordCount: limit,
     f: 'json',
     outSR: '4326',
     returnGeometry: 'true',
