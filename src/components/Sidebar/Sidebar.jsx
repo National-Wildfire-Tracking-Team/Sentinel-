@@ -3,10 +3,12 @@
  * Collapsible left panel housing the incident feed and summary stats.
  */
 
-import { Flame, TrendingUp, Wind, ChevronLeft } from 'lucide-react';
+import { useState } from 'react';
+import { Flame, TrendingUp, Wind, Navigation, ChevronLeft } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import IncidentFeed from './IncidentFeed';
 import StormReportsFeed from './StormReportsFeed';
+import HurricaneFeed from './HurricaneFeed';
 
 function StatPill({ icon: Icon, label, value, color = 'text-white' }) {
   return (
@@ -27,9 +29,13 @@ export default function Sidebar({
   iemReports = [],
   stormReportsLoading = false,
   stormReportsError = null,
+  hurricaneStorms = [],
+  hurricanesLoading = false,
+  hurricanesError = null,
 }) {
   const { sidebarOpen, toggleSidebar, alerts } = useApp();
   const isWeatherTab = activeMapTab === 'weather';
+  const [weatherSubTab, setWeatherSubTab] = useState('storms');
 
   const activeCount  = incidents.filter(i => i.status === 'active').length;
   const rfwCount     = alerts.filter(a => a.type === 'Red Flag Warning').length;
@@ -37,6 +43,7 @@ export default function Sidebar({
   const acresDisplay = totalAcres >= 1000 ? `${(totalAcres / 1000).toFixed(0)}k` : totalAcres;
   const stormCount = spcReports.length + iemReports.length;
   const tornadoCount = [...spcReports, ...iemReports].filter(r => r.reportType === 'Tornado').length;
+  const hurricaneCount = hurricaneStorms.length;
 
   return (
     <>
@@ -80,6 +87,11 @@ export default function Sidebar({
                 {stormCount}
               </span>
             )}
+            {isWeatherTab && hurricaneCount > 0 && (
+              <span className="px-1.5 py-0.5 bg-fuchsia-600/25 text-fuchsia-300 text-xs font-bold rounded-full border border-fuchsia-700/40">
+                {hurricaneCount}
+              </span>
+            )}
           </div>
 
           <button
@@ -96,9 +108,9 @@ export default function Sidebar({
           <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
             {isWeatherTab ? (
               <>
-                <StatPill icon={Wind} label="Total Reports" value={stormCount} color="text-cyan-300" />
+                <StatPill icon={Wind} label="Storm Reports" value={stormCount} color="text-cyan-300" />
+                <StatPill icon={Navigation} label="Hurricanes" value={hurricaneCount} color="text-fuchsia-300" />
                 <StatPill icon={Flame} label="Tornado" value={tornadoCount} color="text-red-300" />
-                <StatPill icon={TrendingUp} label="SPC + IEM" value="LIVE" color="text-blue-300" />
               </>
             ) : (
               <>
@@ -110,15 +122,60 @@ export default function Sidebar({
           </div>
         </div>
 
-        {/* Incident feed – takes remaining height */}
+        {/* Weather sub-tabs (storms vs hurricanes) */}
+        {isWeatherTab && (
+          <div className="px-3 py-1.5 border-b border-sentinel-700 shrink-0">
+            <div className="inline-flex rounded-lg border border-sentinel-700 bg-sentinel-800 p-0.5 gap-0.5 w-full">
+              <button
+                type="button"
+                onClick={() => setWeatherSubTab('storms')}
+                className={`flex-1 inline-flex items-center justify-center gap-1 px-2 py-1 text-[11px] font-semibold rounded-md transition-colors ${
+                  weatherSubTab === 'storms'
+                    ? 'bg-cyan-600/30 text-cyan-200 border border-cyan-500/40'
+                    : 'text-sentinel-200 hover:bg-sentinel-700 border border-transparent'
+                }`}
+              >
+                <Wind size={11} />
+                Storm Reports
+              </button>
+              <button
+                type="button"
+                onClick={() => setWeatherSubTab('hurricanes')}
+                className={`flex-1 inline-flex items-center justify-center gap-1 px-2 py-1 text-[11px] font-semibold rounded-md transition-colors ${
+                  weatherSubTab === 'hurricanes'
+                    ? 'bg-fuchsia-600/30 text-fuchsia-200 border border-fuchsia-500/40'
+                    : 'text-sentinel-200 hover:bg-sentinel-700 border border-transparent'
+                }`}
+              >
+                <Navigation size={11} />
+                Hurricanes
+                {hurricaneCount > 0 && (
+                  <span className="ml-0.5 px-1 py-0 text-[9px] font-bold rounded-full bg-fuchsia-600/40 text-fuchsia-200">
+                    {hurricaneCount}
+                  </span>
+                )}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Feed content – takes remaining height */}
         <div className="flex-1 overflow-hidden">
           {isWeatherTab ? (
-            <StormReportsFeed
-              spcReports={spcReports}
-              iemReports={iemReports}
-              loading={stormReportsLoading}
-              error={stormReportsError}
-            />
+            weatherSubTab === 'hurricanes' ? (
+              <HurricaneFeed
+                storms={hurricaneStorms}
+                loading={hurricanesLoading}
+                error={hurricanesError}
+              />
+            ) : (
+              <StormReportsFeed
+                spcReports={spcReports}
+                iemReports={iemReports}
+                loading={stormReportsLoading}
+                error={stormReportsError}
+              />
+            )
           ) : (
             <IncidentFeed incidents={incidents} loading={loading} error={error} />
           )}

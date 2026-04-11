@@ -6,7 +6,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Flame, ArrowLeft, CloudSun } from 'lucide-react';
+import { Flame, ArrowLeft, CloudSun, Navigation } from 'lucide-react';
 
 import { useApp } from '../context/AppContext';
 
@@ -17,6 +17,7 @@ import { useAQIData } from '../hooks/useAQIData';
 import { useWeatherAlerts } from '../hooks/useWeatherAlerts';
 import { useIncidents } from '../hooks/useIncidents';
 import { useStormReports } from '../hooks/useStormReports';
+import { useHurricaneData } from '../hooks/useHurricaneData';
 import { fetchDroughtData } from '../api/droughtMonitor';
 
 // Components
@@ -46,6 +47,7 @@ const WILDFIRE_LAYER_PRESET = {
   drought: false,
   goesEast: false,
   goesWest: false,
+  hurricanes: false,
 };
 
 const WEATHER_LAYER_PRESET = {
@@ -58,6 +60,7 @@ const WEATHER_LAYER_PRESET = {
   drought: true,
   goesEast: true,
   goesWest: false,
+  hurricanes: true,
 };
 
 export default function LiveTrackerPage() {
@@ -117,6 +120,17 @@ export default function LiveTrackerPage() {
     refresh: refreshStormReports,
   } = useStormReports(activeMapTab === MAP_TABS.weather);
 
+  const {
+    storms: hurricaneStorms,
+    stormsGeoJSON: hurricaneStormsGeoJSON,
+    forecastConeGeoJSON: hurricaneConeGeoJSON,
+    observedTrackGeoJSON: hurricaneObservedTrackGeoJSON,
+    forecastTrackGeoJSON: hurricaneForecastTrackGeoJSON,
+    loading: hurricanesLoading,
+    error: hurricanesError,
+    refresh: refreshHurricanes,
+  } = useHurricaneData(activeMapTab === MAP_TABS.weather);
+
   // Drought data (low-frequency – load once, refreshable)
   const [droughtGeoJSON, setDroughtGeoJSON] = useState(null);
   const refreshDrought = useCallback(() => {
@@ -142,9 +156,10 @@ export default function LiveTrackerPage() {
     refreshAlerts();
     refreshIncidents();
     refreshStormReports();
+    refreshHurricanes();
     if (layers.aqi) refreshAQI();
     if (layers.drought) refreshDrought();
-  }, [refreshHotspots, refreshPerimeters, refreshAlerts, refreshIncidents, refreshStormReports, refreshAQI, refreshDrought, layers.aqi, layers.drought]);
+  }, [refreshHotspots, refreshPerimeters, refreshAlerts, refreshIncidents, refreshStormReports, refreshHurricanes, refreshAQI, refreshDrought, layers.aqi, layers.drought]);
 
   return (
     <div className="h-screen w-screen flex flex-col bg-sentinel-900 text-white overflow-hidden select-none">
@@ -215,6 +230,9 @@ export default function LiveTrackerPage() {
           iemReports={iemReports}
           stormReportsLoading={stormReportsLoading}
           stormReportsError={stormReportsError}
+          hurricaneStorms={hurricaneStorms}
+          hurricanesLoading={hurricanesLoading}
+          hurricanesError={hurricanesError}
         />
 
         {/* Map area */}
@@ -230,6 +248,10 @@ export default function LiveTrackerPage() {
             droughtGeoJSON={droughtGeoJSON}
             spcReportsGeoJSON={spcGeoJSON}
             iemReportsGeoJSON={iemGeoJSON}
+            hurricaneStormsGeoJSON={hurricaneStormsGeoJSON}
+            hurricaneConeGeoJSON={hurricaneConeGeoJSON}
+            hurricaneObservedTrackGeoJSON={hurricaneObservedTrackGeoJSON}
+            hurricaneForecastTrackGeoJSON={hurricaneForecastTrackGeoJSON}
           />
 
           <LayerControl

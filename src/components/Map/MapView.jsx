@@ -25,6 +25,7 @@ import DroughtLayer       from './layers/DroughtLayer';
 import SmokeLayer         from './layers/SmokeLayer';
 import GOESLayer          from './layers/GOESLayer';
 import StormReportsLayer  from './layers/StormReportsLayer';
+import HurricaneLayer     from './layers/HurricaneLayer';
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN || '';
 
@@ -135,6 +136,29 @@ function HoverTooltip({ feature, lngLat }) {
         </>
       );
       break;
+    case 'nhc-storms-circle':
+      content = (
+        <>
+          <div className="font-semibold" style={{ color: p.color || '#00faf4' }}>
+            {p.name}
+          </div>
+          <div className="text-gray-300 text-xs mt-0.5">
+            {p.category} · {p.classLabel}
+          </div>
+          <div className="text-gray-300 text-xs">
+            Wind: <span className="text-white font-medium">{p.windKt} kt ({p.windMph} mph)</span>
+          </div>
+          {p.pressure && (
+            <div className="text-gray-300 text-xs">Pressure: {p.pressure} mb</div>
+          )}
+          {p.lastUpdate && (
+            <div className="text-gray-400 text-xs mt-0.5">
+              {new Date(p.lastUpdate).toLocaleString()}
+            </div>
+          )}
+        </>
+      );
+      break;
     default:
       return null;
   }
@@ -167,6 +191,10 @@ function HoverTooltip({ feature, lngLat }) {
  * @param {object|null} props.droughtGeoJSON
  * @param {object|null} props.spcReportsGeoJSON
  * @param {object|null} props.iemReportsGeoJSON
+ * @param {object|null} props.hurricaneStormsGeoJSON
+ * @param {object|null} props.hurricaneConeGeoJSON
+ * @param {object|null} props.hurricaneObservedTrackGeoJSON
+ * @param {object|null} props.hurricaneForecastTrackGeoJSON
  * @param {'wildfire'|'weather'} [props.activeMapTab]
  */
 export default function MapView({
@@ -180,6 +208,10 @@ export default function MapView({
   droughtGeoJSON,
   spcReportsGeoJSON,
   iemReportsGeoJSON,
+  hurricaneStormsGeoJSON,
+  hurricaneConeGeoJSON,
+  hurricaneObservedTrackGeoJSON,
+  hurricaneForecastTrackGeoJSON,
 }) {
   const { layers, selectFire, viewport, setViewport } = useApp();
   const mapRef = useRef(null);
@@ -200,10 +232,11 @@ export default function MapView({
     if (isWeatherTab && layers.weatherAlerts && alertsGeoJSON)           ids.push('weather-alerts-fill');
     if (isWeatherTab && layers.spcReports && spcReportsGeoJSON)          ids.push('spc-reports-circle');
     if (isWeatherTab && layers.iemReports && iemReportsGeoJSON)          ids.push('iem-reports-circle');
+    if (isWeatherTab && layers.hurricanes && hurricaneStormsGeoJSON)    ids.push('nhc-storms-circle');
     return ids;
   }, [isWildfireTab, isWeatherTab, layers.fireHotspots, layers.firePerimeters, layers.incidentLocations, layers.aqi,
-      layers.weatherAlerts, layers.spcReports, layers.iemReports, hotspotsGeoJSON, perimetersGeoJSON, incidentsGeoJSON,
-      aqiGeoJSON, alertsGeoJSON, spcReportsGeoJSON, iemReportsGeoJSON]);
+      layers.weatherAlerts, layers.spcReports, layers.iemReports, layers.hurricanes, hotspotsGeoJSON, perimetersGeoJSON, incidentsGeoJSON,
+      aqiGeoJSON, alertsGeoJSON, spcReportsGeoJSON, iemReportsGeoJSON, hurricaneStormsGeoJSON]);
 
   // Clear stale hover when layers change
   const prevLayersRef = useRef(layers);
@@ -407,6 +440,15 @@ export default function MapView({
         <AQILayer
           geoJSON={aqiGeoJSON}
           visible={isWeatherTab && layers.aqi}
+        />
+
+        {/* Hurricane / tropical cyclone layers */}
+        <HurricaneLayer
+          stormsGeoJSON={hurricaneStormsGeoJSON}
+          forecastConeGeoJSON={hurricaneConeGeoJSON}
+          observedTrackGeoJSON={hurricaneObservedTrackGeoJSON}
+          forecastTrackGeoJSON={hurricaneForecastTrackGeoJSON}
+          visible={isWeatherTab && layers.hurricanes}
         />
 
         {/* SPC storm reports */}
