@@ -3,7 +3,7 @@
  * Collapsible left panel housing the incident feed and summary stats.
  */
 
-import { Flame, TrendingUp, Wind, ChevronLeft } from 'lucide-react';
+import { Flame, TrendingUp, Wind, ChevronLeft, CloudSun } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import IncidentFeed from './IncidentFeed';
 import StormReportsFeed from './StormReportsFeed';
@@ -23,6 +23,7 @@ export default function Sidebar({
   loading,
   error,
   activeMapTab = 'wildfire',
+  onTabChange,
   spcReports = [],
   iemReports = [],
   stormReportsLoading = false,
@@ -65,6 +66,39 @@ export default function Sidebar({
           ${sidebarOpen ? 'w-72 sm:w-80' : 'w-0 overflow-hidden'}
         `}
       >
+        {/* Map mode tabs */}
+        <div className="px-3 pt-3 pb-2 border-b border-sentinel-700/70 shrink-0">
+          <div className="inline-flex w-full rounded-xl border border-sentinel-700 bg-sentinel-800 p-1 gap-1">
+            <button
+              type="button"
+              onClick={() => onTabChange?.('wildfire')}
+              className={`flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors ${
+                activeMapTab === 'wildfire'
+                  ? 'bg-fire-600 text-white'
+                  : 'text-sentinel-200 hover:bg-sentinel-700'
+              }`}
+              aria-pressed={activeMapTab === 'wildfire'}
+            >
+              <Flame size={13} />
+              Wildfire Tracking
+            </button>
+
+            <button
+              type="button"
+              onClick={() => onTabChange?.('weather')}
+              className={`flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors ${
+                activeMapTab === 'weather'
+                  ? 'bg-sky-600 text-white'
+                  : 'text-sentinel-200 hover:bg-sentinel-700'
+              }`}
+              aria-pressed={activeMapTab === 'weather'}
+            >
+              <CloudSun size={13} />
+              Weather Tracking
+            </button>
+          </div>
+        </div>
+
         {/* Sidebar header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-sentinel-700 shrink-0">
           <div className="flex items-center gap-2">
