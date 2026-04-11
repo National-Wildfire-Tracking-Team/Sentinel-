@@ -67,7 +67,7 @@ const teamRoles = [
   {
     title: 'Weather Analysts',
     description:
-      'Track fire weather conditions including Red Flag Warnings, wind events, and drought patterns that influence wildfire behavior and spread.',
+      'Track fire weather conditions including Red Flag Warnings, wind events, and seasonal patterns that influence wildfire behavior and spread.',
     count: 'Specialist',
   },
   {

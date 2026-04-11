@@ -11,7 +11,6 @@ Built with React + Mapbox GL + Tailwind CSS.
 | Fire Perimeters | NIFC WFIGS ArcGIS | No |
 | AQI Stations | EPA AirNow | Yes (free) |
 | Weather Alerts | NOAA NWS | No |
-| Drought Monitor | USDA/UNL USDM | No |
 | Smoke Forecast | NOAA HRRR-Smoke WMS | No |
 | GOES Satellite | NOAA GOES East + West (Esri tiles) | No |
 

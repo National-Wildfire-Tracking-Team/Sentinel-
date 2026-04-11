@@ -46,7 +46,7 @@ const capabilities = [
     icon: BarChart3,
     title: 'Data Analysis & Trends',
     description:
-      'Our analysts study fire behavior, drought conditions, and seasonal patterns to help predict where the next critical wildfire situations may emerge.',
+      'Our analysts study fire behavior, weather conditions, and seasonal patterns to help predict where the next critical wildfire situations may emerge.',
   },
 ];
 

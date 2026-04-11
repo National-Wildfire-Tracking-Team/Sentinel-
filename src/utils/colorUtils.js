@@ -99,31 +99,6 @@ export const AQI_RADIUS_EXPRESSION = [
   301, 16,
 ];
 
-// ─── US Drought Monitor – USDM Color Scale ───────────────────────────────────
-/** Drought Monitor category colors (official USDM palette) */
-export const DROUGHT_CATEGORIES = [
-  { dm: 0, label: 'Abnormally Dry (D0)',      color: '#ffff00', opacity: 0.45 },
-  { dm: 1, label: 'Moderate Drought (D1)',    color: '#fcd37f', opacity: 0.50 },
-  { dm: 2, label: 'Severe Drought (D2)',      color: '#ffaa00', opacity: 0.55 },
-  { dm: 3, label: 'Extreme Drought (D3)',     color: '#e60000', opacity: 0.60 },
-  { dm: 4, label: 'Exceptional Drought (D4)', color: '#730000', opacity: 0.65 },
-];
-
-export function droughtToColor(dm) {
-  const cat = DROUGHT_CATEGORIES.find(c => c.dm === dm);
-  return cat ? cat.color : '#888888';
-}
-
-/** Mapbox GL step expression for drought fill color */
-export const DROUGHT_COLOR_EXPRESSION = [
-  'step', ['get', 'DM'],
-  '#ffff00',
-  1, '#fcd37f',
-  2, '#ffaa00',
-  3, '#e60000',
-  4, '#730000',
-];
-
 // ─── Fire Perimeter Colors ────────────────────────────────────────────────────
 export const PERIMETER_COLORS = {
   fill: '#ff6600',
