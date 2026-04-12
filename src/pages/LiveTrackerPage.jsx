@@ -17,7 +17,6 @@ import { useAQIData } from '../hooks/useAQIData';
 import { useWeatherAlerts } from '../hooks/useWeatherAlerts';
 import { useIncidents } from '../hooks/useIncidents';
 import { useStormReports } from '../hooks/useStormReports';
-import { fetchDroughtData } from '../api/droughtMonitor';
 
 // Components
 import Header from '../components/Header/Header';
@@ -43,7 +42,6 @@ const WILDFIRE_LAYER_PRESET = {
   weatherAlerts: false,
   aqi: false,
   smoke: false,
-  drought: false,
   goesEast: false,
   goesWest: false,
 };
@@ -55,7 +53,6 @@ const WEATHER_LAYER_PRESET = {
   weatherAlerts: true,
   aqi: true,
   smoke: true,
-  drought: true,
   goesEast: true,
   goesWest: false,
 };
@@ -117,17 +114,6 @@ export default function LiveTrackerPage() {
     refresh: refreshStormReports,
   } = useStormReports(activeMapTab === MAP_TABS.weather);
 
-  // Drought data (low-frequency – load once, refreshable)
-  const [droughtGeoJSON, setDroughtGeoJSON] = useState(null);
-  const refreshDrought = useCallback(() => {
-    fetchDroughtData().then(setDroughtGeoJSON).catch(console.warn);
-  }, []);
-  useEffect(() => {
-    if (layers.drought && !droughtGeoJSON) {
-      refreshDrought();
-    }
-  }, [layers.drought, droughtGeoJSON, refreshDrought]);
-
   // ── Global loading state ──
   const anyLoading = hotspotsLoading || perimetersLoading || incidentsLoading;
   useEffect(() => { setLoading(anyLoading); }, [anyLoading, setLoading]);
@@ -143,8 +129,7 @@ export default function LiveTrackerPage() {
     refreshIncidents();
     refreshStormReports();
     if (layers.aqi) refreshAQI();
-    if (layers.drought) refreshDrought();
-  }, [refreshHotspots, refreshPerimeters, refreshAlerts, refreshIncidents, refreshStormReports, refreshAQI, refreshDrought, layers.aqi, layers.drought]);
+  }, [refreshHotspots, refreshPerimeters, refreshAlerts, refreshIncidents, refreshStormReports, refreshAQI, layers.aqi]);
 
   return (
     <div className="h-screen w-screen flex flex-col bg-sentinel-900 text-white overflow-hidden select-none">
@@ -195,7 +180,6 @@ export default function LiveTrackerPage() {
             incidentDotsGeoJSON={incidentDotsGeoJSON}
             aqiGeoJSON={aqiGeoJSON}
             alertsGeoJSON={alertsGeoJSON}
-            droughtGeoJSON={droughtGeoJSON}
             spcReportsGeoJSON={spcGeoJSON}
             iemReportsGeoJSON={iemGeoJSON}
           />
