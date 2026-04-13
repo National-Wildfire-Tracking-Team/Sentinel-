@@ -8,11 +8,11 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import {
   Flame, Search, MapPin, ChevronDown, FileText, ImageIcon,
-  Upload, X, LogOut, AlertCircle, CheckCircle2, Send, User,
+  Upload, X, LogOut, AlertCircle, CheckCircle2, Send, User, RefreshCw,
 } from 'lucide-react';
 
 import { useAuth } from '../context/AuthContext';
-import { submitFireReport } from '../hooks/useFireReports';
+import { appendFireReportUpdate, submitFireReport, useFireReports } from '../hooks/useFireReports';
 
 /* ── Static data ── */
 
@@ -174,6 +174,11 @@ export default function SubmitReportPage() {
   const [busy,    setBusy]    = useState(false);
   const [error,   setError]   = useState(null);
   const [success, setSuccess] = useState(null);
+  const [updateState, setUpdateState] = useState({});
+  const [updateBusy, setUpdateBusy] = useState({});
+  const [updateFeedback, setUpdateFeedback] = useState({});
+  const { reports: allReports, refresh: refreshReports } = useFireReports('all');
+  const myReports = allReports.filter((r) => r.user_id === user.id);
 
   /* ── Guards ── */
   if (loading) {
@@ -301,7 +306,7 @@ export default function SubmitReportPage() {
         userId:      user.id,
       });
 
-      setSuccess('Report submitted successfully! It will appear on the public map after moderator review.');
+      setSuccess('Report submitted successfully!');
 
       /* Reset */
       setAddressSearch(''); setIsIntersection(false);
@@ -315,6 +320,38 @@ export default function SubmitReportPage() {
       setError(err?.message || 'Failed to submit report.');
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function handleReportUpdate(report) {
+    const state = updateState[report.id] || { acreage: '', notes: '' };
+    setUpdateBusy((prev) => ({ ...prev, [report.id]: true }));
+    setUpdateFeedback((prev) => ({ ...prev, [report.id]: null }));
+
+    try {
+      await appendFireReportUpdate({
+        id: report.id,
+        description: report.description || '',
+        acreage: state.acreage,
+        notes: state.notes,
+      });
+
+      setUpdateState((prev) => ({
+        ...prev,
+        [report.id]: { acreage: '', notes: '' },
+      }));
+      setUpdateFeedback((prev) => ({
+        ...prev,
+        [report.id]: { type: 'success', message: 'Fire update posted.' },
+      }));
+      refreshReports();
+    } catch (err) {
+      setUpdateFeedback((prev) => ({
+        ...prev,
+        [report.id]: { type: 'error', message: err?.message || 'Failed to update fire.' },
+      }));
+    } finally {
+      setUpdateBusy((prev) => ({ ...prev, [report.id]: false }));
     }
   }
 
@@ -363,8 +400,82 @@ export default function SubmitReportPage() {
         <div className="mb-7">
           <h1 className="text-2xl font-bold text-white">New Incident Report</h1>
           <p className="text-sentinel-400 text-sm mt-1">
-            Complete all required (<span className="text-red-400">*</span>) fields and submit for NWTT moderator review.
+            Complete all required (<span className="text-red-400">*</span>) fields and submit your report.
           </p>
+        </div>
+
+        <div className={`${SECTION_CLS} mb-6`}>
+          <SectionHeader icon={RefreshCw}>Update Reported Fires</SectionHeader>
+          {myReports.length === 0 ? (
+            <p className="text-sm text-sentinel-400">
+              You have not submitted any fires yet.
+            </p>
+          ) : (
+            <div className="space-y-4">
+              {myReports.map((report) => {
+                const state = updateState[report.id] || { acreage: '', notes: '' };
+                const feedback = updateFeedback[report.id];
+                return (
+                  <div key={report.id} className="rounded-lg border border-sentinel-700 bg-sentinel-900/40 p-4">
+                    <div className="flex items-center justify-between gap-3 mb-3">
+                      <div>
+                        <h3 className="text-sm font-semibold text-white">{report.title}</h3>
+                        <p className="text-xs text-sentinel-400">
+                          Last activity: {new Date(report.created_at).toLocaleString()}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className={LABEL_CLS}>Updated Acreage</label>
+                        <input
+                          type="text"
+                          value={state.acreage}
+                          onChange={(e) => setUpdateState((prev) => ({
+                            ...prev,
+                            [report.id]: { ...state, acreage: e.target.value },
+                          }))}
+                          placeholder="e.g. 1,200 acres"
+                          className={INPUT_CLS}
+                        />
+                      </div>
+                      <div className="sm:col-span-2">
+                        <label className={LABEL_CLS}>Additional Notes (Watch Duty, etc.)</label>
+                        <textarea
+                          rows={3}
+                          value={state.notes}
+                          onChange={(e) => setUpdateState((prev) => ({
+                            ...prev,
+                            [report.id]: { ...state, notes: e.target.value },
+                          }))}
+                          placeholder="Add intel updates, Watch Duty references, behavior changes, evacuations..."
+                          className={INPUT_CLS + ' resize-y'}
+                        />
+                      </div>
+                    </div>
+
+                    {feedback && (
+                      <p className={`text-xs mt-2 ${feedback.type === 'success' ? 'text-green-300' : 'text-red-300'}`}>
+                        {feedback.message}
+                      </p>
+                    )}
+
+                    <div className="mt-3 flex justify-end">
+                      <button
+                        type="button"
+                        disabled={!!updateBusy[report.id]}
+                        onClick={() => handleReportUpdate(report)}
+                        className="px-4 py-2 rounded-lg text-xs font-semibold bg-[#0096ff] text-white hover:brightness-110 disabled:opacity-50"
+                      >
+                        {updateBusy[report.id] ? 'Updating…' : 'Post Fire Update'}
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">

@@ -57,7 +57,7 @@ create table if not exists public.fire_reports (
   description text not null,
   latitude    double precision not null,
   longitude   double precision not null,
-  status      text not null default 'pending'
+  status      text not null default 'approved'
                 check (status in ('pending','approved','rejected')),
   created_at  timestamptz not null default now(),
   user_id     uuid not null references auth.users(id) on delete cascade
@@ -107,11 +107,11 @@ create policy "reports admin read all"
   on public.fire_reports for select
   using (public.is_admin());
 
--- Logged-in users can insert their OWN reports, forced to 'pending' status
+-- Logged-in users can insert their OWN reports
 drop policy if exists "reports insert own" on public.fire_reports;
 create policy "reports insert own"
   on public.fire_reports for insert
-  with check (auth.uid() = user_id and status = 'pending');
+  with check (auth.uid() = user_id and status in ('approved','pending'));
 
 -- Only admins can change status (approve / reject)
 drop policy if exists "reports admin update" on public.fire_reports;
@@ -119,6 +119,14 @@ create policy "reports admin update"
   on public.fire_reports for update
   using (public.is_admin())
   with check (public.is_admin());
+
+-- Reporters can update details for their own fires (description/title/location),
+-- but cannot reassign ownership.
+drop policy if exists "reports update own details" on public.fire_reports;
+create policy "reports update own details"
+  on public.fire_reports for update
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
 
 
 -- ─── 4. Realtime ───────────────────────────────────────────────────────────
