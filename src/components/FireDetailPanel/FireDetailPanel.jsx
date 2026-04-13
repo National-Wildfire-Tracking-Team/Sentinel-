@@ -1,12 +1,13 @@
 /**
  * FireDetailPanel.jsx
  * Slide-in panel showing detailed info for a selected fire hotspot,
- * fire perimeter, or AQI station.
+ * fire perimeter, AQI station, or NOAA weather alert.
  */
 
 import {
   X, Flame, MapPin, Users, Home, Calendar, Thermometer,
   AlertTriangle, Wind, ExternalLink, TrendingUp, ShieldAlert,
+  CloudRain, Clock, Info,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import {
@@ -14,6 +15,7 @@ import {
   formatDate, formatPersonnel, formatRelativeTime,
 } from '../../utils/formatUtils';
 import { frpToLabel, containmentToColor, aqiToColor, getAQICategory } from '../../utils/colorUtils';
+import { nwsAlertColor } from '../../utils/nwsColors';
 import { MOCK_INCIDENTS } from '../../data/mockData';
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
@@ -279,6 +281,141 @@ function IncidentDetail({ fire }) {
   );
 }
 
+function AlertDetail({ fire, alerts }) {
+  // Look up the full alert record (with description, instruction, etc.)
+  // from context — the map feature only carries a summarized set of props.
+  const full = alerts?.find(a => a.id === fire.id) || {};
+
+  const type = fire.name || full.type;
+  const severity = fire.severity || full.severity;
+
+  // Use the official NWS color for this alert type.
+  const typeColor = nwsAlertColor(type);
+
+  return (
+    <>
+      <div className="flex items-center gap-2 mb-4">
+        <div
+          className="p-2 rounded-lg"
+          style={{ backgroundColor: typeColor + '30' }}
+        >
+          <AlertTriangle size={18} style={{ color: typeColor }} />
+        </div>
+        <div>
+          <h3 className="font-bold text-white text-base">{type}</h3>
+          <p className="text-sentinel-400 text-xs">{full.senderName || 'National Weather Service'}</p>
+        </div>
+      </div>
+
+      {fire.headline && (
+        <div
+          className="mb-4 p-3 rounded-lg text-xs leading-relaxed"
+          style={{ backgroundColor: typeColor + '20', border: `1px solid ${typeColor}40`, color: typeColor }}
+        >
+          {fire.headline}
+        </div>
+      )}
+
+      <div className="grid grid-cols-2 gap-2 mb-4">
+        {severity && <StatBlock label="Severity" value={severity} color="text-white" />}
+        {full.urgency && <StatBlock label="Urgency" value={full.urgency} />}
+        {full.certainty && <StatBlock label="Certainty" value={full.certainty} />}
+        {fire.expires && (
+          <StatBlock label="Expires" value={formatRelativeTime(fire.expires)} icon={Calendar} />
+        )}
+      </div>
+
+      {full.affectedArea && (
+        <div className="mb-4">
+          <div className="text-[10px] font-bold text-sentinel-500 uppercase tracking-widest mb-1.5">
+            Affected Area
+          </div>
+          <div className="flex items-start gap-2 text-xs text-sentinel-300">
+            <MapPin size={12} className="shrink-0 mt-0.5" />
+            <span>{full.affectedArea}</span>
+          </div>
+        </div>
+      )}
+
+      {full.description && (
+        <div className="mb-4">
+          <div className="text-[10px] font-bold text-sentinel-500 uppercase tracking-widest mb-1.5">
+            Description
+          </div>
+          <p className="text-xs text-sentinel-300 leading-relaxed whitespace-pre-line">
+            {full.description}
+          </p>
+        </div>
+      )}
+
+      {full.instruction && (
+        <div className="mb-2 p-3 bg-red-950/30 border border-red-900/50 rounded-lg">
+          <div className="text-[10px] font-bold text-red-400 uppercase tracking-widest mb-1.5">
+            Instructions
+          </div>
+          <p className="text-xs text-red-200/90 leading-relaxed whitespace-pre-line">
+            {full.instruction}
+          </p>
+        </div>
+      )}
+    </>
+  );
+}
+
+function UserReportDetail({ fire }) {
+  return (
+    <>
+      <div className="flex items-center gap-2 mb-4">
+        <div className="p-2 bg-cyan-900/40 rounded-lg">
+          <Flame size={18} className="text-cyan-300" />
+        </div>
+        <div>
+          <h3 className="font-bold text-white text-base">{fire.title}</h3>
+          <p className="text-sentinel-400 text-xs">Community-submitted report</p>
+        </div>
+      </div>
+
+      {fire.description && (
+        <div className="mb-4 p-3 bg-sentinel-800/60 border border-sentinel-700 rounded-lg">
+          <div className="text-[10px] font-bold text-sentinel-500 uppercase tracking-widest mb-1.5">
+            Description
+          </div>
+          <p className="text-xs text-sentinel-200 leading-relaxed whitespace-pre-wrap">
+            {fire.description}
+          </p>
+        </div>
+      )}
+
+      <div className="space-y-1.5 text-xs text-sentinel-400 mb-4">
+        <div className="flex items-center gap-2">
+          <MapPin size={12} />
+          <span>{fire.lat?.toFixed(4)}°, {fire.lng?.toFixed(4)}°</span>
+        </div>
+        {fire.created_at && (
+          <div className="flex items-center gap-2">
+            <Calendar size={12} />
+            <span>Submitted: {formatDateTime(fire.created_at)}</span>
+          </div>
+        )}
+        {fire.user_id && (
+          <div className="flex items-center gap-2">
+            <Users size={12} />
+            <span>Reporter: {String(fire.user_id).slice(0, 8)}…</span>
+          </div>
+        )}
+      </div>
+
+      <div className="p-3 bg-cyan-950/30 border border-cyan-900/50 rounded-lg">
+        <p className="text-xs text-cyan-200/80 leading-relaxed">
+          This report was submitted by a community reporter and reviewed by
+          NWTT moderators before appearing on the map. Verify with official
+          sources before taking action.
+        </p>
+      </div>
+    </>
+  );
+}
+
 function AQIDetail({ fire }) {
   const cat = getAQICategory(fire.aqi);
   return (
@@ -323,7 +460,7 @@ function AQIDetail({ fire }) {
 // ─── Main Panel ───────────────────────────────────────────────────────────────
 
 export default function FireDetailPanel() {
-  const { selectedFire, clearSelected } = useApp();
+  const { selectedFire, clearSelected, alerts } = useApp();
 
   if (!selectedFire) return null;
 
@@ -337,7 +474,7 @@ export default function FireDetailPanel() {
 
       {/* Panel */}
       <div className="absolute right-4 top-4 bottom-4 z-30 w-72 sm:w-80
-                      bg-sentinel-900/97 backdrop-blur-sm border border-sentinel-700
+                      bg-sentinel-900 border border-sentinel-700
                       rounded-2xl shadow-2xl overflow-hidden flex flex-col
                       animate-slide-in-right">
         {/* Panel header */}
@@ -346,6 +483,8 @@ export default function FireDetailPanel() {
             {selectedFire.type === 'hotspot'  ? 'Hotspot Detail' :
              selectedFire.type === 'incident' ? 'Incident Detail' :
              selectedFire.type === 'aqi'      ? 'Air Quality' :
+             selectedFire.type === 'alert'    ? 'Weather Alert' :
+             selectedFire.type === 'user-report' ? 'Community Report' :
              'Fire Detail'}
           </span>
           <button
@@ -363,6 +502,8 @@ export default function FireDetailPanel() {
           {selectedFire.type === 'perimeter' && <PerimeterDetail fire={selectedFire} />}
           {selectedFire.type === 'incident' && <IncidentDetail  fire={selectedFire} />}
           {selectedFire.type === 'aqi'      && <AQIDetail       fire={selectedFire} />}
+          {selectedFire.type === 'alert'    && <AlertDetail     fire={selectedFire} alerts={alerts} />}
+          {selectedFire.type === 'user-report' && <UserReportDetail fire={selectedFire} />}
         </div>
       </div>
     </>

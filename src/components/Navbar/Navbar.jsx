@@ -1,6 +1,8 @@
 import { useState } from 'react';
-import { Link, NavLink } from 'react-router-dom';
-import { Flame, Menu, X } from 'lucide-react';
+import { Link, NavLink, useNavigate } from 'react-router-dom';
+import { Flame, Menu, X, LogIn, LogOut, ShieldCheck, Send } from 'lucide-react';
+
+import { useAuth } from '../../context/AuthContext';
 
 const navLinks = [
   { to: '/', label: 'Home' },
@@ -10,6 +12,14 @@ const navLinks = [
 
 export default function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const { isAuthenticated, isAdmin, signOut } = useAuth();
+  const navigate = useNavigate();
+
+  const handleSignOut = async () => {
+    await signOut();
+    setMobileOpen(false);
+    navigate('/');
+  };
 
   return (
     <nav className="sticky top-0 z-50 bg-sentinel-900/95 backdrop-blur-md border-b border-sentinel-700">
@@ -49,6 +59,58 @@ export default function Navbar() {
                 {link.label}
               </NavLink>
             ))}
+            {isAuthenticated ? (
+              <NavLink
+                to="/submit-report"
+                className={({ isActive }) =>
+                  `inline-flex items-center gap-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    isActive
+                      ? 'bg-fire-600/15 text-fire-400'
+                      : 'text-sentinel-200 hover:text-white hover:bg-sentinel-700/60'
+                  }`
+                }
+              >
+                <Send size={13} /> Report a Fire
+              </NavLink>
+            ) : (
+              <NavLink
+                to="/login"
+                className={({ isActive }) =>
+                  `inline-flex items-center gap-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    isActive
+                      ? 'bg-fire-600/15 text-fire-400'
+                      : 'text-sentinel-200 hover:text-white hover:bg-sentinel-700/60'
+                  }`
+                }
+              >
+                <LogIn size={13} /> Reporter Sign In
+              </NavLink>
+            )}
+
+            {isAdmin && (
+              <NavLink
+                to="/admin"
+                className={({ isActive }) =>
+                  `inline-flex items-center gap-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    isActive
+                      ? 'bg-fire-600/15 text-fire-400'
+                      : 'text-sentinel-200 hover:text-white hover:bg-sentinel-700/60'
+                  }`
+                }
+              >
+                <ShieldCheck size={13} /> Admin
+              </NavLink>
+            )}
+
+            {isAuthenticated && (
+              <button
+                onClick={handleSignOut}
+                className="inline-flex items-center gap-1 px-3 py-2 rounded-lg text-sm font-medium text-sentinel-300 hover:text-white hover:bg-sentinel-700/60 transition-colors"
+              >
+                <LogOut size={13} /> Sign Out
+              </button>
+            )}
+
             <NavLink
               to="/live-tracker"
               className="ml-2 px-4 py-2 rounded-lg text-sm font-semibold bg-fire-600 text-white hover:bg-fire-500 transition-colors"
@@ -89,6 +151,41 @@ export default function Navbar() {
                 {link.label}
               </NavLink>
             ))}
+
+            {isAuthenticated ? (
+              <NavLink
+                to="/submit-report"
+                onClick={() => setMobileOpen(false)}
+                className="block px-4 py-2.5 rounded-lg text-sm font-medium text-sentinel-200 hover:text-white hover:bg-sentinel-700/60"
+              >
+                Report a Fire
+              </NavLink>
+            ) : (
+              <NavLink
+                to="/login"
+                onClick={() => setMobileOpen(false)}
+                className="block px-4 py-2.5 rounded-lg text-sm font-medium text-sentinel-200 hover:text-white hover:bg-sentinel-700/60"
+              >
+                Reporter Sign In
+              </NavLink>
+            )}
+            {isAdmin && (
+              <NavLink
+                to="/admin"
+                onClick={() => setMobileOpen(false)}
+                className="block px-4 py-2.5 rounded-lg text-sm font-medium text-sentinel-200 hover:text-white hover:bg-sentinel-700/60"
+              >
+                Admin Dashboard
+              </NavLink>
+            )}
+            {isAuthenticated && (
+              <button
+                onClick={handleSignOut}
+                className="w-full text-left block px-4 py-2.5 rounded-lg text-sm font-medium text-sentinel-300 hover:text-white hover:bg-sentinel-700/60"
+              >
+                Sign Out
+              </button>
+            )}
           </div>
         </div>
       )}

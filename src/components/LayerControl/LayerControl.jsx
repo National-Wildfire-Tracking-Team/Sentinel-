@@ -17,6 +17,7 @@ const LAYER_GROUPS = [
       { key: 'fireHotspots',      label: 'Fire Hotspots',       sublabel: 'NASA FIRMS VIIRS',   icon: Flame,    color: '#ff4500' },
       { key: 'firePerimeters',    label: 'Fire Perimeters',     sublabel: 'NIFC WFIGS',         icon: MapPin,   color: '#ff6600' },
       { key: 'incidentLocations', label: 'Incident Locations',  sublabel: 'WFIGS Current',      icon: Flame,    color: '#f59e0b' },
+      { key: 'userReports',       label: 'Community Reports',   sublabel: 'NWTT verified',      icon: Flame,    color: '#22d3ee' },
     ],
   },
   {
@@ -30,7 +31,6 @@ const LAYER_GROUPS = [
     label: 'Weather',
     layers: [
       { key: 'weatherAlerts', label: 'Fire Weather Alerts', sublabel: 'NOAA NWS', icon: Wind, color: '#ef4444' },
-      { key: 'drought', label: 'Drought Monitor', sublabel: 'USDA/UNL USDM', icon: Wind, color: '#ffaa00' },
       { key: 'spcReports', label: 'SPC Storm Reports', sublabel: 'NOAA SPC live reports', icon: CloudLightning, color: '#06b6d4' },
       { key: 'iemReports', label: 'IEM Storm Reports', sublabel: 'Iowa State Mesonet GeoJSON', icon: CloudLightning, color: '#60a5fa' },
     ],
