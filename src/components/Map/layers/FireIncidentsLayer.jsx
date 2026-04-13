@@ -6,10 +6,14 @@
 
 import { Source, Layer } from 'react-map-gl';
 
+// Hide fire dots below 0.4 acres
+const MIN_ACRES_FILTER = ['>=', ['get', 'GISAcres'], 0.4];
+
 const incidentCircleLayer = {
   id: 'fire-incidents-circle',
   type: 'circle',
   source: 'fire-incidents',
+  filter: MIN_ACRES_FILTER,
   paint: {
     'circle-radius': 7,
     'circle-color': '#ffaa00',
@@ -24,6 +28,7 @@ const incidentGlowLayer = {
   id: 'fire-incidents-glow',
   type: 'circle',
   source: 'fire-incidents',
+  filter: MIN_ACRES_FILTER,
   paint: {
     'circle-radius': 14,
     'circle-color': '#ff8c00',
