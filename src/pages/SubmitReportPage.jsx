@@ -1,86 +1,250 @@
 /**
  * SubmitReportPage.jsx
- * Form for signed-in reporters to submit a new wildfire report.
- * Location can be set by clicking on the map OR by typing coordinates manually.
- * All new reports default to status = "pending" (enforced by RLS).
+ * Reporter dashboard — multi-section incident reporting form.
+ * Sections: Address · Incident Details · Notes · Image Attachments
  */
 
-import { useCallback, useState } from 'react';
-import { Link, Navigate, useNavigate } from 'react-router-dom';
-import Map, { Marker, NavigationControl } from 'react-map-gl';
-import 'mapbox-gl/dist/mapbox-gl.css';
-import { Flame, MapPin, Send, AlertCircle, CheckCircle2, LogOut } from 'lucide-react';
+import { useState, useRef, useCallback } from 'react';
+import { Navigate, useNavigate } from 'react-router-dom';
+import {
+  Flame, Search, MapPin, ChevronDown, FileText, ImageIcon,
+  Upload, X, LogOut, AlertCircle, CheckCircle2, Send, User,
+} from 'lucide-react';
 
 import { useAuth } from '../context/AuthContext';
 import { submitFireReport } from '../hooks/useFireReports';
 
-const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN || '';
-const MAP_STYLE = MAPBOX_TOKEN
-  ? 'mapbox://styles/mapbox/satellite-streets-v12'
-  : 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json';
+/* ── Static data ── */
+
+const US_STATES = [
+  'Alabama','Alaska','Arizona','Arkansas','California','Colorado','Connecticut',
+  'Delaware','Florida','Georgia','Hawaii','Idaho','Illinois','Indiana','Iowa',
+  'Kansas','Kentucky','Louisiana','Maine','Maryland','Massachusetts','Michigan',
+  'Minnesota','Mississippi','Missouri','Montana','Nebraska','Nevada',
+  'New Hampshire','New Jersey','New Mexico','New York','North Carolina',
+  'North Dakota','Ohio','Oklahoma','Oregon','Pennsylvania','Rhode Island',
+  'South Carolina','South Dakota','Tennessee','Texas','Utah','Vermont',
+  'Virginia','Washington','West Virginia','Wisconsin','Wyoming',
+];
+
+const US_COUNTIES = [
+  'Adams','Allen','Apache','Atlantic','Bexar','Boulder','Broward','Butte',
+  'Canyon','Charlotte','Chelan','Cherokee','Clark','Clay','Cochise','Coconino',
+  'Collin','Columbia','Cook','Dallas','Davidson','Davis','Deschutes','Douglas',
+  'Duval','El Dorado','El Paso','Elko','Escambia','Fairfax','Flagler',
+  'Flathead','Fresno','Garfield','Grant','Guilford','Hamilton','Harris',
+  'Hillsborough','Hood River','Humboldt','Idaho','Jackson','Jefferson',
+  'Josephine','Kootenai','Lake','Lane','Larimer','Lee','Lincoln','Linn',
+  'Los Angeles','Maricopa','Marion','Mecklenburg','Miami-Dade','Mohave',
+  'Monroe','Montgomery','Multnomah','Navajo','New Hanover','Okanogan','Orange',
+  'Palm Beach','Pima','Pinal','Pinellas','Placer','Polk','Riverside',
+  'Sacramento','Salt Lake','San Bernardino','San Diego','San Francisco',
+  'San Joaquin','Santa Barbara','Santa Clara','Sarasota','Shasta','Siskiyou',
+  'Snohomish','Spokane','Summit','Tarrant','Travis','Trinity','Tulare','Tulsa',
+  'Utah','Ventura','Wake','Wasco','Washington','Washoe','Whatcom',
+  'Yakima','Yavapai','Yolo','Yuma',
+].sort();
+
+/* ── Searchable county dropdown ── */
+
+function CountySelect({ value, onChange }) {
+  const [open,   setOpen]   = useState(false);
+  const [query,  setQuery]  = useState(value || '');
+
+  const filtered = query.trim().length >= 1
+    ? US_COUNTIES.filter((c) => c.toLowerCase().includes(query.toLowerCase()))
+    : US_COUNTIES;
+
+  function select(county) {
+    onChange(county);
+    setQuery(county);
+    setOpen(false);
+  }
+
+  return (
+    <div className="relative">
+      <div className="relative">
+        <Search
+          size={13}
+          className="absolute left-3 top-1/2 -translate-y-1/2 text-sentinel-400 pointer-events-none"
+        />
+        <input
+          type="text"
+          value={query}
+          onChange={(e) => { setQuery(e.target.value); onChange(e.target.value); setOpen(true); }}
+          onFocus={() => setOpen(true)}
+          onBlur={() => setTimeout(() => setOpen(false), 150)}
+          placeholder="Search county…"
+          className={INPUT_CLS + ' pl-8 pr-7'}
+        />
+        <ChevronDown
+          size={13}
+          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-sentinel-400 pointer-events-none"
+        />
+      </div>
+
+      {open && filtered.length > 0 && (
+        <ul className="absolute z-30 mt-1 w-full max-h-48 overflow-y-auto
+                       rounded-lg bg-sentinel-700 border border-sentinel-600 shadow-2xl">
+          {filtered.slice(0, 40).map((county) => (
+            <li key={county}>
+              <button
+                type="button"
+                onMouseDown={() => select(county)}
+                className="w-full text-left px-3 py-2 text-sm text-sentinel-100
+                           hover:bg-sentinel-600 transition-colors"
+              >
+                {county}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+/* ── Shared style tokens ── */
+const INPUT_CLS =
+  'w-full px-3 py-2.5 rounded-lg bg-sentinel-800 border border-sentinel-700 text-white ' +
+  'placeholder-sentinel-500 focus:outline-none focus:border-[#0096ff] ' +
+  'focus:ring-1 focus:ring-[#0096ff]/20 transition-colors text-sm';
+
+const LABEL_CLS =
+  'block text-xs font-semibold text-sentinel-300 uppercase tracking-wider mb-1.5';
+
+const SECTION_CLS =
+  'bg-sentinel-800/40 border border-sentinel-700 rounded-xl p-6';
+
+function SectionHeader({ icon: Icon, iconColor = 'text-[#0096ff]', children }) {
+  return (
+    <div className="flex items-center gap-2 mb-5">
+      <Icon size={15} className={iconColor} />
+      <h2 className="text-white font-semibold text-sm uppercase tracking-wider">
+        {children}
+      </h2>
+    </div>
+  );
+}
+
+/* ══════════════════════════════════════════════════════════
+   Main page
+══════════════════════════════════════════════════════════ */
 
 export default function SubmitReportPage() {
   const { user, profile, loading, signOut, isSupabaseConfigured } = useAuth();
   const navigate = useNavigate();
 
-  const [title, setTitle]             = useState('');
-  const [description, setDescription] = useState('');
-  const [lat, setLat]                 = useState('');
-  const [lng, setLng]                 = useState('');
-  const [busy, setBusy]               = useState(false);
-  const [error, setError]             = useState(null);
-  const [success, setSuccess]         = useState(null);
+  /* Address */
+  const [addressSearch, setAddressSearch] = useState('');
+  const [isIntersection, setIsIntersection] = useState(false);
+  const [address1,   setAddress1]   = useState('');
+  const [address2,   setAddress2]   = useState('');
+  const [city,       setCity]       = useState('');
+  const [county,     setCounty]     = useState('');
+  const [usState,    setUsState]    = useState('');
+  const [zip,        setZip]        = useState('');
+  const [jurisdiction, setJurisdiction] = useState('');
 
-  const handleMapClick = useCallback((evt) => {
-    const { lat: clickedLat, lng: clickedLng } = evt.lngLat || {};
-    if (Number.isFinite(clickedLat) && Number.isFinite(clickedLng)) {
-      setLat(clickedLat.toFixed(5));
-      setLng(clickedLng.toFixed(5));
-    }
-  }, []);
+  /* Incident details */
+  const [fireName, setFireName] = useState('');
 
+  /* Notes */
+  const [incidentNotes, setIncidentNotes] = useState('');
+  const [internalNotes, setInternalNotes] = useState('');
+
+  /* Images */
+  const [images,   setImages]   = useState([]);
+  const [dragging, setDragging] = useState(false);
+  const fileInputRef = useRef(null);
+
+  /* Submission */
+  const [busy,    setBusy]    = useState(false);
+  const [error,   setError]   = useState(null);
+  const [success, setSuccess] = useState(null);
+
+  /* ── Guards ── */
   if (loading) {
     return (
-      <div className="max-w-2xl mx-auto px-4 py-16 text-sentinel-300">Loading…</div>
+      <div className="min-h-screen bg-[#0a0c0e] flex items-center justify-center text-sentinel-300 text-sm">
+        Loading…
+      </div>
     );
   }
-
   if (!user) {
     return <Navigate to="/login" state={{ from: '/submit-report' }} replace />;
   }
 
+  /* ── Image helpers ── */
+  function handleFiles(files) {
+    const imageFiles = Array.from(files).filter((f) => f.type.startsWith('image/'));
+    const previews   = imageFiles.map((file) => ({
+      file,
+      preview: URL.createObjectURL(file),
+      name: file.name,
+    }));
+    setImages((prev) => [...prev, ...previews]);
+  }
+
+  function removeImage(idx) {
+    setImages((prev) => {
+      URL.revokeObjectURL(prev[idx].preview);
+      return prev.filter((_, i) => i !== idx);
+    });
+  }
+
+  /* ── Submit ── */
   async function handleSubmit(e) {
     e.preventDefault();
     setError(null);
     setSuccess(null);
 
-    const latNum = parseFloat(lat);
-    const lngNum = parseFloat(lng);
-
-    if (!title.trim() || !description.trim()) {
-      setError('Please provide a title and description.');
+    if (!fireName.trim()) {
+      setError('Fire name is required.');
       return;
     }
-    if (!Number.isFinite(latNum) || !Number.isFinite(lngNum) ||
-        latNum < -90 || latNum > 90 || lngNum < -180 || lngNum > 180) {
-      setError('Please provide a valid location (click the map or enter coordinates).');
+    if (!incidentNotes.trim()) {
+      setError('Incident Notes are required.');
+      return;
+    }
+    if (!address1.trim() || !city.trim() || !usState || !zip.trim() || !jurisdiction.trim()) {
+      setError('Please complete all required (*) address fields.');
       return;
     }
 
     setBusy(true);
     try {
+      const locationLine =
+        [address1, address2].filter(Boolean).join(', ') +
+        `, ${city}` +
+        (county ? `, ${county} County` : '') +
+        `, ${usState} ${zip}`;
+
+      const description = [
+        `ADDRESS: ${locationLine}`,
+        `JURISDICTION: ${jurisdiction}`,
+        isIntersection ? 'INTERSECTION SEARCH: Yes' : null,
+        `\nINCIDENT NOTES:\n${incidentNotes}`,
+        internalNotes.trim() ? `\nINTERNAL NOTES:\n${internalNotes}` : null,
+      ].filter(Boolean).join('\n');
+
       await submitFireReport({
-        title: title.trim(),
-        description: description.trim(),
-        latitude: latNum,
-        longitude: lngNum,
-        userId: user.id,
+        title:       fireName.trim(),
+        description,
+        latitude:    0,
+        longitude:   0,
+        userId:      user.id,
       });
-      setSuccess('Report submitted! It will appear on the public map after review.');
-      setTitle('');
-      setDescription('');
-      setLat('');
-      setLng('');
+
+      setSuccess('Report submitted successfully! It will appear on the public map after moderator review.');
+
+      /* Reset */
+      setAddressSearch(''); setIsIntersection(false);
+      setAddress1(''); setAddress2(''); setCity(''); setCounty('');
+      setUsState(''); setZip(''); setJurisdiction('');
+      setFireName(''); setIncidentNotes(''); setInternalNotes('');
+      images.forEach((img) => URL.revokeObjectURL(img.preview));
+      setImages([]);
     } catch (err) {
       setError(err?.message || 'Failed to submit report.');
     } finally {
@@ -88,165 +252,358 @@ export default function SubmitReportPage() {
     }
   }
 
-  const markerLat = parseFloat(lat);
-  const markerLng = parseFloat(lng);
-  const hasMarker = Number.isFinite(markerLat) && Number.isFinite(markerLng);
-
+  /* ── Render ── */
   return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 py-10">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-2">
-          <Flame size={22} className="text-fire-500" />
-          <h1 className="text-2xl font-bold text-white">Submit a Fire Report</h1>
+    <div className="min-h-screen bg-[#0a0c0e] flex flex-col">
+
+      {/* ── Dashboard header ── */}
+      <header className="bg-sentinel-900 border-b border-sentinel-700/80 px-5 py-3
+                         flex items-center justify-between sticky top-0 z-20">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-lg bg-fire-600/15 border border-fire-500/25
+                          flex items-center justify-center">
+            <Flame size={16} className="text-fire-400" />
+          </div>
+          <span className="text-white font-bold text-sm tracking-tight">Sentinel</span>
+          <span className="text-sentinel-600 text-sm">|</span>
+          <span className="text-sentinel-300 text-sm">Reporter Dashboard</span>
         </div>
-        <div className="flex items-center gap-3 text-xs text-sentinel-300">
-          <span>
-            Signed in as <span className="text-white">{profile?.email || user.email}</span>
+
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-1.5 text-xs text-sentinel-300">
+            <User size={12} />
+            <span className="max-w-[200px] truncate">
+              {profile?.email || user.email}
+            </span>
             {profile?.role === 'admin' && (
-              <span className="ml-2 px-1.5 py-0.5 rounded bg-fire-600/20 border border-fire-600/40 text-fire-300">
+              <span className="ml-1 px-1.5 py-0.5 rounded bg-fire-600/20 border border-fire-600/40
+                               text-fire-300 text-[10px] font-semibold">
                 admin
               </span>
             )}
-          </span>
+          </div>
           <button
             onClick={async () => { await signOut(); navigate('/'); }}
-            className="inline-flex items-center gap-1 text-sentinel-300 hover:text-white"
+            className="flex items-center gap-1.5 text-xs text-sentinel-400 hover:text-white transition-colors"
           >
-            <LogOut size={13} /> Sign out
+            <LogOut size={12} /> Sign out
           </button>
         </div>
-      </div>
+      </header>
 
-      <p className="text-sentinel-300 text-sm mb-6">
-        Reports are reviewed by NWTT moderators before appearing on the public
-        live map. Please include clear details and an accurate location.
-      </p>
+      {/* ── Content ── */}
+      <div className="flex-1 max-w-4xl mx-auto w-full px-4 sm:px-6 py-8">
 
-      <form onSubmit={handleSubmit} className="grid md:grid-cols-2 gap-6">
-        {/* Left – form inputs */}
-        <div className="space-y-4">
-          <div>
-            <label htmlFor="title" className="block text-xs font-semibold text-sentinel-200 uppercase mb-1.5">
-              Title
-            </label>
-            <input
-              id="title"
-              type="text"
-              required
-              maxLength={120}
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="e.g., Smoke column visible on Hwy 20"
-              className="w-full px-3 py-2 rounded-lg bg-sentinel-800 border border-sentinel-700
-                         text-white placeholder-sentinel-400 focus:border-fire-500 focus:outline-none"
-            />
-          </div>
+        <div className="mb-7">
+          <h1 className="text-2xl font-bold text-white">New Incident Report</h1>
+          <p className="text-sentinel-400 text-sm mt-1">
+            Complete all required (<span className="text-red-400">*</span>) fields and submit for NWTT moderator review.
+          </p>
+        </div>
 
-          <div>
-            <label htmlFor="description" className="block text-xs font-semibold text-sentinel-200 uppercase mb-1.5">
-              Description
-            </label>
-            <textarea
-              id="description"
-              required
-              rows={5}
-              maxLength={2000}
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="What did you see? When? Any landmarks, road names, wind direction…"
-              className="w-full px-3 py-2 rounded-lg bg-sentinel-800 border border-sentinel-700
-                         text-white placeholder-sentinel-400 focus:border-fire-500 focus:outline-none resize-y"
-            />
-          </div>
+        <form onSubmit={handleSubmit} className="space-y-6">
 
-          <div>
-            <label className="block text-xs font-semibold text-sentinel-200 uppercase mb-1.5">
-              <MapPin size={12} className="inline mr-1" />
-              Location (click the map or enter manually)
-            </label>
-            <div className="grid grid-cols-2 gap-2">
-              <input
-                type="number"
-                step="any"
-                min={-90}
-                max={90}
-                required
-                value={lat}
-                onChange={(e) => setLat(e.target.value)}
-                placeholder="Latitude"
-                className="w-full px-3 py-2 rounded-lg bg-sentinel-800 border border-sentinel-700
-                           text-white placeholder-sentinel-400 focus:border-fire-500 focus:outline-none"
+          {/* ════════════════ ADDRESS SECTION ════════════════ */}
+          <div className={SECTION_CLS}>
+            <SectionHeader icon={MapPin}>Address</SectionHeader>
+
+            {/* Search bar */}
+            <div className="relative mb-4">
+              <Search
+                size={15}
+                className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sentinel-400 pointer-events-none"
               />
               <input
-                type="number"
-                step="any"
-                min={-180}
-                max={180}
+                type="text"
+                value={addressSearch}
+                onChange={(e) => setAddressSearch(e.target.value)}
+                placeholder="Search address or location…"
+                className="w-full pl-10 pr-4 py-3 rounded-lg bg-sentinel-700/60 border border-sentinel-600
+                           text-white placeholder-sentinel-400 focus:outline-none focus:border-[#0096ff]
+                           focus:ring-1 focus:ring-[#0096ff]/20 transition-colors text-sm"
+              />
+            </div>
+
+            {/* Intersection checkbox */}
+            <label className="flex items-center gap-2 cursor-pointer select-none mb-5">
+              <input
+                type="checkbox"
+                checked={isIntersection}
+                onChange={(e) => setIsIntersection(e.target.checked)}
+                className="w-4 h-4 rounded border-sentinel-600 bg-sentinel-800 accent-[#0096ff] cursor-pointer"
+              />
+              <span className="text-sm text-sentinel-200">Intersection Search</span>
+            </label>
+
+            {/* Address grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+
+              <div>
+                <label className={LABEL_CLS}>
+                  Address 1 <span className="text-red-400">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={address1}
+                  onChange={(e) => setAddress1(e.target.value)}
+                  placeholder="123 Main Street"
+                  className={INPUT_CLS}
+                />
+              </div>
+
+              <div>
+                <label className={LABEL_CLS}>Address 2</label>
+                <input
+                  type="text"
+                  value={address2}
+                  onChange={(e) => setAddress2(e.target.value)}
+                  placeholder="Apt, Suite, Unit (optional)"
+                  className={INPUT_CLS}
+                />
+              </div>
+
+              <div>
+                <label className={LABEL_CLS}>
+                  City <span className="text-red-400">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={city}
+                  onChange={(e) => setCity(e.target.value)}
+                  placeholder="City name"
+                  className={INPUT_CLS}
+                />
+              </div>
+
+              <div>
+                <label className={LABEL_CLS}>County</label>
+                <CountySelect value={county} onChange={setCounty} />
+              </div>
+
+              <div>
+                <label className={LABEL_CLS}>
+                  State <span className="text-red-400">*</span>
+                </label>
+                <select
+                  required
+                  value={usState}
+                  onChange={(e) => setUsState(e.target.value)}
+                  className={INPUT_CLS + ' cursor-pointer'}
+                >
+                  <option value="">Select state…</option>
+                  {US_STATES.map((s) => (
+                    <option key={s} value={s}>{s}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className={LABEL_CLS}>
+                  ZIP Code <span className="text-red-400">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={zip}
+                  onChange={(e) => setZip(e.target.value)}
+                  placeholder="e.g. 95602"
+                  maxLength={10}
+                  className={INPUT_CLS}
+                />
+              </div>
+
+              <div className="sm:col-span-2">
+                <label className={LABEL_CLS}>
+                  Jurisdiction <span className="text-red-400">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={jurisdiction}
+                  onChange={(e) => setJurisdiction(e.target.value)}
+                  placeholder="e.g. Placer County Fire, USFS Region 5, Cal Fire"
+                  className={INPUT_CLS}
+                />
+              </div>
+
+            </div>
+          </div>
+
+          {/* ════════════════ INCIDENT DETAILS SECTION ════════════════ */}
+          <div className={SECTION_CLS}>
+            <SectionHeader icon={Flame} iconColor="text-fire-400">
+              Incident Details
+            </SectionHeader>
+
+            <div>
+              <label className={LABEL_CLS}>
+                Fire Name <span className="text-red-400">*</span>
+              </label>
+              <input
+                type="text"
                 required
-                value={lng}
-                onChange={(e) => setLng(e.target.value)}
-                placeholder="Longitude"
-                className="w-full px-3 py-2 rounded-lg bg-sentinel-800 border border-sentinel-700
-                           text-white placeholder-sentinel-400 focus:border-fire-500 focus:outline-none"
+                value={fireName}
+                onChange={(e) => setFireName(e.target.value)}
+                placeholder="e.g. Caldor Fire, River Fire, Tahoe Fire"
+                maxLength={120}
+                className={INPUT_CLS}
               />
             </div>
           </div>
 
+          {/* ════════════════ NOTES SECTION ════════════════ */}
+          <div className={SECTION_CLS}>
+            <SectionHeader icon={FileText}>Notes</SectionHeader>
+
+            <div>
+              <label className={LABEL_CLS}>
+                Incident Notes <span className="text-red-400">*</span>
+              </label>
+              <textarea
+                required
+                rows={7}
+                value={incidentNotes}
+                onChange={(e) => setIncidentNotes(e.target.value)}
+                placeholder="Describe the incident: what you saw, when, landmarks, road names, wind direction, estimated fire size, activity level, structures threatened…"
+                maxLength={5000}
+                className={INPUT_CLS + ' resize-y min-h-[140px]'}
+              />
+              <div className="text-right text-xs text-sentinel-500 mt-1">
+                {incidentNotes.length} / 5000
+              </div>
+            </div>
+
+            <div className="mt-4">
+              <label className={LABEL_CLS}>Internal Notes</label>
+              <textarea
+                rows={4}
+                value={internalNotes}
+                onChange={(e) => setInternalNotes(e.target.value)}
+                placeholder="Internal use only — not visible on the public map"
+                maxLength={2000}
+                className={INPUT_CLS + ' resize-y min-h-[100px]'}
+              />
+              <div className="text-right text-xs text-sentinel-500 mt-1">
+                {internalNotes.length} / 2000
+              </div>
+            </div>
+          </div>
+
+          {/* ════════════════ IMAGE ATTACHMENTS SECTION ════════════════ */}
+          <div className={SECTION_CLS}>
+            <SectionHeader icon={ImageIcon}>Image Attachments</SectionHeader>
+
+            {/* Drop zone */}
+            <div
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => e.key === 'Enter' && fileInputRef.current?.click()}
+              onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
+              onDragLeave={() => setDragging(false)}
+              onDrop={(e) => { e.preventDefault(); setDragging(false); handleFiles(e.dataTransfer.files); }}
+              onClick={() => fileInputRef.current?.click()}
+              className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-all
+                ${dragging
+                  ? 'border-[#0096ff] bg-[#0096ff]/5 scale-[1.01]'
+                  : 'border-sentinel-600 hover:border-sentinel-500 hover:bg-sentinel-800/30'
+                }`}
+            >
+              <Upload size={28} className="mx-auto text-sentinel-400 mb-3" />
+              <p className="text-sentinel-200 text-sm font-medium">
+                Drag &amp; drop images here, or <span className="text-[#0096ff]">browse</span>
+              </p>
+              <p className="text-sentinel-500 text-xs mt-1">
+                PNG, JPG, GIF, WEBP supported
+              </p>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                multiple
+                onChange={(e) => handleFiles(e.target.files)}
+                className="hidden"
+              />
+            </div>
+
+            {/* Preview grid */}
+            {images.length > 0 && (
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 mt-4">
+                {images.map((img, idx) => (
+                  <div
+                    key={idx}
+                    className="relative group rounded-lg overflow-hidden
+                               border border-sentinel-700 bg-sentinel-800"
+                  >
+                    <img
+                      src={img.preview}
+                      alt={img.name}
+                      className="w-full h-24 object-cover"
+                    />
+                    {/* Hover overlay */}
+                    <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100
+                                    transition-opacity flex items-center justify-center">
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); removeImage(idx); }}
+                        className="p-1.5 rounded-full bg-red-600 text-white hover:bg-red-500 transition-colors"
+                        title="Remove"
+                      >
+                        <X size={13} />
+                      </button>
+                    </div>
+                    {/* Filename */}
+                    <div className="px-2 py-1 text-[10px] text-sentinel-400 truncate bg-sentinel-900/70">
+                      {img.name}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* ── Feedback messages ── */}
           {error && (
-            <div className="flex items-start gap-2 p-3 rounded-lg bg-red-950/40 border border-red-800/60 text-red-300 text-xs">
-              <AlertCircle size={14} className="shrink-0 mt-0.5" />
+            <div className="flex items-start gap-2 p-4 rounded-lg bg-red-950/40
+                            border border-red-800/60 text-red-300 text-sm">
+              <AlertCircle size={15} className="shrink-0 mt-0.5" />
               <span>{error}</span>
             </div>
           )}
-
           {success && (
-            <div className="flex items-start gap-2 p-3 rounded-lg bg-green-950/40 border border-green-800/60 text-green-300 text-xs">
-              <CheckCircle2 size={14} className="shrink-0 mt-0.5" />
+            <div className="flex items-start gap-2 p-4 rounded-lg bg-green-950/40
+                            border border-green-800/60 text-green-300 text-sm">
+              <CheckCircle2 size={15} className="shrink-0 mt-0.5" />
               <span>{success}</span>
             </div>
           )}
 
-          <button
-            type="submit"
-            disabled={busy || !isSupabaseConfigured}
-            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg
-                       bg-fire-600 hover:bg-fire-500 disabled:opacity-50 disabled:cursor-not-allowed
-                       text-white font-semibold transition-colors"
-          >
-            <Send size={14} />
-            {busy ? 'Submitting…' : 'Submit Report'}
-          </button>
-
-          <div className="text-center">
-            <Link to="/live-tracker" className="text-xs text-sentinel-400 hover:text-white">
-              ← Back to live tracker
-            </Link>
+          {/* ── Action buttons ── */}
+          <div className="flex items-center justify-end gap-3 pt-2 pb-8">
+            <button
+              type="button"
+              onClick={() => navigate('/live-tracker')}
+              className="px-6 py-3 rounded-lg text-sm font-medium text-sentinel-300
+                         border border-sentinel-700 hover:border-sentinel-500 hover:text-white
+                         transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={busy || !isSupabaseConfigured}
+              style={{ backgroundColor: '#0096ff' }}
+              className="flex items-center gap-2 px-8 py-3 rounded-lg font-bold text-sm text-white
+                         hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+            >
+              <Send size={14} />
+              {busy ? 'Submitting…' : 'Submit Report'}
+            </button>
           </div>
-        </div>
 
-        {/* Right – interactive map */}
-        <div className="h-[420px] md:h-[520px] rounded-xl overflow-hidden border border-sentinel-700 bg-sentinel-800">
-          <Map
-            mapboxAccessToken={MAPBOX_TOKEN || 'pk.free'}
-            mapStyle={MAP_STYLE}
-            initialViewState={{ longitude: -114.5, latitude: 44.0, zoom: 3.8 }}
-            style={{ width: '100%', height: '100%' }}
-            onClick={handleMapClick}
-            attributionControl={false}
-            projection="mercator"
-          >
-            <NavigationControl position="top-right" />
-            {hasMarker && (
-              <Marker longitude={markerLng} latitude={markerLat} anchor="bottom">
-                <div className="flex flex-col items-center">
-                  <MapPin size={28} className="text-cyan-400 drop-shadow-lg" />
-                </div>
-              </Marker>
-            )}
-          </Map>
-        </div>
-      </form>
+        </form>
+      </div>
     </div>
   );
 }
