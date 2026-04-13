@@ -20,7 +20,7 @@ const REFRESH_MS = parseInt(import.meta.env.VITE_REFRESH_INTERVAL || '300000', 1
  * Strips common suffixes, handles slash-separated names (takes last part),
  * and collapses whitespace so "RIDGE FIRE" and "RIDGEFIRE" both key to "RIDGE".
  */
-function getFireMatchKey(name) {
+export function getFireMatchKey(name) {
   if (!name) return null;
   const upper = name.toUpperCase().trim();
   if (upper === 'UNKNOWN' || upper === 'UNNAMED' || upper === '') return null;

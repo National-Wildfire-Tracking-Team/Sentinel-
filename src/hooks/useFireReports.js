@@ -145,6 +145,51 @@ export async function setReportStatus(id, status) {
   return { id, status };
 }
 
+/**
+ * Reporter action: create a new fire_reports entry tracking an NIFC-sourced fire.
+ * Called when a reporter posts the first community update for a fire that only
+ * exists in the NIFC/IRWIN feeds (not yet in our database).
+ */
+export async function createNIFCFireUpdate({
+  fireName, latitude, longitude, userId, acreage, notes, nifcId,
+}) {
+  if (!isSupabaseConfigured) throw new Error('Supabase is not configured');
+
+  const acreageLine = acreage?.toString().trim()
+    ? `Acreage: ${acreage.toString().trim()}`
+    : null;
+  const noteLine = notes?.trim() ? `Notes: ${notes.trim()}` : null;
+
+  if (!acreageLine && !noteLine) {
+    throw new Error('Please provide acreage or notes for the update.');
+  }
+
+  const timestamp = new Date().toLocaleString();
+  const description = [
+    `SOURCE: NIFC${nifcId ? ` (${nifcId})` : ''}`,
+    '',
+    `UPDATE (${timestamp})`,
+    acreageLine,
+    noteLine,
+  ].filter((line) => line !== null).join('\n');
+
+  const { data, error } = await supabase
+    .from('fire_reports')
+    .insert({
+      title: fireName,
+      description,
+      latitude,
+      longitude,
+      status: 'approved',
+      user_id: userId,
+    })
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
 /** Reporter action: append an operational update (acreage/notes) to a report. */
 export async function appendFireReportUpdate({ id, description, acreage, notes }) {
   if (!isSupabaseConfigured) throw new Error('Supabase is not configured');
