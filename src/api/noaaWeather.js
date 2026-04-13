@@ -14,6 +14,100 @@ import { MOCK_WEATHER_ALERTS } from '../data/mockData';
 
 const NOAA_BASE = 'https://api.weather.gov';
 
+// Zone geometry cache — persists for the app's lifetime since zone boundaries
+// change rarely. Keyed by UGC code (e.g. "CAZ006"), value is a GeoJSON geometry.
+const zoneGeometryCache = new Map();
+
+/**
+ * Batch-fetch zone geometries from the NWS /zones endpoint.
+ * Splits codes into forecast vs. county types and fetches in chunks of 50.
+ * Results are stored in zoneGeometryCache.
+ * @param {string[]} codes  Array of UGC codes to fetch
+ */
+async function fetchZoneGeometryBatch(codes) {
+  if (codes.length === 0) return;
+
+  // UGC position 2 is the zone type: 'Z' = forecast, 'C' = county.
+  // Any other character (e.g. fire zones) is also tried as 'forecast'.
+  const forecastCodes = codes.filter(c => c[2] !== 'C');
+  const countyCodes   = codes.filter(c => c[2] === 'C');
+
+  const CHUNK = 50;
+
+  const fetchBatch = async (batch, type) => {
+    const url = `${NOAA_BASE}/zones?id=${batch.join(',')}&type=${type}&include_geometry=true`;
+    try {
+      const res = await fetch(url, {
+        headers: {
+          'User-Agent': 'Sentinel Wildfire Platform (contact@sentinel.app)',
+          Accept: 'application/geo+json',
+        },
+      });
+      if (!res.ok) return;
+      const data = await res.json();
+      for (const feature of (data.features || [])) {
+        const id = feature.properties?.id;
+        if (id && feature.geometry) {
+          zoneGeometryCache.set(id, feature.geometry);
+        }
+      }
+    } catch {
+      // Silently ignore errors for individual batches
+    }
+  };
+
+  const tasks = [];
+  for (let i = 0; i < forecastCodes.length; i += CHUNK) {
+    tasks.push(fetchBatch(forecastCodes.slice(i, i + CHUNK), 'forecast'));
+  }
+  for (let i = 0; i < countyCodes.length; i += CHUNK) {
+    tasks.push(fetchBatch(countyCodes.slice(i, i + CHUNK), 'county'));
+  }
+  await Promise.all(tasks);
+}
+
+/**
+ * Enrich alerts that lack a direct geometry by fetching NWS zone boundaries
+ * for their UGC zone codes. Alerts that already have geometry are passed through
+ * unchanged. Zone polygons for a single alert are merged into a MultiPolygon.
+ * @param {Array} alerts  Normalized alert objects from normalizeAlerts()
+ * @returns {Promise<Array>}  Alerts with geometry filled in where possible
+ */
+export async function enrichAlertsWithGeometry(alerts) {
+  const noGeo = alerts.filter(a => !a.geometry);
+  if (noGeo.length === 0) return alerts;
+
+  // Collect UGC codes that aren't already cached
+  const needed = new Set();
+  for (const alert of noGeo) {
+    for (const code of (alert.geocode?.UGC || [])) {
+      if (!zoneGeometryCache.has(code)) needed.add(code);
+    }
+  }
+
+  if (needed.size > 0) {
+    await fetchZoneGeometryBatch([...needed]);
+  }
+
+  return alerts.map(alert => {
+    if (alert.geometry) return alert;
+
+    const polygons = [];
+    for (const code of (alert.geocode?.UGC || [])) {
+      const geom = zoneGeometryCache.get(code);
+      if (!geom) continue;
+      if (geom.type === 'Polygon')      polygons.push(geom.coordinates);
+      else if (geom.type === 'MultiPolygon') polygons.push(...geom.coordinates);
+    }
+
+    if (polygons.length === 0) return alert; // Still no geometry — skip on map
+    return {
+      ...alert,
+      geometry: { type: 'MultiPolygon', coordinates: polygons },
+    };
+  });
+}
+
 /**
  * Fetch all active weather alerts.
  * Kept named fetchFireWeatherAlerts for backwards compatibility with hooks.
