@@ -80,7 +80,7 @@ function filterFireGeoJSON(geoJSON, { containedKey, updatedKey, startedKey }) {
 }
 
 export default function LiveTrackerPage() {
-  const { layers, setLayer, setRefreshed, setLoading, feedFilter } = useApp();
+  const { layers, setLayer, setRefreshed, setLoading, feedFilter, viewport } = useApp();
   const [activeMapTab, setActiveMapTab] = useState(MAP_TABS.wildfire);
 
   // Apply layer presets only when the active tab changes
@@ -111,7 +111,7 @@ export default function LiveTrackerPage() {
   const {
     geoJSON: aqiGeoJSON,
     refresh: refreshAQI,
-  } = useAQIData(layers.aqi);
+  } = useAQIData(layers.aqi, viewport);
 
   const {
     geoJSON: alertsGeoJSON,
