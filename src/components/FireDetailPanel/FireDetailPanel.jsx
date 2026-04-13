@@ -483,7 +483,7 @@ export default function FireDetailPanel() {
             {selectedFire.type === 'hotspot'  ? 'Hotspot Detail' :
              selectedFire.type === 'incident' ? 'Incident Detail' :
              selectedFire.type === 'aqi'      ? 'Air Quality' :
-             selectedFire.type === 'alert'    ? 'Weather Alert' :
+             selectedFire.type === 'weather-alert' ? 'Weather Alert' :
              selectedFire.type === 'user-report' ? 'Community Report' :
              'Fire Detail'}
           </span>
@@ -502,7 +502,7 @@ export default function FireDetailPanel() {
           {selectedFire.type === 'perimeter' && <PerimeterDetail fire={selectedFire} />}
           {selectedFire.type === 'incident' && <IncidentDetail  fire={selectedFire} />}
           {selectedFire.type === 'aqi'      && <AQIDetail       fire={selectedFire} />}
-          {selectedFire.type === 'alert'    && <AlertDetail     fire={selectedFire} alerts={alerts} />}
+          {selectedFire.type === 'weather-alert' && <AlertDetail fire={selectedFire} alerts={alerts} />}
           {selectedFire.type === 'user-report' && <UserReportDetail fire={selectedFire} />}
         </div>
       </div>
