@@ -98,23 +98,9 @@ export default function App() {
             }
           />
 
-          {/* Reporter submission system */}
-          <Route
-            path="/login"
-            element={
-              <SiteLayout>
-                <LoginPage />
-              </SiteLayout>
-            }
-          />
-          <Route
-            path="/submit-report"
-            element={
-              <SiteLayout>
-                <SubmitReportPage />
-              </SiteLayout>
-            }
-          />
+          {/* Reporter submission system — full-screen, no Navbar/Footer */}
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/submit-report" element={<SubmitReportPage />} />
           <Route
             path="/admin"
             element={

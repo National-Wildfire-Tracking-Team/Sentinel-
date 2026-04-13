@@ -1,50 +1,46 @@
 /**
  * LoginPage.jsx
- * Email + password sign-in / sign-up via Supabase Auth.
+ * Split-screen reporter login with email/password via Supabase Auth.
+ * Left panel: Sentinel branding. Right panel: Member Login form.
  */
 
 import { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Flame, LogIn, UserPlus, AlertCircle, CheckCircle2 } from 'lucide-react';
+import {
+  Mail, Lock, Eye, EyeOff, Flame, AlertCircle, CheckCircle2,
+} from 'lucide-react';
 
 import { useAuth } from '../context/AuthContext';
+import { supabase } from '../api/supabaseClient';
 
 export default function LoginPage() {
-  const { signIn, signUp, isSupabaseConfigured } = useAuth();
-  const navigate = useNavigate();
-  const location = useLocation();
+  const { signIn, isSupabaseConfigured } = useAuth();
+  const navigate  = useNavigate();
+  const location  = useLocation();
 
-  const [mode, setMode] = useState('signin'); // 'signin' | 'signup'
-  const [email, setEmail]       = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError]       = useState(null);
-  const [info, setInfo]         = useState(null);
-  const [busy, setBusy]         = useState(false);
+  const [email,        setEmail]        = useState('');
+  const [password,     setPassword]     = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe,   setRememberMe]   = useState(false);
+  const [error,        setError]        = useState(null);
+  const [busy,         setBusy]         = useState(false);
+
+  // Forgot-password sub-state
+  const [forgotMode,  setForgotMode]  = useState(false);
+  const [resetEmail,  setResetEmail]  = useState('');
+  const [resetSent,   setResetSent]   = useState(false);
 
   const redirectTo = location.state?.from || '/submit-report';
 
-  async function handleSubmit(e) {
+  /* ── Sign-in ── */
+  async function handleSignIn(e) {
     e.preventDefault();
     setError(null);
-    setInfo(null);
     setBusy(true);
-
     try {
-      if (mode === 'signin') {
-        const { error: err } = await signIn(email, password);
-        if (err) throw err;
-        navigate(redirectTo, { replace: true });
-      } else {
-        const { data, error: err } = await signUp(email, password);
-        if (err) throw err;
-        if (data?.session) {
-          // Email confirmation is disabled – already logged in
-          navigate(redirectTo, { replace: true });
-        } else {
-          setInfo('Check your email to confirm your account, then sign in.');
-          setMode('signin');
-        }
-      }
+      const { error: err } = await signIn(email, password);
+      if (err) throw err;
+      navigate(redirectTo, { replace: true });
     } catch (err) {
       setError(err?.message || 'Authentication failed');
     } finally {
@@ -52,117 +48,267 @@ export default function LoginPage() {
     }
   }
 
+  /* ── Forgot password ── */
+  async function handleForgotPassword(e) {
+    e.preventDefault();
+    setError(null);
+    setBusy(true);
+    try {
+      const addr = resetEmail.trim() || email.trim();
+      const { error: err } = await supabase.auth.resetPasswordForEmail(addr);
+      if (err) throw err;
+      setResetSent(true);
+    } catch (err) {
+      setError(err?.message || 'Failed to send reset email');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  /* ── Shared styles ── */
+  const inputBase =
+    'w-full rounded-lg bg-sentinel-800 border border-sentinel-700 text-white placeholder-sentinel-500 ' +
+    'focus:outline-none focus:border-[#0096ff] focus:ring-1 focus:ring-[#0096ff]/20 transition-colors text-sm';
+
   return (
-    <div className="max-w-md mx-auto px-4 sm:px-6 py-16">
-      <div className="flex items-center gap-2 mb-6">
-        <Flame size={22} className="text-fire-500" />
-        <h1 className="text-2xl font-bold text-white">
-          {mode === 'signin' ? 'Reporter Sign In' : 'Create Reporter Account'}
-        </h1>
+    <div className="min-h-screen flex">
+
+      {/* ══════════════════ LEFT PANEL — Branding ══════════════════ */}
+      <div className="hidden lg:flex lg:w-1/2 relative flex-col items-center justify-center overflow-hidden">
+
+        {/* Background layers */}
+        <div className="absolute inset-0 bg-gradient-to-br from-[#07090c] via-[#0c1520] to-[#071020]" />
+        <div
+          className="absolute inset-0 opacity-[0.04]"
+          style={{
+            backgroundImage:
+              'linear-gradient(rgba(255,255,255,.15) 1px, transparent 1px),' +
+              'linear-gradient(90deg, rgba(255,255,255,.15) 1px, transparent 1px)',
+            backgroundSize: '48px 48px',
+          }}
+        />
+        <div className="absolute bottom-0 left-0 right-0 h-64 bg-gradient-to-t from-orange-900/25 to-transparent" />
+
+        {/* Content */}
+        <div className="relative z-10 text-center px-12 max-w-lg">
+          {/* Icon badge */}
+          <div className="flex items-center justify-center mb-8">
+            <div className="w-20 h-20 rounded-2xl border border-fire-500/30 bg-fire-600/10
+                            flex items-center justify-center shadow-lg shadow-fire-900/30">
+              <Flame size={44} className="text-fire-400" />
+            </div>
+          </div>
+
+          <h1 className="text-5xl font-black text-white tracking-tight mb-2">Sentinel</h1>
+          <p className="text-fire-400 font-semibold text-lg mb-6 tracking-wide uppercase text-sm">
+            National Wildfire Tracking Team
+          </p>
+          <p className="text-sentinel-200/70 leading-relaxed text-sm">
+            Secure reporter portal for submitting real-time wildfire incident
+            reports to the NWTT intelligence platform.
+          </p>
+
+          {/* Stats row */}
+          <div className="mt-14 grid grid-cols-3 gap-3">
+            {[
+              { value: '24/7',  label: 'Monitoring'  },
+              { value: 'Live',  label: 'Tracking'    },
+              { value: 'Rapid', label: 'Response'    },
+            ].map(({ value, label }) => (
+              <div
+                key={label}
+                className="py-4 rounded-xl bg-white/5 border border-white/10 backdrop-blur-sm"
+              >
+                <div className="text-xl font-bold text-white">{value}</div>
+                <div className="text-xs text-sentinel-300 mt-1">{label}</div>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
 
-      <p className="text-sentinel-300 text-sm mb-6">
-        Sign in to submit wildfire reports to the NWTT platform. All submissions
-        are reviewed by a moderator before appearing on the public map.
-      </p>
+      {/* ══════════════════ RIGHT PANEL — Login form ══════════════════ */}
+      <div className="w-full lg:w-1/2 flex items-center justify-center bg-[#0d1117] p-8">
+        <div className="w-full max-w-md">
 
-      {!isSupabaseConfigured && (
-        <div className="mb-4 p-3 rounded-lg bg-amber-950/40 border border-amber-800/60 text-amber-200 text-xs">
-          Supabase is not configured. Add <code>VITE_SUPABASE_URL</code> and{' '}
-          <code>VITE_SUPABASE_ANON_KEY</code> to your <code>.env</code> file.
-        </div>
-      )}
-
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div>
-          <label htmlFor="email" className="block text-xs font-semibold text-sentinel-200 uppercase mb-1.5">
-            Email
-          </label>
-          <input
-            id="email"
-            type="email"
-            required
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="w-full px-3 py-2 rounded-lg bg-sentinel-800 border border-sentinel-700
-                       text-white placeholder-sentinel-400 focus:border-fire-500 focus:outline-none"
-            placeholder="you@example.com"
-            autoComplete="email"
-          />
-        </div>
-
-        <div>
-          <label htmlFor="password" className="block text-xs font-semibold text-sentinel-200 uppercase mb-1.5">
-            Password
-          </label>
-          <input
-            id="password"
-            type="password"
-            required
-            minLength={6}
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="w-full px-3 py-2 rounded-lg bg-sentinel-800 border border-sentinel-700
-                       text-white placeholder-sentinel-400 focus:border-fire-500 focus:outline-none"
-            placeholder="At least 6 characters"
-            autoComplete={mode === 'signin' ? 'current-password' : 'new-password'}
-          />
-        </div>
-
-        {error && (
-          <div className="flex items-start gap-2 p-3 rounded-lg bg-red-950/40 border border-red-800/60 text-red-300 text-xs">
-            <AlertCircle size={14} className="shrink-0 mt-0.5" />
-            <span>{error}</span>
+          {/* Mobile logo */}
+          <div className="flex items-center gap-2 mb-8 lg:hidden">
+            <Flame size={20} className="text-fire-400" />
+            <span className="text-white font-bold text-sm">Sentinel NWTT</span>
           </div>
-        )}
 
-        {info && (
-          <div className="flex items-start gap-2 p-3 rounded-lg bg-green-950/40 border border-green-800/60 text-green-300 text-xs">
-            <CheckCircle2 size={14} className="shrink-0 mt-0.5" />
-            <span>{info}</span>
+          {/* ── Normal login ── */}
+          {!forgotMode ? (
+            <>
+              <h2 className="text-3xl font-bold text-white mb-1">Member Login</h2>
+              <p className="text-sentinel-400 text-sm mb-8">
+                Sign in to access the reporter dashboard
+              </p>
+
+              {!isSupabaseConfigured && (
+                <div className="mb-5 p-3 rounded-lg bg-amber-950/40 border border-amber-800/60 text-amber-200 text-xs">
+                  Supabase is not configured — add{' '}
+                  <code>VITE_SUPABASE_URL</code> and{' '}
+                  <code>VITE_SUPABASE_ANON_KEY</code> to your{' '}
+                  <code>.env</code> file.
+                </div>
+              )}
+
+              <form onSubmit={handleSignIn} className="space-y-5">
+
+                {/* Email */}
+                <div>
+                  <label className="block text-xs font-semibold text-sentinel-300 uppercase tracking-wider mb-2">
+                    Email Address
+                  </label>
+                  <div className="relative">
+                    <Mail size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sentinel-400 pointer-events-none" />
+                    <input
+                      type="email"
+                      required
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="you@example.com"
+                      autoComplete="email"
+                      className={`${inputBase} pl-10 pr-4 py-3`}
+                    />
+                  </div>
+                </div>
+
+                {/* Password */}
+                <div>
+                  <label className="block text-xs font-semibold text-sentinel-300 uppercase tracking-wider mb-2">
+                    Password
+                  </label>
+                  <div className="relative">
+                    <Lock size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sentinel-400 pointer-events-none" />
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      required
+                      minLength={6}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="Enter your password"
+                      autoComplete="current-password"
+                      className={`${inputBase} pl-10 pr-11 py-3`}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword((v) => !v)}
+                      className="absolute right-3.5 top-1/2 -translate-y-1/2 text-sentinel-400 hover:text-white transition-colors"
+                      tabIndex={-1}
+                    >
+                      {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Remember me + Forgot password */}
+                <div className="flex items-center justify-between">
+                  <label className="flex items-center gap-2 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={rememberMe}
+                      onChange={(e) => setRememberMe(e.target.checked)}
+                      className="w-4 h-4 rounded border-sentinel-600 bg-sentinel-800 accent-[#0096ff] cursor-pointer"
+                    />
+                    <span className="text-sm text-sentinel-300">Remember me</span>
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => { setForgotMode(true); setError(null); setResetEmail(email); }}
+                    className="text-sm font-medium text-[#0096ff] hover:text-blue-300 transition-colors"
+                  >
+                    Forgot Password?
+                  </button>
+                </div>
+
+                {/* Error */}
+                {error && (
+                  <div className="flex items-start gap-2 p-3 rounded-lg bg-red-950/40 border border-red-800/60 text-red-300 text-xs">
+                    <AlertCircle size={14} className="shrink-0 mt-0.5" />
+                    <span>{error}</span>
+                  </div>
+                )}
+
+                {/* Submit */}
+                <button
+                  type="submit"
+                  disabled={busy || !isSupabaseConfigured}
+                  style={{ backgroundColor: '#0096ff' }}
+                  className="w-full py-3 rounded-lg font-bold text-sm tracking-widest uppercase text-white
+                             hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed
+                             transition-all"
+                >
+                  {busy ? 'Signing in…' : 'Log In'}
+                </button>
+              </form>
+            </>
+          ) : (
+            /* ── Forgot-password panel ── */
+            <>
+              <button
+                type="button"
+                onClick={() => { setForgotMode(false); setResetSent(false); setError(null); }}
+                className="text-xs text-sentinel-400 hover:text-white mb-6 flex items-center gap-1 transition-colors"
+              >
+                ← Back to login
+              </button>
+
+              <h2 className="text-2xl font-bold text-white mb-1">Reset Password</h2>
+              <p className="text-sentinel-400 text-sm mb-8">
+                Enter your email and we&apos;ll send you a password reset link.
+              </p>
+
+              {!resetSent ? (
+                <form onSubmit={handleForgotPassword} className="space-y-4">
+                  <div className="relative">
+                    <Mail size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sentinel-400 pointer-events-none" />
+                    <input
+                      type="email"
+                      required
+                      value={resetEmail}
+                      onChange={(e) => setResetEmail(e.target.value)}
+                      placeholder="you@example.com"
+                      autoComplete="email"
+                      className={`${inputBase} pl-10 pr-4 py-3`}
+                    />
+                  </div>
+
+                  {error && (
+                    <div className="flex items-start gap-2 p-3 rounded-lg bg-red-950/40 border border-red-800/60 text-red-300 text-xs">
+                      <AlertCircle size={14} className="shrink-0 mt-0.5" />
+                      <span>{error}</span>
+                    </div>
+                  )}
+
+                  <button
+                    type="submit"
+                    disabled={busy}
+                    style={{ backgroundColor: '#0096ff' }}
+                    className="w-full py-3 rounded-lg font-bold text-sm tracking-widest uppercase text-white
+                               hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed
+                               transition-all"
+                  >
+                    {busy ? 'Sending…' : 'Send Reset Link'}
+                  </button>
+                </form>
+              ) : (
+                <div className="flex items-start gap-2 p-4 rounded-lg bg-green-950/40 border border-green-800/60 text-green-300 text-sm">
+                  <CheckCircle2 size={16} className="shrink-0 mt-0.5" />
+                  <span>Reset link sent! Check your email inbox.</span>
+                </div>
+              )}
+            </>
+          )}
+
+          <div className="mt-8 text-center">
+            <Link to="/" className="text-xs text-sentinel-500 hover:text-sentinel-300 transition-colors">
+              ← Back to home
+            </Link>
           </div>
-        )}
 
-        <button
-          type="submit"
-          disabled={busy || !isSupabaseConfigured}
-          className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg
-                     bg-fire-600 hover:bg-fire-500 disabled:opacity-50 disabled:cursor-not-allowed
-                     text-white font-semibold transition-colors"
-        >
-          {mode === 'signin' ? <LogIn size={15} /> : <UserPlus size={15} />}
-          {busy ? 'Working…' : mode === 'signin' ? 'Sign In' : 'Create Account'}
-        </button>
-      </form>
-
-      <div className="mt-6 text-center text-sm text-sentinel-300">
-        {mode === 'signin' ? (
-          <>
-            Don&apos;t have an account?{' '}
-            <button
-              onClick={() => { setMode('signup'); setError(null); setInfo(null); }}
-              className="text-fire-400 hover:text-fire-300 font-medium"
-            >
-              Sign up
-            </button>
-          </>
-        ) : (
-          <>
-            Already have an account?{' '}
-            <button
-              onClick={() => { setMode('signin'); setError(null); setInfo(null); }}
-              className="text-fire-400 hover:text-fire-300 font-medium"
-            >
-              Sign in
-            </button>
-          </>
-        )}
-      </div>
-
-      <div className="mt-8 text-center">
-        <Link to="/" className="text-xs text-sentinel-400 hover:text-white">
-          ← Back to home
-        </Link>
+        </div>
       </div>
     </div>
   );
