@@ -1,18 +1,26 @@
 /**
  * SubmitReportPage.jsx
- * Reporter dashboard — multi-section incident reporting form.
- * Sections: Address · Incident Details · Notes · Image Attachments
+ * Reporter dashboard with two tabs:
+ *   1. Update Existing Fire — all reporter-submitted fires + NIFC tracked fires
+ *   2. Report New Incident  — multi-section incident reporting form
  */
 
-import { useState, useRef, useCallback, useEffect } from 'react';
+import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import {
   Flame, Search, MapPin, ChevronDown, FileText, ImageIcon,
   Upload, X, LogOut, AlertCircle, CheckCircle2, Send, User, RefreshCw,
+  PlusCircle, Satellite,
 } from 'lucide-react';
 
 import { useAuth } from '../context/AuthContext';
-import { appendFireReportUpdate, submitFireReport, useFireReports } from '../hooks/useFireReports';
+import {
+  appendFireReportUpdate,
+  createNIFCFireUpdate,
+  submitFireReport,
+  useFireReports,
+} from '../hooks/useFireReports';
+import { useMergedFireData, getFireMatchKey } from '../hooks/useMergedFireData';
 
 /* ── Static data ── */
 
@@ -179,8 +187,58 @@ export default function SubmitReportPage() {
   const [updateState, setUpdateState] = useState({});
   const [updateBusy, setUpdateBusy] = useState({});
   const [updateFeedback, setUpdateFeedback] = useState({});
+
+  /* Tab navigation */
+  const [activeTab, setActiveTab] = useState('update'); // 'update' | 'new'
+
+  /* Data sources for the "Update Existing Fire" tab */
   const { reports: allReports, refresh: refreshReports } = useFireReports('all');
-  const myReports = allReports.filter((r) => r.user_id === user.id);
+  const { perimetersGeoJSON } = useMergedFireData(100);
+
+  /** Reporter-submitted fires (any reporter, not only mine). Excludes rejected. */
+  const reporterFires = useMemo(
+    () => allReports.filter((r) => r.status !== 'rejected'),
+    [allReports],
+  );
+
+  /** NIFC perimeter fires, deduplicated against reporter fires that already track them. */
+  const nifcFires = useMemo(() => {
+    if (!perimetersGeoJSON?.features?.length) return [];
+
+    const reporterKeys = new Set(
+      reporterFires
+        .map((r) => getFireMatchKey(r.title))
+        .filter(Boolean),
+    );
+
+    return perimetersGeoJSON.features
+      .map((f) => {
+        const name = f.properties?.IncidentName;
+        const key = getFireMatchKey(name);
+        if (!name || !key || reporterKeys.has(key)) return null;
+
+        // Try to pull a representative point from the geometry
+        let lat = null, lng = null;
+        const coords = f.geometry?.coordinates;
+        if (f.geometry?.type === 'Polygon' && coords?.[0]?.[0]) {
+          [lng, lat] = coords[0][0];
+        } else if (f.geometry?.type === 'MultiPolygon' && coords?.[0]?.[0]?.[0]) {
+          [lng, lat] = coords[0][0][0];
+        }
+
+        return {
+          nifcId:   f.properties?.UniqueFireIdentifier || null,
+          name,
+          acres:    f.properties?.GISAcres,
+          contained: f.properties?.PercentContained,
+          discovered: f.properties?.FireDiscoveryDateTime,
+          latitude: Number.isFinite(lat) ? lat : null,
+          longitude: Number.isFinite(lng) ? lng : null,
+        };
+      })
+      .filter(Boolean)
+      .sort((a, b) => (b.acres || 0) - (a.acres || 0));
+  }, [perimetersGeoJSON, reporterFires]);
 
   /* ── Guards ── */
   if (loading) {
@@ -396,6 +454,39 @@ export default function SubmitReportPage() {
     }
   }
 
+  async function handleNIFCFireUpdate(fire) {
+    const key = `nifc:${fire.nifcId || fire.name}`;
+    const state = updateState[key] || { acreage: '', notes: '' };
+    setUpdateBusy((prev) => ({ ...prev, [key]: true }));
+    setUpdateFeedback((prev) => ({ ...prev, [key]: null }));
+
+    try {
+      await createNIFCFireUpdate({
+        fireName:  fire.name,
+        latitude:  fire.latitude,
+        longitude: fire.longitude,
+        userId:    user.id,
+        acreage:   state.acreage,
+        notes:     state.notes,
+        nifcId:    fire.nifcId,
+      });
+
+      setUpdateState((prev) => ({ ...prev, [key]: { acreage: '', notes: '' } }));
+      setUpdateFeedback((prev) => ({
+        ...prev,
+        [key]: { type: 'success', message: 'Update posted for NIFC-tracked fire.' },
+      }));
+      refreshReports();
+    } catch (err) {
+      setUpdateFeedback((prev) => ({
+        ...prev,
+        [key]: { type: 'error', message: err?.message || 'Failed to post update.' },
+      }));
+    } finally {
+      setUpdateBusy((prev) => ({ ...prev, [key]: false }));
+    }
+  }
+
   /* ── Render ── */
   return (
     <div className="min-h-screen bg-[#0a0c0e] flex flex-col">
@@ -438,87 +529,229 @@ export default function SubmitReportPage() {
       {/* ── Content ── */}
       <div className="flex-1 max-w-4xl mx-auto w-full px-4 sm:px-6 py-8">
 
-        <div className="mb-7">
-          <h1 className="text-2xl font-bold text-white">New Incident Report</h1>
+        <div className="mb-6">
+          <h1 className="text-2xl font-bold text-white">
+            {activeTab === 'update' ? 'Update Existing Fire' : 'Report New Incident'}
+          </h1>
           <p className="text-sentinel-400 text-sm mt-1">
-            Complete all required (<span className="text-red-400">*</span>) fields and submit your report.
+            {activeTab === 'update'
+              ? 'Post operational updates on fires already being tracked — NIFC incidents and reporter-submitted fires.'
+              : 'Submit a brand-new incident. Complete all required (*) fields and submit your report.'}
           </p>
         </div>
 
-        <div className={`${SECTION_CLS} mb-6`}>
-          <SectionHeader icon={RefreshCw}>Update Reported Fires</SectionHeader>
-          {myReports.length === 0 ? (
-            <p className="text-sm text-sentinel-400">
-              You have not submitted any fires yet.
-            </p>
-          ) : (
-            <div className="space-y-4">
-              {myReports.map((report) => {
-                const state = updateState[report.id] || { acreage: '', notes: '' };
-                const feedback = updateFeedback[report.id];
-                return (
-                  <div key={report.id} className="rounded-lg border border-sentinel-700 bg-sentinel-900/40 p-4">
-                    <div className="flex items-center justify-between gap-3 mb-3">
-                      <div>
-                        <h3 className="text-sm font-semibold text-white">{report.title}</h3>
-                        <p className="text-xs text-sentinel-400">
-                          Last activity: {new Date(report.created_at).toLocaleString()}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <div>
-                        <label className={LABEL_CLS}>Updated Acreage</label>
-                        <input
-                          type="text"
-                          value={state.acreage}
-                          onChange={(e) => setUpdateState((prev) => ({
-                            ...prev,
-                            [report.id]: { ...state, acreage: e.target.value },
-                          }))}
-                          placeholder="e.g. 1,200 acres"
-                          className={INPUT_CLS}
-                        />
-                      </div>
-                      <div className="sm:col-span-2">
-                        <label className={LABEL_CLS}>Additional Notes (Watch Duty, etc.)</label>
-                        <textarea
-                          rows={3}
-                          value={state.notes}
-                          onChange={(e) => setUpdateState((prev) => ({
-                            ...prev,
-                            [report.id]: { ...state, notes: e.target.value },
-                          }))}
-                          placeholder="Add intel updates, Watch Duty references, behavior changes, evacuations..."
-                          className={INPUT_CLS + ' resize-y'}
-                        />
-                      </div>
-                    </div>
-
-                    {feedback && (
-                      <p className={`text-xs mt-2 ${feedback.type === 'success' ? 'text-green-300' : 'text-red-300'}`}>
-                        {feedback.message}
-                      </p>
-                    )}
-
-                    <div className="mt-3 flex justify-end">
-                      <button
-                        type="button"
-                        disabled={!!updateBusy[report.id]}
-                        onClick={() => handleReportUpdate(report)}
-                        className="px-4 py-2 rounded-lg text-xs font-semibold bg-[#0096ff] text-white hover:brightness-110 disabled:opacity-50"
-                      >
-                        {updateBusy[report.id] ? 'Updating…' : 'Post Fire Update'}
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
+        {/* ── Tab navigation ── */}
+        <div
+          role="tablist"
+          aria-label="Reporter dashboard sections"
+          className="flex gap-1 p-1 mb-6 rounded-xl bg-sentinel-800/50 border border-sentinel-700 w-fit"
+        >
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === 'update'}
+            onClick={() => setActiveTab('update')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold uppercase tracking-wider transition-colors
+              ${activeTab === 'update'
+                ? 'bg-[#0096ff] text-white shadow'
+                : 'text-sentinel-300 hover:text-white hover:bg-sentinel-700/60'}`}
+          >
+            <RefreshCw size={13} />
+            Update Existing Fire
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === 'new'}
+            onClick={() => setActiveTab('new')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold uppercase tracking-wider transition-colors
+              ${activeTab === 'new'
+                ? 'bg-[#0096ff] text-white shadow'
+                : 'text-sentinel-300 hover:text-white hover:bg-sentinel-700/60'}`}
+          >
+            <PlusCircle size={13} />
+            Report New Incident
+          </button>
         </div>
 
+        {/* ════════════════ UPDATE EXISTING FIRE TAB ════════════════ */}
+        {activeTab === 'update' && (
+          <div className="space-y-6">
+            {/* Reporter-submitted fires */}
+            <div className={SECTION_CLS}>
+              <SectionHeader icon={RefreshCw}>
+                Reporter-Submitted Fires ({reporterFires.length})
+              </SectionHeader>
+              {reporterFires.length === 0 ? (
+                <p className="text-sm text-sentinel-400">
+                  No reporter-submitted fires yet.
+                </p>
+              ) : (
+                <div className="space-y-4">
+                  {reporterFires.map((report) => {
+                    const state = updateState[report.id] || { acreage: '', notes: '' };
+                    const feedback = updateFeedback[report.id];
+                    const mine = report.user_id === user.id;
+                    return (
+                      <div key={report.id} className="rounded-lg border border-sentinel-700 bg-sentinel-900/40 p-4">
+                        <div className="flex items-center justify-between gap-3 mb-3">
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <h3 className="text-sm font-semibold text-white">{report.title}</h3>
+                              {mine && (
+                                <span className="px-1.5 py-0.5 rounded bg-[#0096ff]/15 border border-[#0096ff]/40 text-[#7dc6ff] text-[10px] font-semibold uppercase tracking-wider">
+                                  Yours
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-xs text-sentinel-400">
+                              Last activity: {new Date(report.created_at).toLocaleString()}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div>
+                            <label className={LABEL_CLS}>Updated Acreage</label>
+                            <input
+                              type="text"
+                              value={state.acreage}
+                              onChange={(e) => setUpdateState((prev) => ({
+                                ...prev,
+                                [report.id]: { ...state, acreage: e.target.value },
+                              }))}
+                              placeholder="e.g. 1,200 acres"
+                              className={INPUT_CLS}
+                            />
+                          </div>
+                          <div className="sm:col-span-2">
+                            <label className={LABEL_CLS}>Additional Notes (Watch Duty, etc.)</label>
+                            <textarea
+                              rows={3}
+                              value={state.notes}
+                              onChange={(e) => setUpdateState((prev) => ({
+                                ...prev,
+                                [report.id]: { ...state, notes: e.target.value },
+                              }))}
+                              placeholder="Add intel updates, Watch Duty references, behavior changes, evacuations..."
+                              className={INPUT_CLS + ' resize-y'}
+                            />
+                          </div>
+                        </div>
+
+                        {feedback && (
+                          <p className={`text-xs mt-2 ${feedback.type === 'success' ? 'text-green-300' : 'text-red-300'}`}>
+                            {feedback.message}
+                          </p>
+                        )}
+
+                        <div className="mt-3 flex justify-end">
+                          <button
+                            type="button"
+                            disabled={!!updateBusy[report.id]}
+                            onClick={() => handleReportUpdate(report)}
+                            className="px-4 py-2 rounded-lg text-xs font-semibold bg-[#0096ff] text-white hover:brightness-110 disabled:opacity-50"
+                          >
+                            {updateBusy[report.id] ? 'Updating…' : 'Post Fire Update'}
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* NIFC-tracked fires */}
+            <div className={SECTION_CLS}>
+              <SectionHeader icon={Satellite} iconColor="text-fire-400">
+                NIFC-Tracked Fires ({nifcFires.length})
+              </SectionHeader>
+              {nifcFires.length === 0 ? (
+                <p className="text-sm text-sentinel-400">
+                  No NIFC-tracked fires available right now. (All active NIFC fires already
+                  have reporter coverage, or the feed is still loading.)
+                </p>
+              ) : (
+                <div className="space-y-4">
+                  {nifcFires.map((fire) => {
+                    const key = `nifc:${fire.nifcId || fire.name}`;
+                    const state = updateState[key] || { acreage: '', notes: '' };
+                    const feedback = updateFeedback[key];
+                    return (
+                      <div key={key} className="rounded-lg border border-sentinel-700 bg-sentinel-900/40 p-4">
+                        <div className="flex items-center justify-between gap-3 mb-3">
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <h3 className="text-sm font-semibold text-white">{fire.name}</h3>
+                              <span className="px-1.5 py-0.5 rounded bg-fire-600/15 border border-fire-500/40 text-fire-300 text-[10px] font-semibold uppercase tracking-wider">
+                                NIFC
+                              </span>
+                            </div>
+                            <p className="text-xs text-sentinel-400">
+                              {Number.isFinite(fire.acres) ? `${Math.round(fire.acres).toLocaleString()} ac` : '—'}
+                              {Number.isFinite(fire.contained) ? ` · ${Math.round(fire.contained)}% contained` : ''}
+                              {fire.discovered ? ` · discovered ${new Date(fire.discovered).toLocaleDateString()}` : ''}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div>
+                            <label className={LABEL_CLS}>Updated Acreage</label>
+                            <input
+                              type="text"
+                              value={state.acreage}
+                              onChange={(e) => setUpdateState((prev) => ({
+                                ...prev,
+                                [key]: { ...state, acreage: e.target.value },
+                              }))}
+                              placeholder="e.g. 1,200 acres"
+                              className={INPUT_CLS}
+                            />
+                          </div>
+                          <div className="sm:col-span-2">
+                            <label className={LABEL_CLS}>Additional Notes (Watch Duty, etc.)</label>
+                            <textarea
+                              rows={3}
+                              value={state.notes}
+                              onChange={(e) => setUpdateState((prev) => ({
+                                ...prev,
+                                [key]: { ...state, notes: e.target.value },
+                              }))}
+                              placeholder="Add intel updates, Watch Duty references, behavior changes, evacuations..."
+                              className={INPUT_CLS + ' resize-y'}
+                            />
+                          </div>
+                        </div>
+
+                        {feedback && (
+                          <p className={`text-xs mt-2 ${feedback.type === 'success' ? 'text-green-300' : 'text-red-300'}`}>
+                            {feedback.message}
+                          </p>
+                        )}
+
+                        <div className="mt-3 flex justify-end">
+                          <button
+                            type="button"
+                            disabled={!!updateBusy[key]}
+                            onClick={() => handleNIFCFireUpdate(fire)}
+                            className="px-4 py-2 rounded-lg text-xs font-semibold bg-[#0096ff] text-white hover:brightness-110 disabled:opacity-50"
+                          >
+                            {updateBusy[key] ? 'Updating…' : 'Post Fire Update'}
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ════════════════ REPORT NEW INCIDENT TAB ════════════════ */}
+        {activeTab === 'new' && (
         <form onSubmit={handleSubmit} className="space-y-6">
 
           {/* ════════════════ ADDRESS SECTION ════════════════ */}
@@ -844,6 +1077,7 @@ export default function SubmitReportPage() {
           </div>
 
         </form>
+        )}
       </div>
     </div>
   );
