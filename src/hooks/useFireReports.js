@@ -120,7 +120,7 @@ export async function submitFireReport({ title, description, latitude, longitude
   if (!isSupabaseConfigured) {
     throw new Error('Supabase is not configured');
   }
-  const { data, error } = await supabase
+  const { error } = await supabase
     .from('fire_reports')
     .insert({
       title,
@@ -129,24 +129,20 @@ export async function submitFireReport({ title, description, latitude, longitude
       longitude,
       status: 'approved',
       user_id: userId,
-    })
-    .select()
-    .single();
+    });
   if (error) throw error;
-  return data;
+  return { title, description, latitude, longitude, status: 'pending', user_id: userId };
 }
 
 /** Admin action: set the status of a report. */
 export async function setReportStatus(id, status) {
   if (!isSupabaseConfigured) throw new Error('Supabase is not configured');
-  const { data, error } = await supabase
+  const { error } = await supabase
     .from('fire_reports')
     .update({ status })
-    .eq('id', id)
-    .select()
-    .single();
+    .eq('id', id);
   if (error) throw error;
-  return data;
+  return { id, status };
 }
 
 /** Reporter action: append an operational update (acreage/notes) to a report. */
