@@ -31,6 +31,8 @@ const initialState = {
   legendOpen: true,
   // Active weather alerts list
   alerts: [],
+  // Sidebar feed filter: 'all' or 'focused' (hides old/contained fires)
+  feedFilter: 'all',
   // Last time data was refreshed
   lastRefreshed: null,
   // Whether any data fetch is in flight
@@ -56,6 +58,7 @@ const A = {
   SET_LOADING:        'SET_LOADING',
   SET_REFRESHED:      'SET_REFRESHED',
   SET_VIEWPORT:       'SET_VIEWPORT',
+  SET_FEED_FILTER:    'SET_FEED_FILTER',
 };
 
 // ─── Reducer ─────────────────────────────────────────────────────────────────
@@ -89,6 +92,8 @@ function reducer(state, action) {
       return { ...state, lastRefreshed: action.time };
     case A.SET_VIEWPORT:
       return { ...state, viewport: { ...state.viewport, ...action.viewport } };
+    case A.SET_FEED_FILTER:
+      return { ...state, feedFilter: action.value };
     default:
       return state;
   }
@@ -111,6 +116,7 @@ export function AppProvider({ children }) {
   const setLoading       = useCallback((value) => dispatch({ type: A.SET_LOADING, value }), []);
   const setRefreshed     = useCallback((time = new Date()) => dispatch({ type: A.SET_REFRESHED, time }), []);
   const setViewport      = useCallback((viewport) => dispatch({ type: A.SET_VIEWPORT, viewport }), []);
+  const setFeedFilter    = useCallback((value) => dispatch({ type: A.SET_FEED_FILTER, value }), []);
 
   /** Fly the map to a specific fire incident */
   const flyToFire = useCallback((incident) => {
@@ -136,6 +142,7 @@ export function AppProvider({ children }) {
       setRefreshed,
       setViewport,
       flyToFire,
+      setFeedFilter,
     }}>
       {children}
     </AppContext.Provider>

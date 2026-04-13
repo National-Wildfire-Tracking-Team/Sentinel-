@@ -57,8 +57,27 @@ const WEATHER_LAYER_PRESET = {
   goesWest: false,
 };
 
+/** Filter a GeoJSON FeatureCollection, removing old (>72h) or mostly contained (>95%) fires. */
+function filterFireGeoJSON(geoJSON, { containedKey, updatedKey, startedKey }) {
+  if (!geoJSON?.features) return geoJSON;
+  const cutoffMs = Date.now() - (72 * 60 * 60 * 1000);
+  return {
+    ...geoJSON,
+    features: geoJSON.features.filter(f => {
+      const p = f.properties;
+      const contained = Number(p[containedKey]) || 0;
+      if (contained > 95) return false;
+      const updatedMs = p[updatedKey] ? new Date(p[updatedKey]).getTime() : 0;
+      const startedMs = p[startedKey] ? new Date(p[startedKey]).getTime() : 0;
+      const mostRecentMs = Math.max(updatedMs, startedMs);
+      if (mostRecentMs > 0 && mostRecentMs < cutoffMs) return false;
+      return true;
+    }),
+  };
+}
+
 export default function LiveTrackerPage() {
-  const { layers, setLayer, setRefreshed, setLoading } = useApp();
+  const { layers, setLayer, setRefreshed, setLoading, feedFilter } = useApp();
   const [activeMapTab, setActiveMapTab] = useState(MAP_TABS.wildfire);
 
   // Apply layer presets only when the active tab changes
@@ -113,6 +132,36 @@ export default function LiveTrackerPage() {
     error: stormReportsError,
     refresh: refreshStormReports,
   } = useStormReports(activeMapTab === MAP_TABS.weather);
+
+  // ── Apply feed filter to map fire layers ──
+  const isFocused = feedFilter === 'focused';
+
+  const filteredIncidentsGeoJSON = useMemo(() => {
+    if (!isFocused) return incidentsGeoJSON;
+    return filterFireGeoJSON(incidentsGeoJSON, {
+      containedKey: 'contained',
+      updatedKey: 'updated',
+      startedKey: 'started',
+    });
+  }, [isFocused, incidentsGeoJSON]);
+
+  const filteredPerimetersGeoJSON = useMemo(() => {
+    if (!isFocused) return perimetersGeoJSON;
+    return filterFireGeoJSON(perimetersGeoJSON, {
+      containedKey: 'PercentContained',
+      updatedKey: 'ModifiedOnDateTime',
+      startedKey: 'FireDiscoveryDateTime',
+    });
+  }, [isFocused, perimetersGeoJSON]);
+
+  const filteredIncidentDotsGeoJSON = useMemo(() => {
+    if (!isFocused) return incidentDotsGeoJSON;
+    return filterFireGeoJSON(incidentDotsGeoJSON, {
+      containedKey: 'PercentContained',
+      updatedKey: 'ModifiedOnDateTime',
+      startedKey: 'FireDiscoveryDateTime',
+    });
+  }, [isFocused, incidentDotsGeoJSON]);
 
   // ── Global loading state ──
   const anyLoading = hotspotsLoading || perimetersLoading || incidentsLoading;
@@ -175,9 +224,9 @@ export default function LiveTrackerPage() {
           <MapView
             activeMapTab={activeMapTab}
             hotspotsGeoJSON={hotspotsGeoJSON}
-            perimetersGeoJSON={perimetersGeoJSON}
-            incidentsGeoJSON={incidentsGeoJSON}
-            incidentDotsGeoJSON={incidentDotsGeoJSON}
+            perimetersGeoJSON={filteredPerimetersGeoJSON}
+            incidentsGeoJSON={filteredIncidentsGeoJSON}
+            incidentDotsGeoJSON={filteredIncidentDotsGeoJSON}
             aqiGeoJSON={aqiGeoJSON}
             alertsGeoJSON={alertsGeoJSON}
             spcReportsGeoJSON={spcGeoJSON}
