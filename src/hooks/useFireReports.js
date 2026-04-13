@@ -115,7 +115,7 @@ export function reportsToGeoJSON(reports) {
   };
 }
 
-/** Submit a new report. Status is forced to "pending" server-side via RLS. */
+/** Submit a new report as approved (no reporter moderation queue). */
 export async function submitFireReport({ title, description, latitude, longitude, userId }) {
   if (!isSupabaseConfigured) {
     throw new Error('Supabase is not configured');
@@ -127,7 +127,7 @@ export async function submitFireReport({ title, description, latitude, longitude
       description,
       latitude,
       longitude,
-      status: 'pending',
+      status: 'approved',
       user_id: userId,
     })
     .select()
@@ -145,6 +145,39 @@ export async function setReportStatus(id, status) {
     .eq('id', id)
     .select()
     .single();
+  if (error) throw error;
+  return data;
+}
+
+/** Reporter action: append an operational update (acreage/notes) to a report. */
+export async function appendFireReportUpdate({ id, description, acreage, notes }) {
+  if (!isSupabaseConfigured) throw new Error('Supabase is not configured');
+
+  const acreageLine = acreage?.toString().trim()
+    ? `Acreage: ${acreage.toString().trim()}`
+    : null;
+  const noteLine = notes?.trim() ? `Notes: ${notes.trim()}` : null;
+
+  if (!acreageLine && !noteLine) {
+    throw new Error('Please provide acreage or notes for the update.');
+  }
+
+  const timestamp = new Date().toLocaleString();
+  const updateBlock = [
+    `UPDATE (${timestamp})`,
+    acreageLine,
+    noteLine,
+  ].filter(Boolean).join('\n');
+
+  const nextDescription = `${description}\n\n${updateBlock}`;
+
+  const { data, error } = await supabase
+    .from('fire_reports')
+    .update({ description: nextDescription })
+    .eq('id', id)
+    .select()
+    .single();
+
   if (error) throw error;
   return data;
 }
