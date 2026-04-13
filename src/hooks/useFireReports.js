@@ -131,7 +131,7 @@ export async function submitFireReport({ title, description, latitude, longitude
       user_id: userId,
     });
   if (error) throw error;
-  return { title, description, latitude, longitude, status: 'pending', user_id: userId };
+  return { title, description, latitude, longitude, status: 'approved', user_id: userId };
 }
 
 /** Admin action: set the status of a report. */

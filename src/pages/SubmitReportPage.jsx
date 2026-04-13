@@ -151,6 +151,8 @@ export default function SubmitReportPage() {
   const [usState,    setUsState]    = useState('');
   const [zip,        setZip]        = useState('');
   const [jurisdiction, setJurisdiction] = useState('');
+  const [reportLat, setReportLat] = useState(null);
+  const [reportLng, setReportLng] = useState(null);
 
   /* Address autofill */
   const [suggestions,     setSuggestions]     = useState([]);
@@ -259,8 +261,34 @@ export default function SubmitReportPage() {
     setUsState(ctx.region?.text || '');
     setZip(ctx.postcode?.text || '');
     setAddressSearch(feature.place_name || '');
+    setReportLng(Array.isArray(feature.center) ? Number(feature.center[0]) : null);
+    setReportLat(Array.isArray(feature.center) ? Number(feature.center[1]) : null);
     setSuggestions([]);
     setShowSuggestions(false);
+  }
+
+  async function geocodeAddressForReport() {
+    if (!MAPBOX_TOKEN) return { latitude: null, longitude: null };
+    const query = [address1, city, usState, zip].filter(Boolean).join(', ');
+    if (!query) return { latitude: null, longitude: null };
+
+    try {
+      const encoded = encodeURIComponent(query);
+      const url =
+        `https://api.mapbox.com/geocoding/v5/mapbox.places/${encoded}.json` +
+        `?access_token=${MAPBOX_TOKEN}&country=us&autocomplete=false&limit=1`;
+      const res = await fetch(url);
+      if (!res.ok) return { latitude: null, longitude: null };
+      const data = await res.json();
+      const first = data?.features?.[0];
+      if (!Array.isArray(first?.center)) return { latitude: null, longitude: null };
+      return {
+        latitude: Number(first.center[1]),
+        longitude: Number(first.center[0]),
+      };
+    } catch {
+      return { latitude: null, longitude: null };
+    }
   }
 
   /* ── Submit ── */
@@ -284,6 +312,18 @@ export default function SubmitReportPage() {
 
     setBusy(true);
     try {
+      let latitude = Number.isFinite(reportLat) ? reportLat : null;
+      let longitude = Number.isFinite(reportLng) ? reportLng : null;
+      if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+        const geocoded = await geocodeAddressForReport();
+        latitude = geocoded.latitude;
+        longitude = geocoded.longitude;
+      }
+      if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+        setError('Unable to locate this address on the map. Please select a suggested address result.');
+        return;
+      }
+
       const locationLine =
         [address1, address2].filter(Boolean).join(', ') +
         `, ${city}` +
@@ -301,8 +341,8 @@ export default function SubmitReportPage() {
       await submitFireReport({
         title:       fireName.trim(),
         description,
-        latitude:    0,
-        longitude:   0,
+        latitude,
+        longitude,
         userId:      user.id,
       });
 
@@ -312,6 +352,7 @@ export default function SubmitReportPage() {
       setAddressSearch(''); setIsIntersection(false);
       setAddress1(''); setAddress2(''); setCity(''); setCounty('');
       setUsState(''); setZip(''); setJurisdiction('');
+      setReportLat(null); setReportLng(null);
       setSuggestions([]); setShowSuggestions(false);
       setFireName(''); setIncidentNotes(''); setInternalNotes('');
       images.forEach((img) => URL.revokeObjectURL(img.preview));
