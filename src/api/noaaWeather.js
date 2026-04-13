@@ -48,19 +48,23 @@ function normalizeAlerts(features) {
   return features.map(f => {
     const p = f.properties;
     return {
-      id:          p.id || f.id,
-      type:        p.event,
-      headline:    p.headline,
-      description: p.description,
-      instruction: p.instruction,
-      severity:    p.severity,
-      urgency:     p.urgency,
-      certainty:   p.certainty,
-      onset:       p.onset,
-      expires:     p.expires,
-      senderName:  p.senderName,
+      id:           p.id || f.id,
+      type:         p.event,
+      headline:     p.headline,
+      description:  p.description,
+      instruction:  p.instruction,
+      severity:     p.severity,
+      urgency:      p.urgency,
+      certainty:    p.certainty,
+      sent:         p.sent,
+      effective:    p.effective,
+      onset:        p.onset,
+      expires:      p.expires,
+      senderName:   p.senderName,
       affectedArea: p.areaDesc,
-      geometry:    f.geometry,
+      geocode:      p.geocode,      // { UGC: [...], SAME: [...] }
+      parameters:   p.parameters,  // { VTEC: [...], WMOidentifier: [...], ... }
+      geometry:     f.geometry,
     };
   });
 }

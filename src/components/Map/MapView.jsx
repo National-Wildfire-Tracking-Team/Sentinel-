@@ -194,7 +194,7 @@ export default function MapView({
   iemReportsGeoJSON,
   userReportsGeoJSON,
 }) {
-  const { layers, selectFire, viewport, setViewport } = useApp();
+  const { layers, alerts, selectFire, viewport, setViewport } = useApp();
   const mapRef = useRef(null);
   const isWildfireTab = activeMapTab === 'wildfire';
   const isWeatherTab = activeMapTab === 'weather';
@@ -331,18 +331,24 @@ export default function MapView({
         pm25:    num(p.pm25),
       });
     } else if (feature.layer.id === 'weather-alerts-fill') {
-      selectFire({
-        type:     'alert',
-        id:       p.id,
-        name:     p.type,
-        headline: p.headline,
-        severity: p.severity,
-        expires:  p.expires,
-        lat:      evt.lngLat.lat,
-        lng:      evt.lngLat.lng,
-      });
+      // Look up the full alert object from context so we get description, instruction, etc.
+      // We spread full alert but override `type` with the routing key 'weather-alert',
+      // preserving the NOAA event name as `eventType` (e.g. "Flood Advisory").
+      const full = alerts?.find(a => a.id === p.id);
+      if (full) {
+        selectFire({ ...full, type: 'weather-alert', eventType: full.type });
+      } else {
+        selectFire({
+          type:      'weather-alert',
+          eventType: p.type,
+          id:        p.id,
+          headline:  p.headline,
+          severity:  p.severity,
+          expires:   p.expires,
+        });
+      }
     }
-  }, [selectFire]);
+  }, [alerts, selectFire]);
 
   // Handle mouse move for hover tooltip
   const handleMouseMove = useCallback((evt) => {

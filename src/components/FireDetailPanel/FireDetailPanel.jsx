@@ -1,12 +1,13 @@
 /**
  * FireDetailPanel.jsx
  * Slide-in panel showing detailed info for a selected fire hotspot,
- * fire perimeter, or AQI station.
+ * fire perimeter, AQI station, or NOAA weather alert.
  */
 
 import {
   X, Flame, MapPin, Users, Home, Calendar, Thermometer,
   AlertTriangle, Wind, ExternalLink, TrendingUp, ShieldAlert,
+  CloudRain, Clock, Info,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import {
