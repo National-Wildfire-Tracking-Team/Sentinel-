@@ -21,7 +21,6 @@ import FireIncidentsLayer  from './layers/FireIncidentsLayer';
 import IncidentLocationsLayer from './layers/IncidentLocationsLayer';
 import AQILayer           from './layers/AQILayer';
 import WeatherAlertsLayer from './layers/WeatherAlertsLayer';
-import DroughtLayer       from './layers/DroughtLayer';
 import SmokeLayer         from './layers/SmokeLayer';
 import GOESLayer          from './layers/GOESLayer';
 import StormReportsLayer  from './layers/StormReportsLayer';
@@ -164,7 +163,6 @@ function HoverTooltip({ feature, lngLat }) {
  * @param {object|null} props.incidentDotsGeoJSON 
  * @param {object|null} props.aqiGeoJSON
  * @param {object|null} props.alertsGeoJSON
- * @param {object|null} props.droughtGeoJSON
  * @param {object|null} props.spcReportsGeoJSON
  * @param {object|null} props.iemReportsGeoJSON
  * @param {'wildfire'|'weather'} [props.activeMapTab]
@@ -177,7 +175,6 @@ export default function MapView({
   incidentDotsGeoJSON,
   aqiGeoJSON,
   alertsGeoJSON,
-  droughtGeoJSON,
   spcReportsGeoJSON,
   iemReportsGeoJSON,
 }) {
@@ -363,12 +360,6 @@ export default function MapView({
         {/* ── Data Layers (ordered back-to-front, each independently controlled via visibility) ── */}
 
 
-
-        {/* Drought layer – rendered first (bottom) */}
-        <DroughtLayer
-          geoJSON={droughtGeoJSON}
-          visible={isWeatherTab && layers.drought}
-        />
 
         {/* GOES satellite imagery */}
         <GOESLayer

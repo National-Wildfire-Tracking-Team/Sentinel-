@@ -30,7 +30,6 @@ const LAYER_GROUPS = [
     label: 'Weather',
     layers: [
       { key: 'weatherAlerts', label: 'Fire Weather Alerts', sublabel: 'NOAA NWS', icon: Wind, color: '#ef4444' },
-      { key: 'drought', label: 'Drought Monitor', sublabel: 'USDA/UNL USDM', icon: Wind, color: '#ffaa00' },
       { key: 'spcReports', label: 'SPC Storm Reports', sublabel: 'NOAA SPC live reports', icon: CloudLightning, color: '#06b6d4' },
       { key: 'iemReports', label: 'IEM Storm Reports', sublabel: 'Iowa State Mesonet GeoJSON', icon: CloudLightning, color: '#60a5fa' },
     ],
