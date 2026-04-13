@@ -7,7 +7,7 @@
 import { useState } from 'react';
 import { Info, ChevronDown, ChevronUp } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
-import { AQI_CATEGORIES, DROUGHT_CATEGORIES } from '../../utils/colorUtils';
+import { AQI_CATEGORIES } from '../../utils/colorUtils';
 
 const FRP_SCALE = [
   { color: '#ffe066', label: 'Very Low  (<10 MW)' },
@@ -42,7 +42,7 @@ export default function Legend() {
 
   if (!legendOpen) return null;
 
-  const anyActive = layers.fireHotspots || layers.aqi || layers.drought || layers.firePerimeters;
+  const anyActive = layers.fireHotspots || layers.aqi || layers.firePerimeters;
   if (!anyActive) return null;
 
   return (
@@ -83,15 +83,6 @@ export default function Legend() {
               <Section title="Air Quality Index">
                 {AQI_CATEGORIES.map(cat => (
                   <ColorRow key={cat.label} color={cat.color} label={`${cat.min}–${cat.max} ${cat.label.split(' ')[0]}`} />
-                ))}
-              </Section>
-            )}
-
-            {/* Drought scale */}
-            {layers.drought && (
-              <Section title="Drought Monitor">
-                {DROUGHT_CATEGORIES.map(cat => (
-                  <ColorRow key={cat.dm} color={cat.color} label={cat.label} />
                 ))}
               </Section>
             )}
