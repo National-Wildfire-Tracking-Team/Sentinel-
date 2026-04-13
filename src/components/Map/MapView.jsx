@@ -163,7 +163,7 @@ function HoverTooltip({ feature, lngLat }) {
  * @param {object|null} props.incidentDotsGeoJSON 
  * @param {object|null} props.aqiGeoJSON
  * @param {object|null} props.alertsGeoJSON
- *@param {object|null} props.spcReportsGeoJSON
+ * @param {object|null} props.spcReportsGeoJSON
  * @param {object|null} props.iemReportsGeoJSON
  * @param {'wildfire'|'weather'} [props.activeMapTab]
  */

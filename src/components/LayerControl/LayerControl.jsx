@@ -14,15 +14,15 @@ const LAYER_GROUPS = [
   {
     label: 'Fire Data',
     layers: [
-      { key: 'fireHotspots',      label: 'Fire Hotspots',       sublabel: 'NASA FIRMS VIIRS',   icon: Flame,    color: '#ff4500' },
-      { key: 'firePerimeters',    label: 'Fire Perimeters',     sublabel: 'NIFC WFIGS',         icon: MapPin,   color: '#ff6600' },
-      { key: 'incidentLocations', label: 'Incident Locations',  sublabel: 'WFIGS Current',      icon: Flame,    color: '#f59e0b' },
+      { key: 'fireHotspots',      label: 'Fire Hotspots',      sublabel: 'NASA FIRMS VIIRS',   icon: Flame,    color: '#ff4500' },
+      { key: 'firePerimeters',    label: 'Fire Perimeters',    sublabel: 'NIFC WFIGS',         icon: MapPin,   color: '#ff6600' },
+      { key: 'incidentLocations', label: 'Incident Locations', sublabel: 'WFIGS Current',      icon: Flame,    color: '#f59e0b' },
     ],
   },
   {
     label: 'Air Quality',
     layers: [
-      { key: 'aqi',   label: 'AQI Overlay',    sublabel: 'EPA AirNow + heatmap',   icon: Wind,    color: '#3b82f6' },
+      { key: 'aqi',   label: 'AQI Overlay',    sublabel: 'EPA AirNow + heatmap',   icon: Wind,      color: '#3b82f6' },
       { key: 'smoke', label: 'Smoke Forecast', sublabel: 'NOAA HRRR',   icon: CloudRain, color: '#94a3b8' },
     ],
   },
@@ -30,7 +30,7 @@ const LAYER_GROUPS = [
     label: 'Weather',
     layers: [
       { key: 'weatherAlerts', label: 'Fire Weather Alerts', sublabel: 'NOAA NWS', icon: Wind, color: '#ef4444' },
-{ key: 'spcReports', label: 'SPC Storm Reports', sublabel: 'NOAA SPC live reports', icon: CloudLightning, color: '#06b6d4' },
+      { key: 'spcReports', label: 'SPC Storm Reports', sublabel: 'NOAA SPC live reports', icon: CloudLightning, color: '#06b6d4' },
       { key: 'iemReports', label: 'IEM Storm Reports', sublabel: 'Iowa State Mesonet GeoJSON', icon: CloudLightning, color: '#60a5fa' },
     ],
   },
@@ -52,7 +52,7 @@ function LayerToggle({ layerKey, label, sublabel, icon: Icon, color }) {
       type="button"
       onClick={() => toggleLayer(layerKey)}
       className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg
-                      hover:bg-sentinel-700/50 transition-colors group text-left"
+                 hover:bg-sentinel-700/50 transition-colors group text-left"
       aria-pressed={active}
       aria-label={`Toggle ${label}`}
     >
@@ -159,4 +159,5 @@ export default function LayerControl({ activeMapTab = 'wildfire', hotspotsCount 
       )}
     </div>
   );
+}
 }
