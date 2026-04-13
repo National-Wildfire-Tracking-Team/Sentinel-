@@ -48,21 +48,49 @@ function normalizeAlerts(features) {
   return features.map(f => {
     const p = f.properties;
     return {
-      id:          p.id || f.id,
-      type:        p.event,
-      headline:    p.headline,
-      description: p.description,
-      instruction: p.instruction,
-      severity:    p.severity,
-      urgency:     p.urgency,
-      certainty:   p.certainty,
-      onset:       p.onset,
-      expires:     p.expires,
-      senderName:  p.senderName,
+      id:           p.id || f.id,
+      type:         p.event,
+      headline:     p.headline,
+      description:  p.description,
+      instruction:  p.instruction,
+      severity:     p.severity,
+      urgency:      p.urgency,
+      certainty:    p.certainty,
+      sent:         p.sent,
+      effective:    p.effective,
+      onset:        p.onset,
+      expires:      p.expires,
+      senderName:   p.senderName,
       affectedArea: p.areaDesc,
-      geometry:    f.geometry,
+      geocode:      p.geocode,      // { UGC: [...], SAME: [...] }
+      parameters:   p.parameters,  // { VTEC: [...], WMOidentifier: [...], ... }
+      geometry:     f.geometry,
     };
   });
+}
+
+/**
+ * Fetch active weather alerts for a specific lat/lng point.
+ * Uses the NOAA /alerts/active endpoint with the point parameter.
+ * @param {number} lat  Latitude
+ * @param {number} lng  Longitude
+ * @returns {Promise<Array>}  Normalized alert objects for that location
+ */
+export async function fetchAlertsByPoint(lat, lng) {
+  const url = `${NOAA_BASE}/alerts/active?point=${lat},${lng}&status=actual&message_type=alert,update`;
+
+  const res = await fetch(url, {
+    headers: {
+      'User-Agent': 'Sentinel Wildfire Platform (contact@sentinel.app)',
+      Accept: 'application/geo+json',
+    },
+  });
+
+  if (!res.ok) throw new Error(`NOAA API error: ${res.status}`);
+  const data = await res.json();
+
+  if (!data?.features?.length) return [];
+  return normalizeAlerts(data.features);
 }
 
 /**

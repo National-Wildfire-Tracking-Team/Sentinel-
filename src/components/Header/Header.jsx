@@ -8,9 +8,7 @@ import { formatRelativeTime } from '../../utils/formatUtils';
 import { Flame, Menu, RefreshCw, Wifi, WifiOff } from 'lucide-react';
 
 export default function Header({ onRefresh, isOnline = true }) {
-  const { toggleSidebar, lastRefreshed, isLoading, alerts } = useApp();
-
-  const redFlagCount = alerts.filter(a => a.type === 'Red Flag Warning').length;
+  const { toggleSidebar, lastRefreshed, isLoading } = useApp();
 
   return (
     <header className="relative z-40 flex items-center justify-between h-14 px-4 bg-sentinel-900/95 backdrop-blur-sm border-b border-sentinel-700 shrink-0">
@@ -37,14 +35,6 @@ export default function Header({ onRefresh, isOnline = true }) {
             All Hazard Intelligence
           </span>
         </div>
-
-        {/* Red Flag badge */}
-        {redFlagCount > 0 && (
-          <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 bg-red-900/60 border border-red-700 rounded-full text-xs font-semibold text-red-300 animate-pulse-fire">
-            <span className="w-1.5 h-1.5 rounded-full bg-red-400" />
-            {redFlagCount} Red Flag Warning{redFlagCount > 1 ? 's' : ''}
-          </div>
-        )}
       </div>
 
       {/* Right – Status indicators */}

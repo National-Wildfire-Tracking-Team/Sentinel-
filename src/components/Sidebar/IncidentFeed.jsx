@@ -15,12 +15,11 @@ const SORT_OPTIONS = [
 ];
 
 export default function IncidentFeed({ incidents, loading, error }) {
-  const { selectedFire } = useApp();
+  const { selectedFire, feedFilter, setFeedFilter } = useApp();
   const [search, setSearch] = useState('');
   const [sort,   setSort]   = useState('acres');
-  const [feedFilter, setFeedFilter] = useState('all');
 
-  const weekAgoMs = Date.now() - (7 * 24 * 60 * 60 * 1000);
+  const cutoffMs = Date.now() - (72 * 60 * 60 * 1000); // 72 hours
 
   // Filter by search term
   const filtered = incidents.filter(inc => {
@@ -35,10 +34,10 @@ export default function IncidentFeed({ incidents, loading, error }) {
     const lastUpdatedMs = inc.updated ? new Date(inc.updated).getTime() : 0;
     const startedMs = inc.started ? new Date(inc.started).getTime() : 0;
     const mostRecentMs = Math.max(lastUpdatedMs, startedMs);
-    const olderThanWeek = mostRecentMs > 0 && mostRecentMs < weekAgoMs;
+    const isOld = mostRecentMs > 0 && mostRecentMs < cutoffMs;
     const mostlyContained = (inc.contained ?? 0) >= 95;
 
-    return !olderThanWeek && !mostlyContained;
+    return !isOld && !mostlyContained;
   });
 
   // Sort
