@@ -38,7 +38,7 @@ function Section({ title, children }) {
 
 export default function Legend() {
   const { layers, legendOpen, toggleLegend } = useApp();
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(true);
 
   if (!legendOpen) return null;
 
