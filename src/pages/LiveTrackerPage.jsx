@@ -17,6 +17,7 @@ import { useAQIData } from '../hooks/useAQIData';
 import { useWeatherAlerts } from '../hooks/useWeatherAlerts';
 import { useIncidents } from '../hooks/useIncidents';
 import { useStormReports } from '../hooks/useStormReports';
+import { useFireReports, reportsToGeoJSON } from '../hooks/useFireReports';
 
 // Components
 import Header from '../components/Header/Header';
@@ -39,6 +40,7 @@ const WILDFIRE_LAYER_PRESET = {
   fireHotspots: true,
   firePerimeters: true,
   incidentLocations: true,
+  userReports: true,
   weatherAlerts: false,
   aqi: false,
   smoke: false,
@@ -50,6 +52,7 @@ const WEATHER_LAYER_PRESET = {
   fireHotspots: false,
   firePerimeters: false,
   incidentLocations: false,
+  userReports: false,
   weatherAlerts: true,
   aqi: true,
   smoke: true,
@@ -131,6 +134,13 @@ export default function LiveTrackerPage() {
     refresh: refreshStormReports,
   } = useStormReports(activeMapTab === MAP_TABS.weather);
 
+  // Community-submitted reports – only approved ones, realtime-subscribed
+  const { reports: approvedReports, refresh: refreshUserReports } = useFireReports('approved');
+  const userReportsGeoJSON = useMemo(
+    () => reportsToGeoJSON(approvedReports),
+    [approvedReports]
+  );
+
   // ── Apply feed filter to map fire layers ──
   const isFocused = feedFilter === 'focused';
 
@@ -175,8 +185,9 @@ export default function LiveTrackerPage() {
     refreshAlerts();
     refreshIncidents();
     refreshStormReports();
+    refreshUserReports();
     if (layers.aqi) refreshAQI();
-  }, [refreshHotspots, refreshPerimeters, refreshAlerts, refreshIncidents, refreshStormReports, refreshAQI, layers.aqi]);
+  }, [refreshHotspots, refreshPerimeters, refreshAlerts, refreshIncidents, refreshStormReports, refreshUserReports, refreshAQI, layers.aqi]);
 
   return (
     <div className="h-screen w-screen flex flex-col bg-sentinel-900 text-white overflow-hidden select-none">
@@ -227,6 +238,7 @@ export default function LiveTrackerPage() {
             alertsGeoJSON={alertsGeoJSON}
             spcReportsGeoJSON={spcGeoJSON}
             iemReportsGeoJSON={iemGeoJSON}
+            userReportsGeoJSON={userReportsGeoJSON}
           />
 
           <LayerControl

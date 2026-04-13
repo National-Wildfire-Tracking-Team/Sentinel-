@@ -20,6 +20,7 @@ const initialState = {
     goesWest:          false,
     spcReports:        true,
     iemReports:        true,
+    userReports:       true,
   },
   // Currently clicked/selected fire feature (hotspot or perimeter)
   selectedFire: null,

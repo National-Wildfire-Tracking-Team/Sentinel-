@@ -361,6 +361,60 @@ function AlertDetail({ fire, alerts }) {
   );
 }
 
+function UserReportDetail({ fire }) {
+  return (
+    <>
+      <div className="flex items-center gap-2 mb-4">
+        <div className="p-2 bg-cyan-900/40 rounded-lg">
+          <Flame size={18} className="text-cyan-300" />
+        </div>
+        <div>
+          <h3 className="font-bold text-white text-base">{fire.title}</h3>
+          <p className="text-sentinel-400 text-xs">Community-submitted report</p>
+        </div>
+      </div>
+
+      {fire.description && (
+        <div className="mb-4 p-3 bg-sentinel-800/60 border border-sentinel-700 rounded-lg">
+          <div className="text-[10px] font-bold text-sentinel-500 uppercase tracking-widest mb-1.5">
+            Description
+          </div>
+          <p className="text-xs text-sentinel-200 leading-relaxed whitespace-pre-wrap">
+            {fire.description}
+          </p>
+        </div>
+      )}
+
+      <div className="space-y-1.5 text-xs text-sentinel-400 mb-4">
+        <div className="flex items-center gap-2">
+          <MapPin size={12} />
+          <span>{fire.lat?.toFixed(4)}°, {fire.lng?.toFixed(4)}°</span>
+        </div>
+        {fire.created_at && (
+          <div className="flex items-center gap-2">
+            <Calendar size={12} />
+            <span>Submitted: {formatDateTime(fire.created_at)}</span>
+          </div>
+        )}
+        {fire.user_id && (
+          <div className="flex items-center gap-2">
+            <Users size={12} />
+            <span>Reporter: {String(fire.user_id).slice(0, 8)}…</span>
+          </div>
+        )}
+      </div>
+
+      <div className="p-3 bg-cyan-950/30 border border-cyan-900/50 rounded-lg">
+        <p className="text-xs text-cyan-200/80 leading-relaxed">
+          This report was submitted by a community reporter and reviewed by
+          NWTT moderators before appearing on the map. Verify with official
+          sources before taking action.
+        </p>
+      </div>
+    </>
+  );
+}
+
 function AQIDetail({ fire }) {
   const cat = getAQICategory(fire.aqi);
   return (
@@ -429,6 +483,7 @@ export default function FireDetailPanel() {
              selectedFire.type === 'incident' ? 'Incident Detail' :
              selectedFire.type === 'aqi'      ? 'Air Quality' :
              selectedFire.type === 'alert'    ? 'Weather Alert' :
+             selectedFire.type === 'user-report' ? 'Community Report' :
              'Fire Detail'}
           </span>
           <button
@@ -447,6 +502,7 @@ export default function FireDetailPanel() {
           {selectedFire.type === 'incident' && <IncidentDetail  fire={selectedFire} />}
           {selectedFire.type === 'aqi'      && <AQIDetail       fire={selectedFire} />}
           {selectedFire.type === 'alert'    && <AlertDetail     fire={selectedFire} alerts={alerts} />}
+          {selectedFire.type === 'user-report' && <UserReportDetail fire={selectedFire} />}
         </div>
       </div>
     </>
