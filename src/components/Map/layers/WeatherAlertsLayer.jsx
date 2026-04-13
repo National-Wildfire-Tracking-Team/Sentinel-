@@ -2,8 +2,7 @@
  * WeatherAlertsLayer.jsx
  * Renders NOAA weather alert zones as semi-transparent polygon overlays
  * using the official NWS color palette (see utils/nwsColors).
- * Watches are drawn with tighter dashes and a more transparent fill to
- * approximate the hatched boxes used on the official NWS map.
+ * Watches use a more transparent fill to distinguish them from warnings.
  * Layer stays mounted; visibility is controlled via layout property.
  */
 
@@ -34,7 +33,7 @@ export default function WeatherAlertsLayer({ geoJSON, visible }) {
         }}
       />
 
-      {/* Warning / advisory / statement outline — loose dashes */}
+      {/* Solid outline for all alert polygons */}
       <Layer
         id="weather-alerts-line"
         type="line"
@@ -45,11 +44,10 @@ export default function WeatherAlertsLayer({ geoJSON, visible }) {
           'line-color': COLOR_EXPR,
           'line-width': 1.5,
           'line-opacity': 0.85,
-          'line-dasharray': [4, 3],
         }}
       />
 
-      {/* Watch outline — tighter dashes, mimicking hatching */}
+      {/* Watch outline — slightly thinner to differentiate from warnings */}
       <Layer
         id="weather-alerts-line-watch"
         type="line"
@@ -60,7 +58,6 @@ export default function WeatherAlertsLayer({ geoJSON, visible }) {
           'line-color': COLOR_EXPR,
           'line-width': 1.2,
           'line-opacity': 0.85,
-          'line-dasharray': [2, 2],
         }}
       />
     </Source>
