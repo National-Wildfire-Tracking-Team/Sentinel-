@@ -6,7 +6,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Flame, ArrowLeft, CloudSun } from 'lucide-react';
+import { Flame, ArrowLeft } from 'lucide-react';
 
 import { useApp } from '../context/AppContext';
 
@@ -170,39 +170,6 @@ export default function LiveTrackerPage() {
       {/* ── Active alert banner ── */}
       <AlertBanner />
 
-      {/* ── Map mode tabs ── */}
-      <div className="px-4 pt-3 pb-2 border-b border-sentinel-700/70 bg-sentinel-900/95">
-        <div className="inline-flex rounded-xl border border-sentinel-700 bg-sentinel-800 p-1 gap-1">
-          <button
-            type="button"
-            onClick={() => setActiveMapTab(MAP_TABS.wildfire)}
-            className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors ${
-              activeMapTab === MAP_TABS.wildfire
-                ? 'bg-fire-600 text-white'
-                : 'text-sentinel-200 hover:bg-sentinel-700'
-            }`}
-            aria-pressed={activeMapTab === MAP_TABS.wildfire}
-          >
-            <Flame size={13} />
-            Wildfire Tracking
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveMapTab(MAP_TABS.weather)}
-            className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors ${
-              activeMapTab === MAP_TABS.weather
-                ? 'bg-sky-600 text-white'
-                : 'text-sentinel-200 hover:bg-sentinel-700'
-            }`}
-            aria-pressed={activeMapTab === MAP_TABS.weather}
-          >
-            <CloudSun size={13} />
-            Weather Tracking
-          </button>
-        </div>
-      </div>
-
       {/* ── Main content area ── */}
       <div className="flex flex-1 overflow-hidden relative">
         {/* Left sidebar */}
@@ -211,6 +178,7 @@ export default function LiveTrackerPage() {
           loading={incidentsLoading}
           error={incidentsError}
           activeMapTab={activeMapTab}
+          onTabChange={setActiveMapTab}
           spcReports={spcReports}
           iemReports={iemReports}
           stormReportsLoading={stormReportsLoading}

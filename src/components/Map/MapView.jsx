@@ -29,7 +29,7 @@ const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN || '';
 const HAS_MAPBOX_TOKEN = Boolean(MAPBOX_TOKEN.trim());
 
 // Quick helper if you don't already have one exported from utils
-const num = (val) => Number(val); 
+const num = (val) => Number(val);
 
 // ─── Base map style ───────────────────────────────────────────────────────────
 const MAP_STYLE = HAS_MAPBOX_TOKEN
