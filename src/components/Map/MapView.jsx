@@ -301,6 +301,17 @@ export default function MapView({
         category: p.category,
         pm25:    num(p.pm25),
       });
+    } else if (feature.layer.id === 'weather-alerts-fill') {
+      selectFire({
+        type:     'alert',
+        id:       p.id,
+        name:     p.type,
+        headline: p.headline,
+        severity: p.severity,
+        expires:  p.expires,
+        lat:      evt.lngLat.lat,
+        lng:      evt.lngLat.lng,
+      });
     }
   }, [selectFire]);
 
