@@ -4,7 +4,7 @@
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { fetchFireWeatherAlerts, alertsToGeoJSON } from '../api/noaaWeather';
+import { fetchFireWeatherAlerts, alertsToGeoJSON, enrichAlertsWithGeometry } from '../api/noaaWeather';
 import { useApp } from '../context/AppContext';
 
 const REFRESH_MS = 5 * 60 * 1000;
@@ -24,9 +24,11 @@ export function useWeatherAlerts() {
       setError(null);
       const data = await fetchFireWeatherAlerts();
       if (!mountedRef.current) return;
-      setAlertsState(data);
-      setAlerts(data);
-      setGeoJSON(alertsToGeoJSON(data));
+      const enriched = await enrichAlertsWithGeometry(data);
+      if (!mountedRef.current) return;
+      setAlertsState(enriched);
+      setAlerts(enriched);
+      setGeoJSON(alertsToGeoJSON(enriched));
     } catch (err) {
       if (!mountedRef.current) return;
       setError(err.message);
