@@ -20,10 +20,10 @@ import FireIncidentsLayer  from './layers/FireIncidentsLayer';
 import IncidentLocationsLayer from './layers/IncidentLocationsLayer';
 import AQILayer           from './layers/AQILayer';
 import WeatherAlertsLayer from './layers/WeatherAlertsLayer';
-import DroughtLayer       from './layers/DroughtLayer';
 import SmokeLayer         from './layers/SmokeLayer';
 import GOESLayer          from './layers/GOESLayer';
 import StormReportsLayer  from './layers/StormReportsLayer';
+import UserReportsLayer   from './layers/UserReportsLayer';
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN || '';
 const HAS_MAPBOX_TOKEN = Boolean(MAPBOX_TOKEN.trim());
@@ -122,6 +122,19 @@ function HoverTooltip({ feature, lngLat }) {
         </>
       );
       break;
+    case 'user-reports-circle':
+      content = (
+        <>
+          <div className="font-semibold text-cyan-300">{p.title}</div>
+          <div className="text-gray-300 text-xs mt-0.5">Community report</div>
+          {p.created_at && (
+            <div className="text-gray-400 text-xs">
+              {new Date(p.created_at).toLocaleString()}
+            </div>
+          )}
+        </>
+      );
+      break;
     case 'incident-locations-circle':
       content = (
         <>
@@ -162,9 +175,9 @@ function HoverTooltip({ feature, lngLat }) {
  * @param {object|null} props.incidentDotsGeoJSON 
  * @param {object|null} props.aqiGeoJSON
  * @param {object|null} props.alertsGeoJSON
- * @param {object|null} props.droughtGeoJSON
  * @param {object|null} props.spcReportsGeoJSON
  * @param {object|null} props.iemReportsGeoJSON
+ * @param {object|null} props.userReportsGeoJSON
  * @param {'wildfire'|'weather'} [props.activeMapTab]
  */
 export default function MapView({
@@ -175,11 +188,11 @@ export default function MapView({
   incidentDotsGeoJSON,
   aqiGeoJSON,
   alertsGeoJSON,
-  droughtGeoJSON,
   spcReportsGeoJSON,
   iemReportsGeoJSON,
+  userReportsGeoJSON,
 }) {
-  const { layers, selectFire, viewport, setViewport } = useApp();
+  const { layers, alerts, selectFire, viewport, setViewport } = useApp();
   const mapRef = useRef(null);
   const isWildfireTab = activeMapTab === 'wildfire';
   const isWeatherTab = activeMapTab === 'weather';
@@ -194,14 +207,15 @@ export default function MapView({
     if (isWildfireTab && layers.fireHotspots && hotspotsGeoJSON)        ids.push('fire-hotspots-circle');
     if (isWildfireTab && layers.firePerimeters && perimetersGeoJSON)     ids.push('fire-perimeters-fill');
     if (isWildfireTab && layers.incidentLocations && incidentsGeoJSON)   ids.push('incident-locations-circle');
+    if (isWildfireTab && layers.userReports && userReportsGeoJSON)       ids.push('user-reports-circle');
     if (isWeatherTab && layers.aqi && aqiGeoJSON)                        ids.push('aqi-stations-circle');
     if (isWeatherTab && layers.weatherAlerts && alertsGeoJSON)           ids.push('weather-alerts-fill');
     if (isWeatherTab && layers.spcReports && spcReportsGeoJSON)          ids.push('spc-reports-circle');
     if (isWeatherTab && layers.iemReports && iemReportsGeoJSON)          ids.push('iem-reports-circle');
     return ids;
   }, [isWildfireTab, isWeatherTab, layers.fireHotspots, layers.firePerimeters, layers.incidentLocations, layers.aqi,
-      layers.weatherAlerts, layers.spcReports, layers.iemReports, hotspotsGeoJSON, perimetersGeoJSON, incidentsGeoJSON,
-      aqiGeoJSON, alertsGeoJSON, spcReportsGeoJSON, iemReportsGeoJSON]);
+      layers.weatherAlerts, layers.spcReports, layers.iemReports, layers.userReports, hotspotsGeoJSON, perimetersGeoJSON,
+      incidentsGeoJSON, aqiGeoJSON, alertsGeoJSON, spcReportsGeoJSON, iemReportsGeoJSON, userReportsGeoJSON]);
 
   // Clear stale hover when layers change
   const prevLayersRef = useRef(layers);
@@ -291,6 +305,18 @@ export default function MapView({
         started:   p.started,
         updated:   p.updated,
       });
+    } else if (feature.layer.id === 'user-reports-circle') {
+      selectFire({
+        type:        'user-report',
+        id:          p.id,
+        name:        p.title,
+        title:       p.title,
+        description: p.description,
+        lat:         evt.lngLat.lat,
+        lng:         evt.lngLat.lng,
+        created_at:  p.created_at,
+        user_id:     p.user_id,
+      });
     } else if (feature.layer.id === 'aqi-stations-circle') {
       selectFire({
         type:    'aqi',
@@ -302,8 +328,25 @@ export default function MapView({
         category: p.category,
         pm25:    num(p.pm25),
       });
+    } else if (feature.layer.id === 'weather-alerts-fill') {
+      // Look up the full alert object from context so we get description, instruction, etc.
+      // We spread full alert but override `type` with the routing key 'weather-alert',
+      // preserving the NOAA event name as `eventType` (e.g. "Flood Advisory").
+      const full = alerts?.find(a => a.id === p.id);
+      if (full) {
+        selectFire({ ...full, type: 'weather-alert', eventType: full.type });
+      } else {
+        selectFire({
+          type:      'weather-alert',
+          eventType: p.type,
+          id:        p.id,
+          headline:  p.headline,
+          severity:  p.severity,
+          expires:   p.expires,
+        });
+      }
     }
-  }, [selectFire]);
+  }, [alerts, selectFire]);
 
   // Handle mouse move for hover tooltip
   const handleMouseMove = useCallback((evt) => {
@@ -361,12 +404,6 @@ export default function MapView({
         {/* ── Data Layers (ordered back-to-front, each independently controlled via visibility) ── */}
 
 
-
-        {/* Drought layer – rendered first (bottom) */}
-        <DroughtLayer
-          geoJSON={droughtGeoJSON}
-          visible={isWeatherTab && layers.drought}
-        />
 
         {/* GOES satellite imagery */}
         <GOESLayer
@@ -427,6 +464,12 @@ export default function MapView({
         <FireHotspotsLayer
           geoJSON={hotspotsGeoJSON}
           visible={isWildfireTab && layers.fireHotspots}
+        />
+
+        {/* Community-submitted reports (rendered on top of official data) */}
+        <UserReportsLayer
+          geoJSON={userReportsGeoJSON}
+          visible={isWildfireTab && layers.userReports}
         />
 
         {/* Hover tooltip */}

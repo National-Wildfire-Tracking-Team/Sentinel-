@@ -1,49 +1,63 @@
 /**
  * WeatherAlertsLayer.jsx
- * Renders NOAA weather alert zones (Red Flag Warnings, Fire Weather Watches)
- * as semi-transparent polygon overlays.
+ * Renders NOAA weather alert zones as semi-transparent polygon overlays
+ * using the official NWS color palette (see utils/nwsColors).
+ * Watches use a more transparent fill to distinguish them from warnings.
  * Layer stays mounted; visibility is controlled via layout property.
  */
 
 import { Source, Layer } from 'react-map-gl';
+import { nwsColorMatchExpression } from '../../../utils/nwsColors';
 
 const EMPTY_GEOJSON = { type: 'FeatureCollection', features: [] };
+const COLOR_EXPR = nwsColorMatchExpression();
+
+// Feature is considered a "watch" if the alert type string contains "Watch".
+const IS_WATCH = ['in', 'Watch', ['get', 'type']];
+const IS_NOT_WATCH = ['!', IS_WATCH];
 
 export default function WeatherAlertsLayer({ geoJSON, visible }) {
   const vis = visible ? 'visible' : 'none';
 
   return (
     <Source id="weather-alerts" type="geojson" data={geoJSON || EMPTY_GEOJSON}>
+      {/* Polygon fill — lighter for Watches to hint at a hatched overlay */}
       <Layer
         id="weather-alerts-fill"
         type="fill"
         source="weather-alerts"
         layout={{ visibility: vis }}
         paint={{
-          'fill-color': [
-            'match', ['get', 'type'],
-            'Red Flag Warning', '#ef4444',
-            'Fire Weather Watch', '#f59e0b',
-            '#3b82f6',
-          ],
-          'fill-opacity': 0.12,
+          'fill-color': COLOR_EXPR,
+          'fill-opacity': ['case', IS_WATCH, 0.08, 0.18],
         }}
       />
+
+      {/* Solid outline for all alert polygons */}
       <Layer
         id="weather-alerts-line"
         type="line"
         source="weather-alerts"
+        filter={IS_NOT_WATCH}
         layout={{ visibility: vis }}
         paint={{
-          'line-color': [
-            'match', ['get', 'type'],
-            'Red Flag Warning', '#ef4444',
-            'Fire Weather Watch', '#f59e0b',
-            '#3b82f6',
-          ],
+          'line-color': COLOR_EXPR,
           'line-width': 1.5,
-          'line-opacity': 0.7,
-          'line-dasharray': [4, 3],
+          'line-opacity': 0.85,
+        }}
+      />
+
+      {/* Watch outline — slightly thinner to differentiate from warnings */}
+      <Layer
+        id="weather-alerts-line-watch"
+        type="line"
+        source="weather-alerts"
+        filter={IS_WATCH}
+        layout={{ visibility: vis }}
+        paint={{
+          'line-color': COLOR_EXPR,
+          'line-width': 1.2,
+          'line-opacity': 0.85,
         }}
       />
     </Source>

@@ -3,10 +3,10 @@
  * Collapsible left panel housing the incident feed and summary stats.
  */
 
-import { Flame, TrendingUp, Wind, ChevronLeft, CloudSun } from 'lucide-react';
+import { Flame, TrendingUp, Wind, ChevronLeft, CloudSun, ShieldAlert } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import IncidentFeed from './IncidentFeed';
-import StormReportsFeed from './StormReportsFeed';
+import WeatherAlertsFeed from './WeatherAlertsFeed';
 import AddressAlertSearch from './AddressAlertSearch';
 
 function StatPill({ icon: Icon, label, value, color = 'text-white' }) {
@@ -25,10 +25,8 @@ export default function Sidebar({
   error,
   activeMapTab = 'wildfire',
   onTabChange,
-  spcReports = [],
-  iemReports = [],
-  stormReportsLoading = false,
-  stormReportsError = null,
+  weatherAlertsLoading = false,
+  weatherAlertsError = null,
 }) {
   const { sidebarOpen, toggleSidebar, alerts } = useApp();
   const isWeatherTab = activeMapTab === 'weather';
@@ -37,8 +35,9 @@ export default function Sidebar({
   const rfwCount     = alerts.filter(a => a.type === 'Red Flag Warning').length;
   const totalAcres   = incidents.reduce((sum, i) => sum + (i.acres || 0), 0);
   const acresDisplay = totalAcres >= 1000 ? `${(totalAcres / 1000).toFixed(0)}k` : totalAcres;
-  const stormCount = spcReports.length + iemReports.length;
-  const tornadoCount = [...spcReports, ...iemReports].filter(r => r.reportType === 'Tornado').length;
+  const alertsCount = alerts.length;
+  const severeCount = alerts.filter(a => a.severity === 'Extreme' || a.severity === 'Severe').length;
+  const warningCount = alerts.filter(a => typeof a.type === 'string' && a.type.includes('Warning')).length;
 
   return (
     <>
@@ -110,9 +109,9 @@ export default function Sidebar({
                 {activeCount}
               </span>
             )}
-            {isWeatherTab && stormCount > 0 && (
-              <span className="px-1.5 py-0.5 bg-cyan-600/25 text-cyan-300 text-xs font-bold rounded-full border border-cyan-700/40">
-                {stormCount}
+            {isWeatherTab && alertsCount > 0 && (
+              <span className="px-1.5 py-0.5 bg-sky-600/25 text-sky-300 text-xs font-bold rounded-full border border-sky-700/40">
+                {alertsCount}
               </span>
             )}
           </div>
@@ -131,9 +130,9 @@ export default function Sidebar({
           <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
             {isWeatherTab ? (
               <>
-                <StatPill icon={Wind} label="Total Reports" value={stormCount} color="text-cyan-300" />
-                <StatPill icon={Flame} label="Tornado" value={tornadoCount} color="text-red-300" />
-                <StatPill icon={TrendingUp} label="SPC + IEM" value="LIVE" color="text-blue-300" />
+                <StatPill icon={CloudSun}    label="Active Alerts" value={alertsCount}  color="text-sky-300" />
+                <StatPill icon={ShieldAlert} label="Severe"        value={severeCount}  color="text-red-300" />
+                <StatPill icon={Wind}        label="Warnings"      value={warningCount} color="text-amber-300" />
               </>
             ) : (
               <>
@@ -151,11 +150,10 @@ export default function Sidebar({
         {/* Incident feed – takes remaining height */}
         <div className="flex-1 overflow-hidden">
           {isWeatherTab ? (
-            <StormReportsFeed
-              spcReports={spcReports}
-              iemReports={iemReports}
-              loading={stormReportsLoading}
-              error={stormReportsError}
+            <WeatherAlertsFeed
+              alerts={alerts}
+              loading={weatherAlertsLoading}
+              error={weatherAlertsError}
             />
           ) : (
             <IncidentFeed incidents={incidents} loading={loading} error={error} />

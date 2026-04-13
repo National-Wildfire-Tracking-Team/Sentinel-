@@ -17,7 +17,7 @@ import { useAQIData } from '../hooks/useAQIData';
 import { useWeatherAlerts } from '../hooks/useWeatherAlerts';
 import { useIncidents } from '../hooks/useIncidents';
 import { useStormReports } from '../hooks/useStormReports';
-import { fetchDroughtData } from '../api/droughtMonitor';
+import { useFireReports, reportsToGeoJSON } from '../hooks/useFireReports';
 
 // Components
 import Header from '../components/Header/Header';
@@ -40,10 +40,10 @@ const WILDFIRE_LAYER_PRESET = {
   fireHotspots: true,
   firePerimeters: true,
   incidentLocations: true,
+  userReports: true,
   weatherAlerts: false,
   aqi: false,
   smoke: false,
-  drought: false,
   goesEast: false,
   goesWest: false,
 };
@@ -52,16 +52,35 @@ const WEATHER_LAYER_PRESET = {
   fireHotspots: false,
   firePerimeters: false,
   incidentLocations: false,
+  userReports: false,
   weatherAlerts: true,
   aqi: true,
   smoke: true,
-  drought: true,
   goesEast: true,
   goesWest: false,
 };
 
+/** Filter a GeoJSON FeatureCollection, removing old (>72h) or mostly contained (>95%) fires. */
+function filterFireGeoJSON(geoJSON, { containedKey, updatedKey, startedKey }) {
+  if (!geoJSON?.features) return geoJSON;
+  const cutoffMs = Date.now() - (72 * 60 * 60 * 1000);
+  return {
+    ...geoJSON,
+    features: geoJSON.features.filter(f => {
+      const p = f.properties;
+      const contained = Number(p[containedKey]) || 0;
+      if (contained > 95) return false;
+      const updatedMs = p[updatedKey] ? new Date(p[updatedKey]).getTime() : 0;
+      const startedMs = p[startedKey] ? new Date(p[startedKey]).getTime() : 0;
+      const mostRecentMs = Math.max(updatedMs, startedMs);
+      if (mostRecentMs > 0 && mostRecentMs < cutoffMs) return false;
+      return true;
+    }),
+  };
+}
+
 export default function LiveTrackerPage() {
-  const { layers, setLayer, setRefreshed, setLoading } = useApp();
+  const { layers, setLayer, setRefreshed, setLoading, feedFilter } = useApp();
   const [activeMapTab, setActiveMapTab] = useState(MAP_TABS.wildfire);
 
   // Apply layer presets only when the active tab changes
@@ -96,6 +115,8 @@ export default function LiveTrackerPage() {
 
   const {
     geoJSON: alertsGeoJSON,
+    loading: alertsLoading,
+    error: alertsError,
     refresh: refreshAlerts,
   } = useWeatherAlerts();
 
@@ -108,25 +129,47 @@ export default function LiveTrackerPage() {
   } = useIncidents(0.1);
 
   const {
-    spcReports,
-    iemReports,
     spcGeoJSON,
     iemGeoJSON,
-    loading: stormReportsLoading,
-    error: stormReportsError,
     refresh: refreshStormReports,
   } = useStormReports(activeMapTab === MAP_TABS.weather);
 
-  // Drought data (low-frequency – load once, refreshable)
-  const [droughtGeoJSON, setDroughtGeoJSON] = useState(null);
-  const refreshDrought = useCallback(() => {
-    fetchDroughtData().then(setDroughtGeoJSON).catch(console.warn);
-  }, []);
-  useEffect(() => {
-    if (layers.drought && !droughtGeoJSON) {
-      refreshDrought();
-    }
-  }, [layers.drought, droughtGeoJSON, refreshDrought]);
+  // Community-submitted reports – only approved ones, realtime-subscribed
+  const { reports: approvedReports, refresh: refreshUserReports } = useFireReports('approved');
+  const userReportsGeoJSON = useMemo(
+    () => reportsToGeoJSON(approvedReports),
+    [approvedReports]
+  );
+
+  // ── Apply feed filter to map fire layers ──
+  const isFocused = feedFilter === 'focused';
+
+  const filteredIncidentsGeoJSON = useMemo(() => {
+    if (!isFocused) return incidentsGeoJSON;
+    return filterFireGeoJSON(incidentsGeoJSON, {
+      containedKey: 'contained',
+      updatedKey: 'updated',
+      startedKey: 'started',
+    });
+  }, [isFocused, incidentsGeoJSON]);
+
+  const filteredPerimetersGeoJSON = useMemo(() => {
+    if (!isFocused) return perimetersGeoJSON;
+    return filterFireGeoJSON(perimetersGeoJSON, {
+      containedKey: 'PercentContained',
+      updatedKey: 'ModifiedOnDateTime',
+      startedKey: 'FireDiscoveryDateTime',
+    });
+  }, [isFocused, perimetersGeoJSON]);
+
+  const filteredIncidentDotsGeoJSON = useMemo(() => {
+    if (!isFocused) return incidentDotsGeoJSON;
+    return filterFireGeoJSON(incidentDotsGeoJSON, {
+      containedKey: 'PercentContained',
+      updatedKey: 'ModifiedOnDateTime',
+      startedKey: 'FireDiscoveryDateTime',
+    });
+  }, [isFocused, incidentDotsGeoJSON]);
 
   // ── Global loading state ──
   const anyLoading = hotspotsLoading || perimetersLoading || incidentsLoading;
@@ -142,9 +185,9 @@ export default function LiveTrackerPage() {
     refreshAlerts();
     refreshIncidents();
     refreshStormReports();
+    refreshUserReports();
     if (layers.aqi) refreshAQI();
-    if (layers.drought) refreshDrought();
-  }, [refreshHotspots, refreshPerimeters, refreshAlerts, refreshIncidents, refreshStormReports, refreshAQI, refreshDrought, layers.aqi, layers.drought]);
+  }, [refreshHotspots, refreshPerimeters, refreshAlerts, refreshIncidents, refreshStormReports, refreshUserReports, refreshAQI, layers.aqi]);
 
   return (
     <div className="h-screen w-screen flex flex-col bg-sentinel-900 text-white overflow-hidden select-none">
@@ -179,10 +222,8 @@ export default function LiveTrackerPage() {
           error={incidentsError}
           activeMapTab={activeMapTab}
           onTabChange={setActiveMapTab}
-          spcReports={spcReports}
-          iemReports={iemReports}
-          stormReportsLoading={stormReportsLoading}
-          stormReportsError={stormReportsError}
+          weatherAlertsLoading={alertsLoading}
+          weatherAlertsError={alertsError}
         />
 
         {/* Map area */}
@@ -190,14 +231,14 @@ export default function LiveTrackerPage() {
           <MapView
             activeMapTab={activeMapTab}
             hotspotsGeoJSON={hotspotsGeoJSON}
-            perimetersGeoJSON={perimetersGeoJSON}
-            incidentsGeoJSON={incidentsGeoJSON}
-            incidentDotsGeoJSON={incidentDotsGeoJSON}
+            perimetersGeoJSON={filteredPerimetersGeoJSON}
+            incidentsGeoJSON={filteredIncidentsGeoJSON}
+            incidentDotsGeoJSON={filteredIncidentDotsGeoJSON}
             aqiGeoJSON={aqiGeoJSON}
             alertsGeoJSON={alertsGeoJSON}
-            droughtGeoJSON={droughtGeoJSON}
             spcReportsGeoJSON={spcGeoJSON}
             iemReportsGeoJSON={iemGeoJSON}
+            userReportsGeoJSON={userReportsGeoJSON}
           />
 
           <LayerControl
