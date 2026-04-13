@@ -14,6 +14,7 @@ import {
   formatDate, formatPersonnel, formatRelativeTime,
 } from '../../utils/formatUtils';
 import { frpToLabel, containmentToColor, aqiToColor, getAQICategory } from '../../utils/colorUtils';
+import { nwsAlertColor } from '../../utils/nwsColors';
 import { MOCK_INCIDENTS } from '../../data/mockData';
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
@@ -284,23 +285,20 @@ function AlertDetail({ fire, alerts }) {
   // from context — the map feature only carries a summarized set of props.
   const full = alerts?.find(a => a.id === fire.id) || {};
 
-  const severity = fire.severity || full.severity;
-  const sevColor =
-    severity === 'Extreme'  ? '#dc2626' :
-    severity === 'Severe'   ? '#ef4444' :
-    severity === 'Moderate' ? '#f59e0b' :
-    '#3b82f6';
-
   const type = fire.name || full.type;
-  const isRedFlag = type === 'Red Flag Warning';
-  const iconBg = isRedFlag ? 'bg-red-900/40' : 'bg-amber-900/40';
-  const iconColor = isRedFlag ? 'text-red-400' : 'text-amber-400';
+  const severity = fire.severity || full.severity;
+
+  // Use the official NWS color for this alert type.
+  const typeColor = nwsAlertColor(type);
 
   return (
     <>
       <div className="flex items-center gap-2 mb-4">
-        <div className={`p-2 ${iconBg} rounded-lg`}>
-          <AlertTriangle size={18} className={iconColor} />
+        <div
+          className="p-2 rounded-lg"
+          style={{ backgroundColor: typeColor + '30' }}
+        >
+          <AlertTriangle size={18} style={{ color: typeColor }} />
         </div>
         <div>
           <h3 className="font-bold text-white text-base">{type}</h3>
@@ -311,7 +309,7 @@ function AlertDetail({ fire, alerts }) {
       {fire.headline && (
         <div
           className="mb-4 p-3 rounded-lg text-xs leading-relaxed"
-          style={{ backgroundColor: sevColor + '20', border: `1px solid ${sevColor}40`, color: sevColor }}
+          style={{ backgroundColor: typeColor + '20', border: `1px solid ${typeColor}40`, color: typeColor }}
         >
           {fire.headline}
         </div>
