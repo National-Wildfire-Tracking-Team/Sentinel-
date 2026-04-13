@@ -33,6 +33,9 @@ const ACRES_RADIUS = [
 export default function IncidentLocationsLayer({ geoJSON, visible }) {
   const vis = visible ? 'visible' : 'none';
 
+  // Hide fire dots below 0.4 acres
+  const sizeFilter = ['>=', ['get', 'acres'], 0.4];
+
   return (
     <Source id="incident-locations" type="geojson" data={geoJSON || EMPTY_GEOJSON}>
       {/* Outer glow ring */}
@@ -40,6 +43,7 @@ export default function IncidentLocationsLayer({ geoJSON, visible }) {
         id="incident-locations-glow"
         type="circle"
         source="incident-locations"
+        filter={sizeFilter}
         layout={{ visibility: vis }}
         paint={{
           'circle-radius': ['*', ACRES_RADIUS, 1.8],
@@ -53,6 +57,7 @@ export default function IncidentLocationsLayer({ geoJSON, visible }) {
         id="incident-locations-circle"
         type="circle"
         source="incident-locations"
+        filter={sizeFilter}
         layout={{ visibility: vis }}
         paint={{
           'circle-radius': ACRES_RADIUS,
@@ -68,6 +73,7 @@ export default function IncidentLocationsLayer({ geoJSON, visible }) {
         id="incident-locations-label"
         type="symbol"
         source="incident-locations"
+        filter={sizeFilter}
         minzoom={7}
         layout={{
           visibility: vis,
