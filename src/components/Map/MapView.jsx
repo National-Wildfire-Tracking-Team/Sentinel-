@@ -6,7 +6,6 @@
  */
 
 import { useRef, useCallback, useMemo, useState } from 'react';
-import mapboxgl from "mapbox-gl";
 import Map, { NavigationControl, ScaleControl, Popup } from 'react-map-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 
@@ -27,16 +26,15 @@ import StormReportsLayer  from './layers/StormReportsLayer';
 import UserReportsLayer   from './layers/UserReportsLayer';
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN || '';
+const HAS_MAPBOX_TOKEN = Boolean(MAPBOX_TOKEN.trim());
 
 // Quick helper if you don't already have one exported from utils
 const num = (val) => Number(val);
 
 // ─── Base map style ───────────────────────────────────────────────────────────
-// Use Mapbox satellite style when a token is available, otherwise fall back to
-// free Carto dark-matter tiles so the map still renders without crashing.
-const MAPBOX_STYLE = 'mapbox://styles/mapbox/satellite-streets-v12';
-const FREE_STYLE   = 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json';
-const MAP_STYLE    = MAPBOX_TOKEN ? MAPBOX_STYLE : FREE_STYLE;
+const MAP_STYLE = HAS_MAPBOX_TOKEN
+  ? 'mapbox://styles/mapbox/satellite-streets-v12'
+  : 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json';
 
 /**
  * Tooltip shown on hover
@@ -386,7 +384,7 @@ export default function MapView({
       <Map
         ref={mapRef}
         {...viewport}
-        mapboxAccessToken={MAPBOX_TOKEN || 'pk.free'}
+        mapboxAccessToken={HAS_MAPBOX_TOKEN ? MAPBOX_TOKEN : undefined}
         mapStyle={MAP_STYLE}
         style={{ width: '100%', height: '100%', background: '#0a0c0e' }}
         interactiveLayerIds={interactiveLayerIds}
