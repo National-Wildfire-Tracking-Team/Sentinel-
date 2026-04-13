@@ -4,7 +4,7 @@
  * Sections: Address · Incident Details · Notes · Image Attachments
  */
 
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import {
   Flame, Search, MapPin, ChevronDown, FileText, ImageIcon,
@@ -45,11 +45,17 @@ const US_COUNTIES = [
   'Yakima','Yavapai','Yolo','Yuma',
 ].sort();
 
+/* ── Mapbox token (shared with AddressAlertSearch) ── */
+const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN || '';
+
 /* ── Searchable county dropdown ── */
 
 function CountySelect({ value, onChange }) {
   const [open,   setOpen]   = useState(false);
   const [query,  setQuery]  = useState(value || '');
+
+  // Sync internal query when value is set externally (e.g. from address autofill)
+  useEffect(() => { setQuery(value || ''); }, [value]);
 
   const filtered = query.trim().length >= 1
     ? US_COUNTIES.filter((c) => c.toLowerCase().includes(query.toLowerCase()))
@@ -146,6 +152,12 @@ export default function SubmitReportPage() {
   const [zip,        setZip]        = useState('');
   const [jurisdiction, setJurisdiction] = useState('');
 
+  /* Address autofill */
+  const [suggestions,     setSuggestions]     = useState([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const searchDebounceRef = useRef(null);
+  const searchAbortRef    = useRef(null);
+
   /* Incident details */
   const [fireName, setFireName] = useState('');
 
@@ -191,6 +203,59 @@ export default function SubmitReportPage() {
       URL.revokeObjectURL(prev[idx].preview);
       return prev.filter((_, i) => i !== idx);
     });
+  }
+
+  /* ── Address autofill ── */
+  function handleAddressSearchChange(e) {
+    const val = e.target.value;
+    setAddressSearch(val);
+    clearTimeout(searchDebounceRef.current);
+    if (!val.trim() || val.trim().length < 3) {
+      setSuggestions([]);
+      setShowSuggestions(false);
+      return;
+    }
+    searchDebounceRef.current = setTimeout(() => fetchSuggestions(val), 300);
+  }
+
+  async function fetchSuggestions(q) {
+    if (!MAPBOX_TOKEN) return;
+    if (searchAbortRef.current) searchAbortRef.current.abort();
+    searchAbortRef.current = new AbortController();
+    try {
+      const encoded = encodeURIComponent(q);
+      const url =
+        `https://api.mapbox.com/geocoding/v5/mapbox.places/${encoded}.json` +
+        `?access_token=${MAPBOX_TOKEN}&country=us&autocomplete=true&limit=5&types=address`;
+      const res = await fetch(url, { signal: searchAbortRef.current.signal });
+      if (!res.ok) return;
+      const data = await res.json();
+      setSuggestions(data.features || []);
+      setShowSuggestions((data.features || []).length > 0);
+    } catch (err) {
+      if (err.name !== 'AbortError') console.error('Address suggestion error:', err);
+    }
+  }
+
+  function applySuggestion(feature) {
+    const ctx = {};
+    (feature.context || []).forEach((c) => {
+      const key = c.id.split('.')[0];
+      ctx[key] = c;
+    });
+
+    const streetAddress = feature.address
+      ? `${feature.address} ${feature.text}`
+      : feature.text;
+
+    setAddress1(streetAddress || '');
+    setCity(ctx.place?.text || ctx.locality?.text || '');
+    setCounty(ctx.district?.text || '');
+    setUsState(ctx.region?.text || '');
+    setZip(ctx.postcode?.text || '');
+    setAddressSearch(feature.place_name || '');
+    setSuggestions([]);
+    setShowSuggestions(false);
   }
 
   /* ── Submit ── */
@@ -242,6 +307,7 @@ export default function SubmitReportPage() {
       setAddressSearch(''); setIsIntersection(false);
       setAddress1(''); setAddress2(''); setCity(''); setCounty('');
       setUsState(''); setZip(''); setJurisdiction('');
+      setSuggestions([]); setShowSuggestions(false);
       setFireName(''); setIncidentNotes(''); setInternalNotes('');
       images.forEach((img) => URL.revokeObjectURL(img.preview));
       setImages([]);
@@ -307,21 +373,44 @@ export default function SubmitReportPage() {
           <div className={SECTION_CLS}>
             <SectionHeader icon={MapPin}>Address</SectionHeader>
 
-            {/* Search bar */}
+            {/* Search bar with autofill */}
             <div className="relative mb-4">
-              <Search
-                size={15}
-                className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sentinel-400 pointer-events-none"
-              />
-              <input
-                type="text"
-                value={addressSearch}
-                onChange={(e) => setAddressSearch(e.target.value)}
-                placeholder="Search address or location…"
-                className="w-full pl-10 pr-4 py-3 rounded-lg bg-sentinel-700/60 border border-sentinel-600
-                           text-white placeholder-sentinel-400 focus:outline-none focus:border-[#0096ff]
-                           focus:ring-1 focus:ring-[#0096ff]/20 transition-colors text-sm"
-              />
+              <div className="relative">
+                <Search
+                  size={15}
+                  className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sentinel-400 pointer-events-none"
+                />
+                <input
+                  type="text"
+                  value={addressSearch}
+                  onChange={handleAddressSearchChange}
+                  onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
+                  onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
+                  placeholder="Search address to autofill fields below…"
+                  autoComplete="off"
+                  className="w-full pl-10 pr-4 py-3 rounded-lg bg-sentinel-700/60 border border-sentinel-600
+                             text-white placeholder-sentinel-400 focus:outline-none focus:border-[#0096ff]
+                             focus:ring-1 focus:ring-[#0096ff]/20 transition-colors text-sm"
+                />
+              </div>
+
+              {showSuggestions && suggestions.length > 0 && (
+                <ul className="absolute z-30 mt-1 w-full rounded-lg bg-sentinel-700 border border-sentinel-600 shadow-2xl overflow-hidden">
+                  {suggestions.map((feature) => (
+                    <li key={feature.id}>
+                      <button
+                        type="button"
+                        onMouseDown={() => applySuggestion(feature)}
+                        className="w-full text-left px-4 py-2.5 text-sm text-sentinel-100
+                                   hover:bg-sentinel-600 transition-colors flex items-start gap-2.5"
+                      >
+                        <MapPin size={13} className="text-[#0096ff] shrink-0 mt-0.5" />
+                        <span className="truncate">{feature.place_name}</span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
 
             {/* Intersection checkbox */}
