@@ -112,6 +112,8 @@ export default function LiveTrackerPage() {
 
   const {
     geoJSON: alertsGeoJSON,
+    loading: alertsLoading,
+    error: alertsError,
     refresh: refreshAlerts,
   } = useWeatherAlerts();
 
@@ -124,12 +126,8 @@ export default function LiveTrackerPage() {
   } = useIncidents(0.1);
 
   const {
-    spcReports,
-    iemReports,
     spcGeoJSON,
     iemGeoJSON,
-    loading: stormReportsLoading,
-    error: stormReportsError,
     refresh: refreshStormReports,
   } = useStormReports(activeMapTab === MAP_TABS.weather);
 
@@ -213,10 +211,8 @@ export default function LiveTrackerPage() {
           error={incidentsError}
           activeMapTab={activeMapTab}
           onTabChange={setActiveMapTab}
-          spcReports={spcReports}
-          iemReports={iemReports}
-          stormReportsLoading={stormReportsLoading}
-          stormReportsError={stormReportsError}
+          weatherAlertsLoading={alertsLoading}
+          weatherAlertsError={alertsError}
         />
 
         {/* Map area */}
