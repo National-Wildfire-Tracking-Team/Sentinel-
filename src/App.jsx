@@ -16,6 +16,10 @@ const AboutPage = lazy(() => import('./pages/AboutPage'));
 const VolunteerPage = lazy(() => import('./pages/VolunteerPage'));
 const LiveTrackerPage = lazy(() => import('./pages/LiveTrackerPage'));
 const PrivacyPolicyPage = lazy(() => import('./pages/PrivacyPolicyPage'));
+const TermsPage = lazy(() => import('./pages/TermsPage'));
+const LoginPage = lazy(() => import('./pages/LoginPage'));
+const SubmitReportPage = lazy(() => import('./pages/SubmitReportPage'));
+const AdminDashboardPage = lazy(() => import('./pages/AdminDashboardPage'));
 
 /** Scroll to top on route change */
 function ScrollToTop() {
@@ -82,6 +86,40 @@ export default function App() {
             element={
               <SiteLayout>
                 <PrivacyPolicyPage />
+              </SiteLayout>
+            }
+          />
+          <Route
+            path="/terms"
+            element={
+              <SiteLayout>
+                <TermsPage />
+              </SiteLayout>
+            }
+          />
+
+          {/* Reporter submission system */}
+          <Route
+            path="/login"
+            element={
+              <SiteLayout>
+                <LoginPage />
+              </SiteLayout>
+            }
+          />
+          <Route
+            path="/submit-report"
+            element={
+              <SiteLayout>
+                <SubmitReportPage />
+              </SiteLayout>
+            }
+          />
+          <Route
+            path="/admin"
+            element={
+              <SiteLayout>
+                <AdminDashboardPage />
               </SiteLayout>
             }
           />

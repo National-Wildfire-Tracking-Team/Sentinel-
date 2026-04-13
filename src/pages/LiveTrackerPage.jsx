@@ -4,7 +4,7 @@
  * Refactored from the original App.jsx single-page layout.
  */
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Flame, ArrowLeft } from 'lucide-react';
 
@@ -16,7 +16,8 @@ import { useMergedFireData } from '../hooks/useMergedFireData';
 import { useAQIData } from '../hooks/useAQIData';
 import { useWeatherAlerts } from '../hooks/useWeatherAlerts';
 import { useIncidents } from '../hooks/useIncidents';
-import { fetchDroughtData } from '../api/droughtMonitor';
+import { useStormReports } from '../hooks/useStormReports';
+import { useFireReports, reportsToGeoJSON } from '../hooks/useFireReports';
 
 // Components
 import Header from '../components/Header/Header';
@@ -30,8 +31,65 @@ import FireDetailPanel from '../components/FireDetailPanel/FireDetailPanel';
 // US continental bounding box for data fetches
 const US_BOUNDS = { west: -130, south: 24, east: -65, north: 50 };
 
+const MAP_TABS = {
+  wildfire: 'wildfire',
+  weather: 'weather',
+};
+
+const WILDFIRE_LAYER_PRESET = {
+  fireHotspots: true,
+  firePerimeters: true,
+  incidentLocations: true,
+  userReports: true,
+  weatherAlerts: false,
+  aqi: false,
+  smoke: false,
+  goesEast: false,
+  goesWest: false,
+};
+
+const WEATHER_LAYER_PRESET = {
+  fireHotspots: false,
+  firePerimeters: false,
+  incidentLocations: false,
+  userReports: false,
+  weatherAlerts: true,
+  aqi: true,
+  smoke: true,
+  goesEast: true,
+  goesWest: false,
+};
+
+/** Filter a GeoJSON FeatureCollection, removing old (>72h) or mostly contained (>95%) fires. */
+function filterFireGeoJSON(geoJSON, { containedKey, updatedKey, startedKey }) {
+  if (!geoJSON?.features) return geoJSON;
+  const cutoffMs = Date.now() - (72 * 60 * 60 * 1000);
+  return {
+    ...geoJSON,
+    features: geoJSON.features.filter(f => {
+      const p = f.properties;
+      const contained = Number(p[containedKey]) || 0;
+      if (contained > 95) return false;
+      const updatedMs = p[updatedKey] ? new Date(p[updatedKey]).getTime() : 0;
+      const startedMs = p[startedKey] ? new Date(p[startedKey]).getTime() : 0;
+      const mostRecentMs = Math.max(updatedMs, startedMs);
+      if (mostRecentMs > 0 && mostRecentMs < cutoffMs) return false;
+      return true;
+    }),
+  };
+}
+
 export default function LiveTrackerPage() {
-  const { layers, setRefreshed, setLoading } = useApp();
+  const { layers, setLayer, setRefreshed, setLoading, feedFilter } = useApp();
+  const [activeMapTab, setActiveMapTab] = useState(MAP_TABS.wildfire);
+
+  // Apply layer presets only when the active tab changes
+  useEffect(() => {
+    const preset = activeMapTab === MAP_TABS.wildfire ? WILDFIRE_LAYER_PRESET : WEATHER_LAYER_PRESET;
+    Object.entries(preset).forEach(([layer, value]) => {
+      setLayer(layer, value);
+    });
+  }, [activeMapTab, setLayer]);
 
   // ── Data feeds ──
   const {
@@ -57,6 +115,8 @@ export default function LiveTrackerPage() {
 
   const {
     geoJSON: alertsGeoJSON,
+    loading: alertsLoading,
+    error: alertsError,
     refresh: refreshAlerts,
   } = useWeatherAlerts();
 
@@ -68,13 +128,48 @@ export default function LiveTrackerPage() {
     refresh: refreshIncidents,
   } = useIncidents(0.1);
 
-  // Drought data (low-frequency – load once)
-  const [droughtGeoJSON, setDroughtGeoJSON] = useState(null);
-  useEffect(() => {
-    if (layers.drought && !droughtGeoJSON) {
-      fetchDroughtData().then(setDroughtGeoJSON).catch(console.warn);
-    }
-  }, [layers.drought, droughtGeoJSON]);
+  const {
+    spcGeoJSON,
+    iemGeoJSON,
+    refresh: refreshStormReports,
+  } = useStormReports(activeMapTab === MAP_TABS.weather);
+
+  // Community-submitted reports – only approved ones, realtime-subscribed
+  const { reports: approvedReports, refresh: refreshUserReports } = useFireReports('approved');
+  const userReportsGeoJSON = useMemo(
+    () => reportsToGeoJSON(approvedReports),
+    [approvedReports]
+  );
+
+  // ── Apply feed filter to map fire layers ──
+  const isFocused = feedFilter === 'focused';
+
+  const filteredIncidentsGeoJSON = useMemo(() => {
+    if (!isFocused) return incidentsGeoJSON;
+    return filterFireGeoJSON(incidentsGeoJSON, {
+      containedKey: 'contained',
+      updatedKey: 'updated',
+      startedKey: 'started',
+    });
+  }, [isFocused, incidentsGeoJSON]);
+
+  const filteredPerimetersGeoJSON = useMemo(() => {
+    if (!isFocused) return perimetersGeoJSON;
+    return filterFireGeoJSON(perimetersGeoJSON, {
+      containedKey: 'PercentContained',
+      updatedKey: 'ModifiedOnDateTime',
+      startedKey: 'FireDiscoveryDateTime',
+    });
+  }, [isFocused, perimetersGeoJSON]);
+
+  const filteredIncidentDotsGeoJSON = useMemo(() => {
+    if (!isFocused) return incidentDotsGeoJSON;
+    return filterFireGeoJSON(incidentDotsGeoJSON, {
+      containedKey: 'PercentContained',
+      updatedKey: 'ModifiedOnDateTime',
+      startedKey: 'FireDiscoveryDateTime',
+    });
+  }, [isFocused, incidentDotsGeoJSON]);
 
   // ── Global loading state ──
   const anyLoading = hotspotsLoading || perimetersLoading || incidentsLoading;
@@ -89,8 +184,10 @@ export default function LiveTrackerPage() {
     refreshPerimeters();
     refreshAlerts();
     refreshIncidents();
+    refreshStormReports();
+    refreshUserReports();
     if (layers.aqi) refreshAQI();
-  }, [refreshHotspots, refreshPerimeters, refreshAlerts, refreshIncidents, refreshAQI, layers.aqi]);
+  }, [refreshHotspots, refreshPerimeters, refreshAlerts, refreshIncidents, refreshStormReports, refreshUserReports, refreshAQI, layers.aqi]);
 
   return (
     <div className="h-screen w-screen flex flex-col bg-sentinel-900 text-white overflow-hidden select-none">
@@ -123,20 +220,29 @@ export default function LiveTrackerPage() {
           incidents={incidents}
           loading={incidentsLoading}
           error={incidentsError}
+          activeMapTab={activeMapTab}
+          onTabChange={setActiveMapTab}
+          weatherAlertsLoading={alertsLoading}
+          weatherAlertsError={alertsError}
         />
 
         {/* Map area */}
         <div className="flex-1 relative overflow-hidden">
           <MapView
+            activeMapTab={activeMapTab}
             hotspotsGeoJSON={hotspotsGeoJSON}
-            perimetersGeoJSON={perimetersGeoJSON}
-            incidentDotsGeoJSON={incidentDotsGeoJSON}
+            perimetersGeoJSON={filteredPerimetersGeoJSON}
+            incidentsGeoJSON={filteredIncidentsGeoJSON}
+            incidentDotsGeoJSON={filteredIncidentDotsGeoJSON}
             aqiGeoJSON={aqiGeoJSON}
             alertsGeoJSON={alertsGeoJSON}
-            droughtGeoJSON={droughtGeoJSON}
+            spcReportsGeoJSON={spcGeoJSON}
+            iemReportsGeoJSON={iemGeoJSON}
+            userReportsGeoJSON={userReportsGeoJSON}
           />
 
           <LayerControl
+            activeMapTab={activeMapTab}
             hotspotsCount={hotspotsCount}
             perimetersCount={perimetersCount + dotsCount}
           />

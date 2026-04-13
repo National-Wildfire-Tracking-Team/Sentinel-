@@ -15,6 +15,7 @@ import {
   formatDate, formatPersonnel, formatRelativeTime,
 } from '../../utils/formatUtils';
 import { frpToLabel, containmentToColor, aqiToColor, getAQICategory } from '../../utils/colorUtils';
+import { nwsAlertColor } from '../../utils/nwsColors';
 import { MOCK_INCIDENTS } from '../../data/mockData';
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
@@ -67,7 +68,7 @@ function HotspotDetail({ fire }) {
       <div className="space-y-2 text-xs text-sentinel-400">
         <div className="flex items-center gap-2">
           <MapPin size={12} />
-          <span>{fire.lat?.toFixed(4)}°N, {Math.abs(fire.lng?.toFixed(4))}°W</span>
+          <span>{fire.lat?.toFixed(4)}°N, {Math.abs(fire.lng)?.toFixed(4)}°W</span>
         </div>
         <div className="flex items-center gap-2">
           <Calendar size={12} />
@@ -280,178 +281,137 @@ function IncidentDetail({ fire }) {
   );
 }
 
-// ─── Weather Alert helpers ────────────────────────────────────────────────────
+function AlertDetail({ fire, alerts }) {
+  // Look up the full alert record (with description, instruction, etc.)
+  // from context — the map feature only carries a summarized set of props.
+  const full = alerts?.find(a => a.id === fire.id) || {};
 
-/** Parse NOAA description into labeled sections (WHAT, WHERE, WHEN, etc.) */
-function parseAlertSections(description) {
-  if (!description) return [];
-  const sections = [];
-  // Match "* TITLE...content" blocks
-  const regex = /\*\s+([A-Z][A-Z /]+?)\.{3}([\s\S]*?)(?=\n\n\*\s+[A-Z]|\n\n[A-Z]{2,}|$)/g;
-  let match;
-  while ((match = regex.exec(description)) !== null) {
-    const title = match[1].trim();
-    const content = match[2].trim().replace(/\n[ \t]+/g, ' ').replace(/\n/g, ' ');
-    if (title && content) sections.push({ title, content });
-  }
-  return sections;
-}
+  const type = fire.name || full.type;
+  const severity = fire.severity || full.severity;
 
-/** Badge showing severity/urgency/certainty */
-function AlertBadge({ label, value, colorClass }) {
-  if (!value || value === 'Unknown') return null;
-  return (
-    <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide border ${colorClass}`}>
-      {label}: {value}
-    </span>
-  );
-}
-
-function WeatherAlertDetail({ fire }) {
-  const sections = parseAlertSections(fire.description);
-
-  const severityColor =
-    fire.severity === 'Extreme'  ? 'text-red-400 border-red-700 bg-red-950/40' :
-    fire.severity === 'Severe'   ? 'text-orange-400 border-orange-700 bg-orange-950/40' :
-    fire.severity === 'Moderate' ? 'text-yellow-400 border-yellow-700 bg-yellow-950/40' :
-    'text-blue-400 border-blue-700 bg-blue-950/40';
-
-  const headerBg =
-    fire.severity === 'Extreme'  ? 'bg-red-900/40' :
-    fire.severity === 'Severe'   ? 'bg-orange-900/40' :
-    fire.severity === 'Moderate' ? 'bg-yellow-900/40' :
-    'bg-blue-900/40';
-
-  const iconColor =
-    fire.severity === 'Extreme'  ? 'text-red-400' :
-    fire.severity === 'Severe'   ? 'text-orange-400' :
-    fire.severity === 'Moderate' ? 'text-yellow-400' :
-    'text-blue-400';
-
-  // VTEC line (e.g. "O.NEW.KMLB.FA.Y.0015.260409T1113Z-260409T1300Z")
-  const vtec = fire.parameters?.VTEC?.[0] || null;
-
-  // Zone codes (UGC)
-  const zones = fire.geocode?.UGC || [];
+  // Use the official NWS color for this alert type.
+  const typeColor = nwsAlertColor(type);
 
   return (
     <>
-      {/* Header */}
-      <div className="flex items-start gap-2 mb-4">
-        <div className={`p-2 rounded-lg shrink-0 ${headerBg}`}>
-          <CloudRain size={18} className={iconColor} />
+      <div className="flex items-center gap-2 mb-4">
+        <div
+          className="p-2 rounded-lg"
+          style={{ backgroundColor: typeColor + '30' }}
+        >
+          <AlertTriangle size={18} style={{ color: typeColor }} />
         </div>
-        <div className="min-w-0">
-          <h3 className="font-bold text-white text-base leading-tight">{fire.eventType || fire.type}</h3>
-          <p className="text-sentinel-400 text-xs mt-0.5 leading-snug">{fire.senderName}</p>
+        <div>
+          <h3 className="font-bold text-white text-base">{type}</h3>
+          <p className="text-sentinel-400 text-xs">{full.senderName || 'National Weather Service'}</p>
         </div>
       </div>
 
-      {/* Severity / Urgency / Certainty badges */}
-      <div className="flex flex-wrap gap-1.5 mb-4">
-        <AlertBadge label="Severity" value={fire.severity} colorClass={severityColor} />
-        <AlertBadge
-          label="Urgency" value={fire.urgency}
-          colorClass="text-sentinel-300 border-sentinel-600 bg-sentinel-800/60"
-        />
-        <AlertBadge
-          label="Certainty" value={fire.certainty}
-          colorClass="text-sentinel-300 border-sentinel-600 bg-sentinel-800/60"
-        />
-      </div>
-
-      {/* Headline */}
       {fire.headline && (
-        <div className={`p-3 rounded-lg border mb-4 ${severityColor}`}>
-          <p className="text-xs font-semibold leading-relaxed">{fire.headline}</p>
+        <div
+          className="mb-4 p-3 rounded-lg text-xs leading-relaxed"
+          style={{ backgroundColor: typeColor + '20', border: `1px solid ${typeColor}40`, color: typeColor }}
+        >
+          {fire.headline}
         </div>
       )}
 
-      {/* Timing */}
-      <div className="space-y-1.5 text-xs text-sentinel-400 mb-4">
-        {fire.onset && (
-          <div className="flex items-center gap-2">
-            <Clock size={12} className="shrink-0" />
-            <span>In effect: {formatDateTime(fire.onset)}</span>
-          </div>
-        )}
+      <div className="grid grid-cols-2 gap-2 mb-4">
+        {severity && <StatBlock label="Severity" value={severity} color="text-white" />}
+        {full.urgency && <StatBlock label="Urgency" value={full.urgency} />}
+        {full.certainty && <StatBlock label="Certainty" value={full.certainty} />}
         {fire.expires && (
+          <StatBlock label="Expires" value={formatRelativeTime(fire.expires)} icon={Calendar} />
+        )}
+      </div>
+
+      {full.affectedArea && (
+        <div className="mb-4">
+          <div className="text-[10px] font-bold text-sentinel-500 uppercase tracking-widest mb-1.5">
+            Affected Area
+          </div>
+          <div className="flex items-start gap-2 text-xs text-sentinel-300">
+            <MapPin size={12} className="shrink-0 mt-0.5" />
+            <span>{full.affectedArea}</span>
+          </div>
+        </div>
+      )}
+
+      {full.description && (
+        <div className="mb-4">
+          <div className="text-[10px] font-bold text-sentinel-500 uppercase tracking-widest mb-1.5">
+            Description
+          </div>
+          <p className="text-xs text-sentinel-300 leading-relaxed whitespace-pre-line">
+            {full.description}
+          </p>
+        </div>
+      )}
+
+      {full.instruction && (
+        <div className="mb-2 p-3 bg-red-950/30 border border-red-900/50 rounded-lg">
+          <div className="text-[10px] font-bold text-red-400 uppercase tracking-widest mb-1.5">
+            Instructions
+          </div>
+          <p className="text-xs text-red-200/90 leading-relaxed whitespace-pre-line">
+            {full.instruction}
+          </p>
+        </div>
+      )}
+    </>
+  );
+}
+
+function UserReportDetail({ fire }) {
+  return (
+    <>
+      <div className="flex items-center gap-2 mb-4">
+        <div className="p-2 bg-cyan-900/40 rounded-lg">
+          <Flame size={18} className="text-cyan-300" />
+        </div>
+        <div>
+          <h3 className="font-bold text-white text-base">{fire.title}</h3>
+          <p className="text-sentinel-400 text-xs">Community-submitted report</p>
+        </div>
+      </div>
+
+      {fire.description && (
+        <div className="mb-4 p-3 bg-sentinel-800/60 border border-sentinel-700 rounded-lg">
+          <div className="text-[10px] font-bold text-sentinel-500 uppercase tracking-widest mb-1.5">
+            Description
+          </div>
+          <p className="text-xs text-sentinel-200 leading-relaxed whitespace-pre-wrap">
+            {fire.description}
+          </p>
+        </div>
+      )}
+
+      <div className="space-y-1.5 text-xs text-sentinel-400 mb-4">
+        <div className="flex items-center gap-2">
+          <MapPin size={12} />
+          <span>{fire.lat?.toFixed(4)}°, {fire.lng?.toFixed(4)}°</span>
+        </div>
+        {fire.created_at && (
           <div className="flex items-center gap-2">
-            <Clock size={12} className="shrink-0" />
-            <span>Expires: {formatDateTime(fire.expires)}</span>
+            <Calendar size={12} />
+            <span>Submitted: {formatDateTime(fire.created_at)}</span>
           </div>
         )}
-        {fire.affectedArea && (
-          <div className="flex items-start gap-2">
-            <MapPin size={12} className="shrink-0 mt-0.5" />
-            <span className="leading-relaxed">{fire.affectedArea}</span>
+        {fire.user_id && (
+          <div className="flex items-center gap-2">
+            <Users size={12} />
+            <span>Reporter: {String(fire.user_id).slice(0, 8)}…</span>
           </div>
         )}
       </div>
 
-      {/* VTEC + zone codes */}
-      {(vtec || zones.length > 0) && (
-        <div className="p-2.5 bg-sentinel-800/40 border border-sentinel-700 rounded-lg mb-4 space-y-1.5">
-          {vtec && (
-            <div className="text-[10px] font-mono text-sentinel-400 break-all leading-relaxed">
-              <span className="text-sentinel-500 font-sans font-bold uppercase tracking-wider mr-1.5">VTEC</span>
-              {vtec}
-            </div>
-          )}
-          {zones.length > 0 && (
-            <div className="text-[10px] text-sentinel-400">
-              <span className="text-sentinel-500 font-bold uppercase tracking-wider mr-1.5">Zones</span>
-              {zones.join(', ')}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Parsed description sections */}
-      {sections.length > 0 ? (
-        <div className="space-y-3 mb-4">
-          {sections.map(({ title, content }) => (
-            <div key={title} className="p-3 bg-sentinel-800/40 border border-sentinel-700 rounded-lg">
-              <div className="text-[10px] font-bold text-sentinel-400 uppercase tracking-widest mb-1.5">
-                {title}
-              </div>
-              <p className="text-xs text-sentinel-200 leading-relaxed">{content}</p>
-            </div>
-          ))}
-        </div>
-      ) : fire.description ? (
-        /* Fallback: show full description as-is */
-        <div className="p-3 bg-sentinel-800/40 border border-sentinel-700 rounded-lg mb-4">
-          <div className="text-[10px] font-bold text-sentinel-400 uppercase tracking-widest mb-1.5">Details</div>
-          <p className="text-xs text-sentinel-200 leading-relaxed whitespace-pre-wrap">{fire.description}</p>
-        </div>
-      ) : null}
-
-      {/* Instructions / Preparedness Actions */}
-      {fire.instruction && (
-        <div className="p-3 bg-blue-950/30 border border-blue-900/50 rounded-lg mb-4">
-          <div className="flex items-center gap-1.5 mb-1.5">
-            <Info size={11} className="text-blue-400" />
-            <span className="text-[10px] font-bold text-blue-400 uppercase tracking-widest">
-              Preparedness Actions
-            </span>
-          </div>
-          <p className="text-xs text-blue-200/80 leading-relaxed">{fire.instruction}</p>
-        </div>
-      )}
-
-      {/* NWS safety link */}
-      <a
-        href="https://www.weather.gov/safety"
-        target="_blank"
-        rel="noopener noreferrer"
-        className="flex items-center justify-center gap-2 w-full py-2 bg-blue-600/20
-                   border border-blue-700/50 rounded-lg text-blue-400 text-sm font-medium
-                   hover:bg-blue-600/30 hover:text-blue-300 transition-colors"
-      >
-        <ExternalLink size={13} />
-        NWS Weather Safety
-      </a>
+      <div className="p-3 bg-cyan-950/30 border border-cyan-900/50 rounded-lg">
+        <p className="text-xs text-cyan-200/80 leading-relaxed">
+          This report was submitted by a community reporter and reviewed by
+          NWTT moderators before appearing on the map. Verify with official
+          sources before taking action.
+        </p>
+      </div>
     </>
   );
 }
@@ -500,7 +460,7 @@ function AQIDetail({ fire }) {
 // ─── Main Panel ───────────────────────────────────────────────────────────────
 
 export default function FireDetailPanel() {
-  const { selectedFire, clearSelected } = useApp();
+  const { selectedFire, clearSelected, alerts } = useApp();
 
   if (!selectedFire) return null;
 
@@ -514,16 +474,17 @@ export default function FireDetailPanel() {
 
       {/* Panel */}
       <div className="absolute right-4 top-4 bottom-4 z-30 w-72 sm:w-80
-                      bg-sentinel-900/97 backdrop-blur-sm border border-sentinel-700
+                      bg-sentinel-900 border border-sentinel-700
                       rounded-2xl shadow-2xl overflow-hidden flex flex-col
                       animate-slide-in-right">
         {/* Panel header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-sentinel-700 shrink-0">
           <span className="text-xs font-bold text-sentinel-400 uppercase tracking-widest">
-            {selectedFire.type === 'hotspot'       ? 'Hotspot Detail' :
-             selectedFire.type === 'incident'      ? 'Incident Detail' :
-             selectedFire.type === 'aqi'           ? 'Air Quality' :
-             selectedFire.type === 'weather-alert' ? 'Weather Alert' :
+            {selectedFire.type === 'hotspot'  ? 'Hotspot Detail' :
+             selectedFire.type === 'incident' ? 'Incident Detail' :
+             selectedFire.type === 'aqi'      ? 'Air Quality' :
+             selectedFire.type === 'alert'    ? 'Weather Alert' :
+             selectedFire.type === 'user-report' ? 'Community Report' :
              'Fire Detail'}
           </span>
           <button
@@ -537,11 +498,12 @@ export default function FireDetailPanel() {
 
         {/* Scrollable content */}
         <div className="flex-1 overflow-y-auto p-4">
-          {selectedFire.type === 'hotspot'        && <HotspotDetail      fire={selectedFire} />}
-          {selectedFire.type === 'perimeter'      && <PerimeterDetail    fire={selectedFire} />}
-          {selectedFire.type === 'incident'       && <IncidentDetail     fire={selectedFire} />}
-          {selectedFire.type === 'aqi'            && <AQIDetail          fire={selectedFire} />}
-          {selectedFire.type === 'weather-alert'  && <WeatherAlertDetail fire={selectedFire} />}
+          {selectedFire.type === 'hotspot'  && <HotspotDetail  fire={selectedFire} />}
+          {selectedFire.type === 'perimeter' && <PerimeterDetail fire={selectedFire} />}
+          {selectedFire.type === 'incident' && <IncidentDetail  fire={selectedFire} />}
+          {selectedFire.type === 'aqi'      && <AQIDetail       fire={selectedFire} />}
+          {selectedFire.type === 'alert'    && <AlertDetail     fire={selectedFire} alerts={alerts} />}
+          {selectedFire.type === 'user-report' && <UserReportDetail fire={selectedFire} />}
         </div>
       </div>
     </>
