@@ -87,11 +87,18 @@ export default function Legend() {
               </Section>
             )}
 
-            {/* Weather alerts */}
+            {/* Weather alerts – official NWS palette (sample of most
+                fire-relevant types; full palette in utils/nwsColors.js) */}
             {layers.weatherAlerts && (
               <Section title="Weather Alerts">
-                <ColorRow color="#ef4444" label="Red Flag Warning" />
-                <ColorRow color="#f59e0b" label="Fire Weather Watch" />
+                <ColorRow color="#ED368D" label="Red Flag Warning" />
+                <ColorRow color="#F8DCB1" label="Fire Weather Watch" />
+                <ColorRow color="#E43831" label="Tornado Warning" />
+                <ColorRow color="#F3A93C" label="Severe Thunderstorm Warning" />
+                <ColorRow color="#9DF55A" label="Flash Flood Warning" />
+                <ColorRow color="#BE2B82" label="Extreme Heat Warning" />
+                <ColorRow color="#CC2936" label="Hurricane Warning" />
+                <ColorRow color="#9E5936" label="Fire Warning" />
               </Section>
             )}
           </div>

@@ -119,8 +119,6 @@ export function containmentToColor(pct) {
 }
 
 // ─── Weather Alert severity ───────────────────────────────────────────────────
-export function alertTypeToColor(type) {
-  if (type === 'Red Flag Warning')  return '#ef4444';
-  if (type === 'Fire Weather Watch') return '#f59e0b';
-  return '#3b82f6';
-}
+// Official NWS palette lives in utils/nwsColors.js; re-export the lookup so
+// callers of alertTypeToColor() pick up every supported event type.
+export { nwsAlertColor as alertTypeToColor } from './nwsColors';

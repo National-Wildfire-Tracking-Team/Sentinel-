@@ -14,6 +14,7 @@ import {
   formatDate, formatPersonnel, formatRelativeTime,
 } from '../../utils/formatUtils';
 import { frpToLabel, containmentToColor, aqiToColor, getAQICategory } from '../../utils/colorUtils';
+import { nwsAlertColor } from '../../utils/nwsColors';
 import { MOCK_INCIDENTS } from '../../data/mockData';
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
@@ -279,6 +280,87 @@ function IncidentDetail({ fire }) {
   );
 }
 
+function AlertDetail({ fire, alerts }) {
+  // Look up the full alert record (with description, instruction, etc.)
+  // from context — the map feature only carries a summarized set of props.
+  const full = alerts?.find(a => a.id === fire.id) || {};
+
+  const type = fire.name || full.type;
+  const severity = fire.severity || full.severity;
+
+  // Use the official NWS color for this alert type.
+  const typeColor = nwsAlertColor(type);
+
+  return (
+    <>
+      <div className="flex items-center gap-2 mb-4">
+        <div
+          className="p-2 rounded-lg"
+          style={{ backgroundColor: typeColor + '30' }}
+        >
+          <AlertTriangle size={18} style={{ color: typeColor }} />
+        </div>
+        <div>
+          <h3 className="font-bold text-white text-base">{type}</h3>
+          <p className="text-sentinel-400 text-xs">{full.senderName || 'National Weather Service'}</p>
+        </div>
+      </div>
+
+      {fire.headline && (
+        <div
+          className="mb-4 p-3 rounded-lg text-xs leading-relaxed"
+          style={{ backgroundColor: typeColor + '20', border: `1px solid ${typeColor}40`, color: typeColor }}
+        >
+          {fire.headline}
+        </div>
+      )}
+
+      <div className="grid grid-cols-2 gap-2 mb-4">
+        {severity && <StatBlock label="Severity" value={severity} color="text-white" />}
+        {full.urgency && <StatBlock label="Urgency" value={full.urgency} />}
+        {full.certainty && <StatBlock label="Certainty" value={full.certainty} />}
+        {fire.expires && (
+          <StatBlock label="Expires" value={formatRelativeTime(fire.expires)} icon={Calendar} />
+        )}
+      </div>
+
+      {full.affectedArea && (
+        <div className="mb-4">
+          <div className="text-[10px] font-bold text-sentinel-500 uppercase tracking-widest mb-1.5">
+            Affected Area
+          </div>
+          <div className="flex items-start gap-2 text-xs text-sentinel-300">
+            <MapPin size={12} className="shrink-0 mt-0.5" />
+            <span>{full.affectedArea}</span>
+          </div>
+        </div>
+      )}
+
+      {full.description && (
+        <div className="mb-4">
+          <div className="text-[10px] font-bold text-sentinel-500 uppercase tracking-widest mb-1.5">
+            Description
+          </div>
+          <p className="text-xs text-sentinel-300 leading-relaxed whitespace-pre-line">
+            {full.description}
+          </p>
+        </div>
+      )}
+
+      {full.instruction && (
+        <div className="mb-2 p-3 bg-red-950/30 border border-red-900/50 rounded-lg">
+          <div className="text-[10px] font-bold text-red-400 uppercase tracking-widest mb-1.5">
+            Instructions
+          </div>
+          <p className="text-xs text-red-200/90 leading-relaxed whitespace-pre-line">
+            {full.instruction}
+          </p>
+        </div>
+      )}
+    </>
+  );
+}
+
 function AQIDetail({ fire }) {
   const cat = getAQICategory(fire.aqi);
   return (
@@ -323,7 +405,7 @@ function AQIDetail({ fire }) {
 // ─── Main Panel ───────────────────────────────────────────────────────────────
 
 export default function FireDetailPanel() {
-  const { selectedFire, clearSelected } = useApp();
+  const { selectedFire, clearSelected, alerts } = useApp();
 
   if (!selectedFire) return null;
 
@@ -346,6 +428,7 @@ export default function FireDetailPanel() {
             {selectedFire.type === 'hotspot'  ? 'Hotspot Detail' :
              selectedFire.type === 'incident' ? 'Incident Detail' :
              selectedFire.type === 'aqi'      ? 'Air Quality' :
+             selectedFire.type === 'alert'    ? 'Weather Alert' :
              'Fire Detail'}
           </span>
           <button
@@ -363,6 +446,7 @@ export default function FireDetailPanel() {
           {selectedFire.type === 'perimeter' && <PerimeterDetail fire={selectedFire} />}
           {selectedFire.type === 'incident' && <IncidentDetail  fire={selectedFire} />}
           {selectedFire.type === 'aqi'      && <AQIDetail       fire={selectedFire} />}
+          {selectedFire.type === 'alert'    && <AlertDetail     fire={selectedFire} alerts={alerts} />}
         </div>
       </div>
     </>
