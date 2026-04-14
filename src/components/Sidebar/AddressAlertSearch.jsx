@@ -30,7 +30,7 @@ const SEVERITY_ICONS = {
 async function geocodeAddress(address) {
   if (!MAPBOX_TOKEN) throw new Error('Mapbox token not configured');
   const encoded = encodeURIComponent(address);
-  const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encoded}.json?access_token=${MAPBOX_TOKEN}&country=us&limit=1&types=address,place,postcode,neighborhood,locality`;
+  const url = `/api/mapbox/geocoding/v5/mapbox.places/${encoded}.json?access_token=${MAPBOX_TOKEN}&country=us&limit=1&types=address,place,postcode,neighborhood,locality`;
   const res = await fetch(url);
   if (!res.ok) throw new Error('Geocoding failed');
   const data = await res.json();
