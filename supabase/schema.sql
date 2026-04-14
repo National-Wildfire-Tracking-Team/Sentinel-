@@ -129,6 +129,69 @@ create policy "reports update own details"
   with check (auth.uid() = user_id);
 
 
--- ─── 4. Realtime ───────────────────────────────────────────────────────────
+-- ─── 4. incident_updates table (timeline feed) ────────────────────────────
+create table if not exists public.incident_updates (
+  id            uuid primary key default gen_random_uuid(),
+  incident_id   text not null,
+  content       text not null,
+  source_type   text not null default 'reporter'
+                  check (source_type in ('reporter','automated')),
+  source_name   text not null,
+  user_id       uuid references auth.users(id) on delete set null,
+  created_at    timestamptz not null default now()
+);
+
+create index if not exists incident_updates_incident_idx
+  on public.incident_updates(incident_id);
+
+create index if not exists incident_updates_created_idx
+  on public.incident_updates(created_at desc);
+
+-- RLS for incident_updates
+alter table public.incident_updates enable row level security;
+
+-- Anyone can read updates (public timeline)
+drop policy if exists "updates public read" on public.incident_updates;
+create policy "updates public read"
+  on public.incident_updates for select
+  using (true);
+
+-- Authenticated users can insert their own updates
+drop policy if exists "updates insert own" on public.incident_updates;
+create policy "updates insert own"
+  on public.incident_updates for insert
+  with check (auth.uid() = user_id);
+
+-- Reporters can update their own updates
+drop policy if exists "updates update own" on public.incident_updates;
+create policy "updates update own"
+  on public.incident_updates for update
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+
+-- Reporters can delete their own updates
+drop policy if exists "updates delete own" on public.incident_updates;
+create policy "updates delete own"
+  on public.incident_updates for delete
+  using (auth.uid() = user_id);
+
+-- Admins can manage all updates
+drop policy if exists "updates admin all" on public.incident_updates;
+create policy "updates admin all"
+  on public.incident_updates for all
+  using (public.is_admin())
+  with check (public.is_admin());
+
+-- Automated sources can insert via service role (no user_id required)
+drop policy if exists "updates automated insert" on public.incident_updates;
+create policy "updates automated insert"
+  on public.incident_updates for insert
+  with check (source_type = 'automated' and user_id is null);
+
+
+-- ─── 5. Realtime ───────────────────────────────────────────────────────────
 -- Enable realtime on fire_reports so map clients receive approval events.
 alter publication supabase_realtime add table public.fire_reports;
+
+-- Enable realtime on incident_updates for live timeline feeds.
+alter publication supabase_realtime add table public.incident_updates;
