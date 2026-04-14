@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
-import { Flame, Menu, X, LogIn, LogOut, ShieldCheck, Send } from 'lucide-react';
+import { Flame, Menu, X, LogOut } from 'lucide-react';
 
 import { useAuth } from '../../context/AuthContext';
 
@@ -12,7 +12,7 @@ const navLinks = [
 
 export default function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false);
-  const { isAuthenticated, isAdmin, signOut } = useAuth();
+  const { isAuthenticated, signOut } = useAuth();
   const navigate = useNavigate();
 
   const handleSignOut = async () => {
@@ -59,49 +59,6 @@ export default function Navbar() {
                 {link.label}
               </NavLink>
             ))}
-            {isAuthenticated ? (
-              <NavLink
-                to="/submit-report"
-                className={({ isActive }) =>
-                  `inline-flex items-center gap-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                    isActive
-                      ? 'bg-fire-600/15 text-fire-400'
-                      : 'text-sentinel-200 hover:text-white hover:bg-sentinel-700/60'
-                  }`
-                }
-              >
-                <Send size={13} /> Report a Fire
-              </NavLink>
-            ) : (
-              <NavLink
-                to="/login"
-                className={({ isActive }) =>
-                  `inline-flex items-center gap-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                    isActive
-                      ? 'bg-fire-600/15 text-fire-400'
-                      : 'text-sentinel-200 hover:text-white hover:bg-sentinel-700/60'
-                  }`
-                }
-              >
-                <LogIn size={13} /> Reporter Sign In
-              </NavLink>
-            )}
-
-            {isAdmin && (
-              <NavLink
-                to="/admin"
-                className={({ isActive }) =>
-                  `inline-flex items-center gap-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                    isActive
-                      ? 'bg-fire-600/15 text-fire-400'
-                      : 'text-sentinel-200 hover:text-white hover:bg-sentinel-700/60'
-                  }`
-                }
-              >
-                <ShieldCheck size={13} /> Admin
-              </NavLink>
-            )}
-
             {isAuthenticated && (
               <button
                 onClick={handleSignOut}
@@ -152,32 +109,6 @@ export default function Navbar() {
               </NavLink>
             ))}
 
-            {isAuthenticated ? (
-              <NavLink
-                to="/submit-report"
-                onClick={() => setMobileOpen(false)}
-                className="block px-4 py-2.5 rounded-lg text-sm font-medium text-sentinel-200 hover:text-white hover:bg-sentinel-700/60"
-              >
-                Report a Fire
-              </NavLink>
-            ) : (
-              <NavLink
-                to="/login"
-                onClick={() => setMobileOpen(false)}
-                className="block px-4 py-2.5 rounded-lg text-sm font-medium text-sentinel-200 hover:text-white hover:bg-sentinel-700/60"
-              >
-                Reporter Sign In
-              </NavLink>
-            )}
-            {isAdmin && (
-              <NavLink
-                to="/admin"
-                onClick={() => setMobileOpen(false)}
-                className="block px-4 py-2.5 rounded-lg text-sm font-medium text-sentinel-200 hover:text-white hover:bg-sentinel-700/60"
-              >
-                Admin Dashboard
-              </NavLink>
-            )}
             {isAuthenticated && (
               <button
                 onClick={handleSignOut}
