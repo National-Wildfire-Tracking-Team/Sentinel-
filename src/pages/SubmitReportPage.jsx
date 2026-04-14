@@ -290,7 +290,7 @@ export default function SubmitReportPage() {
     try {
       const encoded = encodeURIComponent(q);
       const url =
-        `https://api.mapbox.com/geocoding/v5/mapbox.places/${encoded}.json` +
+        `/api/mapbox/geocoding/v5/mapbox.places/${encoded}.json` +
         `?access_token=${MAPBOX_TOKEN}&country=us&autocomplete=true&limit=5&types=address`;
       const res = await fetch(url, { signal: searchAbortRef.current.signal });
       if (!res.ok) return;
@@ -333,7 +333,7 @@ export default function SubmitReportPage() {
     try {
       const encoded = encodeURIComponent(query);
       const url =
-        `https://api.mapbox.com/geocoding/v5/mapbox.places/${encoded}.json` +
+        `/api/mapbox/geocoding/v5/mapbox.places/${encoded}.json` +
         `?access_token=${MAPBOX_TOKEN}&country=us&autocomplete=false&limit=1`;
       const res = await fetch(url);
       if (!res.ok) return { latitude: null, longitude: null };
