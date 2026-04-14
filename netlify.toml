@@ -9,6 +9,13 @@
   status = 200
   force = true
 
+# Proxy NASA FIRMS API requests to avoid CORS issues on deploy previews
+[[redirects]]
+  from = "/api/firms/*"
+  to = "https://firms.modaps.eosdis.nasa.gov/:splat"
+  status = 200
+  force = true
+
 # SPA fallback – must be last
 [[redirects]]
   from = "/*"
