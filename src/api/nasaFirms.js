@@ -78,11 +78,37 @@ function normalizeConfidence(raw) {
  * suitable for use as a Mapbox Source.
  */
 export function hotspotsToGeoJSON(hotspots) {
+  // Fixed FIRMS-style box size so every hotspot is rendered uniformly.
+  const BOX_SIZE_KM = 2;
+  const kmToLatDeg = (km) => km / 111.32;
+  const kmToLngDeg = (km, lat) => {
+    const cosLat = Math.max(0.15, Math.cos((lat * Math.PI) / 180));
+    return km / (111.32 * cosLat);
+  };
+
   return {
     type: 'FeatureCollection',
     features: hotspots.map(h => ({
       type: 'Feature',
-      geometry: { type: 'Point', coordinates: [h.longitude, h.latitude] },
+      geometry: (() => {
+        const halfLat = kmToLatDeg(BOX_SIZE_KM) / 2;
+        const halfLng = kmToLngDeg(BOX_SIZE_KM, h.latitude) / 2;
+        const west = h.longitude - halfLng;
+        const east = h.longitude + halfLng;
+        const south = h.latitude - halfLat;
+        const north = h.latitude + halfLat;
+
+        return {
+          type: 'Polygon',
+          coordinates: [[
+            [west, south],
+            [east, south],
+            [east, north],
+            [west, north],
+            [west, south],
+          ]],
+        };
+      })(),
       properties: {
         ...h,
         confidence: normalizeConfidence(h.confidence),
