@@ -45,15 +45,18 @@ function HoverTooltip({ feature, lngLat }) {
 
   let content = null;
   switch (feature.layer.id) {
-    case 'fire-hotspots-fill':
+    case 'fire-hotspots-box':
       content = (
         <>
-          <div className="font-semibold text-orange-400">FIRMS Hotspot Pixel</div>
+          <div className="font-semibold text-orange-400">Raw FIRMS Record</div>
           <div className="text-gray-300 text-xs mt-0.5">
             FRP: <span className="text-white font-medium">{formatFRP(num(p.frp))}</span>
             {' '}· {frpToLabel(num(p.frp))} intensity
           </div>
           <div className="text-gray-400 text-xs">{p.satellite} · {p.source} · {p.acq_date}</div>
+          <div className="text-gray-500 text-[10px] mt-1">
+            ({num(p.latitude).toFixed(4)}, {num(p.longitude).toFixed(4)})
+          </div>
         </>
       );
       break;
@@ -204,7 +207,7 @@ export default function MapView({
   // Only include interactive layer IDs for layers that are currently visible
   const interactiveLayerIds = useMemo(() => {
     const ids = [];
-    if (isWildfireTab && layers.fireHotspots && hotspotsGeoJSON)        ids.push('fire-hotspots-fill');
+    if (isWildfireTab && layers.fireHotspots && hotspotsGeoJSON)        ids.push('fire-hotspots-box');
     if (isWildfireTab && layers.firePerimeters && perimetersGeoJSON)     ids.push('fire-perimeters-fill');
     if (isWildfireTab && layers.incidentLocations && incidentsGeoJSON)   ids.push('incident-locations-circle');
     if (isWildfireTab && layers.userReports && userReportsGeoJSON)       ids.push('user-reports-circle');
@@ -238,7 +241,7 @@ export default function MapView({
     const feature = features[0];
     const p = feature.properties;
 
-    if (feature.layer.id === 'fire-hotspots-fill') {
+    if (feature.layer.id === 'fire-hotspots-box') {
       selectFire({
         type: 'hotspot',
         id:   p.id,

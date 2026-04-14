@@ -47,24 +47,15 @@ export async function fetchFireHotspots(
 }
 
 /**
- * Convert raw FIRMS JSON records into a consistent shape.
- * Adds a unique id and normalizes confidence strings.
+ * Keep FIRMS records as close to raw JSON as possible while
+ * guaranteeing a stable `id` and numeric coordinates for map use.
  */
 function normalizeHotspots(records) {
   return records.map((r, i) => ({
-    id: `firms-${r.acq_date}-${i}`,
-    latitude:   parseFloat(r.latitude),
-    longitude:  parseFloat(r.longitude),
-    brightness: parseFloat(r.bright_ti4 || r.brightness || 0),
-    frp:        parseFloat(r.frp || 0),
-    scan:       parseFloat(r.scan || 1),
-    track:      parseFloat(r.track || 1),
-    confidence: normalizeConfidence(r.confidence),
-    satellite:  r.satellite || 'Unknown',
-    source:     r.source || r.instrument || 'Unknown',
-    acq_date:   r.acq_date,
-    acq_time:   r.acq_time,
-    daynight:   r.daynight || 'D',
+    ...r,
+    id: r.id || `firms-${r.acq_date || 'unknown'}-${i}`,
+    latitude: parseFloat(r.latitude),
+    longitude: parseFloat(r.longitude),
   }));
 }
 
@@ -87,6 +78,8 @@ function normalizeConfidence(raw) {
  * suitable for use as a Mapbox Source.
  */
 export function hotspotsToGeoJSON(hotspots) {
+  // Fixed FIRMS-style box size so every hotspot is rendered uniformly.
+  const BOX_SIZE_KM = 2;
   const kmToLatDeg = (km) => km / 111.32;
   const kmToLngDeg = (km, lat) => {
     const cosLat = Math.max(0.15, Math.cos((lat * Math.PI) / 180));
@@ -98,12 +91,13 @@ export function hotspotsToGeoJSON(hotspots) {
     features: hotspots.map(h => ({
       type: 'Feature',
       geometry: (() => {
-        const halfLat = kmToLatDeg(h.scan || 1) / 2;
-        const halfLng = kmToLngDeg(h.track || 1, h.latitude) / 2;
+        const halfLat = kmToLatDeg(BOX_SIZE_KM) / 2;
+        const halfLng = kmToLngDeg(BOX_SIZE_KM, h.latitude) / 2;
         const west = h.longitude - halfLng;
         const east = h.longitude + halfLng;
         const south = h.latitude - halfLat;
         const north = h.latitude + halfLat;
+
         return {
           type: 'Polygon',
           coordinates: [[
