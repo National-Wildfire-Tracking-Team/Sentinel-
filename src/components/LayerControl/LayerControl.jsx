@@ -14,7 +14,7 @@ const LAYER_GROUPS = [
   {
     label: 'Fire Data',
     layers: [
-      { key: 'fireHotspots',      label: 'Fire Hotspots',       sublabel: 'NASA FIRMS pixels',   icon: Flame,    color: '#ff4500' },
+      { key: 'fireHotspots',      label: 'Fire Hotspots',       sublabel: 'Raw NASA FIRMS JSON',   icon: Flame,    color: '#ff4500' },
       { key: 'firePerimeters',    label: 'Fire Perimeters',     sublabel: 'NIFC WFIGS',         icon: MapPin,   color: '#ff6600' },
       { key: 'incidentLocations', label: 'Incident Locations',  sublabel: 'WFIGS Current',      icon: Flame,    color: '#f59e0b' },
       { key: 'userReports',       label: 'Community Reports',   sublabel: 'NWTT verified',      icon: Flame,    color: '#22d3ee' },
