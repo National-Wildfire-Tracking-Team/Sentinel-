@@ -17,6 +17,7 @@ import {
 import { frpToLabel, containmentToColor, aqiToColor, getAQICategory } from '../../utils/colorUtils';
 import { nwsAlertColor } from '../../utils/nwsColors';
 import { MOCK_INCIDENTS } from '../../data/mockData';
+import IncidentTimeline from '../IncidentTimeline/IncidentTimeline';
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
@@ -163,17 +164,8 @@ function PerimeterDetail({ fire }) {
         )}
       </div>
 
-      {/* Latest updates from incident */}
-      {incident?.updates?.length > 0 && (
-        <div>
-          <div className="text-[10px] font-bold text-sentinel-500 uppercase tracking-widest mb-2">
-            Latest Updates
-          </div>
-          <div className="space-y-2">
-            {incident.updates.map((u, i) => <UpdateEntry key={i} update={u} />)}
-          </div>
-        </div>
-      )}
+      {/* Live incident timeline */}
+      <IncidentTimeline incidentId={fire.id || fire.name} />
     </>
   );
 }
@@ -248,27 +240,8 @@ function IncidentDetail({ fire }) {
         </div>
       )}
 
-      {fire.updates?.length > 0 && (
-        <div className="mb-4">
-          <div className="text-[10px] font-bold text-sentinel-500 uppercase tracking-widest mb-2">
-            Latest Updates
-          </div>
-          <div className="space-y-3">
-            {fire.updates.slice(0, 4).map((u, i) => (
-              <div key={i} className="p-3 bg-sentinel-800/55 border border-sentinel-700 rounded-lg">
-                <div className="text-[11px] text-sentinel-200 font-semibold">
-                  {u.author || 'NWTT Incident Desk'}
-                  {u.role ? <span className="text-sentinel-400 font-normal"> • {u.role}</span> : null}
-                </div>
-                <div className="text-[10px] text-sentinel-500 mt-0.5">
-                  {formatRelativeTime(u.time)}{u.time ? ` • ${formatDateTime(u.time)}` : ''}
-                </div>
-                <p className="text-xs text-sentinel-200 leading-relaxed mt-2">{u.text}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+      {/* Live incident timeline */}
+      <IncidentTimeline incidentId={fire.id} />
 
       {fire.url && (
         <a
@@ -418,6 +391,9 @@ function UserReportDetail({ fire }) {
           sources before taking action.
         </p>
       </div>
+
+      {/* Live incident timeline */}
+      <IncidentTimeline incidentId={fire.id} />
     </>
   );
 }
