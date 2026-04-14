@@ -173,7 +173,7 @@ export async function createNIFCFireUpdate({
     noteLine,
   ].filter((line) => line !== null).join('\n');
 
-  const { data, error } = await supabase
+  const { error } = await supabase
     .from('fire_reports')
     .insert({
       title: fireName,
@@ -182,12 +182,17 @@ export async function createNIFCFireUpdate({
       longitude,
       status: 'approved',
       user_id: userId,
-    })
-    .select()
-    .single();
+    });
 
   if (error) throw error;
-  return data;
+  return {
+    title: fireName,
+    description,
+    latitude,
+    longitude,
+    status: 'approved',
+    user_id: userId,
+  };
 }
 
 /** Reporter action: append an operational update (acreage/notes) to a report. */
@@ -212,13 +217,11 @@ export async function appendFireReportUpdate({ id, description, acreage, notes }
 
   const nextDescription = `${description}\n\n${updateBlock}`;
 
-  const { data, error } = await supabase
+  const { error } = await supabase
     .from('fire_reports')
     .update({ description: nextDescription })
-    .eq('id', id)
-    .select()
-    .single();
+    .eq('id', id);
 
   if (error) throw error;
-  return data;
+  return { id, description: nextDescription };
 }
