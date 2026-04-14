@@ -17,6 +17,14 @@ const FRP_SCALE = [
   { color: '#ff4500', label: 'Very High  (200–500 MW)' },
   { color: '#ff0000', label: 'Extreme  (>500 MW)' },
 ];
+const SPC_RISK_SCALE = [
+  { color: '#55BB55', label: 'TSTM (General Thunderstorms)' },
+  { color: '#00FF00', label: 'MRGL (Marginal)' },
+  { color: '#F9F200', label: 'SLGT (Slight)' },
+  { color: '#FF9900', label: 'ENH (Enhanced)' },
+  { color: '#FF0000', label: 'MDT (Moderate)' },
+  { color: '#FF00FF', label: 'HIGH (High)' },
+];
 
 function ColorRow({ color, label }) {
   return (
@@ -42,7 +50,7 @@ export default function Legend() {
 
   if (!legendOpen) return null;
 
-  const anyActive = layers.fireHotspots || layers.aqi || layers.firePerimeters;
+  const anyActive = layers.fireHotspots || layers.aqi || layers.firePerimeters || layers.spcOutlooks || layers.weatherAlerts;
   if (!anyActive) return null;
 
   return (
@@ -99,6 +107,12 @@ export default function Legend() {
                 <ColorRow color="#BE2B82" label="Extreme Heat Warning" />
                 <ColorRow color="#CC2936" label="Hurricane Warning" />
                 <ColorRow color="#9E5936" label="Fire Warning" />
+              </Section>
+            )}
+
+            {layers.spcOutlooks && (
+              <Section title="SPC Risk Outlooks">
+                {SPC_RISK_SCALE.map(row => <ColorRow key={row.label} {...row} />)}
               </Section>
             )}
           </div>

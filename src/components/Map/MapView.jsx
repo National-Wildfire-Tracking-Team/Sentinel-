@@ -24,6 +24,7 @@ import SmokeLayer         from './layers/SmokeLayer';
 import GOESLayer          from './layers/GOESLayer';
 import StormReportsLayer  from './layers/StormReportsLayer';
 import UserReportsLayer   from './layers/UserReportsLayer';
+import SPCOutlookLayer from './layers/SPCOutlookLayer';
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN || '';
 const HAS_MAPBOX_TOKEN = Boolean(MAPBOX_TOKEN.trim());
@@ -125,6 +126,21 @@ function HoverTooltip({ feature, lngLat }) {
         </>
       );
       break;
+    case 'spc-outlook-fill':
+      content = (
+        <>
+          <div className="font-semibold text-fuchsia-300">
+            SPC {String(p.day || '').toUpperCase()} Outlook
+          </div>
+          <div className="text-gray-300 text-xs mt-0.5">
+            Risk: <span className="text-white font-medium">{p.riskCategory || 'TSTM'}</span>
+          </div>
+          {p.outlookLabel && (
+            <div className="text-gray-400 text-xs">{p.outlookLabel}</div>
+          )}
+        </>
+      );
+      break;
     case 'user-reports-circle':
       content = (
         <>
@@ -180,6 +196,7 @@ function HoverTooltip({ feature, lngLat }) {
  * @param {object|null} props.alertsGeoJSON
  * @param {object|null} props.spcReportsGeoJSON
  * @param {object|null} props.iemReportsGeoJSON
+ * @param {object|null} props.spcOutlooksGeoJSON
  * @param {object|null} props.userReportsGeoJSON
  * @param {'wildfire'|'weather'} [props.activeMapTab]
  */
@@ -193,6 +210,7 @@ export default function MapView({
   alertsGeoJSON,
   spcReportsGeoJSON,
   iemReportsGeoJSON,
+  spcOutlooksGeoJSON,
   userReportsGeoJSON,
 }) {
   const { layers, alerts, selectFire, viewport, setViewport } = useApp();
@@ -213,12 +231,13 @@ export default function MapView({
     if (isWildfireTab && layers.userReports && userReportsGeoJSON)       ids.push('user-reports-circle');
     if (isWeatherTab && layers.aqi && aqiGeoJSON)                        ids.push('aqi-stations-circle');
     if (isWeatherTab && layers.weatherAlerts && alertsGeoJSON)           ids.push('weather-alerts-fill');
+    if (isWeatherTab && layers.spcOutlooks && spcOutlooksGeoJSON)        ids.push('spc-outlook-fill');
     if (isWeatherTab && layers.spcReports && spcReportsGeoJSON)          ids.push('spc-reports-circle');
     if (isWeatherTab && layers.iemReports && iemReportsGeoJSON)          ids.push('iem-reports-circle');
     return ids;
   }, [isWildfireTab, isWeatherTab, layers.fireHotspots, layers.firePerimeters, layers.incidentLocations, layers.aqi,
-      layers.weatherAlerts, layers.spcReports, layers.iemReports, layers.userReports, hotspotsGeoJSON, perimetersGeoJSON,
-      incidentsGeoJSON, aqiGeoJSON, alertsGeoJSON, spcReportsGeoJSON, iemReportsGeoJSON, userReportsGeoJSON]);
+      layers.weatherAlerts, layers.spcOutlooks, layers.spcReports, layers.iemReports, layers.userReports, hotspotsGeoJSON, perimetersGeoJSON,
+      incidentsGeoJSON, aqiGeoJSON, alertsGeoJSON, spcOutlooksGeoJSON, spcReportsGeoJSON, iemReportsGeoJSON, userReportsGeoJSON]);
 
   // Clear stale hover when layers change
   const prevLayersRef = useRef(layers);
@@ -445,6 +464,12 @@ export default function MapView({
         <WeatherAlertsLayer
           geoJSON={alertsGeoJSON}
           visible={isWeatherTab && layers.weatherAlerts}
+        />
+
+        {/* SPC convective outlook polygons */}
+        <SPCOutlookLayer
+          geoJSON={spcOutlooksGeoJSON}
+          visible={isWeatherTab && layers.spcOutlooks}
         />
 
         {/* Fire perimeter polygons */}
