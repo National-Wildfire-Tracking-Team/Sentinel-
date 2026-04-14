@@ -12,7 +12,7 @@
 import { fetchWithCache } from '../utils/dataCache';
 import { MOCK_FIRE_HOTSPOTS } from '../data/mockData';
 
-const FIRMS_BASE = 'https://firms.modaps.eosdis.nasa.gov/api/area';
+const FIRMS_BASE = '/api/firms/api/area';
 const MAP_KEY = import.meta.env.VITE_NASA_FIRMS_API_KEY;
 
 /**
