@@ -1,0 +1,16 @@
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+# Proxy Mapbox API requests to avoid CORS issues on deploy previews
+[[redirects]]
+  from = "/api/mapbox/*"
+  to = "https://api.mapbox.com/:splat"
+  status = 200
+  force = true
+
+# SPA fallback – must be last
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

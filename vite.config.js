@@ -22,6 +22,11 @@ export default defineConfig({
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api\/firms/, ''),
       },
+      '/api/mapbox': {
+        target: 'https://api.mapbox.com',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api\/mapbox/, ''),
+      },
     },
   },
 });
