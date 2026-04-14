@@ -17,6 +17,19 @@ const FRP_SCALE = [
   { color: '#ff4500', label: 'Very High  (200–500 MW)' },
   { color: '#ff0000', label: 'Extreme  (>500 MW)' },
 ];
+const RADAR_DBZ_SCALE = [
+  { color: '#04e9e7', label: '5–15 dBZ (Light)' },
+  { color: '#009df4', label: '15–20 dBZ (Light)' },
+  { color: '#01c501', label: '20–30 dBZ (Moderate)' },
+  { color: '#fdf802', label: '30–40 dBZ (Moderate)' },
+  { color: '#e5bc00', label: '40–45 dBZ (Heavy)' },
+  { color: '#fd9500', label: '45–50 dBZ (Very Heavy)' },
+  { color: '#fd0000', label: '50–55 dBZ (Intense)' },
+  { color: '#d40000', label: '55–60 dBZ (Extreme)' },
+  { color: '#bc0000', label: '60–65 dBZ (Extreme)' },
+  { color: '#f800fd', label: '65+ dBZ (Tornado possible)' },
+];
+
 const SPC_RISK_SCALE = [
   { color: '#55BB55', label: 'TSTM (General Thunderstorms)' },
   { color: '#00FF00', label: 'MRGL (Marginal)' },
@@ -50,7 +63,7 @@ export default function Legend() {
 
   if (!legendOpen) return null;
 
-  const anyActive = layers.fireHotspots || layers.aqi || layers.firePerimeters || layers.spcOutlooks || layers.weatherAlerts;
+  const anyActive = layers.fireHotspots || layers.aqi || layers.firePerimeters || layers.spcOutlooks || layers.weatherAlerts || layers.radar;
   if (!anyActive) return null;
 
   return (
@@ -113,6 +126,12 @@ export default function Legend() {
             {layers.spcOutlooks && (
               <Section title="SPC Risk Outlooks">
                 {SPC_RISK_SCALE.map(row => <ColorRow key={row.label} {...row} />)}
+              </Section>
+            )}
+
+            {layers.radar && (
+              <Section title="Radar Reflectivity (dBZ)">
+                {RADAR_DBZ_SCALE.map(row => <ColorRow key={row.label} {...row} />)}
               </Section>
             )}
           </div>
