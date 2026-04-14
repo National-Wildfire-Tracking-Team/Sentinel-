@@ -110,10 +110,19 @@ export function hotspotsToGeoJSON(hotspots) {
         };
       })(),
       properties: {
-        ...h,
-        confidence: normalizeConfidence(h.confidence),
-        frp: parseFloat(h.frp || 0),
-        brightness: parseFloat(h.bright_ti4 || h.brightness || 0),
+        id:         h.id,
+        frp:        h.frp,
+        brightness: h.brightness,
+        latitude:   h.latitude,
+        longitude:  h.longitude,
+        scan:       h.scan,
+        track:      h.track,
+        confidence: h.confidence,
+        satellite:  h.satellite,
+        source:     h.source,
+        acq_date:   h.acq_date,
+        acq_time:   h.acq_time,
+        daynight:   h.daynight,
       },
     })),
   };

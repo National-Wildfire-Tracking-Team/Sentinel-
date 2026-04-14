@@ -179,97 +179,97 @@ function PerimeterDetail({ fire }) {
 }
 
 function IncidentDetail({ fire }) {
-  const containColor = containmentToColor(fire.contained || 0);
+  const containment = Number(fire.contained) || 0;
+  const containColor = containmentToColor(containment);
+  const statusLabel = fire.status ? String(fire.status) : (containment >= 100 ? 'Controlled' : 'Active');
+  const createdAt = fire.started || fire.createdAt;
+  const evacuationOrderLines = Array.isArray(fire.evacuation_order_lines) ? fire.evacuation_order_lines : [];
+  const locationLine = fire.location_description || `${fire.county || 'Unknown County'} County, ${fire.state || ''}`.trim();
 
   return (
     <>
-      <div className="flex items-center gap-2 mb-4">
-        <div className="p-2 bg-red-900/40 rounded-lg">
-          <Flame size={18} className="text-red-400 animate-pulse-fire" />
-        </div>
-        <div>
-          <h3 className="font-bold text-white text-base">{fire.name}</h3>
-          <p className="text-sentinel-400 text-xs">{fire.county} Co. · {fire.state}</p>
-        </div>
+      <div className="mb-4">
+        <h3 className="font-bold text-white text-lg leading-tight">{fire.name}</h3>
+        <p className="text-sentinel-300 text-xs mt-1 leading-relaxed">{locationLine}</p>
+        <p className="text-sentinel-400 text-xs mt-0.5">{fire.county} County, {fire.state}</p>
       </div>
 
-      {/* Evacuation warning */}
-      {fire.evacuation_orders > 0 && (
-        <div className="flex items-start gap-2 p-2.5 bg-red-950/50 border border-red-800/60 rounded-lg mb-4">
-          <AlertTriangle size={14} className="text-red-400 shrink-0 mt-0.5" />
-          <div className="text-xs text-red-300">
-            <span className="font-bold">{fire.evacuation_orders} Evacuation Order{fire.evacuation_orders > 1 ? 's' : ''}</span>
-            {fire.evacuation_warnings > 0 && ` · ${fire.evacuation_warnings} Warnings`}
-          </div>
-        </div>
-      )}
+      <div className="grid grid-cols-3 gap-2 mb-4">
+        <StatBlock label="Acres" value={formatAcres(fire.acres)} icon={TrendingUp} color="text-orange-300" />
+        <StatBlock label="Containment" value={formatContainment(containment)} icon={ShieldAlert} color="text-emerald-300" />
+        <StatBlock label="Status" value={statusLabel} icon={Flame} color={statusLabel.toLowerCase() === 'active' ? 'text-red-300' : 'text-sentinel-200'} />
+      </div>
 
-      {/* Containment bar */}
       <div className="mb-4 p-3 bg-sentinel-800/50 rounded-lg border border-sentinel-700">
         <div className="flex items-center justify-between mb-2">
           <span className="text-xs font-semibold text-sentinel-300">Containment</span>
           <span className="font-bold text-sm" style={{ color: containColor }}>
-            {formatContainment(fire.contained)}
+            {formatContainment(containment)}
           </span>
         </div>
         <div className="h-2 w-full bg-sentinel-700 rounded-full overflow-hidden">
           <div
             className="h-full rounded-full transition-all duration-700"
-            style={{ width: `${fire.contained}%`, backgroundColor: containColor }}
+            style={{ width: `${containment}%`, backgroundColor: containColor }}
           />
         </div>
       </div>
 
-      {/* Stats grid */}
-      <div className="grid grid-cols-2 gap-2 mb-4">
-        <StatBlock label="Acres"     value={formatAcres(fire.acres)}    icon={TrendingUp} color="text-orange-400" />
-        <StatBlock label="Personnel" value={formatPersonnel(fire.personnel)} icon={Users} />
-        <StatBlock label="Structures Destroyed" value={fire.structures_destroyed || 0} icon={Home} color={fire.structures_destroyed > 0 ? 'text-red-400' : 'text-sentinel-400'} />
-        <StatBlock label="Structures Threatened" value={fire.structures_threatened || 0} icon={Home} color={fire.structures_threatened > 0 ? 'text-orange-400' : 'text-sentinel-400'} />
-      </div>
+      {fire.updated && (
+        <p className="text-xs text-sentinel-400 mb-1">Updated {formatRelativeTime(fire.updated)}</p>
+      )}
+      <p className="text-[11px] text-sentinel-500 mb-4">
+        Created by {fire.created_by || 'National Wildfire Tracking Team'}
+        {createdAt ? ` • ${formatDateTime(createdAt)}` : ''}
+      </p>
 
-      {/* Resources */}
-      {(fire.air_tankers || fire.helicopters || fire.dozers) && (
+      {(fire.evacuation_orders > 0 || fire.evacuation_warnings > 0 || evacuationOrderLines.length > 0) && (
+        <div className="mb-4 p-3 bg-red-950/40 border border-red-800/60 rounded-lg">
+          <div className="flex items-start gap-2 mb-2">
+            <AlertTriangle size={14} className="text-red-400 shrink-0 mt-0.5" />
+            <div className="text-xs text-red-200">
+              <p className="font-semibold">
+                {fire.evacuation_title || (
+                  fire.evacuation_orders > 0
+                    ? `Evacuation Order${fire.evacuation_orders > 1 ? 's' : ''} - Level 3 - Go`
+                    : 'Evacuation Warning'
+                )}
+              </p>
+              {fire.evacuation_summary && (
+                <p className="text-red-200/80 mt-1">{fire.evacuation_summary}</p>
+              )}
+            </div>
+          </div>
+          {evacuationOrderLines.length > 0 && (
+            <ul className="space-y-1 pl-5 list-disc text-xs text-red-100/95">
+              {evacuationOrderLines.map((line, idx) => <li key={idx}>{line}</li>)}
+            </ul>
+          )}
+        </div>
+      )}
+
+      {fire.updates?.length > 0 && (
         <div className="mb-4">
           <div className="text-[10px] font-bold text-sentinel-500 uppercase tracking-widest mb-2">
-            Resources Assigned
+            Latest Updates
           </div>
-          <div className="grid grid-cols-4 gap-1.5">
-            {[
-              { label: 'Air Tankers', value: fire.air_tankers },
-              { label: 'Helicopters', value: fire.helicopters },
-              { label: 'Dozers', value: fire.dozers },
-              { label: 'Engines', value: fire.engines },
-            ].filter(r => r.value > 0).map(r => (
-              <div key={r.label} className="text-center p-1.5 bg-sentinel-800/60 rounded-lg border border-sentinel-700">
-                <div className="text-white font-bold text-sm">{r.value}</div>
-                <div className="text-sentinel-500 text-[9px] leading-tight">{r.label}</div>
+          <div className="space-y-3">
+            {fire.updates.slice(0, 4).map((u, i) => (
+              <div key={i} className="p-3 bg-sentinel-800/55 border border-sentinel-700 rounded-lg">
+                <div className="text-[11px] text-sentinel-200 font-semibold">
+                  {u.author || 'NWTT Incident Desk'}
+                  {u.role ? <span className="text-sentinel-400 font-normal"> • {u.role}</span> : null}
+                </div>
+                <div className="text-[10px] text-sentinel-500 mt-0.5">
+                  {formatRelativeTime(u.time)}{u.time ? ` • ${formatDateTime(u.time)}` : ''}
+                </div>
+                <p className="text-xs text-sentinel-200 leading-relaxed mt-2">{u.text}</p>
               </div>
             ))}
           </div>
         </div>
       )}
 
-      {/* Cause + dates */}
-      <div className="space-y-1.5 text-xs text-sentinel-400 mb-4">
-        <div className="flex gap-2"><Flame size={12} className="shrink-0 mt-0.5" /><span>Cause: {fire.cause}</span></div>
-        {fire.started && <div className="flex gap-2"><Calendar size={12} className="shrink-0 mt-0.5" /><span>Started: {formatDate(fire.started)}</span></div>}
-        {fire.updated && <div className="flex gap-2"><Calendar size={12} className="shrink-0 mt-0.5" /><span>Updated: {formatRelativeTime(fire.updated)}</span></div>}
-      </div>
-
-      {/* Updates */}
-      {fire.updates?.length > 0 && (
-        <div className="mb-4">
-          <div className="text-[10px] font-bold text-sentinel-500 uppercase tracking-widest mb-2">
-            Latest Updates
-          </div>
-          <div className="space-y-2">
-            {fire.updates.slice(0, 3).map((u, i) => <UpdateEntry key={i} update={u} />)}
-          </div>
-        </div>
-      )}
-
-      {/* InciWeb link */}
       {fire.url && (
         <a
           href={fire.url}
