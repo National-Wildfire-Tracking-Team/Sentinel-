@@ -27,7 +27,7 @@ const RADAR_DBZ_SCALE = [
   { color: '#fd0000', label: '50–55 dBZ (Intense)' },
   { color: '#d40000', label: '55–60 dBZ (Extreme)' },
   { color: '#bc0000', label: '60–65 dBZ (Extreme)' },
-  { color: '#f800fd', label: '65+ dBZ (Tornado possible)' },
+  { color: '#f800fd', label: '65+ dBZ (Possible Hail)' },
 ];
 
 const SPC_RISK_SCALE = [
