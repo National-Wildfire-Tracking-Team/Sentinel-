@@ -21,6 +21,7 @@ import {
   useFireReports,
 } from '../hooks/useFireReports';
 import { useMergedFireData, getFireMatchKey } from '../hooks/useMergedFireData';
+import IncidentTimeline from '../components/IncidentTimeline/IncidentTimeline';
 
 /* ── Static data ── */
 
@@ -655,6 +656,10 @@ export default function SubmitReportPage() {
                             {updateBusy[report.id] ? 'Updating…' : 'Post Fire Update'}
                           </button>
                         </div>
+
+                        <div className="mt-4 border-t border-sentinel-700 pt-4">
+                          <IncidentTimeline incidentId={report.id} allowPost={true} />
+                        </div>
                       </div>
                     );
                   })}
@@ -740,6 +745,10 @@ export default function SubmitReportPage() {
                           >
                             {updateBusy[key] ? 'Updating…' : 'Post Fire Update'}
                           </button>
+                        </div>
+
+                        <div className="mt-4 border-t border-sentinel-700 pt-4">
+                          <IncidentTimeline incidentId={fire.nifcId || fire.name} allowPost={true} />
                         </div>
                       </div>
                     );

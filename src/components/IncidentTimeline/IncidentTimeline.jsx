@@ -185,10 +185,12 @@ function EditBox({ update, onSave, onCancel }) {
 
 // ─── Main component ──────────────────────────────────────────────────────────
 
-export default function IncidentTimeline({ incidentId }) {
+export default function IncidentTimeline({ incidentId, allowPost = false }) {
   const { updates, loading, error, addUpdate, editUpdate, deleteUpdate } = useIncidentUpdates(incidentId);
   const { user, profile, isAuthenticated } = useAuth();
   const [editing, setEditing] = useState(null);
+
+  const canPost = allowPost && isAuthenticated;
 
   const handleAdd = async (content) => {
     const sourceName = profile?.email?.split('@')[0] || 'Reporter';
@@ -211,8 +213,8 @@ export default function IncidentTimeline({ incidentId }) {
         Live Updates
       </div>
 
-      {/* Compose area (authenticated users only) */}
-      {isAuthenticated && (
+      {/* Compose area (reporter portal only) */}
+      {canPost && (
         <div className="mb-4">
           <ComposeBox onSubmit={handleAdd} disabled={!incidentId} />
         </div>
@@ -238,7 +240,7 @@ export default function IncidentTimeline({ incidentId }) {
         <div className="text-center py-6">
           <MessageSquare size={20} className="mx-auto text-sentinel-600 mb-2" />
           <p className="text-xs text-sentinel-500">No updates yet.</p>
-          {isAuthenticated && (
+          {canPost && (
             <p className="text-[10px] text-sentinel-600 mt-1">
               Be the first to post an update for this incident.
             </p>
