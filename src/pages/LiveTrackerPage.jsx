@@ -12,7 +12,7 @@ import { useApp } from '../context/AppContext';
 
 // Data hooks
 import { useFireHotspots } from '../hooks/useFireHotspots';
-import { useMergedFireData } from '../hooks/useMergedFireData';
+import { useMergedFireData, getFireMatchKey } from '../hooks/useMergedFireData';
 import { useAQIData } from '../hooks/useAQIData';
 import { useWeatherAlerts } from '../hooks/useWeatherAlerts';
 import { useIncidents } from '../hooks/useIncidents';
@@ -180,6 +180,84 @@ export default function LiveTrackerPage() {
     });
   }, [isFocused, incidentDotsGeoJSON]);
 
+  // ── Reporter incidents replace matching external data incidents ──
+  // When an approved reporter report shares a fire name with an IRWIN incident,
+  // the external incident is replaced in the sidebar feed with a merged record
+  // that keeps authoritative external stats but surfaces reporter-contributed data.
+  const mergedIncidents = useMemo(() => {
+    if (!approvedReports.length) return incidents;
+
+    // Index reporter reports by normalised fire name key (same algorithm used
+    // in useMergedFireData to match perimeters to incident dots).
+    const reporterByKey = new Map();
+    approvedReports.forEach(r => {
+      const key = getFireMatchKey(r.title);
+      if (key) reporterByKey.set(key, r);
+    });
+
+    return incidents.map(inc => {
+      const key = getFireMatchKey(inc.name);
+      if (!key || !reporterByKey.has(key)) return inc;
+
+      const report = reporterByKey.get(key);
+      // Extract acreage from reporter description if the reporter supplied it
+      // (format: "Acreage: <number>").
+      const reportAcresMatch = /^Acreage:\s*(\d+\.?\d*)/mi.exec(report.description || '');
+      const reportAcres = reportAcresMatch ? Math.round(Number(reportAcresMatch[1])) : null;
+
+      return {
+        ...inc,
+        // Use reporter coordinates when available – reporter location is often
+        // more precise than the IRWIN centroid.
+        lat: Number(report.latitude) || inc.lat,
+        lng: Number(report.longitude) || inc.lng,
+        // Reporter-provided acreage overrides the external value when present.
+        acres: reportAcres ?? inc.acres,
+        // Attach reporter metadata so downstream components can reference it.
+        hasReporterData: true,
+        reportId: report.id,
+        reportDescription: report.description,
+        reportedAt: report.created_at,
+      };
+    });
+  }, [incidents, approvedReports]);
+
+  // Build the set of reporter-matched fire name keys once for GeoJSON filtering.
+  const reporterMatchKeys = useMemo(() => {
+    if (!approvedReports.length) return new Set();
+    return new Set(
+      approvedReports.map(r => getFireMatchKey(r.title)).filter(Boolean)
+    );
+  }, [approvedReports]);
+
+  // Remove IRWIN incident markers where a reporter report already exists so the
+  // map does not show two overlapping markers for the same fire.  The reporter's
+  // UserReportsLayer marker remains visible.
+  const deduplicatedIncidentsGeoJSON = useMemo(() => {
+    if (!reporterMatchKeys.size || !filteredIncidentsGeoJSON?.features)
+      return filteredIncidentsGeoJSON;
+    return {
+      ...filteredIncidentsGeoJSON,
+      features: filteredIncidentsGeoJSON.features.filter(f => {
+        const key = getFireMatchKey(f.properties.name);
+        return !key || !reporterMatchKeys.has(key);
+      }),
+    };
+  }, [filteredIncidentsGeoJSON, reporterMatchKeys]);
+
+  // Same deduplication for incident dot markers (fires without NIFC perimeters).
+  const deduplicatedIncidentDotsGeoJSON = useMemo(() => {
+    if (!reporterMatchKeys.size || !filteredIncidentDotsGeoJSON?.features)
+      return filteredIncidentDotsGeoJSON;
+    return {
+      ...filteredIncidentDotsGeoJSON,
+      features: filteredIncidentDotsGeoJSON.features.filter(f => {
+        const key = getFireMatchKey(f.properties.IncidentName);
+        return !key || !reporterMatchKeys.has(key);
+      }),
+    };
+  }, [filteredIncidentDotsGeoJSON, reporterMatchKeys]);
+
   // ── Global loading state ──
   const anyLoading = hotspotsLoading || perimetersLoading || incidentsLoading;
   useEffect(() => { setLoading(anyLoading); }, [anyLoading, setLoading]);
@@ -227,7 +305,7 @@ export default function LiveTrackerPage() {
       <div className="flex flex-1 overflow-hidden relative">
         {/* Left sidebar */}
         <Sidebar
-          incidents={incidents}
+          incidents={mergedIncidents}
           loading={incidentsLoading}
           error={incidentsError}
           activeMapTab={activeMapTab}
@@ -242,8 +320,8 @@ export default function LiveTrackerPage() {
             activeMapTab={activeMapTab}
             hotspotsGeoJSON={hotspotsGeoJSON}
             perimetersGeoJSON={filteredPerimetersGeoJSON}
-            incidentsGeoJSON={filteredIncidentsGeoJSON}
-            incidentDotsGeoJSON={filteredIncidentDotsGeoJSON}
+            incidentsGeoJSON={deduplicatedIncidentsGeoJSON}
+            incidentDotsGeoJSON={deduplicatedIncidentDotsGeoJSON}
             aqiGeoJSON={aqiGeoJSON}
             alertsGeoJSON={alertsGeoJSON}
             spcReportsGeoJSON={spcGeoJSON}
