@@ -45,6 +45,11 @@ function UpdateEntry({ update }) {
 
 function HotspotDetail({ fire }) {
   const frpColor = fire.frp >= 200 ? 'text-red-400' : fire.frp >= 100 ? 'text-orange-400' : 'text-yellow-400';
+  const firmsSourceLabel =
+    fire.source === 'VIIRS_SNPP_NRT' ? 'VIIRS SNPP (NRT)' :
+    fire.source === 'VIIRS_NOAA20_NRT' ? 'VIIRS NOAA-20 (NRT)' :
+    fire.source === 'MODIS_NRT' ? 'MODIS (NRT)' :
+    fire.source || 'Unknown feed';
 
   return (
     <>
@@ -55,6 +60,7 @@ function HotspotDetail({ fire }) {
         <div>
           <h3 className="font-bold text-white text-base">Fire Hotspot Detection</h3>
           <p className="text-sentinel-400 text-xs">NASA FIRMS · {fire.satellite}</p>
+          <p className="text-sentinel-500 text-[11px] mt-0.5">Feed: {firmsSourceLabel}</p>
         </div>
       </div>
 

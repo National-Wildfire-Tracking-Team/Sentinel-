@@ -248,6 +248,7 @@ export default function MapView({
         brightness: num(p.brightness),
         confidence: p.confidence,
         satellite:  p.satellite,
+        source:     p.source,
         acq_date:   p.acq_date,
         acq_time:   p.acq_time,
       });
