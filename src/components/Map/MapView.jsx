@@ -45,15 +45,15 @@ function HoverTooltip({ feature, lngLat }) {
 
   let content = null;
   switch (feature.layer.id) {
-    case 'fire-hotspots-circle':
+    case 'fire-hotspots-fill':
       content = (
         <>
-          <div className="font-semibold text-orange-400">Fire Hotspot</div>
+          <div className="font-semibold text-orange-400">FIRMS Hotspot Pixel</div>
           <div className="text-gray-300 text-xs mt-0.5">
             FRP: <span className="text-white font-medium">{formatFRP(num(p.frp))}</span>
             {' '}· {frpToLabel(num(p.frp))} intensity
           </div>
-          <div className="text-gray-400 text-xs">{p.satellite} · {p.acq_date}</div>
+          <div className="text-gray-400 text-xs">{p.satellite} · {p.source} · {p.acq_date}</div>
         </>
       );
       break;
@@ -204,7 +204,7 @@ export default function MapView({
   // Only include interactive layer IDs for layers that are currently visible
   const interactiveLayerIds = useMemo(() => {
     const ids = [];
-    if (isWildfireTab && layers.fireHotspots && hotspotsGeoJSON)        ids.push('fire-hotspots-circle');
+    if (isWildfireTab && layers.fireHotspots && hotspotsGeoJSON)        ids.push('fire-hotspots-fill');
     if (isWildfireTab && layers.firePerimeters && perimetersGeoJSON)     ids.push('fire-perimeters-fill');
     if (isWildfireTab && layers.incidentLocations && incidentsGeoJSON)   ids.push('incident-locations-circle');
     if (isWildfireTab && layers.userReports && userReportsGeoJSON)       ids.push('user-reports-circle');
@@ -238,12 +238,12 @@ export default function MapView({
     const feature = features[0];
     const p = feature.properties;
 
-    if (feature.layer.id === 'fire-hotspots-circle') {
+    if (feature.layer.id === 'fire-hotspots-fill') {
       selectFire({
         type: 'hotspot',
         id:   p.id,
-        lat:  evt.lngLat.lat,
-        lng:  evt.lngLat.lng,
+        lat:  num(p.latitude) || evt.lngLat.lat,
+        lng:  num(p.longitude) || evt.lngLat.lng,
         frp:  num(p.frp),
         brightness: num(p.brightness),
         confidence: p.confidence,
