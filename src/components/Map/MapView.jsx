@@ -290,6 +290,18 @@ export default function MapView({
                       : null,
       });
     } else if (feature.layer.id === 'incident-locations-circle') {
+      let updates = [];
+      let evacuationLines = [];
+      try {
+        updates = p.updates_json ? JSON.parse(p.updates_json) : [];
+      } catch {
+        updates = [];
+      }
+      try {
+        evacuationLines = p.evacuation_order_lines_json ? JSON.parse(p.evacuation_order_lines_json) : [];
+      } catch {
+        evacuationLines = [];
+      }
       selectFire({
         type:      'incident',
         id:        p.id,
@@ -301,9 +313,20 @@ export default function MapView({
         state:     p.state,
         county:    p.county,
         personnel: num(p.personnel),
+        status:    p.status,
         cause:     p.cause || 'Under Investigation',
         started:   p.started,
         updated:   p.updated,
+        url:       p.url,
+        created_by: p.created_by,
+        createdAt: p.createdAt,
+        location_description: p.location_description,
+        evacuation_title: p.evacuation_title,
+        evacuation_summary: p.evacuation_summary,
+        evacuation_orders: num(p.evacuation_orders) || 0,
+        evacuation_warnings: num(p.evacuation_warnings) || 0,
+        evacuation_order_lines: evacuationLines,
+        updates,
       });
     } else if (feature.layer.id === 'user-reports-circle') {
       selectFire({
