@@ -30,7 +30,6 @@ export default function Sidebar({
 }) {
   const { sidebarOpen, toggleSidebar, alerts } = useApp();
   const isWeatherTab = activeMapTab === 'weather';
-  const isRadarTab   = activeMapTab === 'radar';
 
   const activeCount  = incidents.filter(i => i.status === 'active').length;
   const rfwCount     = alerts.filter(a => a.type === 'Red Flag Warning').length;
@@ -97,35 +96,16 @@ export default function Sidebar({
               <CloudSun size={13} />
               Weather
             </button>
-
-            <button
-              type="button"
-              onClick={() => onTabChange?.('radar')}
-              className={`flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors ${
-                activeMapTab === 'radar'
-                  ? 'bg-emerald-600 text-white'
-                  : 'text-sentinel-200 hover:bg-sentinel-700'
-              }`}
-              aria-pressed={activeMapTab === 'radar'}
-            >
-              <Radar size={13} />
-              Radar
-            </button>
           </div>
         </div>
 
         {/* Sidebar header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-sentinel-700 shrink-0">
           <div className="flex items-center gap-2">
-            {isRadarTab ? (
-              <>
-                <Radar size={16} className="text-emerald-400" />
-                <h2 className="font-semibold text-white text-sm">NEXRAD Radar</h2>
-              </>
-            ) : isWeatherTab ? (
+            {isWeatherTab ? (
               <>
                 <CloudSun size={16} className="text-sky-400" />
-                <h2 className="font-semibold text-white text-sm">Weather Alerts</h2>
+                <h2 className="font-semibold text-white text-sm">Weather &amp; Radar</h2>
                 {alertsCount > 0 && (
                   <span className="px-1.5 py-0.5 bg-sky-600/25 text-sky-300 text-xs font-bold rounded-full border border-sky-700/40">
                     {alertsCount}
@@ -157,17 +137,12 @@ export default function Sidebar({
         {/* Summary stats strip */}
         <div className="px-3 py-2 border-b border-sentinel-700 shrink-0">
           <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
-            {isRadarTab ? (
-              <>
-                <StatPill icon={Radar}      label="NEXRAD Radar" value="Live"       color="text-emerald-300" />
-                <StatPill icon={ShieldAlert} label="Severe"       value={severeCount} color="text-red-300" />
-                <StatPill icon={Wind}        label="Warnings"     value={warningCount} color="text-amber-300" />
-              </>
-            ) : isWeatherTab ? (
+            {isWeatherTab ? (
               <>
                 <StatPill icon={CloudSun}    label="Active Alerts" value={alertsCount}  color="text-sky-300" />
                 <StatPill icon={ShieldAlert} label="Severe"        value={severeCount}  color="text-red-300" />
                 <StatPill icon={Wind}        label="Warnings"      value={warningCount} color="text-amber-300" />
+                <StatPill icon={Radar}       label="NEXRAD"        value="Live"         color="text-emerald-300" />
               </>
             ) : (
               <>
@@ -179,12 +154,12 @@ export default function Sidebar({
           </div>
         </div>
 
-        {/* Address alert search – weather & radar tabs */}
-        {(isWeatherTab || isRadarTab) && <AddressAlertSearch />}
+        {/* Address alert search – weather tab */}
+        {isWeatherTab && <AddressAlertSearch />}
 
         {/* Feed – takes remaining height */}
         <div className="flex-1 overflow-hidden">
-          {isWeatherTab || isRadarTab ? (
+          {isWeatherTab ? (
             <WeatherAlertsFeed
               alerts={alerts}
               loading={weatherAlertsLoading}
