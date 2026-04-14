@@ -9,7 +9,7 @@ import { fetchFireHotspots, hotspotsToGeoJSON } from '../api/nasaFirms';
 
 const REFRESH_MS = parseInt(import.meta.env.VITE_REFRESH_INTERVAL || '300000', 10);
 const FIRMS_SOURCES = ['VIIRS_SNPP_NRT', 'VIIRS_NOAA20_NRT', 'MODIS_NRT'];
-const MAX_HOTSPOT_AGE_MS = 12 * 60 * 60 * 1000;
+const MAX_HOTSPOT_AGE_MS = 24 * 60 * 60 * 1000;
 
 function toAcquiredAtMs(spot) {
   if (!spot?.acq_date) return null;
