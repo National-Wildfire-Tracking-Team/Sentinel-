@@ -14,7 +14,7 @@ const LAYER_GROUPS = [
   {
     label: 'Fire Data',
     layers: [
-      { key: 'fireHotspots',      label: 'Fire Hotspots',       sublabel: 'NASA FIRMS VIIRS',   icon: Flame,    color: '#ff4500' },
+      { key: 'fireHotspots',      label: 'Fire Hotspots',       sublabel: 'NASA FIRMS pixels',   icon: Flame,    color: '#ff4500' },
       { key: 'firePerimeters',    label: 'Fire Perimeters',     sublabel: 'NIFC WFIGS',         icon: MapPin,   color: '#ff6600' },
       { key: 'incidentLocations', label: 'Incident Locations',  sublabel: 'WFIGS Current',      icon: Flame,    color: '#f59e0b' },
       { key: 'userReports',       label: 'Community Reports',   sublabel: 'NWTT verified',      icon: Flame,    color: '#22d3ee' },
@@ -88,13 +88,28 @@ function LayerToggle({ layerKey, label, sublabel, icon: Icon, color }) {
   );
 }
 
-export default function LayerControl({ activeMapTab = 'wildfire', hotspotsCount = 0, perimetersCount = 0 }) {
+function formatFirmsSourceLabel(sourceKey) {
+  if (sourceKey === 'VIIRS_SNPP_NRT') return 'SNPP';
+  if (sourceKey === 'VIIRS_NOAA20_NRT') return 'NOAA-20';
+  if (sourceKey === 'MODIS_NRT') return 'MODIS';
+  return sourceKey;
+}
+
+export default function LayerControl({
+  activeMapTab = 'wildfire',
+  hotspotsCount = 0,
+  hotspotsSourceCounts = {},
+  perimetersCount = 0,
+}) {
   const { layerPanelOpen, toggleLayerPanel } = useApp();
   const [collapsed, setCollapsed] = useState({});
   const visibleGroups = LAYER_GROUPS.filter((group) => {
     if (activeMapTab === 'wildfire') return group.label === 'Fire Data';
     return group.label !== 'Fire Data';
   });
+  const hotspotsBreakdown = Object.entries(hotspotsSourceCounts)
+    .filter(([, count]) => count > 0)
+    .sort((a, b) => b[1] - a[1]);
 
   const toggleGroup = (label) => setCollapsed(c => ({ ...c, [label]: !c[label] }));
 
@@ -130,6 +145,13 @@ export default function LayerControl({ activeMapTab = 'wildfire', hotspotsCount 
                 <span>{perimetersCount} fires</span>
               </div>
             </div>
+            {hotspotsBreakdown.length > 0 && (
+              <div className="mt-1.5 text-[10px] text-sentinel-400 flex flex-wrap gap-x-2 gap-y-0.5">
+                {hotspotsBreakdown.map(([source, count]) => (
+                  <span key={source}>{formatFirmsSourceLabel(source)}: {count}</span>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Layer groups */}

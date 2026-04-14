@@ -57,8 +57,11 @@ function normalizeHotspots(records) {
     longitude:  parseFloat(r.longitude),
     brightness: parseFloat(r.bright_ti4 || r.brightness || 0),
     frp:        parseFloat(r.frp || 0),
+    scan:       parseFloat(r.scan || 1),
+    track:      parseFloat(r.track || 1),
     confidence: normalizeConfidence(r.confidence),
     satellite:  r.satellite || 'Unknown',
+    source:     r.source || r.instrument || 'Unknown',
     acq_date:   r.acq_date,
     acq_time:   r.acq_time,
     daynight:   r.daynight || 'D',
@@ -84,17 +87,45 @@ function normalizeConfidence(raw) {
  * suitable for use as a Mapbox Source.
  */
 export function hotspotsToGeoJSON(hotspots) {
+  const kmToLatDeg = (km) => km / 111.32;
+  const kmToLngDeg = (km, lat) => {
+    const cosLat = Math.max(0.15, Math.cos((lat * Math.PI) / 180));
+    return km / (111.32 * cosLat);
+  };
+
   return {
     type: 'FeatureCollection',
     features: hotspots.map(h => ({
       type: 'Feature',
-      geometry: { type: 'Point', coordinates: [h.longitude, h.latitude] },
+      geometry: (() => {
+        const halfLat = kmToLatDeg(h.scan || 1) / 2;
+        const halfLng = kmToLngDeg(h.track || 1, h.latitude) / 2;
+        const west = h.longitude - halfLng;
+        const east = h.longitude + halfLng;
+        const south = h.latitude - halfLat;
+        const north = h.latitude + halfLat;
+        return {
+          type: 'Polygon',
+          coordinates: [[
+            [west, south],
+            [east, south],
+            [east, north],
+            [west, north],
+            [west, south],
+          ]],
+        };
+      })(),
       properties: {
         id:         h.id,
         frp:        h.frp,
         brightness: h.brightness,
+        latitude:   h.latitude,
+        longitude:  h.longitude,
+        scan:       h.scan,
+        track:      h.track,
         confidence: h.confidence,
         satellite:  h.satellite,
+        source:     h.source,
         acq_date:   h.acq_date,
         acq_time:   h.acq_time,
         daynight:   h.daynight,

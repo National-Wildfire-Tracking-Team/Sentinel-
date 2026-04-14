@@ -96,6 +96,7 @@ export default function LiveTrackerPage() {
     geoJSON: hotspotsGeoJSON,
     loading: hotspotsLoading,
     count: hotspotsCount,
+    sourceCounts: hotspotsSourceCounts,
     refresh: refreshHotspots,
   } = useFireHotspots(US_BOUNDS);
 
@@ -244,6 +245,7 @@ export default function LiveTrackerPage() {
           <LayerControl
             activeMapTab={activeMapTab}
             hotspotsCount={hotspotsCount}
+            hotspotsSourceCounts={hotspotsSourceCounts}
             perimetersCount={perimetersCount + dotsCount}
           />
 
