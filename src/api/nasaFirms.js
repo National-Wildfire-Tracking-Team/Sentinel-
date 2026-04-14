@@ -47,21 +47,15 @@ export async function fetchFireHotspots(
 }
 
 /**
- * Convert raw FIRMS JSON records into a consistent shape.
- * Adds a unique id and normalizes confidence strings.
+ * Keep FIRMS records as close to raw JSON as possible while
+ * guaranteeing a stable `id` and numeric coordinates for map use.
  */
 function normalizeHotspots(records) {
   return records.map((r, i) => ({
-    id: `firms-${r.acq_date}-${i}`,
-    latitude:   parseFloat(r.latitude),
-    longitude:  parseFloat(r.longitude),
-    brightness: parseFloat(r.bright_ti4 || r.brightness || 0),
-    frp:        parseFloat(r.frp || 0),
-    confidence: normalizeConfidence(r.confidence),
-    satellite:  r.satellite || 'Unknown',
-    acq_date:   r.acq_date,
-    acq_time:   r.acq_time,
-    daynight:   r.daynight || 'D',
+    ...r,
+    id: r.id || `firms-${r.acq_date || 'unknown'}-${i}`,
+    latitude: parseFloat(r.latitude),
+    longitude: parseFloat(r.longitude),
   }));
 }
 
@@ -90,14 +84,10 @@ export function hotspotsToGeoJSON(hotspots) {
       type: 'Feature',
       geometry: { type: 'Point', coordinates: [h.longitude, h.latitude] },
       properties: {
-        id:         h.id,
-        frp:        h.frp,
-        brightness: h.brightness,
-        confidence: h.confidence,
-        satellite:  h.satellite,
-        acq_date:   h.acq_date,
-        acq_time:   h.acq_time,
-        daynight:   h.daynight,
+        ...h,
+        confidence: normalizeConfidence(h.confidence),
+        frp: parseFloat(h.frp || 0),
+        brightness: parseFloat(h.bright_ti4 || h.brightness || 0),
       },
     })),
   };
