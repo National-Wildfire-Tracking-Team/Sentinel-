@@ -6,7 +6,7 @@
 
 import { useState } from 'react';
 import {
-  Layers, Flame, MapPin, Wind, CloudRain, Eye, ChevronDown, ChevronRight, CloudLightning,
+  Layers, Flame, MapPin, Wind, CloudRain, Eye, ChevronDown, ChevronRight, CloudLightning, Radar,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 
@@ -41,6 +41,12 @@ const LAYER_GROUPS = [
     layers: [
       { key: 'goesEast', label: 'GOES East Imagery', sublabel: 'NOAA GOES East', icon: Eye, color: '#8b5cf6' },
       { key: 'goesWest', label: 'GOES West Imagery', sublabel: 'NOAA GOES West', icon: Eye, color: '#7c3aed' },
+    ],
+  },
+  {
+    label: 'Radar',
+    layers: [
+      { key: 'radar', label: 'NEXRAD Reflectivity', sublabel: 'NEXRAD Level 2 composite', icon: Radar, color: '#10b981' },
     ],
   },
 ];
@@ -106,7 +112,8 @@ export default function LayerControl({
   const [collapsed, setCollapsed] = useState({});
   const visibleGroups = LAYER_GROUPS.filter((group) => {
     if (activeMapTab === 'wildfire') return group.label === 'Fire Data';
-    return group.label !== 'Fire Data';
+    if (activeMapTab === 'radar') return group.label === 'Radar' || group.label === 'Weather';
+    return group.label !== 'Fire Data' && group.label !== 'Radar';
   });
   const hotspotsBreakdown = Object.entries(hotspotsSourceCounts)
     .filter(([, count]) => count > 0)

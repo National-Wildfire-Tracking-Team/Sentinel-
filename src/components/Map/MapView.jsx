@@ -25,6 +25,7 @@ import GOESLayer          from './layers/GOESLayer';
 import StormReportsLayer  from './layers/StormReportsLayer';
 import UserReportsLayer   from './layers/UserReportsLayer';
 import SPCOutlookLayer from './layers/SPCOutlookLayer';
+import RadarLayer from './layers/RadarLayer';
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN || '';
 const HAS_MAPBOX_TOKEN = Boolean(MAPBOX_TOKEN.trim());
@@ -216,7 +217,8 @@ export default function MapView({
   const { layers, alerts, selectFire, viewport, setViewport } = useApp();
   const mapRef = useRef(null);
   const isWildfireTab = activeMapTab === 'wildfire';
-  const isWeatherTab = activeMapTab === 'weather';
+  const isWeatherTab  = activeMapTab === 'weather';
+  const isRadarTab    = activeMapTab === 'radar';
 
   // Hover tooltip state
   const [hoverFeature, setHoverFeature] = useState(null);
@@ -230,12 +232,12 @@ export default function MapView({
     if (isWildfireTab && layers.incidentLocations && incidentsGeoJSON)   ids.push('incident-locations-circle');
     if (isWildfireTab && layers.userReports && userReportsGeoJSON)       ids.push('user-reports-circle');
     if (isWeatherTab && layers.aqi && aqiGeoJSON)                        ids.push('aqi-stations-circle');
-    if (isWeatherTab && layers.weatherAlerts && alertsGeoJSON)           ids.push('weather-alerts-fill');
+    if ((isWeatherTab || isRadarTab) && layers.weatherAlerts && alertsGeoJSON) ids.push('weather-alerts-fill');
     if (isWeatherTab && layers.spcOutlooks && spcOutlooksGeoJSON)        ids.push('spc-outlook-fill');
     if (isWeatherTab && layers.spcReports && spcReportsGeoJSON)          ids.push('spc-reports-circle');
     if (isWeatherTab && layers.iemReports && iemReportsGeoJSON)          ids.push('iem-reports-circle');
     return ids;
-  }, [isWildfireTab, isWeatherTab, layers.fireHotspots, layers.firePerimeters, layers.incidentLocations, layers.aqi,
+  }, [isWildfireTab, isWeatherTab, isRadarTab, layers.fireHotspots, layers.firePerimeters, layers.incidentLocations, layers.aqi,
       layers.weatherAlerts, layers.spcOutlooks, layers.spcReports, layers.iemReports, layers.userReports, hotspotsGeoJSON, perimetersGeoJSON,
       incidentsGeoJSON, aqiGeoJSON, alertsGeoJSON, spcOutlooksGeoJSON, spcReportsGeoJSON, iemReportsGeoJSON, userReportsGeoJSON]);
 
@@ -457,13 +459,16 @@ export default function MapView({
           westVisible={isWeatherTab && layers.goesWest}
         />
 
+        {/* NEXRAD radar reflectivity */}
+        <RadarLayer visible={isRadarTab && layers.radar} />
+
         {/* Smoke forecast */}
         <SmokeLayer visible={isWeatherTab && layers.smoke} />
 
         {/* Weather alert zones */}
         <WeatherAlertsLayer
           geoJSON={alertsGeoJSON}
-          visible={isWeatherTab && layers.weatherAlerts}
+          visible={(isWeatherTab || isRadarTab) && layers.weatherAlerts}
         />
 
         {/* SPC convective outlook polygons */}

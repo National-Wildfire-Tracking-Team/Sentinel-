@@ -22,6 +22,7 @@ const initialState = {
     iemReports:        true,
     spcOutlooks:       true,
     userReports:       true,
+    radar:             false,
   },
   // Currently clicked/selected fire feature (hotspot or perimeter)
   selectedFire: null,
