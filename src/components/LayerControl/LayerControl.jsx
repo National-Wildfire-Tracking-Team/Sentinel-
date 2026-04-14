@@ -112,8 +112,7 @@ export default function LayerControl({
   const [collapsed, setCollapsed] = useState({});
   const visibleGroups = LAYER_GROUPS.filter((group) => {
     if (activeMapTab === 'wildfire') return group.label === 'Fire Data';
-    if (activeMapTab === 'radar') return group.label === 'Radar' || group.label === 'Weather';
-    return group.label !== 'Fire Data' && group.label !== 'Radar';
+    return group.label !== 'Fire Data';
   });
   const hotspotsBreakdown = Object.entries(hotspotsSourceCounts)
     .filter(([, count]) => count > 0)
