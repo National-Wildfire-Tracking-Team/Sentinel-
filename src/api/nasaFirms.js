@@ -16,6 +16,24 @@ const FIRMS_BASE = '/api/firms/api/area';
 const MAP_KEY = import.meta.env.VITE_NASA_FIRMS_API_KEY;
 
 /**
+ * Lightweight CSV to JSON parser for FIRMS data.
+ * NASA FIRMS CSVs don't use complex quoting, so a simple split works safely.
+ */
+function parseFirmsCSV(csvText) {
+  const lines = csvText.trim().split('\n');
+  if (lines.length < 2) return [];
+  
+  const headers = lines[0].split(',').map(h => h.trim());
+  return lines.slice(1).map(line => {
+    const values = line.split(',');
+    return headers.reduce((obj, header, i) => {
+      obj[header] = values[i] ? values[i].trim() : null;
+      return obj;
+    }, {});
+  });
+}
+
+/**
  * Fetch fire hotspots for a bounding box.
  * @param {object} bounds  { west, south, east, north }  (decimal degrees)
  * @param {number} days    Look-back window (1–10 days)
@@ -34,12 +52,18 @@ export async function fetchFireHotspots(
   }
 
   const area = `${bounds.west},${bounds.south},${bounds.east},${bounds.north}`;
-  const url = `${FIRMS_BASE}/json/${MAP_KEY}/${source}/${area}/${days}`;
+  // Using /csv/ instead of /json/ as the NASA area API only returns CSV
+  const url = `${FIRMS_BASE}/csv/${MAP_KEY}/${source}/${area}/${days}`;
   const cacheKey = `firms:${source}:${area}:${days}`;
 
   try {
-    const data = await fetchWithCache(url, cacheKey, {}, 5 * 60 * 1000);
-    return normalizeHotspots(data);
+    // Note: ensure fetchWithCache uses .text() rather than .json() for this request
+    const rawData = await fetchWithCache(url, cacheKey, {}, 5 * 60 * 1000);
+    
+    // Parse the CSV text into an array of objects
+    const parsedData = typeof rawData === 'string' ? parseFirmsCSV(rawData) : rawData;
+    
+    return normalizeHotspots(parsedData);
   } catch (err) {
     console.error('[FIRMS] Fetch failed, falling back to mock data:', err.message);
     return MOCK_FIRE_HOTSPOTS;
