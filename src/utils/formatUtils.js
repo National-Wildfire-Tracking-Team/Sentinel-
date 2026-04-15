@@ -10,9 +10,19 @@
  */
 export function formatAcres(acres) {
   if (!acres && acres !== 0) return 'Unknown';
-  if (acres >= 1_000_000) return `${(acres / 1_000_000).toFixed(2)}M acres`;
-  if (acres >= 1_000)     return `${acres.toLocaleString()} acres`;
-  return `${acres} acres`;
+
+  const numericAcres = Number(acres);
+  if (Number.isNaN(numericAcres)) return 'Unknown';
+
+  const truncateToTwoDecimals = (value) => Math.trunc(value * 100) / 100;
+  const formattedAcres = truncateToTwoDecimals(numericAcres);
+
+  if (formattedAcres >= 1_000_000) {
+    const millions = truncateToTwoDecimals(formattedAcres / 1_000_000);
+    return `${millions.toLocaleString('en-US', { maximumFractionDigits: 2 })}M acres`;
+  }
+
+  return `${formattedAcres.toLocaleString('en-US', { maximumFractionDigits: 2 })} acres`;
 }
 
 /**
