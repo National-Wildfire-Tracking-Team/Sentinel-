@@ -195,6 +195,85 @@ export async function createNIFCFireUpdate({
   };
 }
 
+/**
+ * Reporter action: edit the core fields of an existing fire_reports entry.
+ * Only the submitting reporter (or an admin) may do this – enforced by RLS.
+ */
+export async function updateFireReport(id, { title, description, latitude, longitude }) {
+  if (!isSupabaseConfigured) throw new Error('Supabase is not configured');
+
+  const updates = {};
+  if (title      !== undefined) updates.title       = title;
+  if (description !== undefined) updates.description = description;
+  if (latitude   !== undefined) updates.latitude    = latitude;
+  if (longitude  !== undefined) updates.longitude   = longitude;
+
+  if (Object.keys(updates).length === 0) {
+    throw new Error('No fields to update.');
+  }
+
+  const { error } = await supabase
+    .from('fire_reports')
+    .update(updates)
+    .eq('id', id);
+  if (error) throw error;
+  return { id, ...updates };
+}
+
+/** Reporter action: delete one of their own fire_reports entries. */
+export async function deleteFireReport(id) {
+  if (!isSupabaseConfigured) throw new Error('Supabase is not configured');
+  const { error } = await supabase
+    .from('fire_reports')
+    .delete()
+    .eq('id', id);
+  if (error) throw error;
+  return { id };
+}
+
+/**
+ * Reporter action: create a fire_reports entry for a fire sourced from an
+ * external feed (NIFC perimeters, IRWIN incidents, etc.).
+ * source should be a short label like 'NIFC', 'IRWIN', etc.
+ */
+export async function createExternalFireUpdate({
+  fireName, latitude, longitude, userId, acreage, notes, externalId, source = 'EXTERNAL',
+}) {
+  if (!isSupabaseConfigured) throw new Error('Supabase is not configured');
+
+  const acreageLine = acreage?.toString().trim()
+    ? `Acreage: ${acreage.toString().trim()}`
+    : null;
+  const noteLine = notes?.trim() ? `Notes: ${notes.trim()}` : null;
+
+  if (!acreageLine && !noteLine) {
+    throw new Error('Please provide acreage or notes for the update.');
+  }
+
+  const timestamp = new Date().toLocaleString();
+  const description = [
+    `SOURCE: ${source}${externalId ? ` (${externalId})` : ''}`,
+    '',
+    `UPDATE (${timestamp})`,
+    acreageLine,
+    noteLine,
+  ].filter((line) => line !== null).join('\n');
+
+  const { error } = await supabase
+    .from('fire_reports')
+    .insert({
+      title: fireName,
+      description,
+      latitude,
+      longitude,
+      status: 'approved',
+      user_id: userId,
+    });
+
+  if (error) throw error;
+  return { title: fireName, description, latitude, longitude, status: 'approved', user_id: userId };
+}
+
 /** Reporter action: append an operational update (acreage/notes) to a report. */
 export async function appendFireReportUpdate({ id, description, acreage, notes }) {
   if (!isSupabaseConfigured) throw new Error('Supabase is not configured');
