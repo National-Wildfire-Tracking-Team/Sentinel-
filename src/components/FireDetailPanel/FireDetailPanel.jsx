@@ -18,6 +18,7 @@ import { frpToLabel, containmentToColor, aqiToColor, getAQICategory } from '../.
 import { nwsAlertColor } from '../../utils/nwsColors';
 import { MOCK_INCIDENTS } from '../../data/mockData';
 import IncidentTimeline from '../IncidentTimeline/IncidentTimeline';
+import { useFireboxData } from '../../hooks/useFireboxData';
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
@@ -467,6 +468,7 @@ function AQIDetail({ fire }) {
 
 export default function FireDetailPanel() {
   const { selectedFire, clearSelected, alerts } = useApp();
+  const { data: fireboxData, loading: fireboxLoading, error: fireboxError, hasCoords } = useFireboxData(selectedFire);
 
   if (!selectedFire) return null;
 
@@ -510,6 +512,39 @@ export default function FireDetailPanel() {
           {selectedFire.type === 'aqi'      && <AQIDetail       fire={selectedFire} />}
           {selectedFire.type === 'weather-alert' && <AlertDetail fire={selectedFire} alerts={alerts} />}
           {selectedFire.type === 'user-report' && <UserReportDetail fire={selectedFire} />}
+
+          {hasCoords && (
+            <div className="mt-4 p-3 bg-sentinel-800/50 rounded-lg border border-sentinel-700">
+              <div className="text-[10px] font-bold text-sentinel-500 uppercase tracking-widest mb-2">
+                Firebox Data Sources
+              </div>
+              {fireboxLoading && <p className="text-xs text-sentinel-400">Loading HRRR/NWS/FIRMS snapshot…</p>}
+              {fireboxError && <p className="text-xs text-red-300">Unable to load Firebox data: {fireboxError}</p>}
+              {!fireboxLoading && !fireboxError && fireboxData && (
+                <div className="space-y-2 text-xs">
+                  <p className="text-sentinel-300">
+                    NOAA HRRR: <span className="text-sentinel-400">{fireboxData.weather.preferred.reason}</span>
+                  </p>
+                  <p className="text-sentinel-300">
+                    NWS fallback grid: {fireboxData.weather.fallback.temperatureC ?? '—'}°C · RH {fireboxData.weather.fallback.relativeHumidityPct ?? '—'}%
+                    {' '}· Wind {fireboxData.weather.fallback.windSpeedKph ?? '—'} kph (gust {fireboxData.weather.fallback.windGustKph ?? '—'} kph)
+                  </p>
+                  <p className="text-sentinel-300">
+                    Precipitation: {fireboxData.weather.fallback.precipitationMm ?? '—'} mm
+                  </p>
+                  <p className="text-sentinel-300">
+                    Fire weather alerts: {fireboxData.alerts.length} active
+                  </p>
+                  <p className="text-sentinel-300">
+                    FIRMS VIIRS detections (confidence ≥ {fireboxData.viirs.minConfidence}): {fireboxData.viirs.count}
+                  </p>
+                  <p className="text-sentinel-500">
+                    Planned: {fireboxData.futureSources.vegetationDryness}; {fireboxData.futureSources.lightning}.
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </>

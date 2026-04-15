@@ -13,6 +13,10 @@ import { getCached, setCached } from '../utils/dataCache';
 import { MOCK_WEATHER_ALERTS } from '../data/mockData';
 
 const NOAA_BASE = 'https://api.weather.gov';
+const FIRE_WEATHER_EVENTS = new Set([
+  'Red Flag Warning',
+  'Fire Weather Watch',
+]);
 
 const NWS_HEADERS = {
   'User-Agent': 'Sentinel Wildfire Platform (contact@sentinel.app)',
@@ -185,7 +189,7 @@ export async function fetchFireWeatherAlerts() {
     }
 
     if (!allFeatures.length) throw new Error('No active alerts');
-    const normalized = normalizeAlerts(allFeatures);
+    const normalized = normalizeAlerts(allFeatures).filter((alert) => FIRE_WEATHER_EVENTS.has(alert.type));
     setCached(cacheKey, normalized, 5 * 60 * 1000);
     return normalized;
   } catch (err) {
@@ -235,7 +239,61 @@ export async function fetchAlertsByPoint(lat, lng) {
   const data = await res.json();
 
   if (!data?.features?.length) return [];
-  return normalizeAlerts(data.features);
+  return normalizeAlerts(data.features).filter((alert) => FIRE_WEATHER_EVENTS.has(alert.type));
+}
+
+function pointToString(lat, lng) {
+  const latNum = Number(lat);
+  const lngNum = Number(lng);
+  return `${latNum.toFixed(4)},${lngNum.toFixed(4)}`;
+}
+
+function extractGridValue(series = []) {
+  const now = Date.now();
+  const active = series.find((entry) => {
+    const validAt = Date.parse(entry?.validTime?.split('/')[0] || '');
+    return Number.isFinite(validAt) && validAt <= now && entry.value !== null && entry.value !== undefined;
+  });
+
+  if (active?.value !== undefined && active?.value !== null) return active.value;
+  const firstNonNull = series.find((entry) => entry?.value !== null && entry?.value !== undefined);
+  return firstNonNull?.value ?? null;
+}
+
+/**
+ * NWS forecast grid fallback for Firebox weather diagnostics.
+ * Resolves point -> grid endpoint and returns key weather fields.
+ */
+export async function fetchForecastGridFallback(lat, lng) {
+  const point = pointToString(lat, lng);
+  const cacheKey = `noaa:grid:${point}`;
+  const cached = getCached(cacheKey);
+  if (cached !== null) return cached;
+
+  const pointRes = await fetch(`${NOAA_BASE}/points/${point}`, { headers: NWS_HEADERS });
+  if (!pointRes.ok) throw new Error(`NOAA points API error: ${pointRes.status}`);
+  const pointData = await pointRes.json();
+  const gridUrl = pointData?.properties?.forecastGridData;
+  if (!gridUrl) throw new Error('No forecast grid URL returned for point');
+
+  const gridRes = await fetch(gridUrl, { headers: NWS_HEADERS });
+  if (!gridRes.ok) throw new Error(`NOAA forecast grid API error: ${gridRes.status}`);
+  const gridData = await gridRes.json();
+  const p = gridData?.properties || {};
+
+  const payload = {
+    source: 'NWS Forecast Grid (fallback)',
+    point,
+    temperatureC: extractGridValue(p.temperature?.values),
+    relativeHumidityPct: extractGridValue(p.relativeHumidity?.values),
+    windSpeedKph: extractGridValue(p.windSpeed?.values),
+    windGustKph: extractGridValue(p.windGust?.values),
+    precipitationMm: extractGridValue(p.quantitativePrecipitation?.values),
+    fetchedAt: new Date().toISOString(),
+  };
+
+  setCached(cacheKey, payload, 10 * 60 * 1000);
+  return payload;
 }
 
 /**

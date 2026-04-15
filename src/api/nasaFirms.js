@@ -13,6 +13,7 @@
 
 import { getCached, setCached } from '../utils/dataCache';
 import { MOCK_FIRE_HOTSPOTS } from '../data/mockData';
+import { isSupabaseConfigured } from './supabaseClient';
 
 // Area endpoint with CSV format.
 // Country endpoint is not recommended for large countries (USA, Canada, China, Russia)
@@ -116,6 +117,23 @@ function normalizeConfidence(raw) {
     return 'low';
   }
   return 'nominal';
+}
+
+export function confidenceToScore(raw) {
+  const value = normalizeConfidence(raw);
+  if (value === 'high') return 3;
+  if (value === 'nominal') return 2;
+  return 1;
+}
+
+/**
+ * Filter FIRMS hotspots by confidence threshold.
+ * @param {Array} hotspots
+ * @param {'low'|'nominal'|'high'} minConfidence
+ */
+export function filterHotspotsByConfidence(hotspots = [], minConfidence = 'nominal') {
+  const threshold = confidenceToScore(minConfidence);
+  return hotspots.filter((spot) => confidenceToScore(spot?.confidence) >= threshold);
 }
 
 /**
