@@ -3,7 +3,8 @@
  * Collapsible left panel housing the incident feed and summary stats.
  */
 
-import { Flame, TrendingUp, Wind, ChevronLeft, CloudSun, ShieldAlert, Radar } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { Flame, TrendingUp, Wind, ChevronLeft, CloudSun, ShieldAlert, Radar, ArrowLeft } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import IncidentFeed from './IncidentFeed';
 import WeatherAlertsFeed from './WeatherAlertsFeed';
@@ -66,8 +67,19 @@ export default function Sidebar({
           ${sidebarOpen ? 'w-72 sm:w-80' : 'w-0 overflow-hidden'}
         `}
       >
+        {/* Back to NWTT Home */}
+        <div className="px-3 pt-2 pb-1 shrink-0">
+          <Link
+            to="/"
+            className="inline-flex items-center gap-1 text-xs text-sentinel-200 hover:text-fire-300 transition-colors"
+          >
+            <ArrowLeft size={12} />
+            Back to NWTT Home
+          </Link>
+        </div>
+
         {/* Map mode tabs */}
-        <div className="px-3 pt-3 pb-2 border-b border-sentinel-700/70 shrink-0">
+        <div className="px-3 pt-1 pb-2 border-b border-sentinel-700/70 shrink-0">
           <div className="inline-flex w-full rounded-xl border border-sentinel-700 bg-sentinel-800 p-1 gap-1">
             <button
               type="button"
