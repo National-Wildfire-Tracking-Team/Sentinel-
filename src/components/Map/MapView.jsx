@@ -26,7 +26,7 @@ import StormReportsLayer  from './layers/StormReportsLayer';
 import UserReportsLayer   from './layers/UserReportsLayer';
 import SPCOutlookLayer from './layers/SPCOutlookLayer';
 import RadarLayer from './layers/RadarLayer';
-import CaEvacuationsLayer from './layers/CaEvacuationsLayer';
+import EvacZonesLayer from './layers/EvacZonesLayer';
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN || '';
 const HAS_MAPBOX_TOKEN = Boolean(MAPBOX_TOKEN.trim());
@@ -243,7 +243,7 @@ export default function MapView({
   iemReportsGeoJSON,
   spcOutlooksGeoJSON,
   userReportsGeoJSON,
-  caEvacuationsGeoJSON,
+  evacZonesGeoJSON,
 }) {
   const { layers, alerts, selectFire, viewport, setViewport } = useApp();
   const mapRef = useRef(null);
@@ -575,6 +575,12 @@ export default function MapView({
           geoJSON={iemReportsGeoJSON}
           visible={isWeatherTab && layers.iemReports}
           opacity={0.75}
+        />
+
+        {/* California evacuation zones */}
+        <EvacZonesLayer
+          geoJSON={evacZonesGeoJSON}
+          visible={isWildfireTab && layers.evacZones}
         />
 
         {/* Fire hotspot points – rendered last (top) */}

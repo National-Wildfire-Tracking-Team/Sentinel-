@@ -16,7 +16,7 @@ import { useIncidents } from '../hooks/useIncidents';
 import { useStormReports } from '../hooks/useStormReports';
 import { useSpcOutlooks } from '../hooks/useSpcOutlooks';
 import { useFireReports, reportsToGeoJSON } from '../hooks/useFireReports';
-import { useCaEvacuations } from '../hooks/useCaEvacuations';
+import { useEvacZones } from '../hooks/useEvacZones';
 
 // Components
 import Header from '../components/Header/Header';
@@ -47,7 +47,7 @@ const WILDFIRE_LAYER_PRESET = {
   goesWest: false,
   spcOutlooks: false,
   radar: false,
-  caEvacuations: true,
+  evacZones: false,
 };
 
 const WEATHER_LAYER_PRESET = {
@@ -62,7 +62,7 @@ const WEATHER_LAYER_PRESET = {
   goesWest: false,
   spcOutlooks: true,
   radar: true,
-  caEvacuations: false,
+  evacZones: false,
 };
 
 /** Filter a GeoJSON FeatureCollection, removing old (>72h) or mostly contained (>95%) fires. */
@@ -149,11 +149,11 @@ export default function LiveTrackerPage() {
     refresh: refreshSpcOutlooks,
   } = useSpcOutlooks(activeMapTab === MAP_TABS.weather);
 
-  // CA evacuation zones – CalOES active zones
+  // California evacuation zones (Cal OES NRT)
   const {
-    geoJSON: caEvacuationsGeoJSON,
-    refresh: refreshCaEvacuations,
-  } = useCaEvacuations();
+    geoJSON: evacZonesGeoJSON,
+    refresh: refreshEvacZones,
+  } = useEvacZones();
 
   // Community-submitted reports – only approved ones, realtime-subscribed
   const { reports: approvedReports, refresh: refreshUserReports } = useFireReports('approved');
@@ -347,9 +347,9 @@ export default function LiveTrackerPage() {
     refreshStormReports();
     refreshSpcOutlooks();
     refreshUserReports();
-    refreshCaEvacuations();
+    refreshEvacZones();
     if (layers.aqi) refreshAQI();
-  }, [refreshHotspots, refreshPerimeters, refreshAlerts, refreshIncidents, refreshStormReports, refreshSpcOutlooks, refreshUserReports, refreshCaEvacuations, refreshAQI, layers.aqi]);
+  }, [refreshHotspots, refreshPerimeters, refreshAlerts, refreshIncidents, refreshStormReports, refreshSpcOutlooks, refreshUserReports, refreshEvacZones, refreshAQI, layers.aqi]);
 
   return (
     <div className="h-screen w-screen flex flex-col bg-sentinel-900 text-white overflow-hidden select-none">
@@ -386,7 +386,7 @@ export default function LiveTrackerPage() {
             iemReportsGeoJSON={iemGeoJSON}
             spcOutlooksGeoJSON={spcOutlooksGeoJSON}
             userReportsGeoJSON={userReportsGeoJSON}
-            caEvacuationsGeoJSON={caEvacuationsGeoJSON}
+            evacZonesGeoJSON={evacZonesGeoJSON}
           />
 
           <LayerControl
