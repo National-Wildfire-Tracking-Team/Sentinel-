@@ -128,6 +128,12 @@ create policy "reports update own details"
   using (auth.uid() = user_id)
   with check (auth.uid() = user_id);
 
+-- Reporters can delete their own fire report entries.
+drop policy if exists "reports delete own" on public.fire_reports;
+create policy "reports delete own"
+  on public.fire_reports for delete
+  using (auth.uid() = user_id);
+
 
 -- ─── 4. incident_updates table (timeline feed) ────────────────────────────
 create table if not exists public.incident_updates (

@@ -10,13 +10,16 @@ import { Navigate, useNavigate, Link } from 'react-router-dom';
 import {
   Flame, Search, MapPin, ChevronDown, FileText, ImageIcon,
   Upload, X, LogOut, AlertCircle, CheckCircle2, Send, User, RefreshCw,
-  PlusCircle, Satellite, Settings,
+  PlusCircle, Satellite, Settings, Pencil, Trash2,
 } from 'lucide-react';
 
 import { useAuth } from '../context/AuthContext';
 import {
   appendFireReportUpdate,
   createNIFCFireUpdate,
+  createExternalFireUpdate,
+  updateFireReport,
+  deleteFireReport,
   submitFireReport,
   useFireReports,
 } from '../hooks/useFireReports';
@@ -194,7 +197,15 @@ export default function SubmitReportPage() {
 
   /* Data sources for the "Update Existing Fire" tab */
   const { reports: allReports, refresh: refreshReports } = useFireReports('all');
-  const { perimetersGeoJSON } = useMergedFireData(100);
+  const { perimetersGeoJSON, incidentDotsGeoJSON } = useMergedFireData(100);
+
+  /* Edit / delete state for reporter-submitted fires */
+  const [editingId, setEditingId] = useState(null);
+  const [editState, setEditState] = useState({});       // { [id]: { title, description } }
+  const [editBusy, setEditBusy]   = useState({});
+  const [editFeedback, setEditFeedback] = useState({});
+  const [deletingId, setDeletingId] = useState(null);   // id awaiting confirm
+  const [deleteBusy, setDeleteBusy] = useState({});
 
   /** Reporter-submitted fires (any reporter, not only mine). Excludes rejected. */
   const reporterFires = useMemo(
@@ -240,6 +251,40 @@ export default function SubmitReportPage() {
       .filter(Boolean)
       .sort((a, b) => (b.acres || 0) - (a.acres || 0));
   }, [perimetersGeoJSON, reporterFires]);
+
+  /** IRWIN incident fires (dot markers), deduplicated against reporter + NIFC fires. */
+  const irwinFires = useMemo(() => {
+    if (!incidentDotsGeoJSON?.features?.length) return [];
+
+    const takenKeys = new Set([
+      ...reporterFires.map((r) => getFireMatchKey(r.title)),
+      ...nifcFires.map((f) => getFireMatchKey(f.name)),
+    ].filter(Boolean));
+
+    return incidentDotsGeoJSON.features
+      .map((f) => {
+        const name = f.properties?.IncidentName;
+        const key = getFireMatchKey(name);
+        if (!name || !key || takenKeys.has(key)) return null;
+
+        const coords = f.geometry?.coordinates;
+        const [lng, lat] = Array.isArray(coords) ? coords : [null, null];
+
+        return {
+          irwinId:    f.properties?.UniqueFireIdentifier || null,
+          name,
+          acres:      f.properties?.GISAcres,
+          contained:  f.properties?.PercentContained,
+          discovered: f.properties?.FireDiscoveryDateTime,
+          cause:      f.properties?.FireCause,
+          state:      f.properties?.POOState,
+          latitude:   Number.isFinite(lat) ? lat : null,
+          longitude:  Number.isFinite(lng) ? lng : null,
+        };
+      })
+      .filter(Boolean)
+      .sort((a, b) => (b.acres || 0) - (a.acres || 0));
+  }, [incidentDotsGeoJSON, reporterFires, nifcFires]);
 
   /* ── Guards ── */
   if (loading) {
@@ -488,6 +533,86 @@ export default function SubmitReportPage() {
     }
   }
 
+  async function handleIRWINFireUpdate(fire) {
+    const key = `irwin:${fire.irwinId || fire.name}`;
+    const state = updateState[key] || { acreage: '', notes: '' };
+    setUpdateBusy((prev) => ({ ...prev, [key]: true }));
+    setUpdateFeedback((prev) => ({ ...prev, [key]: null }));
+
+    try {
+      await createExternalFireUpdate({
+        fireName:   fire.name,
+        latitude:   fire.latitude,
+        longitude:  fire.longitude,
+        userId:     user.id,
+        acreage:    state.acreage,
+        notes:      state.notes,
+        externalId: fire.irwinId,
+        source:     'IRWIN',
+      });
+
+      setUpdateState((prev) => ({ ...prev, [key]: { acreage: '', notes: '' } }));
+      setUpdateFeedback((prev) => ({
+        ...prev,
+        [key]: { type: 'success', message: 'Update posted for IRWIN-tracked fire.' },
+      }));
+      refreshReports();
+    } catch (err) {
+      setUpdateFeedback((prev) => ({
+        ...prev,
+        [key]: { type: 'error', message: err?.message || 'Failed to post update.' },
+      }));
+    } finally {
+      setUpdateBusy((prev) => ({ ...prev, [key]: false }));
+    }
+  }
+
+  function startEdit(report) {
+    setEditingId(report.id);
+    setEditState((prev) => ({
+      ...prev,
+      [report.id]: { title: report.title, description: report.description || '' },
+    }));
+    setEditFeedback((prev) => ({ ...prev, [report.id]: null }));
+  }
+
+  function cancelEdit(id) {
+    setEditingId(null);
+    setEditFeedback((prev) => ({ ...prev, [id]: null }));
+  }
+
+  async function handleEditSave(id) {
+    const state = editState[id] || {};
+    if (!state.title?.trim()) {
+      setEditFeedback((prev) => ({ ...prev, [id]: { type: 'error', message: 'Title is required.' } }));
+      return;
+    }
+    setEditBusy((prev) => ({ ...prev, [id]: true }));
+    setEditFeedback((prev) => ({ ...prev, [id]: null }));
+    try {
+      await updateFireReport(id, { title: state.title.trim(), description: state.description });
+      setEditingId(null);
+      setEditFeedback((prev) => ({ ...prev, [id]: { type: 'success', message: 'Fire updated.' } }));
+      refreshReports();
+    } catch (err) {
+      setEditFeedback((prev) => ({ ...prev, [id]: { type: 'error', message: err?.message || 'Failed to save.' } }));
+    } finally {
+      setEditBusy((prev) => ({ ...prev, [id]: false }));
+    }
+  }
+
+  async function handleDelete(id) {
+    setDeleteBusy((prev) => ({ ...prev, [id]: true }));
+    try {
+      await deleteFireReport(id);
+      setDeletingId(null);
+      refreshReports();
+    } catch (err) {
+      setDeleteBusy((prev) => ({ ...prev, [id]: false }));
+      setEditFeedback((prev) => ({ ...prev, [id]: { type: 'error', message: err?.message || 'Failed to delete.' } }));
+    }
+  }
+
   /* ── Render ── */
   return (
     <div className="min-h-screen bg-[#0a0c0e] flex flex-col">
@@ -544,7 +669,7 @@ export default function SubmitReportPage() {
           </h1>
           <p className="text-sentinel-400 text-sm mt-1">
             {activeTab === 'update'
-              ? 'Post operational updates on fires already being tracked — NIFC incidents and reporter-submitted fires.'
+              ? 'Post operational updates on fires already being tracked — reporter-submitted, NIFC, and IRWIN/InciWeb fires. Edit or delete your own submissions.'
               : 'Submit a brand-new incident. Complete all required (*) fields and submit your report.'}
           </p>
         </div>
@@ -598,12 +723,15 @@ export default function SubmitReportPage() {
               ) : (
                 <div className="space-y-4">
                   {reporterFires.map((report) => {
-                    const state = updateState[report.id] || { acreage: '', notes: '' };
+                    const state    = updateState[report.id]  || { acreage: '', notes: '' };
                     const feedback = updateFeedback[report.id];
-                    const mine = report.user_id === user.id;
+                    const efb      = editFeedback[report.id];
+                    const mine     = report.user_id === user.id;
+                    const isEditing = editingId === report.id;
+                    const eState   = editState[report.id] || { title: report.title, description: report.description || '' };
                     return (
                       <div key={report.id} className="rounded-lg border border-sentinel-700 bg-sentinel-900/40 p-4">
-                        <div className="flex items-center justify-between gap-3 mb-3">
+                        <div className="flex items-start justify-between gap-3 mb-3">
                           <div>
                             <div className="flex items-center gap-2">
                               <h3 className="text-sm font-semibold text-white">{report.title}</h3>
@@ -617,7 +745,110 @@ export default function SubmitReportPage() {
                               Last activity: {new Date(report.created_at).toLocaleString()}
                             </p>
                           </div>
+
+                          {/* Edit / Delete controls (own fires only) */}
+                          {mine && !isEditing && (
+                            <div className="flex items-center gap-2 shrink-0">
+                              <button
+                                type="button"
+                                onClick={() => startEdit(report)}
+                                title="Edit fire"
+                                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold
+                                           bg-sentinel-700 text-sentinel-200 hover:bg-sentinel-600 transition-colors"
+                              >
+                                <Pencil size={11} /> Edit
+                              </button>
+                              {deletingId === report.id ? (
+                                <>
+                                  <button
+                                    type="button"
+                                    disabled={!!deleteBusy[report.id]}
+                                    onClick={() => handleDelete(report.id)}
+                                    className="px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-red-600 text-white hover:brightness-110 disabled:opacity-50"
+                                  >
+                                    {deleteBusy[report.id] ? 'Deleting…' : 'Confirm Delete'}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => setDeletingId(null)}
+                                    className="px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-sentinel-700 text-sentinel-200 hover:bg-sentinel-600"
+                                  >
+                                    Cancel
+                                  </button>
+                                </>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => setDeletingId(report.id)}
+                                  title="Delete fire"
+                                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold
+                                             bg-sentinel-700 text-red-400 hover:bg-red-900/40 transition-colors"
+                                >
+                                  <Trash2 size={11} /> Delete
+                                </button>
+                              )}
+                            </div>
+                          )}
                         </div>
+
+                        {/* Inline edit form */}
+                        {isEditing && (
+                          <div className="mb-4 space-y-3 p-3 rounded-lg bg-sentinel-800 border border-[#0096ff]/30">
+                            <p className="text-xs font-semibold text-[#7dc6ff] uppercase tracking-wider">Edit Fire</p>
+                            <div>
+                              <label className={LABEL_CLS}>Fire Name *</label>
+                              <input
+                                type="text"
+                                value={eState.title}
+                                onChange={(e) => setEditState((prev) => ({
+                                  ...prev,
+                                  [report.id]: { ...eState, title: e.target.value },
+                                }))}
+                                className={INPUT_CLS}
+                              />
+                            </div>
+                            <div>
+                              <label className={LABEL_CLS}>Description / Notes</label>
+                              <textarea
+                                rows={4}
+                                value={eState.description}
+                                onChange={(e) => setEditState((prev) => ({
+                                  ...prev,
+                                  [report.id]: { ...eState, description: e.target.value },
+                                }))}
+                                className={INPUT_CLS + ' resize-y'}
+                              />
+                            </div>
+                            {efb && (
+                              <p className={`text-xs ${efb.type === 'success' ? 'text-green-300' : 'text-red-300'}`}>
+                                {efb.message}
+                              </p>
+                            )}
+                            <div className="flex gap-2 justify-end">
+                              <button
+                                type="button"
+                                onClick={() => cancelEdit(report.id)}
+                                className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-sentinel-700 text-sentinel-200 hover:bg-sentinel-600"
+                              >
+                                Cancel
+                              </button>
+                              <button
+                                type="button"
+                                disabled={!!editBusy[report.id]}
+                                onClick={() => handleEditSave(report.id)}
+                                className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#0096ff] text-white hover:brightness-110 disabled:opacity-50"
+                              >
+                                {editBusy[report.id] ? 'Saving…' : 'Save Changes'}
+                              </button>
+                            </div>
+                          </div>
+                        )}
+
+                        {efb && !isEditing && (
+                          <p className={`text-xs mb-2 ${efb.type === 'success' ? 'text-green-300' : 'text-red-300'}`}>
+                            {efb.message}
+                          </p>
+                        )}
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                           <div>
@@ -757,6 +988,97 @@ export default function SubmitReportPage() {
 
                         <div className="mt-4 border-t border-sentinel-700 pt-4">
                           <IncidentTimeline incidentId={fire.nifcId || fire.name} allowPost={true} />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* IRWIN/InciWeb incident fires */}
+            <div className={SECTION_CLS}>
+              <SectionHeader icon={Satellite} iconColor="text-amber-400">
+                IRWIN Incident Fires ({irwinFires.length})
+              </SectionHeader>
+              {irwinFires.length === 0 ? (
+                <p className="text-sm text-sentinel-400">
+                  No IRWIN incident fires available right now. (All active IRWIN fires already
+                  have reporter coverage, or the feed is still loading.)
+                </p>
+              ) : (
+                <div className="space-y-4">
+                  {irwinFires.map((fire) => {
+                    const key = `irwin:${fire.irwinId || fire.name}`;
+                    const state = updateState[key] || { acreage: '', notes: '' };
+                    const feedback = updateFeedback[key];
+                    return (
+                      <div key={key} className="rounded-lg border border-sentinel-700 bg-sentinel-900/40 p-4">
+                        <div className="flex items-center justify-between gap-3 mb-3">
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <h3 className="text-sm font-semibold text-white">{fire.name}</h3>
+                              <span className="px-1.5 py-0.5 rounded bg-amber-600/15 border border-amber-500/40 text-amber-300 text-[10px] font-semibold uppercase tracking-wider">
+                                IRWIN
+                              </span>
+                            </div>
+                            <p className="text-xs text-sentinel-400">
+                              {Number.isFinite(fire.acres) ? `${Math.round(fire.acres).toLocaleString()} ac` : '—'}
+                              {Number.isFinite(fire.contained) ? ` · ${Math.round(fire.contained)}% contained` : ''}
+                              {fire.state ? ` · ${fire.state}` : ''}
+                              {fire.discovered ? ` · discovered ${new Date(fire.discovered).toLocaleDateString()}` : ''}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div>
+                            <label className={LABEL_CLS}>Updated Acreage</label>
+                            <input
+                              type="text"
+                              value={state.acreage}
+                              onChange={(e) => setUpdateState((prev) => ({
+                                ...prev,
+                                [key]: { ...state, acreage: e.target.value },
+                              }))}
+                              placeholder="e.g. 1,200 acres"
+                              className={INPUT_CLS}
+                            />
+                          </div>
+                          <div className="sm:col-span-2">
+                            <label className={LABEL_CLS}>Additional Notes (Watch Duty, etc.)</label>
+                            <textarea
+                              rows={3}
+                              value={state.notes}
+                              onChange={(e) => setUpdateState((prev) => ({
+                                ...prev,
+                                [key]: { ...state, notes: e.target.value },
+                              }))}
+                              placeholder="Add intel updates, Watch Duty references, behavior changes, evacuations..."
+                              className={INPUT_CLS + ' resize-y'}
+                            />
+                          </div>
+                        </div>
+
+                        {feedback && (
+                          <p className={`text-xs mt-2 ${feedback.type === 'success' ? 'text-green-300' : 'text-red-300'}`}>
+                            {feedback.message}
+                          </p>
+                        )}
+
+                        <div className="mt-3 flex justify-end">
+                          <button
+                            type="button"
+                            disabled={!!updateBusy[key]}
+                            onClick={() => handleIRWINFireUpdate(fire)}
+                            className="px-4 py-2 rounded-lg text-xs font-semibold bg-[#0096ff] text-white hover:brightness-110 disabled:opacity-50"
+                          >
+                            {updateBusy[key] ? 'Updating…' : 'Post Fire Update'}
+                          </button>
+                        </div>
+
+                        <div className="mt-4 border-t border-sentinel-700 pt-4">
+                          <IncidentTimeline incidentId={fire.irwinId || fire.name} allowPost={true} />
                         </div>
                       </div>
                     );
