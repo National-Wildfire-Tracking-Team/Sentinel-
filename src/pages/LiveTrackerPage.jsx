@@ -5,9 +5,6 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { Flame, ArrowLeft } from 'lucide-react';
-
 import { useApp } from '../context/AppContext';
 
 // Data hooks
@@ -287,22 +284,6 @@ export default function LiveTrackerPage() {
     <div className="h-screen w-screen flex flex-col bg-sentinel-900 text-white overflow-hidden select-none">
       {/* ── Top bar ── */}
       <Header onRefresh={handleRefresh} />
-
-      {/* Back-to-site link bar */}
-      <div className="flex items-center gap-2 px-4 py-1.5 bg-sentinel-800 border-b border-sentinel-700 text-xs">
-        <Link
-          to="/"
-          className="inline-flex items-center gap-1 text-sentinel-200 hover:text-fire-300 transition-colors"
-        >
-          <ArrowLeft size={12} />
-          Back to NWTT Home
-        </Link>
-        <span className="text-sentinel-500">|</span>
-        <span className="text-sentinel-200 flex items-center gap-1">
-          <Flame size={11} className="text-fire-500" />
-          Live Wildfire Tracker &mdash; Real-time data from NASA, NIFC &amp; NOAA
-        </span>
-      </div>
 
       {/* ── Active alert banner ── */}
       <AlertBanner />
