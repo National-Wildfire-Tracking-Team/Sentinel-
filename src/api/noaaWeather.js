@@ -27,10 +27,15 @@ const zoneGeometryCache = new Map();
 async function fetchZoneGeometryBatch(codes) {
   if (codes.length === 0) return;
 
-  // UGC position 2 is the zone type: 'Z' = forecast, 'C' = county.
-  // Any other character (e.g. fire zones) is also tried as 'forecast'.
-  const forecastCodes = codes.filter(c => c[2] !== 'C');
+  // UGC position 2 is the zone type:
+  //   'Z' = NWS forecast zone  → query with type=forecast
+  //   'C' = county             → query with type=county
+  //   'F' = fire weather zone  → query with type=fire
+  // Any other character is tried as 'forecast' as a best-effort fallback.
+  const forecastCodes = codes.filter(c => c[2] === 'Z');
   const countyCodes   = codes.filter(c => c[2] === 'C');
+  const fireCodes     = codes.filter(c => c[2] === 'F');
+  const otherCodes    = codes.filter(c => c[2] !== 'Z' && c[2] !== 'C' && c[2] !== 'F');
 
   const CHUNK = 50;
 
@@ -62,6 +67,12 @@ async function fetchZoneGeometryBatch(codes) {
   }
   for (let i = 0; i < countyCodes.length; i += CHUNK) {
     tasks.push(fetchBatch(countyCodes.slice(i, i + CHUNK), 'county'));
+  }
+  for (let i = 0; i < fireCodes.length; i += CHUNK) {
+    tasks.push(fetchBatch(fireCodes.slice(i, i + CHUNK), 'fire'));
+  }
+  for (let i = 0; i < otherCodes.length; i += CHUNK) {
+    tasks.push(fetchBatch(otherCodes.slice(i, i + CHUNK), 'forecast'));
   }
   await Promise.all(tasks);
 }
