@@ -12,14 +12,35 @@
 import { fetchWithCache } from '../utils/dataCache';
 import { MOCK_FIRE_HOTSPOTS } from '../data/mockData';
 
+// Area endpoint. Country endpoint is not recommended for large countries (USA, China, Canada, Russia)
+// because the complex polygon geometry causes request timeouts / "Invalid API call." errors.
 const FIRMS_BASE = '/api/firms/api/area';
-const MAP_KEY = import.meta.env.VITE_NASA_FIRMS_API_KEY;
+const FIRMS_STATUS_BASE = '/api/firms/mapserver/mapkey_status';
+
+// Trim accidental whitespace that can slip in from env var copy-paste.
+const MAP_KEY = import.meta.env.VITE_NASA_FIRMS_API_KEY?.trim();
+
+// Proactively validate the MAP key so misconfiguration is easy to spot in the console.
+// Fire-and-forget – does not block data requests.
+(function checkMapKey() {
+  if (!MAP_KEY || MAP_KEY === 'your_firms_map_key_here') return;
+  fetch(`${FIRMS_STATUS_BASE}/?MAP_KEY=${encodeURIComponent(MAP_KEY)}`)
+    .then(r => r.json())
+    .then(data => {
+      if (typeof data.current_transactions === 'number') {
+        console.info(`[FIRMS] MAP key OK – ${data.current_transactions} transactions used in current period`);
+      } else {
+        console.warn('[FIRMS] MAP key may be invalid or expired. Renew at https://firms.modaps.eosdis.nasa.gov/api/', data);
+      }
+    })
+    .catch(() => { /* network error – non-fatal */ });
+}());
 
 /**
  * Fetch fire hotspots for a bounding box.
  * @param {object} bounds  { west, south, east, north }  (decimal degrees)
  * @param {number} days    Look-back window (1–10 days)
- * @param {string} source  'VIIRS_SNPP_NRT' | 'MODIS_NRT'
+ * @param {string} source  'VIIRS_SNPP_NRT' | 'VIIRS_NOAA20_NRT' | 'MODIS_NRT'
  * @returns {Promise<Array>}  Array of hotspot objects
  */
 export async function fetchFireHotspots(
@@ -41,7 +62,14 @@ export async function fetchFireHotspots(
     const data = await fetchWithCache(url, cacheKey, {}, 5 * 60 * 1000);
     return normalizeHotspots(data);
   } catch (err) {
-    console.error('[FIRMS] Fetch failed, falling back to mock data:', err.message);
+    if (err.message.includes('Invalid API call')) {
+      console.error(
+        '[FIRMS] "Invalid API call" – MAP key is missing, expired, or invalid.',
+        'Renew at https://firms.modaps.eosdis.nasa.gov/api/',
+      );
+    } else {
+      console.error('[FIRMS] Fetch failed, falling back to mock data:', err.message);
+    }
     return MOCK_FIRE_HOTSPOTS;
   }
 }
