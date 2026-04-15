@@ -261,6 +261,51 @@ export default function LiveTrackerPage() {
     };
   }, [filteredIncidentDotsGeoJSON, reporterMatchKeys]);
 
+  // ── Cross-deduplicate FireIncidentsLayer dots against IncidentLocationsLayer ──
+  // Both layers source data from IRWIN, so the same fire can appear as two
+  // overlapping dots.  Keep only the IncidentLocationsLayer marker (richer
+  // styling: containment-based color, acreage-based sizing) and suppress the
+  // FireIncidentsLayer duplicate.
+  //   - Fire with a perimeter + two dots → hides the non-centered duplicate,
+  //     keeps the incident-location dot centered in the perimeter.
+  //   - Fire without a perimeter + two dots → collapses to a single dot with
+  //     one consistent color from IncidentLocationsLayer.
+  const finalIncidentDotsGeoJSON = useMemo(() => {
+    if (!deduplicatedIncidentDotsGeoJSON?.features?.length)
+      return deduplicatedIncidentDotsGeoJSON;
+    if (!deduplicatedIncidentsGeoJSON?.features?.length)
+      return deduplicatedIncidentDotsGeoJSON;
+
+    // Build lookup sets from IncidentLocationsLayer features
+    const locationNameKeys = new Set();
+    const locationIds = new Set();
+    deduplicatedIncidentsGeoJSON.features.forEach(f => {
+      const key = getFireMatchKey(f.properties.name);
+      if (key) locationNameKeys.add(key);
+      if (f.properties.id) locationIds.add(f.properties.id);
+    });
+
+    // Also include perimeter name keys so any FireIncidentsLayer dot that
+    // slipped through name-matching in useMergedFireData is still caught.
+    if (filteredPerimetersGeoJSON?.features) {
+      filteredPerimetersGeoJSON.features.forEach(f => {
+        const key = getFireMatchKey(f.properties.IncidentName);
+        if (key) locationNameKeys.add(key);
+      });
+    }
+
+    return {
+      ...deduplicatedIncidentDotsGeoJSON,
+      features: deduplicatedIncidentDotsGeoJSON.features.filter(f => {
+        const nameKey = getFireMatchKey(f.properties.IncidentName);
+        const id = f.properties.UniqueFireIdentifier;
+        if (nameKey && locationNameKeys.has(nameKey)) return false;
+        if (id && locationIds.has(id)) return false;
+        return true;
+      }),
+    };
+  }, [deduplicatedIncidentDotsGeoJSON, deduplicatedIncidentsGeoJSON, filteredPerimetersGeoJSON]);
+
   // ── Global loading state ──
   const anyLoading = hotspotsLoading || perimetersLoading || incidentsLoading;
   useEffect(() => { setLoading(anyLoading); }, [anyLoading, setLoading]);
@@ -308,7 +353,7 @@ export default function LiveTrackerPage() {
             hotspotsGeoJSON={hotspotsGeoJSON}
             perimetersGeoJSON={filteredPerimetersGeoJSON}
             incidentsGeoJSON={deduplicatedIncidentsGeoJSON}
-            incidentDotsGeoJSON={deduplicatedIncidentDotsGeoJSON}
+            incidentDotsGeoJSON={finalIncidentDotsGeoJSON}
             aqiGeoJSON={aqiGeoJSON}
             alertsGeoJSON={alertsGeoJSON}
             spcReportsGeoJSON={spcGeoJSON}
