@@ -1,7 +1,7 @@
 /**
  * IncidentLocationsLayer.jsx
  * Renders WFIGS current incident locations as interactive point markers.
- * Circle size scales with fire acreage; color indicates containment status.
+ * Circle markers use a uniform size; color indicates containment status.
  * Layer stays mounted; visibility is controlled via layout property.
  */
 
@@ -19,16 +19,8 @@ const CONTAINMENT_COLOR = [
   100, '#22c55e',
 ];
 
-// Circle radius: scales with acreage
-const ACRES_RADIUS = [
-  'interpolate', ['linear'], ['get', 'acres'],
-  0,      5,
-  100,    8,
-  1000,  12,
-  10000, 18,
-  50000, 24,
-  100000, 30,
-];
+const DOT_RADIUS = 7;
+const DOT_GLOW_RADIUS = 14;
 
 export default function IncidentLocationsLayer({ geoJSON, visible }) {
   const vis = visible ? 'visible' : 'none';
@@ -46,7 +38,7 @@ export default function IncidentLocationsLayer({ geoJSON, visible }) {
         filter={sizeFilter}
         layout={{ visibility: vis }}
         paint={{
-          'circle-radius': ['*', ACRES_RADIUS, 1.8],
+          'circle-radius': DOT_GLOW_RADIUS,
           'circle-color': CONTAINMENT_COLOR,
           'circle-opacity': 0.12,
           'circle-stroke-width': 0,
@@ -60,7 +52,7 @@ export default function IncidentLocationsLayer({ geoJSON, visible }) {
         filter={sizeFilter}
         layout={{ visibility: vis }}
         paint={{
-          'circle-radius': ACRES_RADIUS,
+          'circle-radius': DOT_RADIUS,
           'circle-color': CONTAINMENT_COLOR,
           'circle-opacity': 0.8,
           'circle-stroke-color': '#ffffff',
