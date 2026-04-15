@@ -16,6 +16,7 @@ import { useIncidents } from '../hooks/useIncidents';
 import { useStormReports } from '../hooks/useStormReports';
 import { useSpcOutlooks } from '../hooks/useSpcOutlooks';
 import { useFireReports, reportsToGeoJSON } from '../hooks/useFireReports';
+import { useCaEvacuations } from '../hooks/useCaEvacuations';
 
 // Components
 import Header from '../components/Header/Header';
@@ -46,6 +47,7 @@ const WILDFIRE_LAYER_PRESET = {
   goesWest: false,
   spcOutlooks: false,
   radar: false,
+  caEvacuations: true,
 };
 
 const WEATHER_LAYER_PRESET = {
@@ -60,6 +62,7 @@ const WEATHER_LAYER_PRESET = {
   goesWest: false,
   spcOutlooks: true,
   radar: true,
+  caEvacuations: false,
 };
 
 /** Filter a GeoJSON FeatureCollection, removing old (>72h) or mostly contained (>95%) fires. */
@@ -145,6 +148,12 @@ export default function LiveTrackerPage() {
     geoJSON: spcOutlooksGeoJSON,
     refresh: refreshSpcOutlooks,
   } = useSpcOutlooks(activeMapTab === MAP_TABS.weather);
+
+  // CA evacuation zones – CalOES active zones
+  const {
+    geoJSON: caEvacuationsGeoJSON,
+    refresh: refreshCaEvacuations,
+  } = useCaEvacuations();
 
   // Community-submitted reports – only approved ones, realtime-subscribed
   const { reports: approvedReports, refresh: refreshUserReports } = useFireReports('approved');
@@ -338,8 +347,9 @@ export default function LiveTrackerPage() {
     refreshStormReports();
     refreshSpcOutlooks();
     refreshUserReports();
+    refreshCaEvacuations();
     if (layers.aqi) refreshAQI();
-  }, [refreshHotspots, refreshPerimeters, refreshAlerts, refreshIncidents, refreshStormReports, refreshSpcOutlooks, refreshUserReports, refreshAQI, layers.aqi]);
+  }, [refreshHotspots, refreshPerimeters, refreshAlerts, refreshIncidents, refreshStormReports, refreshSpcOutlooks, refreshUserReports, refreshCaEvacuations, refreshAQI, layers.aqi]);
 
   return (
     <div className="h-screen w-screen flex flex-col bg-sentinel-900 text-white overflow-hidden select-none">
@@ -376,6 +386,7 @@ export default function LiveTrackerPage() {
             iemReportsGeoJSON={iemGeoJSON}
             spcOutlooksGeoJSON={spcOutlooksGeoJSON}
             userReportsGeoJSON={userReportsGeoJSON}
+            caEvacuationsGeoJSON={caEvacuationsGeoJSON}
           />
 
           <LayerControl
