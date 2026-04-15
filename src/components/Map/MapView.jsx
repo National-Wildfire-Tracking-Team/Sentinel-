@@ -47,21 +47,29 @@ function HoverTooltip({ feature, lngLat }) {
 
   let content = null;
   switch (feature.layer.id) {
-    case 'fire-hotspots-box':
+    case 'fire-hotspots-box': {
+      const detections = num(p.detection_count) || 1;
+      const isConsolidated = detections > 1;
       content = (
         <>
-          <div className="font-semibold text-orange-400">Raw FIRMS Record</div>
+          <div className="font-semibold text-orange-400">
+            {isConsolidated ? `FIRMS Detection (${detections} sensors)` : 'FIRMS Detection'}
+          </div>
           <div className="text-gray-300 text-xs mt-0.5">
             FRP: <span className="text-white font-medium">{formatFRP(num(p.frp))}</span>
             {' '}· {frpToLabel(num(p.frp))} intensity
+            {isConsolidated && (
+              <span className="text-gray-400"> · Combined: {formatFRP(num(p.total_frp))}</span>
+            )}
           </div>
-          <div className="text-gray-400 text-xs">{p.satellite} · {p.source} · {p.acq_date}</div>
+          <div className="text-gray-400 text-xs">{p.satellite} · {p.acq_date}</div>
           <div className="text-gray-500 text-[10px] mt-1">
             ({num(p.latitude).toFixed(4)}, {num(p.longitude).toFixed(4)})
           </div>
         </>
       );
       break;
+    }
     case 'fire-perimeters-fill':
       content = (
         <>
@@ -268,12 +276,14 @@ export default function MapView({
         lat:  num(p.latitude) || evt.lngLat.lat,
         lng:  num(p.longitude) || evt.lngLat.lng,
         frp:  num(p.frp),
-        brightness: num(p.brightness),
-        confidence: p.confidence,
-        satellite:  p.satellite,
-        source:     p.source,
-        acq_date:   p.acq_date,
-        acq_time:   p.acq_time,
+        total_frp:       num(p.total_frp) || num(p.frp),
+        brightness:      num(p.brightness),
+        confidence:      p.confidence,
+        satellite:       p.satellite,
+        source:          p.source,
+        acq_date:        p.acq_date,
+        acq_time:        p.acq_time,
+        detection_count: num(p.detection_count) || 1,
       });
     } else if (feature.layer.id === 'fire-perimeters-fill') {
       selectFire({
