@@ -6,7 +6,7 @@
 
 import { useState } from 'react';
 import {
-  Layers, Flame, MapPin, Wind, CloudRain, Eye, ChevronDown, ChevronRight, CloudLightning, Radar, TriangleAlert,
+  Layers, Flame, MapPin, Wind, CloudRain, Eye, ChevronDown, ChevronRight, CloudLightning, Radar, AlertTriangle,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 
@@ -18,7 +18,7 @@ const LAYER_GROUPS = [
       { key: 'firePerimeters',    label: 'Fire Perimeters',     sublabel: 'NIFC WFIGS',         icon: MapPin,   color: '#ff6600' },
       { key: 'incidentLocations', label: 'Incident Locations',  sublabel: 'WFIGS Current',      icon: Flame,    color: '#f59e0b' },
       { key: 'userReports',       label: 'Community Reports',   sublabel: 'NWTT verified',      icon: Flame,          color: '#22d3ee' },
-      { key: 'caEvacuations',     label: 'CA Evacuation Zones', sublabel: 'CalOES Active Zones', icon: TriangleAlert,  color: '#dc2626' },
+      { key: 'caEvacuations',     label: 'CA Evacuation Zones', sublabel: 'CalOES Active Zones', icon: AlertTriangle,  color: '#dc2626' },
     ],
   },
   {
