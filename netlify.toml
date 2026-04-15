@@ -14,6 +14,11 @@
   function = "firms-proxy"
   path = "/api/firms/*"
 
+# Proxy NOAA NOMADS WMS through edge function to avoid browser CORS failures
+[[edge_functions]]
+  function = "noaa-wms-proxy"
+  path = "/api/noaa-wms/*"
+
 # SPA fallback – must be last
 [[redirects]]
   from = "/*"

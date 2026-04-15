@@ -30,7 +30,7 @@ function getTodayUtcYmd() {
 
 function buildNomadsWmsUrl(runHour) {
   const ymd = getTodayUtcYmd();
-  return `https://nomads.ncep.noaa.gov/dods/hrrr/hrrr${ymd}/hrrr_sfc.t${pad(runHour)}z/wms`;
+  return `/api/noaa-wms/dods/hrrr/hrrr${ymd}/hrrr_sfc.t${pad(runHour)}z/wms`;
 }
 
 export default function SmokeLayer({ visible }) {

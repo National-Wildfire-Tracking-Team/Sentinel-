@@ -21,6 +21,7 @@ import IncidentLocationsLayer from './layers/IncidentLocationsLayer';
 import AQILayer           from './layers/AQILayer';
 import WeatherAlertsLayer from './layers/WeatherAlertsLayer';
 import SmokeLayer         from './layers/SmokeLayer';
+import FireWeatherRiskLayer from './layers/FireWeatherRiskLayer';
 import GOESLayer          from './layers/GOESLayer';
 import StormReportsLayer  from './layers/StormReportsLayer';
 import UserReportsLayer   from './layers/UserReportsLayer';
@@ -518,6 +519,9 @@ export default function MapView({
 
         {/* Smoke forecast */}
         <SmokeLayer visible={isWeatherTab && layers.smoke} />
+
+        {/* Fire weather risk blend (HRRR low RH + 10m wind) */}
+        <FireWeatherRiskLayer visible={isWeatherTab && layers.fireWeatherRisk} />
 
         {/* Weather alert zones */}
         <WeatherAlertsLayer
