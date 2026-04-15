@@ -12,18 +12,19 @@
 import { fetchWithCache } from '../utils/dataCache';
 import { MOCK_FIRE_HOTSPOTS } from '../data/mockData';
 
-const FIRMS_BASE = '/api/firms/api/area';
+// Use the country endpoint to avoid the 10×10 degree bounding box limit of the area API.
+const FIRMS_BASE = '/api/firms/api/country';
 const MAP_KEY = import.meta.env.VITE_NASA_FIRMS_API_KEY;
 
 /**
- * Fetch fire hotspots for a bounding box.
- * @param {object} bounds  { west, south, east, north }  (decimal degrees)
- * @param {number} days    Look-back window (1–10 days)
- * @param {string} source  'VIIRS_SNPP_NRT' | 'MODIS_NRT'
+ * Fetch fire hotspots for the contiguous United States.
+ * @param {object} _bounds  Ignored – kept for API compatibility. Country endpoint covers all of USA.
+ * @param {number} days     Look-back window (1–10 days)
+ * @param {string} source   'VIIRS_SNPP_NRT' | 'VIIRS_NOAA20_NRT' | 'MODIS_NRT'
  * @returns {Promise<Array>}  Array of hotspot objects
  */
 export async function fetchFireHotspots(
-  bounds = { west: -130, south: 24, east: -65, north: 50 },
+  _bounds = { west: -130, south: 24, east: -65, north: 50 },
   days = 1,
   source = 'VIIRS_SNPP_NRT',
 ) {
@@ -33,9 +34,8 @@ export async function fetchFireHotspots(
     return MOCK_FIRE_HOTSPOTS;
   }
 
-  const area = `${bounds.west},${bounds.south},${bounds.east},${bounds.north}`;
-  const url = `${FIRMS_BASE}/json/${MAP_KEY}/${source}/${area}/${days}`;
-  const cacheKey = `firms:${source}:${area}:${days}`;
+  const url = `${FIRMS_BASE}/json/${MAP_KEY}/${source}/USA/${days}`;
+  const cacheKey = `firms:${source}:USA:${days}`;
 
   try {
     const data = await fetchWithCache(url, cacheKey, {}, 5 * 60 * 1000);
