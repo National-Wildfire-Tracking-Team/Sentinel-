@@ -16,7 +16,6 @@ export default async (request) => {
 
   return new Response(resp.body, {
     status: resp.status,
-    statusText: resp.statusText,
     headers: {
       'Content-Type': resp.headers.get('Content-Type') || 'application/json',
       'Access-Control-Allow-Origin': '*',
