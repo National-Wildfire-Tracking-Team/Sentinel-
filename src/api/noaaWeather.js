@@ -75,16 +75,21 @@ async function fetchZoneGeometryBatch(codes) {
   const CHUNK = 50;
 
   const fetchBatch = async (batch, type) => {
-    const url = `${NOAA_BASE}/zones?id=${batch.join(',')}&type=${type}&include_geometry=true`;
+    // Follow pagination — the zones endpoint may page results even when
+    // filtering by specific IDs, so consume all pages before returning.
+    let url = `${NOAA_BASE}/zones?id=${batch.join(',')}&type=${type}&include_geometry=true`;
     try {
-      const res = await fetch(url, { headers: NWS_HEADERS });
-      if (!res.ok) return;
-      const data = await res.json();
-      for (const feature of (data.features || [])) {
-        const id = feature.properties?.id;
-        if (id && feature.geometry) {
-          zoneGeometryCache.set(id, feature.geometry);
+      while (url) {
+        const res = await fetch(url, { headers: NWS_HEADERS });
+        if (!res.ok) return;
+        const data = await res.json();
+        for (const feature of (data.features || [])) {
+          const id = feature.properties?.id;
+          if (id && feature.geometry) {
+            zoneGeometryCache.set(id, feature.geometry);
+          }
         }
+        url = data.pagination?.next ?? null;
       }
     } catch {
       // Silently ignore errors for individual batches

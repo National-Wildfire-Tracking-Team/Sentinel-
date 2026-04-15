@@ -79,23 +79,52 @@ const WATCHES = {
 
 // ─── Advisories ──────────────────────────────────────────────────────────────
 const ADVISORIES = {
-  'Dense Fog Advisory':          '#748494',
-  'Dense Fog (marine) Advisory': '#748494',
-  'Dense Smoke Advisory':        '#EFE394',
-  'Dust Advisory':               '#BCB671',
-  'Heat Advisory':               '#E88656',
+  'Dense Fog Advisory':                    '#708090',
+  'Dense Fog (marine) Advisory':           '#708090',
+  'Freezing Fog Advisory':                 '#6699CC',
+  'Dense Smoke Advisory':                  '#EFE394',
+  'Dust Advisory':                         '#BCB671',
+  'Heat Advisory':                         '#E88656',
+  'Frost Advisory':                        '#6699CD',
+  'Freeze Advisory':                       '#6699CD',
+  'Wind Chill Advisory':                   '#AFEEEE',
+  'Winter Weather Advisory':               '#7B68EE',
+  'Freezing Rain Advisory':                '#DA70D6',
+  'Freezing Drizzle Advisory':             '#DA70D6',
+  'Snow Advisory':                         '#A4D3EE',
+  'Blowing Snow Advisory':                 '#A4D3EE',
+  'Lake Effect Snow Advisory':             '#48D1CC',
+  'Wind Advisory':                         '#D2691E',
+  'Brisk Wind Advisory':                   '#D2691E',
+  'Lake Wind Advisory':                    '#D2691E',
+  'Small Craft Advisory':                  '#D2691E',
+  'Small Craft Advisory for Hazardous Seas': '#D2691E',
+  'Small Craft Advisory for Rough Bar':    '#D2691E',
+  'Small Craft Advisory for Winds':        '#D2691E',
+  'High Surf Advisory':                    '#BA55D3',
+  'Rip Current Statement':                 '#40E0D0',
+  'Beach Hazards Statement':               '#40E0D0',
+  'Coastal Flood Advisory':                '#7CFC00',
+  'Lakeshore Flood Advisory':              '#7CFC00',
+  'Urban and Small Stream Flood Advisory': '#00FF7F',
+  'Small Stream Flood Advisory':           '#00FF7F',
+  'Hydrological Advisory':                 '#00FF7F',
+  'Air Quality Alert':                     '#808080',
+  'Low Water Advisory':                    '#A52A2A',
+  'Ashfall Advisory':                      '#696969',
+  'Avalanche Advisory':                    '#CD853F',
 };
 
 // ─── Statements ──────────────────────────────────────────────────────────────
 const STATEMENTS = {
-  'Special Weather Statement': '#6EFAF7',
-  'Marine Weather Statement':  '#F7D8B9',
-  '911 Telephone Outage':      '#C0C0C0',
-};
-
-// ─── Outlooks ────────────────────────────────────────────────────────────────
-const OUTLOOKS = {
-  'Hazardous Weather Outlook': '#EFE0A3',
+  'Special Weather Statement':     '#6EFAF7',
+  'Marine Weather Statement':      '#F7D8B9',
+  'Hydrological Statement':        '#00FF7F',
+  'Flood (forecast point) Statement': '#6FEA47',
+  'Short Term Forecast':           '#98FB98',
+  'Hazardous Weather Outlook':     '#EFE0A3',
+  'Air Stagnation Advisory':       '#808080',
+  '911 Telephone Outage':          '#C0C0C0',
 };
 
 /** Full event → hex-color lookup. */
@@ -104,7 +133,6 @@ export const NWS_ALERT_COLORS = {
   ...WATCHES,
   ...ADVISORIES,
   ...STATEMENTS,
-  ...OUTLOOKS,
 };
 
 /** Classification of an alert event. */
@@ -113,7 +141,6 @@ export function nwsAlertCategory(event) {
   if (WATCHES[event])    return 'watch';
   if (ADVISORIES[event]) return 'advisory';
   if (STATEMENTS[event]) return 'statement';
-  if (OUTLOOKS[event])   return 'outlook';
   return 'other';
 }
 
