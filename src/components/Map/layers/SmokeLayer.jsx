@@ -30,7 +30,8 @@ function getTodayUtcYmd() {
 
 function buildNomadsWmsUrl(runHour) {
   const ymd = getTodayUtcYmd();
-  return `/api/noaa-wms/dods/hrrr/hrrr${ymd}/hrrr_sfc.t${pad(runHour)}z/wms`;
+  // NOMADS WMS endpoint prefers trailing slash to avoid 301 redirects.
+  return `/api/noaa-wms/dods/hrrr/hrrr${ymd}/hrrr_sfc.t${pad(runHour)}z/wms/`;
 }
 
 export default function SmokeLayer({ visible }) {

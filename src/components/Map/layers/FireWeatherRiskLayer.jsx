@@ -22,7 +22,9 @@ function getTodayUtcYmd() {
 function buildBaseProxyPath() {
   const runHour = getLatestRunHour();
   const ymd = getTodayUtcYmd();
-  return `/api/noaa-wms/dods/hrrr/hrrr${ymd}/hrrr_sfc.t${pad(runHour)}z/wms`;
+  // NOMADS WMS endpoint prefers a trailing slash; without it the server
+  // may emit a 301 redirect that mapbox treats as a tile load error.
+  return `/api/noaa-wms/dods/hrrr/hrrr${ymd}/hrrr_sfc.t${pad(runHour)}z/wms/`;
 }
 
 function buildWmsTileUrl({ layerName, colorScaleRange, style = 'boxfill/rainbow', alpha = true }) {

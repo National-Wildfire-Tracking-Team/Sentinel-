@@ -11,6 +11,7 @@ export default async (request) => {
   const target = `https://nomads.ncep.noaa.gov${nomadsPath}${url.search}`;
 
   const upstream = await fetch(target, {
+    redirect: 'follow',
     headers: {
       Accept: 'image/png,application/xml,text/xml,*/*',
       'User-Agent': 'Sentinel-FireWeather-Layer/1.0',
