@@ -74,6 +74,82 @@ function normalizeConfidence(raw) {
 }
 
 /**
+ * Consolidate nearby hotspot records into single representative detections.
+ * Multiple satellites (VIIRS SNPP, VIIRS NOAA-20, MODIS) often detect the
+ * same fire, producing overlapping markers.  This groups hotspots that fall
+ * within approximately the same 2 km grid cell and merges each group into
+ * one record with the highest FRP, all contributing sources, and the most
+ * recent acquisition time.
+ *
+ * @param {Array} hotspots  Raw hotspot objects with latitude/longitude
+ * @returns {Array}  Consolidated hotspot objects
+ */
+export function consolidateHotspots(hotspots) {
+  if (!hotspots?.length) return hotspots || [];
+
+  // ~2 km grid cell size in degrees (matches the FIRMS box size)
+  const CELL_LAT = 0.018; // 2 km / 111.32 km per degree
+  const CELL_LNG = 0.022; // slightly wider to compensate for longitude shrink at mid-latitudes
+
+  const cellKey = (lat, lng) =>
+    `${Math.round(lat / CELL_LAT)}:${Math.round(lng / CELL_LNG)}`;
+
+  // Group hotspots by grid cell
+  const groups = new Map();
+  for (const h of hotspots) {
+    const key = cellKey(h.latitude, h.longitude);
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(h);
+  }
+
+  // Merge each group into a single representative record
+  return Array.from(groups.values()).map(group => {
+    if (group.length === 1) return group[0];
+
+    // Pick the detection with the highest FRP as the representative
+    const best = group.reduce((a, b) =>
+      (Number(b.frp) || 0) > (Number(a.frp) || 0) ? b : a
+    );
+
+    // Collect unique sources and satellites
+    const sources    = [...new Set(group.map(h => h.source).filter(Boolean))];
+    const satellites = [...new Set(group.map(h => h.satellite).filter(Boolean))];
+
+    // Use the highest confidence
+    const confidenceRank = { high: 3, nominal: 2, low: 1 };
+    const bestConfidence = group.reduce((top, h) => {
+      const c = normalizeConfidence(h.confidence);
+      return (confidenceRank[c] || 0) > (confidenceRank[top] || 0) ? c : top;
+    }, 'low');
+
+    // Use the most recent acquisition date/time
+    const latest = group.reduce((a, b) => {
+      const aKey = `${a.acq_date || ''}${String(a.acq_time || '').padStart(4, '0')}`;
+      const bKey = `${b.acq_date || ''}${String(b.acq_time || '').padStart(4, '0')}`;
+      return bKey > aKey ? b : a;
+    });
+
+    // Sum FRP across detections for a combined intensity reading
+    const totalFrp = group.reduce((sum, h) => sum + (Number(h.frp) || 0), 0);
+
+    return {
+      ...best,
+      frp:             Number(best.frp) || 0,
+      total_frp:       Math.round(totalFrp * 10) / 10,
+      brightness:      Math.max(...group.map(h => Number(h.brightness) || 0)),
+      confidence:      bestConfidence,
+      source:          sources.join(', '),
+      satellite:       satellites.join(', '),
+      acq_date:        latest.acq_date,
+      acq_time:        latest.acq_time,
+      detection_count: group.length,
+      sources,
+      satellites,
+    };
+  });
+}
+
+/**
  * Convert array of hotspot objects into a GeoJSON FeatureCollection
  * suitable for use as a Mapbox Source.
  */
@@ -110,19 +186,21 @@ export function hotspotsToGeoJSON(hotspots) {
         };
       })(),
       properties: {
-        id:         h.id,
-        frp:        h.frp,
-        brightness: h.brightness,
-        latitude:   h.latitude,
-        longitude:  h.longitude,
-        scan:       h.scan,
-        track:      h.track,
-        confidence: h.confidence,
-        satellite:  h.satellite,
-        source:     h.source,
-        acq_date:   h.acq_date,
-        acq_time:   h.acq_time,
-        daynight:   h.daynight,
+        id:              h.id,
+        frp:             h.frp,
+        total_frp:       h.total_frp || h.frp,
+        brightness:      h.brightness,
+        latitude:        h.latitude,
+        longitude:       h.longitude,
+        scan:            h.scan,
+        track:           h.track,
+        confidence:      h.confidence,
+        satellite:       h.satellite,
+        source:          h.source,
+        acq_date:        h.acq_date,
+        acq_time:        h.acq_time,
+        daynight:        h.daynight,
+        detection_count: h.detection_count || 1,
       },
     })),
   };

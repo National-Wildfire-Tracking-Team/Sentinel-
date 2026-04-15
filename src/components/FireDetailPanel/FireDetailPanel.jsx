@@ -46,11 +46,18 @@ function UpdateEntry({ update }) {
 
 function HotspotDetail({ fire }) {
   const frpColor = fire.frp >= 200 ? 'text-red-400' : fire.frp >= 100 ? 'text-orange-400' : 'text-yellow-400';
-  const firmsSourceLabel =
-    fire.source === 'VIIRS_SNPP_NRT' ? 'VIIRS SNPP (NRT)' :
-    fire.source === 'VIIRS_NOAA20_NRT' ? 'VIIRS NOAA-20 (NRT)' :
-    fire.source === 'MODIS_NRT' ? 'MODIS (NRT)' :
-    fire.source || 'Unknown feed';
+  const detections = fire.detection_count || 1;
+  const isConsolidated = detections > 1;
+
+  // Format source labels – may contain comma-separated values when consolidated
+  const formatSourceLabel = (src) => {
+    if (!src) return 'Unknown feed';
+    return src.split(', ').map(s =>
+      s === 'VIIRS_SNPP_NRT' ? 'VIIRS SNPP' :
+      s === 'VIIRS_NOAA20_NRT' ? 'VIIRS NOAA-20' :
+      s === 'MODIS_NRT' ? 'MODIS' : s
+    ).join(', ');
+  };
 
   return (
     <>
@@ -59,17 +66,32 @@ function HotspotDetail({ fire }) {
           <Flame size={18} className="text-orange-400" />
         </div>
         <div>
-          <h3 className="font-bold text-white text-base">Fire Hotspot Detection</h3>
+          <h3 className="font-bold text-white text-base">
+            {isConsolidated ? 'Consolidated Hotspot' : 'Fire Hotspot Detection'}
+          </h3>
           <p className="text-sentinel-400 text-xs">NASA FIRMS · {fire.satellite}</p>
-          <p className="text-sentinel-500 text-[11px] mt-0.5">Feed: {firmsSourceLabel}</p>
+          {isConsolidated && (
+            <p className="text-sentinel-500 text-[11px] mt-0.5">
+              {detections} detections merged · {formatSourceLabel(fire.source)}
+            </p>
+          )}
+          {!isConsolidated && (
+            <p className="text-sentinel-500 text-[11px] mt-0.5">Feed: {formatSourceLabel(fire.source)}</p>
+          )}
         </div>
       </div>
 
       <div className="grid grid-cols-2 gap-2 mb-4">
-        <StatBlock label="FRP" value={formatFRP(fire.frp)} icon={Flame} color={frpColor} />
+        <StatBlock label="Peak FRP" value={formatFRP(fire.frp)} icon={Flame} color={frpColor} />
         <StatBlock label="Intensity" value={frpToLabel(fire.frp)} color={frpColor} />
+        {isConsolidated && (
+          <StatBlock label="Combined FRP" value={formatFRP(fire.total_frp)} icon={TrendingUp} color={frpColor} />
+        )}
         <StatBlock label="Brightness" value={`${fire.brightness?.toFixed(1)} K`} icon={Thermometer} />
         <StatBlock label="Confidence" value={fire.confidence} />
+        {isConsolidated && (
+          <StatBlock label="Detections" value={detections} icon={Info} />
+        )}
       </div>
 
       <div className="space-y-2 text-xs text-sentinel-400">
@@ -89,8 +111,10 @@ function HotspotDetail({ fire }) {
 
       <div className="mt-4 p-3 bg-orange-950/30 border border-orange-900/50 rounded-lg">
         <p className="text-xs text-orange-300/80 leading-relaxed">
-          Fire Radiative Power (FRP) measures the radiant heat output of a fire in megawatts.
-          Higher FRP indicates more intense burning and larger smoke production.
+          {isConsolidated
+            ? `This marker consolidates ${detections} overlapping satellite detections from ${formatSourceLabel(fire.source)}. Peak FRP shows the strongest single reading; Combined FRP sums all detections.`
+            : 'Fire Radiative Power (FRP) measures the radiant heat output of a fire in megawatts. Higher FRP indicates more intense burning and larger smoke production.'
+          }
         </p>
       </div>
     </>
