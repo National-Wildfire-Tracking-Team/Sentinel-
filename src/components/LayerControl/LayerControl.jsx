@@ -31,7 +31,6 @@ const LAYER_GROUPS = [
   {
     label: 'Weather',
     layers: [
-      { key: 'fireWeatherRisk', label: 'Fire Weather Risk', sublabel: 'HRRR wind + RH blend', icon: Flame, color: '#fb7185' },
       { key: 'weatherAlerts', label: 'Fire Weather Alerts', sublabel: 'NOAA NWS', icon: Wind, color: '#ef4444' },
       { key: 'spcOutlooks', label: 'SPC Risk Outlooks', sublabel: 'SPC Day 1-3 categorical', icon: CloudLightning, color: '#f472b6' },
       { key: 'spcReports', label: 'SPC Storm Reports', sublabel: 'NOAA SPC live reports', icon: CloudLightning, color: '#06b6d4' },

@@ -33,6 +33,7 @@ const US_BOUNDS = { west: -130, south: 24, east: -65, north: 50 };
 const MAP_TABS = {
   wildfire: 'wildfire',
   weather: 'weather',
+  fireWeather: 'fireWeather',
 };
 
 const WILDFIRE_LAYER_PRESET = {
@@ -43,7 +44,6 @@ const WILDFIRE_LAYER_PRESET = {
   weatherAlerts: false,
   aqi: false,
   smoke: false,
-  fireWeatherRisk: false,
   goesEast: false,
   goesWest: false,
   spcOutlooks: false,
@@ -59,11 +59,25 @@ const WEATHER_LAYER_PRESET = {
   weatherAlerts: true,
   aqi: true,
   smoke: true,
-  fireWeatherRisk: true,
   goesEast: true,
   goesWest: false,
   spcOutlooks: true,
   radar: true,
+  evacZones: false,
+};
+
+const FIRE_WEATHER_LAYER_PRESET = {
+  fireHotspots: false,
+  firePerimeters: false,
+  incidentLocations: false,
+  userReports: false,
+  weatherAlerts: true,
+  aqi: false,
+  smoke: true,
+  goesEast: false,
+  goesWest: false,
+  spcOutlooks: false,
+  radar: false,
   evacZones: false,
 };
 
@@ -95,6 +109,7 @@ export default function LiveTrackerPage() {
     const presets = {
       [MAP_TABS.wildfire]: WILDFIRE_LAYER_PRESET,
       [MAP_TABS.weather]:  WEATHER_LAYER_PRESET,
+      [MAP_TABS.fireWeather]: FIRE_WEATHER_LAYER_PRESET,
     };
     const preset = presets[activeMapTab] || WILDFIRE_LAYER_PRESET;
     Object.entries(preset).forEach(([layer, value]) => {
@@ -395,7 +410,7 @@ export default function LiveTrackerPage() {
             activeMapTab={activeMapTab}
           />
 
-          <Legend />
+          <Legend activeMapTab={activeMapTab} />
           <FireDetailPanel />
         </div>
       </div>

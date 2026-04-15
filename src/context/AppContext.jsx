@@ -16,7 +16,6 @@ const initialState = {
     aqi:               false,
     weatherAlerts:     true,
     smoke:             false,
-    fireWeatherRisk:   false,
     goesEast:          false,
     goesWest:          false,
     spcReports:        true,

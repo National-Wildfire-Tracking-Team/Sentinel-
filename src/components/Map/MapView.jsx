@@ -233,7 +233,7 @@ function HoverTooltip({ feature, lngLat }) {
  * @param {object|null} props.spcOutlooksGeoJSON
  * @param {object|null} props.userReportsGeoJSON
  * @param {object|null} props.evacZonesGeoJSON
- * @param {'wildfire'|'weather'} [props.activeMapTab]
+ * @param {'wildfire'|'weather'|'fireWeather'} [props.activeMapTab]
  */
 export default function MapView({
   activeMapTab = 'wildfire',
@@ -253,6 +253,7 @@ export default function MapView({
   const mapRef = useRef(null);
   const isWildfireTab = activeMapTab === 'wildfire';
   const isWeatherTab  = activeMapTab === 'weather';
+  const isFireWeatherTab = activeMapTab === 'fireWeather';
 
   // Hover tooltip state
   const [hoverFeature, setHoverFeature] = useState(null);
@@ -269,13 +270,13 @@ export default function MapView({
     if (isWildfireTab && layers.incidentLocations && incidentsGeoJSON)   ids.push('incident-locations-circle');
     if (isWildfireTab && layers.userReports && userReportsGeoJSON)       ids.push('user-reports-circle');
     if (isWeatherTab && layers.aqi && aqiGeoJSON)                        ids.push('aqi-stations-circle');
-    if (isWeatherTab && layers.weatherAlerts && alertsGeoJSON) ids.push('weather-alerts-fill');
+    if ((isWeatherTab || isFireWeatherTab) && layers.weatherAlerts && alertsGeoJSON) ids.push('weather-alerts-fill');
     if (isWeatherTab && layers.spcOutlooks && spcOutlooksGeoJSON)        ids.push('spc-outlook-fill');
     if (isWeatherTab && layers.spcReports && spcReportsGeoJSON)          ids.push('spc-reports-circle');
     if (isWeatherTab && layers.iemReports && iemReportsGeoJSON)          ids.push('iem-reports-circle');
     if (isWildfireTab && layers.evacZones && evacZonesGeoJSON)            ids.push('evac-zones-fill');
     return ids;
-  }, [isWildfireTab, isWeatherTab, layers.fireHotspots, layers.firePerimeters, layers.incidentLocations, layers.aqi,
+  }, [isWildfireTab, isWeatherTab, isFireWeatherTab, layers.fireHotspots, layers.firePerimeters, layers.incidentLocations, layers.aqi,
       layers.weatherAlerts, layers.spcOutlooks, layers.spcReports, layers.iemReports, layers.userReports, layers.evacZones,
       hotspotsGeoJSON, perimetersGeoJSON, incidentsGeoJSON, aqiGeoJSON, alertsGeoJSON, spcOutlooksGeoJSON,
       spcReportsGeoJSON, iemReportsGeoJSON, userReportsGeoJSON, evacZonesGeoJSON]);
@@ -518,15 +519,15 @@ export default function MapView({
         <RadarLayer visible={isWeatherTab && layers.radar} />
 
         {/* Smoke forecast */}
-        <SmokeLayer visible={isWeatherTab && layers.smoke} />
+        <SmokeLayer visible={(isWeatherTab || isFireWeatherTab) && layers.smoke} />
 
         {/* Fire weather risk blend (HRRR low RH + 10m wind) */}
-        <FireWeatherRiskLayer visible={isWeatherTab && layers.fireWeatherRisk} />
+        <FireWeatherRiskLayer visible={isFireWeatherTab} />
 
         {/* Weather alert zones */}
         <WeatherAlertsLayer
           geoJSON={alertsGeoJSON}
-          visible={isWeatherTab && layers.weatherAlerts}
+          visible={(isWeatherTab || isFireWeatherTab) && layers.weatherAlerts}
         />
 
         {/* SPC convective outlook polygons */}

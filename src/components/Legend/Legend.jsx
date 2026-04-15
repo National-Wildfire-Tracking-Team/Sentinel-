@@ -63,14 +63,15 @@ function Section({ title, children }) {
   );
 }
 
-export default function Legend() {
+export default function Legend({ activeMapTab = 'wildfire' }) {
   const { layers, legendOpen, toggleLegend } = useApp();
   const [collapsed, setCollapsed] = useState(true);
+  const isFireWeatherTab = activeMapTab === 'fireWeather';
 
   if (!legendOpen) return null;
 
   const anyActive = layers.fireHotspots || layers.aqi || layers.firePerimeters || layers.spcOutlooks
-    || layers.weatherAlerts || layers.radar || layers.fireWeatherRisk;
+    || layers.weatherAlerts || layers.radar || isFireWeatherTab;
   if (!anyActive) return null;
 
   return (
@@ -136,7 +137,7 @@ export default function Legend() {
               </Section>
             )}
 
-            {layers.fireWeatherRisk && (
+            {isFireWeatherTab && (
               <Section title="Fire Weather Risk">
                 {FIRE_WEATHER_RISK_SCALE.map(row => <ColorRow key={row.label} {...row} />)}
               </Section>

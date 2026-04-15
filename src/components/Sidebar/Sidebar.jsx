@@ -31,6 +31,7 @@ export default function Sidebar({
 }) {
   const { sidebarOpen, toggleSidebar, alerts } = useApp();
   const isWeatherTab = activeMapTab === 'weather';
+  const isFireWeatherTab = activeMapTab === 'fireWeather';
 
   const activeCount  = incidents.filter(i => i.status === 'active').length;
   const rfwCount     = alerts.filter(a => a.type === 'Red Flag Warning').length;
@@ -108,18 +109,39 @@ export default function Sidebar({
               <CloudSun size={13} />
               Weather
             </button>
+
+            <button
+              type="button"
+              onClick={() => onTabChange?.('fireWeather')}
+              className={`flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors ${
+                activeMapTab === 'fireWeather'
+                  ? 'bg-rose-600 text-white'
+                  : 'text-sentinel-200 hover:bg-sentinel-700'
+              }`}
+              aria-pressed={activeMapTab === 'fireWeather'}
+            >
+              <Wind size={13} />
+              Fire Wx
+            </button>
           </div>
         </div>
 
         {/* Sidebar header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-sentinel-700 shrink-0">
           <div className="flex items-center gap-2">
-            {isWeatherTab ? (
+            {isWeatherTab || isFireWeatherTab ? (
               <>
-                <CloudSun size={16} className="text-sky-400" />
-                <h2 className="font-semibold text-white text-sm">Weather &amp; Radar</h2>
+                <CloudSun size={16} className={isFireWeatherTab ? 'text-rose-300' : 'text-sky-400'} />
+                <h2 className="font-semibold text-white text-sm">
+                  {isFireWeatherTab ? 'Fire Weather Risk' : 'Weather & Radar'}
+                </h2>
                 {alertsCount > 0 && (
-                  <span className="px-1.5 py-0.5 bg-sky-600/25 text-sky-300 text-xs font-bold rounded-full border border-sky-700/40">
+                  <span className={`px-1.5 py-0.5 text-xs font-bold rounded-full border ${
+                    isFireWeatherTab
+                      ? 'bg-rose-600/25 text-rose-300 border-rose-700/40'
+                      : 'bg-sky-600/25 text-sky-300 border-sky-700/40'
+                  }`}
+                  >
                     {alertsCount}
                   </span>
                 )}
@@ -149,12 +171,12 @@ export default function Sidebar({
         {/* Summary stats strip */}
         <div className="px-3 py-2 border-b border-sentinel-700 shrink-0">
           <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
-            {isWeatherTab ? (
+            {isWeatherTab || isFireWeatherTab ? (
               <>
-                <StatPill icon={CloudSun}    label="Active Alerts" value={alertsCount}  color="text-sky-300" />
+                <StatPill icon={CloudSun} label="Active Alerts" value={alertsCount} color={isFireWeatherTab ? 'text-rose-300' : 'text-sky-300'} />
                 <StatPill icon={ShieldAlert} label="Severe"        value={severeCount}  color="text-red-300" />
                 <StatPill icon={Wind}        label="Warnings"      value={warningCount} color="text-amber-300" />
-                <StatPill icon={Radar}       label="NEXRAD"        value="Live"         color="text-emerald-300" />
+                <StatPill icon={Radar}       label={isFireWeatherTab ? 'Risk' : 'NEXRAD'} value={isFireWeatherTab ? 'HRRR' : 'Live'} color="text-emerald-300" />
               </>
             ) : (
               <>
@@ -167,11 +189,11 @@ export default function Sidebar({
         </div>
 
         {/* Address alert search – weather tab */}
-        {isWeatherTab && <AddressAlertSearch />}
+        {(isWeatherTab || isFireWeatherTab) && <AddressAlertSearch />}
 
         {/* Feed – takes remaining height */}
         <div className="flex-1 overflow-hidden">
-          {isWeatherTab ? (
+          {isWeatherTab || isFireWeatherTab ? (
             <WeatherAlertsFeed
               alerts={alerts}
               loading={weatherAlertsLoading}
