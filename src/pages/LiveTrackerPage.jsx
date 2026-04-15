@@ -183,6 +183,18 @@ export default function LiveTrackerPage() {
     });
   }, [isFocused, incidentDotsGeoJSON]);
 
+  // Fires with perimeter overlays already render a centered perimeter centroid
+  // indicator. Build a set of those names so we can hide off-center IRWIN dots.
+  const perimeterMatchKeys = useMemo(() => {
+    if (!filteredPerimetersGeoJSON?.features?.length) return new Set();
+    const keys = new Set();
+    filteredPerimetersGeoJSON.features.forEach(f => {
+      const key = getFireMatchKey(f.properties.IncidentName);
+      if (key) keys.add(key);
+    });
+    return keys;
+  }, [filteredPerimetersGeoJSON]);
+
   // ── Reporter incidents replace matching external data incidents ──
   // When an approved reporter report shares a fire name with an IRWIN incident,
   // the external incident is replaced in the sidebar feed with a merged record
@@ -234,19 +246,23 @@ export default function LiveTrackerPage() {
   }, [approvedReports]);
 
   // Remove IRWIN incident markers where a reporter report already exists so the
-  // map does not show two overlapping markers for the same fire.  The reporter's
-  // UserReportsLayer marker remains visible.
+  // map does not show two overlapping markers for the same fire. Also remove
+  // IRWIN markers when a matching perimeter exists so we keep the centered
+  // perimeter centroid indicator and hide the off-center duplicate dot.
   const deduplicatedIncidentsGeoJSON = useMemo(() => {
-    if (!reporterMatchKeys.size || !filteredIncidentsGeoJSON?.features)
+    if (!filteredIncidentsGeoJSON?.features)
       return filteredIncidentsGeoJSON;
     return {
       ...filteredIncidentsGeoJSON,
       features: filteredIncidentsGeoJSON.features.filter(f => {
         const key = getFireMatchKey(f.properties.name);
-        return !key || !reporterMatchKeys.has(key);
+        if (!key) return true;
+        if (reporterMatchKeys.has(key)) return false;
+        if (perimeterMatchKeys.has(key)) return false;
+        return true;
       }),
     };
-  }, [filteredIncidentsGeoJSON, reporterMatchKeys]);
+  }, [filteredIncidentsGeoJSON, reporterMatchKeys, perimeterMatchKeys]);
 
   // Same deduplication for incident dot markers (fires without NIFC perimeters).
   const deduplicatedIncidentDotsGeoJSON = useMemo(() => {
@@ -267,7 +283,7 @@ export default function LiveTrackerPage() {
   // styling: containment-based color, acreage-based sizing) and suppress the
   // FireIncidentsLayer duplicate.
   //   - Fire with a perimeter + two dots → hides the non-centered duplicate,
-  //     keeps the incident-location dot centered in the perimeter.
+  //     keeps only the perimeter-centered centroid indicator.
   //   - Fire without a perimeter + two dots → collapses to a single dot with
   //     one consistent color from IncidentLocationsLayer.
   const finalIncidentDotsGeoJSON = useMemo(() => {
