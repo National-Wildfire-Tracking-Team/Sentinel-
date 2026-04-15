@@ -21,7 +21,7 @@ export default function WeatherAlertsLayer({ geoJSON, visible }) {
 
   return (
     <Source id="weather-alerts" type="geojson" data={geoJSON || EMPTY_GEOJSON}>
-      {/* Polygon fill — lighter for Watches to hint at a hatched overlay */}
+      {/* Polygon fill — Watches are lighter than Warnings */}
       <Layer
         id="weather-alerts-fill"
         type="fill"
@@ -29,11 +29,11 @@ export default function WeatherAlertsLayer({ geoJSON, visible }) {
         layout={{ visibility: vis }}
         paint={{
           'fill-color': COLOR_EXPR,
-          'fill-opacity': ['case', IS_WATCH, 0.08, 0.18],
+          'fill-opacity': ['case', IS_WATCH, 0.2, 0.35],
         }}
       />
 
-      {/* Solid outline for all alert polygons */}
+      {/* Solid outline for Warning-type alert polygons */}
       <Layer
         id="weather-alerts-line"
         type="line"
@@ -42,8 +42,8 @@ export default function WeatherAlertsLayer({ geoJSON, visible }) {
         layout={{ visibility: vis }}
         paint={{
           'line-color': COLOR_EXPR,
-          'line-width': 1.5,
-          'line-opacity': 0.85,
+          'line-width': 2,
+          'line-opacity': 0.9,
         }}
       />
 
@@ -56,8 +56,8 @@ export default function WeatherAlertsLayer({ geoJSON, visible }) {
         layout={{ visibility: vis }}
         paint={{
           'line-color': COLOR_EXPR,
-          'line-width': 1.2,
-          'line-opacity': 0.85,
+          'line-width': 1.5,
+          'line-opacity': 0.9,
         }}
       />
     </Source>

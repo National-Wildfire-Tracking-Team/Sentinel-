@@ -9,47 +9,87 @@
  * Docs: https://www.weather.gov/documentation/services-web-api
  */
 
-import { fetchWithCache } from '../utils/dataCache';
+import { getCached, setCached } from '../utils/dataCache';
 import { MOCK_WEATHER_ALERTS } from '../data/mockData';
 
 const NOAA_BASE = 'https://api.weather.gov';
+
+const NWS_HEADERS = {
+  'User-Agent': 'Sentinel Wildfire Platform (contact@sentinel.app)',
+  Accept: 'application/geo+json',
+};
 
 // Zone geometry cache — persists for the app's lifetime since zone boundaries
 // change rarely. Keyed by UGC code (e.g. "CAZ006"), value is a GeoJSON geometry.
 const zoneGeometryCache = new Map();
 
 /**
+ * Flatten any GeoJSON geometry into an array of Polygon coordinate arrays.
+ * Handles Polygon, MultiPolygon, and GeometryCollection recursively.
+ * Returns [] for unsupported or null geometry (e.g. Point, LineString).
+ * @param {object|null} geom  GeoJSON geometry object
+ * @returns {Array[][]}  Array of polygon coordinate rings
+ */
+function extractPolygonCoords(geom) {
+  if (!geom) return [];
+  if (geom.type === 'Polygon')          return [geom.coordinates];
+  if (geom.type === 'MultiPolygon')     return geom.coordinates;
+  if (geom.type === 'GeometryCollection')
+    return geom.geometries.flatMap(extractPolygonCoords);
+  return [];
+}
+
+/**
+ * Normalize any GeoJSON geometry to Polygon or MultiPolygon so Mapbox GL JS
+ * can render it. GeometryCollection and other types are flattened.
+ * Returns null if no polygon coordinates could be extracted.
+ * @param {object|null} geom
+ * @returns {object|null}
+ */
+function flattenGeometry(geom) {
+  const coords = extractPolygonCoords(geom);
+  if (coords.length === 0) return null;
+  if (coords.length === 1) return { type: 'Polygon', coordinates: coords[0] };
+  return { type: 'MultiPolygon', coordinates: coords };
+}
+
+/**
  * Batch-fetch zone geometries from the NWS /zones endpoint.
- * Splits codes into forecast vs. county types and fetches in chunks of 50.
+ * Splits codes by zone type and fetches in chunks of 50.
  * Results are stored in zoneGeometryCache.
  * @param {string[]} codes  Array of UGC codes to fetch
  */
 async function fetchZoneGeometryBatch(codes) {
   if (codes.length === 0) return;
 
-  // UGC position 2 is the zone type: 'Z' = forecast, 'C' = county.
-  // Any other character (e.g. fire zones) is also tried as 'forecast'.
-  const forecastCodes = codes.filter(c => c[2] !== 'C');
+  // UGC position 2 is the zone type:
+  //   'Z' = NWS forecast zone  → query with type=forecast
+  //   'C' = county             → query with type=county
+  //   'F' = fire weather zone  → query with type=fire
+  // Any other character is tried as 'forecast' as a best-effort fallback.
+  const forecastCodes = codes.filter(c => c[2] === 'Z');
   const countyCodes   = codes.filter(c => c[2] === 'C');
+  const fireCodes     = codes.filter(c => c[2] === 'F');
+  const otherCodes    = codes.filter(c => c[2] !== 'Z' && c[2] !== 'C' && c[2] !== 'F');
 
   const CHUNK = 50;
 
   const fetchBatch = async (batch, type) => {
-    const url = `${NOAA_BASE}/zones?id=${batch.join(',')}&type=${type}&include_geometry=true`;
+    // Follow pagination — the zones endpoint may page results even when
+    // filtering by specific IDs, so consume all pages before returning.
+    let url = `${NOAA_BASE}/zones?id=${batch.join(',')}&type=${type}&include_geometry=true`;
     try {
-      const res = await fetch(url, {
-        headers: {
-          'User-Agent': 'Sentinel Wildfire Platform (contact@sentinel.app)',
-          Accept: 'application/geo+json',
-        },
-      });
-      if (!res.ok) return;
-      const data = await res.json();
-      for (const feature of (data.features || [])) {
-        const id = feature.properties?.id;
-        if (id && feature.geometry) {
-          zoneGeometryCache.set(id, feature.geometry);
+      while (url) {
+        const res = await fetch(url, { headers: NWS_HEADERS });
+        if (!res.ok) return;
+        const data = await res.json();
+        for (const feature of (data.features || [])) {
+          const id = feature.properties?.id;
+          if (id && feature.geometry) {
+            zoneGeometryCache.set(id, feature.geometry);
+          }
         }
+        url = data.pagination?.next ?? null;
       }
     } catch {
       // Silently ignore errors for individual batches
@@ -62,6 +102,12 @@ async function fetchZoneGeometryBatch(codes) {
   }
   for (let i = 0; i < countyCodes.length; i += CHUNK) {
     tasks.push(fetchBatch(countyCodes.slice(i, i + CHUNK), 'county'));
+  }
+  for (let i = 0; i < fireCodes.length; i += CHUNK) {
+    tasks.push(fetchBatch(fireCodes.slice(i, i + CHUNK), 'fire'));
+  }
+  for (let i = 0; i < otherCodes.length; i += CHUNK) {
+    tasks.push(fetchBatch(otherCodes.slice(i, i + CHUNK), 'forecast'));
   }
   await Promise.all(tasks);
 }
@@ -96,42 +142,52 @@ export async function enrichAlertsWithGeometry(alerts) {
     for (const code of (alert.geocode?.UGC || [])) {
       const geom = zoneGeometryCache.get(code);
       if (!geom) continue;
-      if (geom.type === 'Polygon')      polygons.push(geom.coordinates);
-      else if (geom.type === 'MultiPolygon') polygons.push(...geom.coordinates);
+      polygons.push(...extractPolygonCoords(geom));
     }
 
     if (polygons.length === 0) return alert; // Still no geometry — skip on map
     return {
       ...alert,
-      geometry: { type: 'MultiPolygon', coordinates: polygons },
+      geometry: polygons.length === 1
+        ? { type: 'Polygon', coordinates: polygons[0] }
+        : { type: 'MultiPolygon', coordinates: polygons },
     };
   });
 }
 
 /**
- * Fetch all active weather alerts.
- * Kept named fetchFireWeatherAlerts for backwards compatibility with hooks.
+ * Fetch ALL active weather alerts, following NWS API pagination so no alerts
+ * are missed when there are more than 500 active across the US.
+ * Results are cached for 5 minutes.
  * @returns {Promise<Array>}  Normalized alert objects
  */
 export async function fetchFireWeatherAlerts() {
+  const cacheKey = 'noaa:all-alerts';
+  const cached = getCached(cacheKey);
+  if (cached !== null) return cached;
+
   const params = new URLSearchParams({
     status: 'actual',
     message_type: 'alert,update',
   });
 
-  const url = `${NOAA_BASE}/alerts/active?${params}`;
-  const cacheKey = 'noaa:all-alerts';
-
   try {
-    const data = await fetchWithCache(url, cacheKey, {
-      headers: {
-        'User-Agent': 'Sentinel Wildfire Platform (contact@sentinel.app)',
-        Accept: 'application/geo+json',
-      },
-    }, 5 * 60 * 1000);
+    let url = `${NOAA_BASE}/alerts/active?${params}`;
+    const allFeatures = [];
 
-    if (!data?.features?.length) throw new Error('No active alerts');
-    return normalizeAlerts(data.features);
+    // Follow pagination.next until all pages are consumed
+    while (url) {
+      const res = await fetch(url, { headers: NWS_HEADERS });
+      if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+      const data = await res.json();
+      for (const f of (data.features || [])) allFeatures.push(f);
+      url = data.pagination?.next ?? null;
+    }
+
+    if (!allFeatures.length) throw new Error('No active alerts');
+    const normalized = normalizeAlerts(allFeatures);
+    setCached(cacheKey, normalized, 5 * 60 * 1000);
+    return normalized;
   } catch (err) {
     console.warn('[NOAA] Using mock alert data:', err.message);
     return MOCK_WEATHER_ALERTS;
@@ -158,7 +214,8 @@ function normalizeAlerts(features) {
       affectedArea: p.areaDesc,
       geocode:      p.geocode,      // { UGC: [...], SAME: [...] }
       parameters:   p.parameters,  // { VTEC: [...], WMOidentifier: [...], ... }
-      geometry:     f.geometry,
+      // Flatten GeometryCollection → Polygon/MultiPolygon so Mapbox can render it
+      geometry:     flattenGeometry(f.geometry),
     };
   });
 }
@@ -173,13 +230,7 @@ function normalizeAlerts(features) {
 export async function fetchAlertsByPoint(lat, lng) {
   const url = `${NOAA_BASE}/alerts/active?point=${lat},${lng}&status=actual&message_type=alert,update`;
 
-  const res = await fetch(url, {
-    headers: {
-      'User-Agent': 'Sentinel Wildfire Platform (contact@sentinel.app)',
-      Accept: 'application/geo+json',
-    },
-  });
-
+  const res = await fetch(url, { headers: NWS_HEADERS });
   if (!res.ok) throw new Error(`NOAA API error: ${res.status}`);
   const data = await res.json();
 
