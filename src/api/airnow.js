@@ -1,16 +1,18 @@
 /**
  * airnow.js
  * AirNow API – EPA Air Quality Index data.
- * Free API key at: https://docs.airnowapi.org/login
  *
- * Without a key, returns mock AQI station data.
+ * Primary source: AirNow ArcGIS FeatureServer (public, no key required).
+ * Fallback: AirNow private API proxied through the Supabase `airnow-proxy`
+ *   edge function so the API key never touches the browser.
+ *   Deploy secret: supabase secrets set AIRNOW_API_KEY=<your_key>
+ *
+ * Without Supabase configured, returns mock AQI station data.
  */
 
+import { supabase, isSupabaseConfigured } from './supabaseClient';
 import { fetchWithCache } from '../utils/dataCache';
 import { MOCK_AQI_STATIONS } from '../data/mockData';
-
-const AIRNOW_BASE = 'https://www.airnowapi.org/aq/observation/latLon/current/';
-const API_KEY = import.meta.env.VITE_AIRNOW_API_KEY;
 
 /**
  * Fetch AQI observations for a bounding box by sampling a grid of points.
@@ -39,19 +41,17 @@ export async function fetchAQIStations(bounds = {}) {
     if (!data?.features?.length) throw new Error('Empty response');
     return normalizeAQIStations(data.features);
   } catch (err) {
-    // Fall back to AirNow private API if key is available
-    if (API_KEY && API_KEY !== 'your_airnow_api_key_here') {
+    // Fall back to AirNow private API via Supabase edge function
+    if (isSupabaseConfigured) {
       try {
-        const params = new URLSearchParams({
-          format: 'application/json',
-          distance: 200,
-          API_KEY,
+        const { data: data2, error } = await supabase.functions.invoke('airnow-proxy', {
+          body: { lat: 39.5, lon: -98.35, distance: 200 },
         });
-        const privateUrl = `${AIRNOW_BASE}?${params}`;
-        const data2 = await fetchWithCache(privateUrl, `${cacheKey}:private`, {}, 15 * 60 * 1000);
-        if (Array.isArray(data2) && data2.length) return normalizeAQIPrivate(data2);
+        if (!error && Array.isArray(data2) && data2.length) {
+          return normalizeAQIPrivate(data2);
+        }
       } catch (err2) {
-        console.warn('[AirNow] Private API also failed:', err2.message);
+        console.warn('[AirNow] Private API fallback also failed:', err2.message);
       }
     }
     console.warn('[AirNow] Using fallback data:', err.message);

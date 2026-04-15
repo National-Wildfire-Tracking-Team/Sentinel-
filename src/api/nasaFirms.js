@@ -4,7 +4,6 @@
  * Fetches real-time VIIRS + MODIS fire hotspot detections.
  *
  * API Docs: https://firms.modaps.eosdis.nasa.gov/api/
- * Free key: https://firms.modaps.eosdis.nasa.gov/api/
  *
  * Without a key, returns mock data so the UI still works in demo mode.
  *
@@ -68,15 +67,17 @@ export async function fetchFireHotspots(
   days = 1,
   source = 'VIIRS_SNPP_NRT',
 ) {
-  // Fallback to mock data when no API key is configured
-  if (!MAP_KEY || MAP_KEY === 'your_firms_map_key_here') {
-    console.info('[FIRMS] No API key – using demo data');
+  if (!isSupabaseConfigured) {
+    console.info('[FIRMS] Supabase not configured – using demo data');
     return MOCK_FIRE_HOTSPOTS;
   }
 
   const area = `${bounds.west},${bounds.south},${bounds.east},${bounds.north}`;
   const url = `${FIRMS_BASE}/csv/${MAP_KEY}/${source}/${area}/${days}`;
   const cacheKey = `firms:${source}:${area}:${days}`;
+
+  const cached = getCached(cacheKey);
+  if (cached !== null) return cached;
 
   try {
     return normalizeHotspots(await fetchFirmsCSV(url, cacheKey));
