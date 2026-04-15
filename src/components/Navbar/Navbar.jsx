@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
-import { Flame, Menu, X, LogOut } from 'lucide-react';
+import { Flame, Menu, X, LogOut, Heart } from 'lucide-react';
 
 import { useAuth } from '../../context/AuthContext';
 
@@ -68,6 +68,15 @@ export default function Navbar() {
               </button>
             )}
 
+            <a
+              href="https://givebutter.com/Or6BK2q5Cpxxn9Xl"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="ml-2 inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold bg-pink-600 text-white hover:bg-pink-500 transition-colors"
+            >
+              <Heart size={15} />
+              Donate
+            </a>
             <NavLink
               to="/live-tracker"
               className="ml-2 px-4 py-2 rounded-lg text-sm font-semibold bg-fire-600 text-white hover:bg-fire-500 transition-colors"
@@ -108,6 +117,17 @@ export default function Navbar() {
                 {link.label}
               </NavLink>
             ))}
+
+            <a
+              href="https://givebutter.com/Or6BK2q5Cpxxn9Xl"
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => setMobileOpen(false)}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium text-pink-400 hover:text-white hover:bg-pink-600/20 transition-colors"
+            >
+              <Heart size={15} />
+              Donate
+            </a>
 
             {isAuthenticated && (
               <button
