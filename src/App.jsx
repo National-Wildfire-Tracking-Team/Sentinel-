@@ -19,6 +19,7 @@ const PrivacyPolicyPage = lazy(() => import('./pages/PrivacyPolicyPage'));
 const TermsPage = lazy(() => import('./pages/TermsPage'));
 const LoginPage = lazy(() => import('./pages/LoginPage'));
 const SubmitReportPage = lazy(() => import('./pages/SubmitReportPage'));
+const AccountPage = lazy(() => import('./pages/AccountPage'));
 const AdminDashboardPage = lazy(() => import('./pages/AdminDashboardPage'));
 
 /** Scroll to top on route change */
@@ -101,6 +102,8 @@ export default function App() {
           {/* Reporter submission system — full-screen, no Navbar/Footer */}
           <Route path="/login" element={<LoginPage />} />
           <Route path="/submit-report" element={<SubmitReportPage />} />
+          {/* Account settings — protected, not linked in public nav */}
+          <Route path="/account" element={<AccountPage />} />
           <Route
             path="/admin"
             element={

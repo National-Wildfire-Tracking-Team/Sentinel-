@@ -38,7 +38,7 @@ export default function LoginPage() {
     setError(null);
     setBusy(true);
     try {
-      const { error: err } = await signIn(email, password);
+      const { error: err } = await signIn(email, password, rememberMe);
       if (err) throw err;
       navigate(redirectTo, { replace: true });
     } catch (err) {
