@@ -88,10 +88,10 @@ export default function IncidentFeed({ incidents, loading, error }) {
         </div>
 
         {/* Sidebar incident filter */}
-        <div className="flex items-center gap-1">
+        <div className="flex items-stretch gap-1">
           <button
             onClick={() => setFeedFilter('all')}
-            className={`flex-1 px-2 py-1 rounded text-xs font-medium border transition-colors
+            className={`flex-1 px-2 py-1 rounded text-xs font-medium border transition-colors flex items-center justify-center
               ${feedFilter === 'all'
                 ? 'bg-fire-600/25 text-fire-400 border-fire-700/50'
                 : 'bg-sentinel-800 text-sentinel-100 border-sentinel-600 hover:text-white'}`}
@@ -100,7 +100,7 @@ export default function IncidentFeed({ incidents, loading, error }) {
           </button>
           <button
             onClick={() => setFeedFilter('focused')}
-            className={`flex-1 px-2 py-1 rounded text-xs font-medium border transition-colors
+            className={`flex-1 px-2 py-1 rounded text-xs font-medium border transition-colors flex items-center justify-center
               ${feedFilter === 'focused'
                 ? 'bg-fire-600/25 text-fire-400 border-fire-700/50'
                 : 'bg-sentinel-800 text-sentinel-100 border-sentinel-600 hover:text-white'}`}
