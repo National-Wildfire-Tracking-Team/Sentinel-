@@ -8,8 +8,7 @@ import { useState, useRef } from 'react';
 import { Search, MapPin, Loader2, X, AlertTriangle, ShieldAlert, Info } from 'lucide-react';
 import { fetchAlertsByPoint } from '../../api/noaaWeather';
 import { useApp } from '../../context/AppContext';
-
-const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN || '';
+import { supabase, isSupabaseConfigured } from '../../api/supabaseClient';
 
 const SEVERITY_STYLES = {
   Extreme:  'border-red-600/60 bg-red-950/50 text-red-200',
@@ -28,13 +27,12 @@ const SEVERITY_ICONS = {
 };
 
 async function geocodeAddress(address) {
-  if (!MAPBOX_TOKEN) throw new Error('Mapbox token not configured');
-  const encoded = encodeURIComponent(address);
-  const url = `/api/mapbox/geocoding/v5/mapbox.places/${encoded}.json?access_token=${MAPBOX_TOKEN}&country=us&limit=1&types=address,place,postcode,neighborhood,locality`;
-  const res = await fetch(url);
-  if (!res.ok) throw new Error('Geocoding failed');
-  const data = await res.json();
-  if (!data.features?.length) throw new Error('Address not found');
+  if (!isSupabaseConfigured) throw new Error('Geocoding unavailable – Supabase not configured');
+  const { data, error } = await supabase.functions.invoke('mapbox-geocoding', {
+    body: { query: address, country: 'us', limit: 1, types: 'address,place,postcode,neighborhood,locality' },
+  });
+  if (error) throw new Error('Geocoding failed');
+  if (!data?.features?.length) throw new Error('Address not found');
   const [lng, lat] = data.features[0].center;
   return { lat, lng, placeName: data.features[0].place_name };
 }
