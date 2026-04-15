@@ -71,6 +71,7 @@ function HoverTooltip({ feature, lngLat }) {
       break;
     }
     case 'fire-perimeters-fill':
+    case 'fire-perimeter-centroids-circle':
       content = (
         <>
           <div className="font-semibold text-orange-400">{p.IncidentName}</div>
@@ -235,7 +236,10 @@ export default function MapView({
   const interactiveLayerIds = useMemo(() => {
     const ids = [];
     if (isWildfireTab && layers.fireHotspots && hotspotsGeoJSON)        ids.push('fire-hotspots-box');
-    if (isWildfireTab && layers.firePerimeters && perimetersGeoJSON)     ids.push('fire-perimeters-fill');
+    if (isWildfireTab && layers.firePerimeters && perimetersGeoJSON) {
+      ids.push('fire-perimeters-fill');
+      ids.push('fire-perimeter-centroids-circle');
+    }
     if (isWildfireTab && layers.incidentLocations && incidentsGeoJSON)   ids.push('incident-locations-circle');
     if (isWildfireTab && layers.userReports && userReportsGeoJSON)       ids.push('user-reports-circle');
     if (isWeatherTab && layers.aqi && aqiGeoJSON)                        ids.push('aqi-stations-circle');
@@ -285,7 +289,7 @@ export default function MapView({
         acq_time:        p.acq_time,
         detection_count: num(p.detection_count) || 1,
       });
-    } else if (feature.layer.id === 'fire-perimeters-fill') {
+    } else if (feature.layer.id === 'fire-perimeters-fill' || feature.layer.id === 'fire-perimeter-centroids-circle') {
       selectFire({
         type:        'perimeter',
         id:          p.UniqueFireIdentifier,
