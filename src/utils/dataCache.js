@@ -62,11 +62,7 @@ export async function fetchWithCache(url, cacheKey, options = {}, ttlMs = 5 * 60
   if (cached !== null) return cached;
 
   const res = await fetch(url, options);
-  if (!res.ok) {
-    let body = '';
-    try { body = await res.text(); } catch { /* ignore */ }
-    throw new Error(`HTTP ${res.status}: ${res.statusText}${body ? ` – ${body.slice(0, 200)}` : ''}`);
-  }
+  if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
   let data;
   try {
     data = await res.json();
