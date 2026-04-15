@@ -5,18 +5,20 @@
  *
  * API Docs: https://firms.modaps.eosdis.nasa.gov/api/
  *
- * Without a key, returns mock data so the UI still works in demo mode.
+ * Without Supabase or a direct API key, returns mock data so the UI
+ * still works in demo mode.
  *
  * NOTE: FIRMS only serves CSV responses. There is no JSON endpoint –
  * requests to /api/area/json/ return a 400 with an HTML error page.
+ * All data is fetched as CSV and parsed client-side.
  */
 
 import { getCached, setCached } from '../utils/dataCache';
 import { MOCK_FIRE_HOTSPOTS } from '../data/mockData';
+import { supabase, isSupabaseConfigured } from './supabaseClient';
 
-// Area endpoint with CSV format.
-// Country endpoint is not recommended for large countries (USA, Canada, China, Russia)
-// because the complex polygon geometry causes timeouts / "Invalid API call." errors.
+// Direct-access fallback via Netlify edge-function proxy (requires
+// VITE_NASA_FIRMS_API_KEY in .env – key will be visible in the URL).
 const FIRMS_BASE = '/api/firms/api/area';
 const MAP_KEY = import.meta.env.VITE_NASA_FIRMS_API_KEY;
 
@@ -56,6 +58,27 @@ async function fetchFirmsCSV(url, cacheKey) {
 }
 
 /**
+ * Fetch FIRMS CSV via the Supabase edge function (preferred) so the
+ * API key stays server-side. Returns parsed & normalised hotspot rows.
+ */
+async function fetchViaSupabase(source, area, days, cacheKey) {
+  const { data, error } = await supabase.functions.invoke('firms-proxy', {
+    body: { source, area, days: String(days) },
+  });
+
+  if (error) throw new Error(error.message || 'Edge function error');
+
+  // The edge function returns raw CSV text (Content-Type: text/csv).
+  // supabase-js returns text/* responses as a string.
+  const csvText = typeof data === 'string' ? data : '';
+  if (!csvText.trim()) return [];
+
+  const rows = parseFirmsCSV(csvText);
+  setCached(cacheKey, rows, 5 * 60 * 1000);
+  return rows;
+}
+
+/**
  * Fetch fire hotspots for a bounding box.
  * @param {object} bounds  { west, south, east, north }  (decimal degrees)
  * @param {number} days    Look-back window (1–10 days)
@@ -67,24 +90,36 @@ export async function fetchFireHotspots(
   days = 1,
   source = 'VIIRS_SNPP_NRT',
 ) {
-  if (!isSupabaseConfigured) {
-    console.info('[FIRMS] Supabase not configured – using demo data');
-    return MOCK_FIRE_HOTSPOTS;
-  }
-
   const area = `${bounds.west},${bounds.south},${bounds.east},${bounds.north}`;
-  const url = `${FIRMS_BASE}/csv/${MAP_KEY}/${source}/${area}/${days}`;
   const cacheKey = `firms:${source}:${area}:${days}`;
 
   const cached = getCached(cacheKey);
   if (cached !== null) return cached;
 
-  try {
-    return normalizeHotspots(await fetchFirmsCSV(url, cacheKey));
-  } catch (err) {
-    console.error('[FIRMS] Fetch failed, falling back to mock data:', err.message);
-    return MOCK_FIRE_HOTSPOTS;
+  // 1. Preferred path: Supabase edge function (key stays server-side)
+  if (isSupabaseConfigured) {
+    try {
+      return normalizeHotspots(await fetchViaSupabase(source, area, days, cacheKey));
+    } catch (err) {
+      console.warn('[FIRMS] Supabase edge function failed, trying fallback:', err.message);
+    }
   }
+
+  // 2. Fallback: direct fetch via Netlify proxy (requires VITE_NASA_FIRMS_API_KEY)
+  if (MAP_KEY) {
+    try {
+      const url = `${FIRMS_BASE}/csv/${MAP_KEY}/${source}/${area}/${days}`;
+      return normalizeHotspots(await fetchFirmsCSV(url, cacheKey));
+    } catch (err) {
+      console.error('[FIRMS] Direct CSV fetch failed:', err.message);
+    }
+  }
+
+  // 3. No API access – use demo data
+  if (!isSupabaseConfigured && !MAP_KEY) {
+    console.info('[FIRMS] No API key configured – using demo data');
+  }
+  return MOCK_FIRE_HOTSPOTS;
 }
 
 /**
