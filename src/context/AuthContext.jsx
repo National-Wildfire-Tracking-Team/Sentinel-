@@ -5,7 +5,7 @@
  */
 
 import { createContext, useContext, useEffect, useState, useCallback } from 'react';
-import { supabase, isSupabaseConfigured } from '../api/supabaseClient';
+import { supabase, isSupabaseConfigured, REMEMBER_ME_KEY } from '../api/supabaseClient';
 
 const AuthContext = createContext(null);
 
@@ -67,7 +67,14 @@ export function AuthProvider({ children }) {
     return () => { cancelled = true; };
   }, [session?.user?.id]);
 
-  const signIn = useCallback(async (email, password) => {
+  const signIn = useCallback(async (email, password, rememberMe = false) => {
+    // Set the remember-me flag BEFORE signing in so the storage adapter
+    // writes the session to the correct backing store.
+    if (rememberMe) {
+      localStorage.setItem(REMEMBER_ME_KEY, '1');
+    } else {
+      localStorage.removeItem(REMEMBER_ME_KEY);
+    }
     return supabase.auth.signInWithPassword({ email, password });
   }, []);
 
@@ -76,6 +83,7 @@ export function AuthProvider({ children }) {
   }, []);
 
   const signOut = useCallback(async () => {
+    localStorage.removeItem(REMEMBER_ME_KEY);
     return supabase.auth.signOut();
   }, []);
 

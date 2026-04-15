@@ -6,11 +6,11 @@
  */
 
 import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
-import { Navigate, useNavigate } from 'react-router-dom';
+import { Navigate, useNavigate, Link } from 'react-router-dom';
 import {
   Flame, Search, MapPin, ChevronDown, FileText, ImageIcon,
   Upload, X, LogOut, AlertCircle, CheckCircle2, Send, User, RefreshCw,
-  PlusCircle, Satellite,
+  PlusCircle, Satellite, Settings,
 } from 'lucide-react';
 
 import { useAuth } from '../context/AuthContext';
@@ -518,6 +518,14 @@ export default function SubmitReportPage() {
               </span>
             )}
           </div>
+          <Link
+            to="/account"
+            className="flex items-center gap-1.5 text-xs text-sentinel-400 hover:text-white transition-colors"
+            title="Account Settings"
+          >
+            <Settings size={12} />
+            <span className="hidden sm:inline">Account</span>
+          </Link>
           <button
             onClick={async () => { await signOut(); navigate('/'); }}
             className="flex items-center gap-1.5 text-xs text-sentinel-400 hover:text-white transition-colors"
