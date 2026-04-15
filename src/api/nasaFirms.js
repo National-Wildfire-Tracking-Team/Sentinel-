@@ -7,13 +7,17 @@
  * Free key: https://firms.modaps.eosdis.nasa.gov/api/
  *
  * Without a key, returns mock data so the UI still works in demo mode.
+ *
+ * NOTE: FIRMS only serves CSV responses. There is no JSON endpoint –
+ * requests to /api/area/json/ return a 400 with an HTML error page.
  */
 
-import { fetchWithCache } from '../utils/dataCache';
+import { getCached, setCached } from '../utils/dataCache';
 import { MOCK_FIRE_HOTSPOTS } from '../data/mockData';
 
-// Area endpoint. Country endpoint is not recommended for large countries (USA, China, Canada, Russia)
-// because the complex polygon geometry causes request timeouts / "Invalid API call." errors.
+// Area endpoint with CSV format.
+// Country endpoint is not recommended for large countries (USA, Canada, China, Russia)
+// because the complex polygon geometry causes timeouts / "Invalid API call." errors.
 const FIRMS_BASE = '/api/firms/api/area';
 const FIRMS_STATUS_BASE = '/api/firms/mapserver/mapkey_status';
 
@@ -37,6 +41,41 @@ const MAP_KEY = import.meta.env.VITE_NASA_FIRMS_API_KEY?.trim();
 }());
 
 /**
+ * Parse a FIRMS CSV text blob into an array of plain objects.
+ * The first line is the header row; subsequent lines are records.
+ * Handles both LF and CRLF line endings.
+ */
+function parseFirmsCSV(text) {
+  const lines = text.trim().split(/\r?\n/);
+  if (lines.length < 2) return [];
+  const headers = lines[0].split(',').map(h => h.trim());
+  return lines.slice(1).map(line => {
+    const values = line.split(',');
+    const obj = {};
+    headers.forEach((h, i) => { obj[h] = (values[i] ?? '').trim(); });
+    return obj;
+  });
+}
+
+/**
+ * Fetch a FIRMS CSV URL and return the parsed rows, with 5-minute caching.
+ */
+async function fetchFirmsCSV(url, cacheKey) {
+  const cached = getCached(cacheKey);
+  if (cached !== null) return cached;
+
+  const res = await fetch(url);
+  if (!res.ok) {
+    let body = '';
+    try { body = await res.text(); } catch { /* ignore */ }
+    throw new Error(`HTTP ${res.status}: ${res.statusText}${body ? ` – ${body.slice(0, 200)}` : ''}`);
+  }
+  const data = parseFirmsCSV(await res.text());
+  setCached(cacheKey, data, 5 * 60 * 1000);
+  return data;
+}
+
+/**
  * Fetch fire hotspots for a bounding box.
  * @param {object} bounds  { west, south, east, north }  (decimal degrees)
  * @param {number} days    Look-back window (1–10 days)
@@ -55,12 +94,11 @@ export async function fetchFireHotspots(
   }
 
   const area = `${bounds.west},${bounds.south},${bounds.east},${bounds.north}`;
-  const url = `${FIRMS_BASE}/json/${MAP_KEY}/${source}/${area}/${days}`;
+  const url = `${FIRMS_BASE}/csv/${MAP_KEY}/${source}/${area}/${days}`;
   const cacheKey = `firms:${source}:${area}:${days}`;
 
   try {
-    const data = await fetchWithCache(url, cacheKey, {}, 5 * 60 * 1000);
-    return normalizeHotspots(data);
+    return normalizeHotspots(await fetchFirmsCSV(url, cacheKey));
   } catch (err) {
     if (err.message.includes('Invalid API call')) {
       console.error(
@@ -75,15 +113,19 @@ export async function fetchFireHotspots(
 }
 
 /**
- * Keep FIRMS records as close to raw JSON as possible while
- * guaranteeing a stable `id` and numeric coordinates for map use.
+ * Normalise a raw FIRMS CSV row into the shape the rest of the app expects.
+ * - Guarantees numeric lat/lng and frp.
+ * - Unifies the VIIRS (bright_ti4) and MODIS (brightness) brightness fields.
  */
 function normalizeHotspots(records) {
   return records.map((r, i) => ({
     ...r,
-    id: r.id || `firms-${r.acq_date || 'unknown'}-${i}`,
-    latitude: parseFloat(r.latitude),
-    longitude: parseFloat(r.longitude),
+    id:         r.id || `firms-${r.acq_date || 'unknown'}-${i}`,
+    latitude:   parseFloat(r.latitude),
+    longitude:  parseFloat(r.longitude),
+    frp:        parseFloat(r.frp) || 0,
+    // VIIRS CSV uses bright_ti4; MODIS CSV uses brightness – expose as brightness.
+    brightness: parseFloat(r.brightness || r.bright_ti4) || 0,
   }));
 }
 
