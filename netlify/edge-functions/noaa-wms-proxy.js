@@ -8,15 +8,23 @@
 export default async (request) => {
   const url = new URL(request.url);
   const nomadsPath = url.pathname.replace(/^\/api\/noaa-wms/, '');
-  const target = `https://nomads.ncep.noaa.gov${nomadsPath}${url.search}`;
+  let target = `https://nomads.ncep.noaa.gov${nomadsPath}${url.search}`;
+  const headers = {
+    Accept: 'image/png,application/xml,text/xml,*/*',
+    'User-Agent': 'Sentinel-FireWeather-Layer/1.0',
+  };
 
-  const upstream = await fetch(target, {
-    redirect: 'follow',
-    headers: {
-      Accept: 'image/png,application/xml,text/xml,*/*',
-      'User-Agent': 'Sentinel-FireWeather-Layer/1.0',
-    },
-  });
+  // Explicitly resolve redirect chains server-side so the browser never sees
+  // a 30x tile response (Mapbox treats those as load errors for raster tiles).
+  let upstream = null;
+  for (let i = 0; i < 5; i += 1) {
+    upstream = await fetch(target, { redirect: 'manual', headers });
+    if (upstream.status < 300 || upstream.status >= 400) break;
+
+    const location = upstream.headers.get('Location');
+    if (!location) break;
+    target = new URL(location, target).toString();
+  }
 
   return new Response(upstream.body, {
     status: upstream.status,
