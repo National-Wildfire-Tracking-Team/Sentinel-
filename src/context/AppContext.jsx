@@ -23,6 +23,7 @@ const initialState = {
     spcOutlooks:       true,
     userReports:       true,
     radar:             false,
+    caEvacuations:     true,
   },
   // Currently clicked/selected fire feature (hotspot or perimeter)
   selectedFire: null,

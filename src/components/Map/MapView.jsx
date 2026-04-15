@@ -26,6 +26,7 @@ import StormReportsLayer  from './layers/StormReportsLayer';
 import UserReportsLayer   from './layers/UserReportsLayer';
 import SPCOutlookLayer from './layers/SPCOutlookLayer';
 import RadarLayer from './layers/RadarLayer';
+import CaEvacuationsLayer from './layers/CaEvacuationsLayer';
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN || '';
 const HAS_MAPBOX_TOKEN = Boolean(MAPBOX_TOKEN.trim());
@@ -175,6 +176,25 @@ function HoverTooltip({ feature, lngLat }) {
         </>
       );
       break;
+    case 'ca-evacuations-fill': {
+      const statusColors = {
+        'evacuation order':    'text-red-400',
+        'evacuation warning':  'text-orange-400',
+        'evacuation advisory': 'text-yellow-400',
+      };
+      const statusKey = (p.Zone_Status || '').toLowerCase();
+      const statusClass = statusColors[statusKey] || 'text-red-400';
+      content = (
+        <>
+          <div className={`font-semibold ${statusClass}`}>{p.Zone_Status || 'Evacuation Zone'}</div>
+          {p.Zone_Name && <div className="text-white text-xs mt-0.5 font-medium">{p.Zone_Name}</div>}
+          {p.IncidentName && <div className="text-gray-300 text-xs">{p.IncidentName}</div>}
+          {p.Agency && <div className="text-gray-400 text-xs">{p.Agency}</div>}
+          {p.Jurisdiction && <div className="text-gray-400 text-xs">{p.Jurisdiction}</div>}
+        </>
+      );
+      break;
+    }
     default:
       return null;
   }
@@ -208,6 +228,7 @@ function HoverTooltip({ feature, lngLat }) {
  * @param {object|null} props.iemReportsGeoJSON
  * @param {object|null} props.spcOutlooksGeoJSON
  * @param {object|null} props.userReportsGeoJSON
+ * @param {object|null} props.caEvacuationsGeoJSON
  * @param {'wildfire'|'weather'} [props.activeMapTab]
  */
 export default function MapView({
@@ -222,6 +243,7 @@ export default function MapView({
   iemReportsGeoJSON,
   spcOutlooksGeoJSON,
   userReportsGeoJSON,
+  caEvacuationsGeoJSON,
 }) {
   const { layers, alerts, selectFire, viewport, setViewport } = useApp();
   const mapRef = useRef(null);
@@ -247,10 +269,12 @@ export default function MapView({
     if (isWeatherTab && layers.spcOutlooks && spcOutlooksGeoJSON)        ids.push('spc-outlook-fill');
     if (isWeatherTab && layers.spcReports && spcReportsGeoJSON)          ids.push('spc-reports-circle');
     if (isWeatherTab && layers.iemReports && iemReportsGeoJSON)          ids.push('iem-reports-circle');
+    if (isWildfireTab && layers.caEvacuations && caEvacuationsGeoJSON)   ids.push('ca-evacuations-fill');
     return ids;
   }, [isWildfireTab, isWeatherTab, layers.fireHotspots, layers.firePerimeters, layers.incidentLocations, layers.aqi,
-      layers.weatherAlerts, layers.spcOutlooks, layers.spcReports, layers.iemReports, layers.userReports, hotspotsGeoJSON, perimetersGeoJSON,
-      incidentsGeoJSON, aqiGeoJSON, alertsGeoJSON, spcOutlooksGeoJSON, spcReportsGeoJSON, iemReportsGeoJSON, userReportsGeoJSON]);
+      layers.weatherAlerts, layers.spcOutlooks, layers.spcReports, layers.iemReports, layers.userReports, layers.caEvacuations,
+      hotspotsGeoJSON, perimetersGeoJSON, incidentsGeoJSON, aqiGeoJSON, alertsGeoJSON, spcOutlooksGeoJSON,
+      spcReportsGeoJSON, iemReportsGeoJSON, userReportsGeoJSON, caEvacuationsGeoJSON]);
 
   // Clear stale hover when layers change
   const prevLayersRef = useRef(layers);
@@ -378,6 +402,23 @@ export default function MapView({
         created_at:  p.created_at,
         user_id:     p.user_id,
       });
+    } else if (feature.layer.id === 'ca-evacuations-fill') {
+      selectFire({
+        type:             'ca-evacuation',
+        id:               p.OBJECTID || p.objectid || null,
+        name:             p.Zone_Name || p.IncidentName || 'Evacuation Zone',
+        Zone_Status:      p.Zone_Status,
+        Zone_Name:        p.Zone_Name,
+        IncidentName:     p.IncidentName,
+        Agency:           p.Agency,
+        Jurisdiction:     p.Jurisdiction,
+        Date_Time_Issued: p.Date_Time_Issued,
+        Last_Update:      p.Last_Update,
+        Comments:         p.Comments,
+        Instructions:     p.Instructions,
+        lat:              evt.lngLat.lat,
+        lng:              evt.lngLat.lng,
+      });
     } else if (feature.layer.id === 'aqi-stations-circle') {
       selectFire({
         type:    'aqi',
@@ -488,6 +529,12 @@ export default function MapView({
         <SPCOutlookLayer
           geoJSON={spcOutlooksGeoJSON}
           visible={isWeatherTab && layers.spcOutlooks}
+        />
+
+        {/* CA evacuation zones */}
+        <CaEvacuationsLayer
+          geoJSON={caEvacuationsGeoJSON}
+          visible={isWildfireTab && layers.caEvacuations}
         />
 
         {/* Fire perimeter polygons */}
