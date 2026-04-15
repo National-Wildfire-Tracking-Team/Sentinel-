@@ -81,7 +81,7 @@ export default function Navbar() {
               to="/live-tracker"
               className="ml-2 px-4 py-2 rounded-lg text-sm font-semibold bg-fire-600 text-white hover:bg-fire-500 transition-colors"
             >
-              View Live Map
+              Sentinel
             </NavLink>
           </div>
 
