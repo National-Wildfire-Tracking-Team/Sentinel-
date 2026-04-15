@@ -95,18 +95,8 @@ function LayerToggle({ layerKey, label, sublabel, icon: Icon, color }) {
   );
 }
 
-function formatFirmsSourceLabel(sourceKey) {
-  if (sourceKey === 'VIIRS_SNPP_NRT') return 'SNPP';
-  if (sourceKey === 'VIIRS_NOAA20_NRT') return 'NOAA-20';
-  if (sourceKey === 'MODIS_NRT') return 'MODIS';
-  return sourceKey;
-}
-
 export default function LayerControl({
   activeMapTab = 'wildfire',
-  hotspotsCount = 0,
-  hotspotsSourceCounts = {},
-  perimetersCount = 0,
 }) {
   const { layerPanelOpen, toggleLayerPanel } = useApp();
   const [collapsed, setCollapsed] = useState({});
@@ -114,9 +104,6 @@ export default function LayerControl({
     if (activeMapTab === 'wildfire') return group.label === 'Fire Data';
     return group.label !== 'Fire Data';
   });
-  const hotspotsBreakdown = Object.entries(hotspotsSourceCounts)
-    .filter(([, count]) => count > 0)
-    .sort((a, b) => b[1] - a[1]);
 
   const toggleGroup = (label) => setCollapsed(c => ({ ...c, [label]: !c[label] }));
 
@@ -141,24 +128,9 @@ export default function LayerControl({
                         rounded-xl shadow-2xl overflow-hidden animate-fade-in">
           {/* Header */}
           <div className="px-3 py-2.5 border-b border-sentinel-700">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-sentinel-100 uppercase tracking-widest">
-                Map Layers
-              </span>
-              {/* Quick counts */}
-              <div className="flex items-center gap-2 text-[10px] text-sentinel-300">
-                <span>{hotspotsCount} hotspots</span>
-                <span>·</span>
-                <span>{perimetersCount} fires</span>
-              </div>
-            </div>
-            {hotspotsBreakdown.length > 0 && (
-              <div className="mt-1.5 text-[10px] text-sentinel-400 flex flex-wrap gap-x-2 gap-y-0.5">
-                {hotspotsBreakdown.map(([source, count]) => (
-                  <span key={source}>{formatFirmsSourceLabel(source)}: {count}</span>
-                ))}
-              </div>
-            )}
+            <span className="text-xs font-bold text-sentinel-100 uppercase tracking-widest">
+              Map Layers
+            </span>
           </div>
 
           {/* Layer groups */}

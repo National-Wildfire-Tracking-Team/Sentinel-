@@ -338,9 +338,6 @@ export default function LiveTrackerPage() {
 
           <LayerControl
             activeMapTab={activeMapTab}
-            hotspotsCount={hotspotsCount}
-            hotspotsSourceCounts={hotspotsSourceCounts}
-            perimetersCount={perimetersCount + dotsCount}
           />
 
           <Legend />
