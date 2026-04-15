@@ -10,23 +10,7 @@ export default defineConfig({
   },
   server: {
     port: 3000,
-    // Proxy API requests to avoid CORS issues in development
-    proxy: {
-      '/api/airnow': {
-        target: 'https://www.airnowapi.org',
-        changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api\/airnow/, ''),
-      },
-      '/api/firms': {
-        target: 'https://firms.modaps.eosdis.nasa.gov',
-        changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api\/firms/, ''),
-      },
-      '/api/mapbox': {
-        target: 'https://api.mapbox.com',
-        changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api\/mapbox/, ''),
-      },
-    },
+    // NOTE: NASA FIRMS, AirNow, and Mapbox geocoding are now proxied through
+    // Supabase edge functions – no local proxy rules needed for those APIs.
   },
 });

@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 
 import { useAuth } from '../context/AuthContext';
+import { supabase, isSupabaseConfigured } from '../api/supabaseClient';
 import {
   appendFireReportUpdate,
   createNIFCFireUpdate,
@@ -56,9 +57,6 @@ const US_COUNTIES = [
   'Utah','Ventura','Wake','Wasco','Washington','Washoe','Whatcom',
   'Yakima','Yavapai','Yolo','Yuma',
 ].sort();
-
-/* ── Mapbox token (shared with AddressAlertSearch) ── */
-const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN || '';
 
 /* ── Searchable county dropdown ── */
 
@@ -330,21 +328,16 @@ export default function SubmitReportPage() {
   }
 
   async function fetchSuggestions(q) {
-    if (!MAPBOX_TOKEN) return;
-    if (searchAbortRef.current) searchAbortRef.current.abort();
-    searchAbortRef.current = new AbortController();
+    if (!isSupabaseConfigured) return;
     try {
-      const encoded = encodeURIComponent(q);
-      const url =
-        `/api/mapbox/geocoding/v5/mapbox.places/${encoded}.json` +
-        `?access_token=${MAPBOX_TOKEN}&country=us&autocomplete=true&limit=5&types=address`;
-      const res = await fetch(url, { signal: searchAbortRef.current.signal });
-      if (!res.ok) return;
-      const data = await res.json();
-      setSuggestions(data.features || []);
-      setShowSuggestions((data.features || []).length > 0);
+      const { data, error } = await supabase.functions.invoke('mapbox-geocoding', {
+        body: { query: q, country: 'us', autocomplete: true, limit: 5, types: 'address' },
+      });
+      if (error) return;
+      setSuggestions(data?.features || []);
+      setShowSuggestions((data?.features || []).length > 0);
     } catch (err) {
-      if (err.name !== 'AbortError') console.error('Address suggestion error:', err);
+      console.error('Address suggestion error:', err);
     }
   }
 
@@ -372,18 +365,15 @@ export default function SubmitReportPage() {
   }
 
   async function geocodeAddressForReport() {
-    if (!MAPBOX_TOKEN) return { latitude: null, longitude: null };
+    if (!isSupabaseConfigured) return { latitude: null, longitude: null };
     const query = [address1, city, usState, zip].filter(Boolean).join(', ');
     if (!query) return { latitude: null, longitude: null };
 
     try {
-      const encoded = encodeURIComponent(query);
-      const url =
-        `/api/mapbox/geocoding/v5/mapbox.places/${encoded}.json` +
-        `?access_token=${MAPBOX_TOKEN}&country=us&autocomplete=false&limit=1`;
-      const res = await fetch(url);
-      if (!res.ok) return { latitude: null, longitude: null };
-      const data = await res.json();
+      const { data, error } = await supabase.functions.invoke('mapbox-geocoding', {
+        body: { query, country: 'us', autocomplete: false, limit: 1 },
+      });
+      if (error) return { latitude: null, longitude: null };
       const first = data?.features?.[0];
       if (!Array.isArray(first?.center)) return { latitude: null, longitude: null };
       return {
