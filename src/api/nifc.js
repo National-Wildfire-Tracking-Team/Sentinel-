@@ -1,11 +1,11 @@
 /**
  * nifc.js
  * NIFC / WFIGS – National Interagency Fire Center
- * Fetches active fire perimeters from the public ArcGIS REST endpoint.
+ * Fetches year-to-date fire perimeters from the public ArcGIS REST endpoint.
  *
- * Service: WFIGS_Daily_Perimeters_Public (replaces deprecated YTD service)
- * https://services3.arcgis.com/T4QMspbfLg3qTGWY/ArcGIS/rest/services/
- *   WFIGS_Daily_Perimeters_Public/FeatureServer/0/query
+ * Service: WFIGS_Interagency_Perimeters_YearToDate
+ * https://services3.arcgis.com/T4QMspbfLg3qTGWY/arcgis/rest/services/
+ *   WFIGS_Interagency_Perimeters_YearToDate/FeatureServer/0/query
  *
  * No API key required – public government data service.
  */
@@ -15,7 +15,7 @@ import { MOCK_FIRE_PERIMETERS } from '../data/mockData';
 
 const NIFC_BASE =
   'https://services3.arcgis.com/T4QMspbfLg3qTGWY/arcgis/rest/services' +
-  '/WFIGS_Interagency_Perimeters_Current/FeatureServer/0/query';
+  '/WFIGS_Interagency_Perimeters_YearToDate/FeatureServer/0/query';
 
 /**
  * Fetch current fire perimeters from NIFC WFIGS.
