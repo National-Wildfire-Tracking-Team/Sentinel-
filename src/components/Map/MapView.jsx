@@ -77,11 +77,16 @@ function HoverTooltip({ feature, lngLat }) {
     case 'fire-perimeter-centroids-circle':
       content = (
         <>
-          <div className="font-semibold text-orange-400">{p.IncidentName}</div>
+          <div className={`font-semibold ${p.Source === 'CA_FIRIS' ? 'text-red-400' : 'text-orange-400'}`}>
+            {p.IncidentName}
+          </div>
           <div className="text-gray-300 text-xs mt-0.5">
             {formatAcres(num(p.GISAcres))} · {formatContainment(num(p.PercentContained))} contained
           </div>
           <div className="text-gray-400 text-xs">{p.POOState} · {p.POOCounty} County</div>
+          {p.Source === 'CA_FIRIS' && (
+            <div className="text-gray-500 text-[10px] mt-0.5">NIFC FIRIS CA</div>
+          )}
         </>
       );
       break;
