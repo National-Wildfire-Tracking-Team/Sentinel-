@@ -77,6 +77,9 @@ export default function FirePerimetersLayer({ geoJSON, visible }) {
     return { type: 'FeatureCollection', features };
   }, [geoJSON]);
 
+  // Grey out fully contained perimeters; active fires keep their normal color.
+  const isContained = ['>=', ['coalesce', ['get', 'PercentContained'], 0], 100];
+
   return (
     <>
       <Source id="fire-perimeters" type="geojson" data={geoJSON || EMPTY_GEOJSON} generateId>
@@ -88,6 +91,8 @@ export default function FirePerimetersLayer({ geoJSON, visible }) {
           paint={{
             'fill-color': [
               'case',
+              isContained,
+              '#6b7280',
               ['==', ['get', 'Source'], 'CA_FIRIS'],
               '#dc2626',
               '#ff6600',
@@ -108,6 +113,8 @@ export default function FirePerimetersLayer({ geoJSON, visible }) {
           paint={{
             'line-color': [
               'case',
+              isContained,
+              ['case', ['boolean', ['feature-state', 'selected'], false], '#9ca3af', '#6b7280'],
               ['boolean', ['feature-state', 'selected'], false],
               ['case', ['==', ['get', 'Source'], 'CA_FIRIS'], '#f87171', '#ffaa00'],
               ['case', ['==', ['get', 'Source'], 'CA_FIRIS'], '#dc2626', '#ff6600'],
@@ -135,7 +142,7 @@ export default function FirePerimetersLayer({ geoJSON, visible }) {
             'text-max-width': 10,
           }}
           paint={{
-            'text-color': '#ffffff',
+            'text-color': ['case', isContained, '#9ca3af', '#ffffff'],
             'text-halo-color': 'rgba(0,0,0,0.8)',
             'text-halo-width': 2,
           }}
@@ -153,6 +160,8 @@ export default function FirePerimetersLayer({ geoJSON, visible }) {
             'circle-radius': 14,
             'circle-color': [
               'case',
+              isContained,
+              '#6b7280',
               ['==', ['get', 'Source'], 'CA_FIRIS'],
               '#dc2626',
               '#ff8c00',
@@ -170,6 +179,8 @@ export default function FirePerimetersLayer({ geoJSON, visible }) {
             'circle-radius': 7,
             'circle-color': [
               'case',
+              isContained,
+              '#9ca3af',
               ['==', ['get', 'Source'], 'CA_FIRIS'],
               '#f87171',
               '#ffaa00',
