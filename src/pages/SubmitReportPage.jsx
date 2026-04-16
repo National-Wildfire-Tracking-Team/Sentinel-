@@ -24,6 +24,7 @@ import {
   submitFireReport,
   useFireReports,
 } from '../hooks/useFireReports';
+import { insertReporterUpdate } from '../hooks/useIncidentUpdates';
 import { useMergedFireData, getFireMatchKey } from '../hooks/useMergedFireData';
 import IncidentTimeline from '../components/IncidentTimeline/IncidentTimeline';
 
@@ -471,6 +472,18 @@ export default function SubmitReportPage() {
         notes: state.notes,
       });
 
+      // Mirror the update into incident_updates so it shows in the timeline
+      const parts = [];
+      if (state.acreage?.toString().trim()) parts.push(`Acreage: ${state.acreage.toString().trim()}`);
+      if (state.notes?.trim()) parts.push(state.notes.trim());
+      const sourceName = profile?.email?.split('@')[0] || 'Reporter';
+      await insertReporterUpdate({
+        incidentId: report.id,
+        content: parts.join('\n'),
+        sourceName,
+        userId: user.id,
+      });
+
       setUpdateState((prev) => ({
         ...prev,
         [report.id]: { acreage: '', notes: '' },
@@ -507,6 +520,18 @@ export default function SubmitReportPage() {
         nifcId:    fire.nifcId,
       });
 
+      // Mirror the update into incident_updates so it shows in the timeline
+      const parts = [];
+      if (state.acreage?.toString().trim()) parts.push(`Acreage: ${state.acreage.toString().trim()}`);
+      if (state.notes?.trim()) parts.push(state.notes.trim());
+      const sourceName = profile?.email?.split('@')[0] || 'Reporter';
+      await insertReporterUpdate({
+        incidentId: fire.nifcId || fire.name,
+        content: parts.join('\n'),
+        sourceName,
+        userId: user.id,
+      });
+
       setUpdateState((prev) => ({ ...prev, [key]: { acreage: '', notes: '' } }));
       setUpdateFeedback((prev) => ({
         ...prev,
@@ -539,6 +564,18 @@ export default function SubmitReportPage() {
         notes:      state.notes,
         externalId: fire.irwinId,
         source:     'IRWIN',
+      });
+
+      // Mirror the update into incident_updates so it shows in the timeline
+      const parts = [];
+      if (state.acreage?.toString().trim()) parts.push(`Acreage: ${state.acreage.toString().trim()}`);
+      if (state.notes?.trim()) parts.push(state.notes.trim());
+      const sourceName = profile?.email?.split('@')[0] || 'Reporter';
+      await insertReporterUpdate({
+        incidentId: fire.irwinId || fire.name,
+        content: parts.join('\n'),
+        sourceName,
+        userId: user.id,
       });
 
       setUpdateState((prev) => ({ ...prev, [key]: { acreage: '', notes: '' } }));

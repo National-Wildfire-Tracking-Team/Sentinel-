@@ -141,6 +141,29 @@ export function useIncidentUpdates(incidentId) {
 }
 
 /**
+ * Insert a reporter update from outside the hook (e.g. SubmitReportPage).
+ * Mirrors the addUpdate callback but as a standalone async function.
+ */
+export async function insertReporterUpdate({ incidentId, content, sourceName, userId }) {
+  if (!isSupabaseConfigured) throw new Error('Supabase is not configured');
+
+  const { data, error } = await supabase
+    .from('incident_updates')
+    .insert({
+      incident_id: incidentId,
+      content,
+      source_type: 'reporter',
+      source_name: sourceName,
+      user_id: userId,
+    })
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
+/**
  * Insert an automated update (for WildCAD, FIRMS, or other system sources).
  * Intended to be called from backend/edge functions or admin tools.
  */
