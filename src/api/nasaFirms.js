@@ -23,16 +23,58 @@ const FIRMS_BASE = '/api/firms/api/area';
 const MAP_KEY = import.meta.env.VITE_NASA_FIRMS_API_KEY;
 
 /**
+ * Parse a single CSV line into an array of field values, handling
+ * RFC 4180 quoted fields (e.g. `"-120.45"` or `"field, with comma"`).
+ */
+function parseCSVLine(line) {
+  const fields = [];
+  let i = 0;
+  while (i <= line.length) {
+    if (i === line.length) { fields.push(''); break; }
+    if (line[i] === '"') {
+      // Quoted field – collect until closing quote (doubled quotes "" are escaped)
+      let value = '';
+      i++; // skip opening quote
+      while (i < line.length) {
+        if (line[i] === '"') {
+          if (i + 1 < line.length && line[i + 1] === '"') {
+            value += '"';
+            i += 2;
+          } else {
+            i++; // skip closing quote
+            break;
+          }
+        } else {
+          value += line[i++];
+        }
+      }
+      fields.push(value);
+      if (i < line.length && line[i] === ',') i++; // skip delimiter
+    } else {
+      // Unquoted field – read until next comma or end
+      const next = line.indexOf(',', i);
+      if (next === -1) {
+        fields.push(line.slice(i));
+        break;
+      }
+      fields.push(line.slice(i, next));
+      i = next + 1;
+    }
+  }
+  return fields;
+}
+
+/**
  * Parse a FIRMS CSV text blob into an array of plain objects.
  * The first line is the header row; subsequent lines are records.
- * Handles both LF and CRLF line endings.
+ * Handles both LF and CRLF line endings and RFC 4180 quoted fields.
  */
 function parseFirmsCSV(text) {
   const lines = text.trim().split(/\r?\n/);
   if (lines.length < 2) return [];
-  const headers = lines[0].split(',').map(h => h.trim());
+  const headers = parseCSVLine(lines[0]).map(h => h.trim());
   return lines.slice(1).map(line => {
-    const values = line.split(',');
+    const values = parseCSVLine(line);
     const obj = {};
     headers.forEach((h, i) => { obj[h] = (values[i] ?? '').trim(); });
     return obj;
