@@ -48,7 +48,7 @@ function HoverTooltip({ feature, lngLat }) {
 
   let content = null;
   switch (feature.layer.id) {
-    case 'fire-hotspots-box': {
+    case 'fire-hotspots-circle': {
       const detections = num(p.detection_count) || 1;
       const isConsolidated = detections > 1;
       content = (
@@ -260,7 +260,7 @@ export default function MapView({
   // Only include interactive layer IDs for layers that are currently visible
   const interactiveLayerIds = useMemo(() => {
     const ids = [];
-    if (isWildfireTab && layers.fireHotspots && hotspotsGeoJSON)        ids.push('fire-hotspots-box');
+    if (isWildfireTab && layers.fireHotspots && hotspotsGeoJSON)        ids.push('fire-hotspots-circle');
     if (isWildfireTab && layers.firePerimeters && perimetersGeoJSON) {
       ids.push('fire-perimeters-fill');
       ids.push('fire-perimeter-centroids-circle');
@@ -300,7 +300,7 @@ export default function MapView({
     const feature = features[0];
     const p = feature.properties;
 
-    if (feature.layer.id === 'fire-hotspots-box') {
+    if (feature.layer.id === 'fire-hotspots-circle') {
       selectFire({
         type: 'hotspot',
         id:   p.id,

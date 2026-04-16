@@ -5,7 +5,7 @@
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { fetchFireHotspots, consolidateHotspots, hotspotsToGeoJSON } from '../api/nasaFirms';
+import { fetchFireHotspots, consolidateHotspots, csvHotspotsToPoints } from '../api/nasaFirms';
 
 const REFRESH_MS = parseInt(import.meta.env.VITE_REFRESH_INTERVAL || '300000', 10);
 const FIRMS_SOURCES = ['VIIRS_SNPP_NRT', 'VIIRS_NOAA20_NRT', 'MODIS_NRT'];
@@ -58,7 +58,7 @@ export function useFireHotspots(bounds) {
       }, {});
       if (!mountedRef.current) return;
       const consolidated = consolidateHotspots(spots);
-      setGeoJSON(hotspotsToGeoJSON(consolidated));
+      setGeoJSON(csvHotspotsToPoints(consolidated));
       setCount(consolidated.length);
       setSourceCounts(sourceCountMap);
     } catch (err) {
