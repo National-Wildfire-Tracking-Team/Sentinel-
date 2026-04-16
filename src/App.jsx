@@ -114,7 +114,7 @@ export default function App() {
           />
 
           {/* Full-screen live tracker (no Navbar/Footer) */}
-          <Route path="/live-tracker" element={<LiveTrackerPage />} />
+          <Route path="/sentinel" element={<LiveTrackerPage />} />
         </Routes>
       </Suspense>
     </BrowserRouter>
