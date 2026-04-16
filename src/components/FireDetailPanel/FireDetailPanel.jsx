@@ -16,7 +16,6 @@ import {
 } from '../../utils/formatUtils';
 import { frpToLabel, containmentToColor, aqiToColor, getAQICategory } from '../../utils/colorUtils';
 import { nwsAlertColor } from '../../utils/nwsColors';
-import { MOCK_INCIDENTS } from '../../data/mockData';
 import IncidentTimeline from '../IncidentTimeline/IncidentTimeline';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -134,20 +133,23 @@ function HotspotDetail({ fire }) {
 
 function PerimeterDetail({ fire }) {
   const containColor = containmentToColor(fire.contained || 0);
-  // Try to find matching incident for extra data
-  const incident = MOCK_INCIDENTS.find(i =>
-    i.name?.toLowerCase() === fire.name?.toLowerCase()
-  );
+  const isFiris = fire.source === 'CA_FIRIS';
 
   return (
     <>
       <div className="flex items-center gap-2 mb-4">
         <div className="p-2 bg-red-900/40 rounded-lg">
-          <ShieldAlert size={18} className="text-red-400" />
+          <ShieldAlert size={18} className={isFiris ? 'text-red-400' : 'text-orange-400'} />
         </div>
         <div>
           <h3 className="font-bold text-white text-base">{fire.name}</h3>
           <p className="text-sentinel-400 text-xs">{fire.county} Co. · {fire.state?.replace('US-', '')}</p>
+          {isFiris && (
+            <span className="inline-block mt-0.5 text-[10px] font-bold uppercase tracking-wider
+                             px-1.5 py-0.5 rounded bg-red-900/40 text-red-400">
+              CA FIRIS
+            </span>
+          )}
         </div>
       </div>
 
@@ -170,6 +172,9 @@ function PerimeterDetail({ fire }) {
       <div className="grid grid-cols-2 gap-2 mb-4">
         <StatBlock label="Acres"     value={formatAcres(fire.acres)}    icon={TrendingUp} color="text-orange-400" />
         <StatBlock label="Personnel" value={formatPersonnel(fire.personnel)} icon={Users} />
+        {fire.cause && fire.cause !== 'Under Investigation' && (
+          <StatBlock label="Cause" value={fire.cause} icon={Flame} />
+        )}
         {fire.destroyed > 0 && (
           <StatBlock label="Destroyed" value={fire.destroyed} icon={Home} color="text-red-400" />
         )}
@@ -187,7 +192,7 @@ function PerimeterDetail({ fire }) {
         )}
         {fire.updated && (
           <div className="flex items-center gap-2">
-            <Calendar size={12} className="shrink-0" />
+            <Clock size={12} className="shrink-0" />
             <span>Updated: {formatRelativeTime(fire.updated)}</span>
           </div>
         )}
@@ -195,6 +200,12 @@ function PerimeterDetail({ fire }) {
           <div className="flex items-center gap-2">
             <Users size={12} className="shrink-0" />
             <span>{fire.orgType} Incident Management</span>
+          </div>
+        )}
+        {fire.cause && fire.cause === 'Under Investigation' && (
+          <div className="flex items-center gap-2">
+            <Info size={12} className="shrink-0" />
+            <span>Cause: Under Investigation</span>
           </div>
         )}
       </div>

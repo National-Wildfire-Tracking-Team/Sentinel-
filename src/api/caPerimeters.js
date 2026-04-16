@@ -45,10 +45,14 @@ function normalizePerimeters(geojson) {
     ...geojson,
     features: geojson.features.map(f => {
       const p = f.properties || {};
+      const fireName = p.FIRE_NAME || p.IncidentName || p.INCIDENT_NAME || 'Unknown Fire';
+      const fireYear = p.FIRE_YEAR || p.FIRE_YEAR_1 || '';
       return {
         ...f,
         properties: {
-          IncidentName:        p.FIRE_NAME || p.IncidentName || p.INCIDENT_NAME || 'Unknown Fire',
+          UniqueFireIdentifier: p.UniqueFireIdentifier ||
+            (fireName && fireYear ? `CA-FIRIS-${fireName}-${fireYear}` : null),
+          IncidentName:        fireName,
           GISAcres:            p.GIS_ACRES || p.GISACRES || p.GISAcres || 0,
           PercentContained:    p.PERCENT_CONTAINED ?? p.PercentContained ?? 0,
           FireDiscoveryDateTime: p.ALARM_DATE || p.FireDiscoveryDateTime || null,
@@ -56,7 +60,12 @@ function normalizePerimeters(geojson) {
           POOState:            p.STATE      || p.POOState              || 'CA',
           POOCounty:           p.COUNTY     || p.POOCounty             || '',
           Agency:              p.AGENCY     || p.AGENCY_1              || '',
-          FireYear:            p.FIRE_YEAR  || p.FIRE_YEAR_1           || '',
+          FireYear:            fireYear,
+          FireCause:           p.FireCause || 'Under Investigation',
+          TotalIncidentPersonnel: p.TotalIncidentPersonnel || 0,
+          StructuresDestroyed: p.StructuresDestroyed || 0,
+          StructuresDamaged:   p.StructuresDamaged || 0,
+          IncidentManagementOrganization: p.IncidentManagementOrganization || '',
           Source:              'CA_FIRIS',
         },
       };
