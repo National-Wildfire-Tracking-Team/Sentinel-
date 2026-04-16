@@ -1426,7 +1426,7 @@ export default function SubmitReportPage() {
           <div className="flex items-center justify-end gap-3 pt-2 pb-8">
             <button
               type="button"
-              onClick={() => navigate('/live-tracker')}
+              onClick={() => navigate('/sentinel')}
               className="px-6 py-3 rounded-lg text-sm font-medium text-sentinel-300
                          border border-sentinel-700 hover:border-sentinel-500 hover:text-white
                          transition-colors"

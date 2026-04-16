@@ -32,7 +32,7 @@ export default function Footer() {
                 <Link to="/volunteer" className="text-sentinel-300 hover:text-fire-400 text-sm transition-colors">Volunteer</Link>
               </li>
               <li>
-                <Link to="/live-tracker" className="text-sentinel-300 hover:text-fire-400 text-sm transition-colors">Live Wildfire Tracker</Link>
+                <Link to="/sentinel" className="text-sentinel-300 hover:text-fire-400 text-sm transition-colors">Live Wildfire Tracker</Link>
               </li>
               <li>
                 <a href="https://givebutter.com/Or6BK2q5Cpxxn9Xl" target="_blank" rel="noopener noreferrer" className="text-sentinel-300 hover:text-fire-400 text-sm transition-colors">Donate</a>
