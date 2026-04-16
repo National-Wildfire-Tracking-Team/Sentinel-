@@ -14,6 +14,7 @@
  */
 
 import { getCached, setCached } from '../utils/dataCache';
+import { acquireSlot } from '../utils/firmsRateLimiter';
 import { MOCK_FIRE_HOTSPOTS } from '../data/mockData';
 import { supabase, isSupabaseConfigured } from './supabaseClient';
 
@@ -88,6 +89,7 @@ async function fetchFirmsCSV(url, cacheKey) {
   const cached = getCached(cacheKey);
   if (cached !== null) return cached;
 
+  await acquireSlot();
   const res = await fetch(url);
   if (!res.ok) {
     let body = '';
@@ -104,6 +106,7 @@ async function fetchFirmsCSV(url, cacheKey) {
  * API key stays server-side. Returns parsed & normalised hotspot rows.
  */
 async function fetchViaSupabase(source, area, days, cacheKey) {
+  await acquireSlot();
   const { data, error } = await supabase.functions.invoke('firms-proxy', {
     body: { source, area, days: String(days) },
   });
