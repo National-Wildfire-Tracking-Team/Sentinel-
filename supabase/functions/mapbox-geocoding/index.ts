@@ -4,6 +4,8 @@
  * Proxies Mapbox Geocoding API requests server-side so the access token is
  * never exposed to the browser.
  *
+ * Rate-limited to 6 000 requests per minute (sliding window).
+ *
  * Required secret (set via: supabase secrets set MAPBOX_TOKEN=<value>):
  *   MAPBOX_TOKEN
  *
@@ -20,6 +22,31 @@ const CORS_HEADERS = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+/* ── Sliding-window rate limiter (6 000 req / 60 s) ── */
+const RATE_LIMIT_MAX = 6000;
+const RATE_LIMIT_WINDOW_MS = 60 * 1000;
+const requestTimestamps: number[] = [];
+
+function pruneTimestamps(): void {
+  const cutoff = Date.now() - RATE_LIMIT_WINDOW_MS;
+  while (requestTimestamps.length > 0 && requestTimestamps[0] <= cutoff) {
+    requestTimestamps.shift();
+  }
+}
+
+function isRateLimited(): { limited: boolean; retryAfterMs: number } {
+  pruneTimestamps();
+  if (requestTimestamps.length < RATE_LIMIT_MAX) {
+    return { limited: false, retryAfterMs: 0 };
+  }
+  const retryAfterMs = requestTimestamps[0] + RATE_LIMIT_WINDOW_MS - Date.now();
+  return { limited: true, retryAfterMs: Math.max(0, retryAfterMs) };
+}
+
+function recordRequest(): void {
+  requestTimestamps.push(Date.now());
+}
+
 Deno.serve(async (req: Request) => {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
@@ -27,6 +54,17 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
+    // Enforce rate limit before making the upstream request
+    const { limited, retryAfterMs } = isRateLimited();
+    if (limited) {
+      const retryAfterSec = Math.ceil(retryAfterMs / 1000);
+      return jsonResponse(
+        { error: 'Mapbox rate limit reached (6 000 requests/min). Please retry shortly.' },
+        429,
+        { 'Retry-After': String(retryAfterSec) },
+      );
+    }
+
     const MAPBOX_TOKEN = Deno.env.get('MAPBOX_TOKEN') ?? '';
 
     if (!MAPBOX_TOKEN) {
@@ -58,6 +96,9 @@ Deno.serve(async (req: Request) => {
     const encoded = encodeURIComponent(query.trim());
     const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encoded}.json?${params}`;
 
+    // Record the request just before making the upstream call
+    recordRequest();
+
     const resp = await fetch(url);
     const text = await resp.text();
 
@@ -71,9 +112,9 @@ Deno.serve(async (req: Request) => {
   }
 });
 
-function jsonResponse(body: unknown, status = 200): Response {
+function jsonResponse(body: unknown, status = 200, extraHeaders: Record<string, string> = {}): Response {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+    headers: { ...CORS_HEADERS, 'Content-Type': 'application/json', ...extraHeaders },
   });
 }

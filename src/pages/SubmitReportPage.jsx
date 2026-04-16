@@ -15,6 +15,7 @@ import {
 
 import { useAuth } from '../context/AuthContext';
 import { supabase, isSupabaseConfigured } from '../api/supabaseClient';
+import { acquireSlot } from '../utils/mapboxRateLimiter';
 import {
   appendFireReportUpdate,
   createNIFCFireUpdate,
@@ -331,6 +332,7 @@ export default function SubmitReportPage() {
   async function fetchSuggestions(q) {
     if (!isSupabaseConfigured) return;
     try {
+      await acquireSlot();
       const { data, error } = await supabase.functions.invoke('mapbox-geocoding', {
         body: { query: q, country: 'us', autocomplete: true, limit: 5, types: 'address' },
       });
@@ -371,6 +373,7 @@ export default function SubmitReportPage() {
     if (!query) return { latitude: null, longitude: null };
 
     try {
+      await acquireSlot();
       const { data, error } = await supabase.functions.invoke('mapbox-geocoding', {
         body: { query, country: 'us', autocomplete: false, limit: 1 },
       });
