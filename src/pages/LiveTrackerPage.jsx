@@ -17,6 +17,7 @@ import { useStormReports } from '../hooks/useStormReports';
 import { useSpcOutlooks } from '../hooks/useSpcOutlooks';
 import { useFireReports, reportsToGeoJSON } from '../hooks/useFireReports';
 import { useEvacZones } from '../hooks/useEvacZones';
+import { useCaPerimeters } from '../hooks/useCaPerimeters';
 
 // Components
 import Header from '../components/Header/Header';
@@ -155,6 +156,12 @@ export default function LiveTrackerPage() {
     refresh: refreshEvacZones,
   } = useEvacZones();
 
+  // California perimeters (NIFC FIRIS CA public view)
+  const {
+    geoJSON: caPerimetersGeoJSON,
+    refresh: refreshCaPerimeters,
+  } = useCaPerimeters();
+
   // Community-submitted reports – only approved ones, realtime-subscribed
   const { reports: approvedReports, refresh: refreshUserReports } = useFireReports('approved');
   const userReportsGeoJSON = useMemo(
@@ -175,13 +182,25 @@ export default function LiveTrackerPage() {
   }, [isFocused, incidentsGeoJSON]);
 
   const filteredPerimetersGeoJSON = useMemo(() => {
-    if (!isFocused) return perimetersGeoJSON;
-    return filterFireGeoJSON(perimetersGeoJSON, {
-      containedKey: 'PercentContained',
-      updatedKey: 'ModifiedOnDateTime',
-      startedKey: 'FireDiscoveryDateTime',
-    });
-  }, [isFocused, perimetersGeoJSON]);
+    const base = isFocused
+      ? filterFireGeoJSON(perimetersGeoJSON, {
+          containedKey: 'PercentContained',
+          updatedKey: 'ModifiedOnDateTime',
+          startedKey: 'FireDiscoveryDateTime',
+        })
+      : perimetersGeoJSON;
+
+    // Merge CA FIRIS perimeters into the national NIFC dataset so they share
+    // the same layer toggle and render together as a single source.
+    if (!caPerimetersGeoJSON?.features?.length) return base;
+    return {
+      type: 'FeatureCollection',
+      features: [
+        ...(base?.features || []),
+        ...caPerimetersGeoJSON.features,
+      ],
+    };
+  }, [isFocused, perimetersGeoJSON, caPerimetersGeoJSON]);
 
   const filteredIncidentDotsGeoJSON = useMemo(() => {
     if (!isFocused) return incidentDotsGeoJSON;
@@ -348,8 +367,9 @@ export default function LiveTrackerPage() {
     refreshSpcOutlooks();
     refreshUserReports();
     refreshEvacZones();
+    refreshCaPerimeters();
     if (layers.aqi) refreshAQI();
-  }, [refreshHotspots, refreshPerimeters, refreshAlerts, refreshIncidents, refreshStormReports, refreshSpcOutlooks, refreshUserReports, refreshEvacZones, refreshAQI, layers.aqi]);
+  }, [refreshHotspots, refreshPerimeters, refreshAlerts, refreshIncidents, refreshStormReports, refreshSpcOutlooks, refreshUserReports, refreshEvacZones, refreshCaPerimeters, refreshAQI, layers.aqi]);
 
   return (
     <div className="h-screen w-screen flex flex-col bg-sentinel-900 text-white overflow-hidden select-none">

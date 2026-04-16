@@ -86,7 +86,12 @@ export default function FirePerimetersLayer({ geoJSON, visible }) {
           source="fire-perimeters"
           layout={{ visibility: vis }}
           paint={{
-            'fill-color': '#ff6600',
+            'fill-color': [
+              'case',
+              ['==', ['get', 'Source'], 'CA_FIRIS'],
+              '#dc2626',
+              '#ff6600',
+            ],
             'fill-opacity': [
               'case',
               ['boolean', ['feature-state', 'selected'], false],
@@ -104,8 +109,8 @@ export default function FirePerimetersLayer({ geoJSON, visible }) {
             'line-color': [
               'case',
               ['boolean', ['feature-state', 'selected'], false],
-              '#ffaa00',
-              '#ff6600',
+              ['case', ['==', ['get', 'Source'], 'CA_FIRIS'], '#f87171', '#ffaa00'],
+              ['case', ['==', ['get', 'Source'], 'CA_FIRIS'], '#dc2626', '#ff6600'],
             ],
             'line-width': [
               'case',
@@ -146,7 +151,12 @@ export default function FirePerimetersLayer({ geoJSON, visible }) {
           layout={{ visibility: vis }}
           paint={{
             'circle-radius': 14,
-            'circle-color': '#ff8c00',
+            'circle-color': [
+              'case',
+              ['==', ['get', 'Source'], 'CA_FIRIS'],
+              '#dc2626',
+              '#ff8c00',
+            ],
             'circle-opacity': 0.12,
             'circle-stroke-width': 0,
           }}
@@ -158,7 +168,12 @@ export default function FirePerimetersLayer({ geoJSON, visible }) {
           layout={{ visibility: vis }}
           paint={{
             'circle-radius': 7,
-            'circle-color': '#ffaa00',
+            'circle-color': [
+              'case',
+              ['==', ['get', 'Source'], 'CA_FIRIS'],
+              '#f87171',
+              '#ffaa00',
+            ],
             'circle-opacity': 0.9,
             'circle-stroke-color': 'rgba(255,255,255,0.7)',
             'circle-stroke-width': 1.5,
