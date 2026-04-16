@@ -5,7 +5,7 @@
  * Uses react-map-gl with Mapbox GL JS and satellite imagery.
  */
 
-import { useRef, useCallback, useMemo, useState } from 'react';
+import { useRef, useCallback, useMemo, useState, useEffect } from 'react';
 import Map, { NavigationControl, ScaleControl, Popup } from 'react-map-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 
@@ -28,6 +28,7 @@ import UserReportsLayer   from './layers/UserReportsLayer';
 import SPCOutlookLayer from './layers/SPCOutlookLayer';
 import RadarLayer from './layers/RadarLayer';
 import EvacZonesLayer from './layers/EvacZonesLayer';
+import { MeasurementLayer, MeasurementPanel, MeasurementToolbar } from './MeasurementTool';
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN || '';
 const HAS_MAPBOX_TOKEN = Boolean(MAPBOX_TOKEN.trim());
@@ -258,8 +259,44 @@ export default function MapView({
   const [hoverFeature, setHoverFeature] = useState(null);
   const [hoverLngLat,  setHoverLngLat]  = useState(null);
 
-  // Only include interactive layer IDs for layers that are currently visible
+  // Measurement tool state
+  const [measureActive,  setMeasureActive]  = useState(false);
+  const [measureMode,    setMeasureMode]    = useState('distance'); // 'distance' | 'polygon'
+  const [measurePoints,  setMeasurePoints]  = useState([]);        // [{lng, lat}, ...]
+  const [measurePreview, setMeasurePreview] = useState(null);      // {lng, lat} – live cursor
+
+  const activateMeasure = useCallback((mode) => {
+    setMeasureMode(mode);
+    setMeasureActive(true);
+    setMeasurePoints([]);
+    setMeasurePreview(null);
+  }, []);
+
+  const closeMeasure = useCallback(() => {
+    setMeasureActive(false);
+    setMeasurePoints([]);
+    setMeasurePreview(null);
+    if (mapRef.current) mapRef.current.getCanvas().style.cursor = '';
+  }, []);
+
+  const clearMeasure = useCallback(() => {
+    setMeasurePoints([]);
+    setMeasurePreview(null);
+  }, []);
+
+  // ESC key closes measurement mode
+  useEffect(() => {
+    if (!measureActive) return;
+    const onKey = (e) => { if (e.key === 'Escape') closeMeasure(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [measureActive, closeMeasure]);
+
+  // Only include interactive layer IDs for layers that are currently visible.
+  // When the measurement tool is active, disable all layer interactions so
+  // clicks and hover tooltips don't compete with the measurement workflow.
   const interactiveLayerIds = useMemo(() => {
+    if (measureActive) return [];
     const ids = [];
     if (isWildfireTab && layers.fireHotspots && hotspotsGeoJSON)        ids.push('fire-hotspots-circle');
     if (isWildfireTab && layers.firePerimeters && perimetersGeoJSON) {
@@ -275,7 +312,7 @@ export default function MapView({
     if (isWeatherTab && layers.iemReports && iemReportsGeoJSON)          ids.push('iem-reports-circle');
     if (isWildfireTab && layers.evacZones && evacZonesGeoJSON)            ids.push('evac-zones-fill');
     return ids;
-  }, [isWildfireTab, isWeatherTab, layers.fireHotspots, layers.firePerimeters, layers.incidentLocations, layers.aqi,
+  }, [measureActive, isWildfireTab, isWeatherTab, layers.fireHotspots, layers.firePerimeters, layers.incidentLocations, layers.aqi,
       layers.weatherAlerts, layers.spcOutlooks, layers.spcReports, layers.iemReports, layers.userReports, layers.evacZones,
       hotspotsGeoJSON, perimetersGeoJSON, incidentsGeoJSON, aqiGeoJSON, alertsGeoJSON, spcOutlooksGeoJSON,
       spcReportsGeoJSON, iemReportsGeoJSON, userReportsGeoJSON, evacZonesGeoJSON]);
@@ -290,8 +327,14 @@ export default function MapView({
     }
   }
 
-  // Handle map click – select fire for detail panel
+  // Handle map click – add measurement point OR select fire for detail panel
   const handleClick = useCallback((evt) => {
+    if (measureActive) {
+      const { lng, lat } = evt.lngLat;
+      setMeasurePoints(prev => [...prev, { lng, lat }]);
+      return;
+    }
+
     const features = evt.features;
     if (!features?.length) {
       selectFire(null);
@@ -449,10 +492,15 @@ export default function MapView({
         });
       }
     }
-  }, [alerts, selectFire]);
+  }, [measureActive, alerts, selectFire]);
 
-  // Handle mouse move for hover tooltip
+  // Handle mouse move – update hover tooltip OR measurement preview
   const handleMouseMove = useCallback((evt) => {
+    if (measureActive) {
+      setMeasurePreview({ lng: evt.lngLat.lng, lat: evt.lngLat.lat });
+      if (mapRef.current) mapRef.current.getCanvas().style.cursor = 'crosshair';
+      return;
+    }
     const features = evt.features;
     if (features?.length) {
       setHoverFeature(features[0]);
@@ -467,9 +515,10 @@ export default function MapView({
         mapRef.current.getCanvas().style.cursor = '';
       }
     }
-  }, []);
+  }, [measureActive]);
 
   const handleMouseLeave = useCallback(() => {
+    setMeasurePreview(null);
     setHoverFeature(null);
     setHoverLngLat(null);
     if (mapRef.current) {
@@ -605,9 +654,36 @@ export default function MapView({
           visible={isWildfireTab && layers.userReports}
         />
 
+        {/* Measurement geometry – rendered last so it's always on top */}
+        {measureActive && (
+          <MeasurementLayer
+            points={measurePoints}
+            previewPoint={measurePoints.length > 0 ? measurePreview : null}
+            mode={measureMode}
+          />
+        )}
+
         {/* Hover tooltip */}
         <HoverTooltip feature={hoverFeature} lngLat={hoverLngLat} />
       </Map>
+
+      {/* Measurement toolbar – always visible, toggles modes */}
+      <MeasurementToolbar
+        active={measureActive}
+        mode={measureMode}
+        onActivate={activateMeasure}
+        onClose={closeMeasure}
+      />
+
+      {/* Measurement results panel – visible while tool is active */}
+      {measureActive && (
+        <MeasurementPanel
+          mode={measureMode}
+          points={measurePoints}
+          onClear={clearMeasure}
+          onClose={closeMeasure}
+        />
+      )}
     </div>
   );
 }
