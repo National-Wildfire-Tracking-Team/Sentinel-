@@ -9,6 +9,7 @@ import { Search, MapPin, Loader2, X, AlertTriangle, ShieldAlert, Info } from 'lu
 import { fetchAlertsByPoint } from '../../api/noaaWeather';
 import { useApp } from '../../context/AppContext';
 import { supabase, isSupabaseConfigured } from '../../api/supabaseClient';
+import { acquireSlot } from '../../utils/mapboxRateLimiter';
 
 const SEVERITY_STYLES = {
   Extreme:  'border-red-600/60 bg-red-950/50 text-red-200',
@@ -28,6 +29,7 @@ const SEVERITY_ICONS = {
 
 async function geocodeAddress(address) {
   if (!isSupabaseConfigured) throw new Error('Geocoding unavailable – Supabase not configured');
+  await acquireSlot();
   const { data, error } = await supabase.functions.invoke('mapbox-geocoding', {
     body: { query: address, country: 'us', limit: 1, types: 'address,place,postcode,neighborhood,locality' },
   });
