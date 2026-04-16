@@ -19,6 +19,17 @@ import { nwsAlertColor } from '../../utils/nwsColors';
 import { MOCK_INCIDENTS } from '../../data/mockData';
 import IncidentTimeline from '../IncidentTimeline/IncidentTimeline';
 
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+function formatConfidence(raw) {
+  if (!raw) return 'Unknown';
+  const s = String(raw).toLowerCase();
+  if (s === 'h' || s === 'high') return 'High';
+  if (s === 'l' || s === 'low')  return 'Low';
+  if (s === 'n' || s === 'nominal') return 'Nominal';
+  return raw.charAt(0).toUpperCase() + raw.slice(1);
+}
+
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
 function StatBlock({ label, value, icon: Icon, color }) {
@@ -88,7 +99,7 @@ function HotspotDetail({ fire }) {
           <StatBlock label="Combined FRP" value={formatFRP(fire.total_frp)} icon={TrendingUp} color={frpColor} />
         )}
         <StatBlock label="Brightness" value={`${fire.brightness?.toFixed(1)} K`} icon={Thermometer} />
-        <StatBlock label="Confidence" value={fire.confidence ? fire.confidence.charAt(0).toUpperCase() + fire.confidence.slice(1) : 'Unknown'} />
+        <StatBlock label="Confidence" value={formatConfidence(fire.confidence)} />
         {isConsolidated && (
           <StatBlock label="Detections" value={detections} icon={Info} />
         )}
