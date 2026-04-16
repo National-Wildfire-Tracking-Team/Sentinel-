@@ -233,7 +233,7 @@ export function csvHotspotsToPoints(hotspots) {
         longitude:       h.longitude,
         scan:            h.scan,
         track:           h.track,
-        confidence:      h.confidence,
+        confidence:      normalizeConfidence(h.confidence),
         satellite:       h.satellite,
         source:          h.source,
         acq_date:        h.acq_date,

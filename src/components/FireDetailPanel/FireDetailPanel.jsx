@@ -88,7 +88,7 @@ function HotspotDetail({ fire }) {
           <StatBlock label="Combined FRP" value={formatFRP(fire.total_frp)} icon={TrendingUp} color={frpColor} />
         )}
         <StatBlock label="Brightness" value={`${fire.brightness?.toFixed(1)} K`} icon={Thermometer} />
-        <StatBlock label="Confidence" value={fire.confidence} />
+        <StatBlock label="Confidence" value={fire.confidence ? fire.confidence.charAt(0).toUpperCase() + fire.confidence.slice(1) : 'Unknown'} />
         {isConsolidated && (
           <StatBlock label="Detections" value={detections} icon={Info} />
         )}
