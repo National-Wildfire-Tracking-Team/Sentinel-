@@ -16,7 +16,6 @@ import {
 import { useAuth } from '../context/AuthContext';
 import { supabase, isSupabaseConfigured } from '../api/supabaseClient';
 import {
-  appendFireReportUpdate,
   createNIFCFireUpdate,
   createExternalFireUpdate,
   updateFireReport,
@@ -460,16 +459,38 @@ export default function SubmitReportPage() {
 
   async function handleReportUpdate(report) {
     const state = updateState[report.id] || { acreage: '', notes: '' };
+
+    const acreageLine = state.acreage?.toString().trim()
+      ? `Acreage: ${state.acreage.toString().trim()}`
+      : null;
+    const noteLine = state.notes?.trim() ? `Notes: ${state.notes.trim()}` : null;
+
+    if (!acreageLine && !noteLine) {
+      setUpdateFeedback((prev) => ({
+        ...prev,
+        [report.id]: { type: 'error', message: 'Please provide acreage or notes.' },
+      }));
+      return;
+    }
+
     setUpdateBusy((prev) => ({ ...prev, [report.id]: true }));
     setUpdateFeedback((prev) => ({ ...prev, [report.id]: null }));
 
     try {
-      await appendFireReportUpdate({
-        id: report.id,
-        description: report.description || '',
-        acreage: state.acreage,
-        notes: state.notes,
-      });
+      const content = [acreageLine, noteLine].filter(Boolean).join('\n');
+      const sourceName = profile?.email?.split('@')[0] || 'Reporter';
+
+      const { error } = await supabase
+        .from('incident_updates')
+        .insert({
+          incident_id: report.id,
+          content,
+          source_type: 'reporter',
+          source_name: sourceName,
+          user_id: user.id,
+        });
+
+      if (error) throw error;
 
       setUpdateState((prev) => ({
         ...prev,
@@ -479,11 +500,10 @@ export default function SubmitReportPage() {
         ...prev,
         [report.id]: { type: 'success', message: 'Fire update posted.' },
       }));
-      refreshReports();
     } catch (err) {
       setUpdateFeedback((prev) => ({
         ...prev,
-        [report.id]: { type: 'error', message: err?.message || 'Failed to update fire.' },
+        [report.id]: { type: 'error', message: err?.message || 'Failed to post update.' },
       }));
     } finally {
       setUpdateBusy((prev) => ({ ...prev, [report.id]: false }));
