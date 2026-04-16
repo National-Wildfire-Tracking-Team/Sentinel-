@@ -7,64 +7,22 @@
 
 import { useMemo } from 'react';
 import { Source, Layer } from 'react-map-gl';
+import { polygonCentroid } from '../../../utils/geoUtils';
 
 const EMPTY_GEOJSON = { type: 'FeatureCollection', features: [] };
-
-/**
- * Compute the centroid of a polygon ring (array of [lng, lat] pairs).
- * Uses the signed-area weighted centroid formula for accuracy.
- */
-function ringCentroid(ring) {
-  const n = ring.length;
-  if (n < 3) return null;
-
-  let area = 0;
-  let cx = 0;
-  let cy = 0;
-
-  for (let i = 0, j = n - 1; i < n; j = i++) {
-    const xi = ring[i][0], yi = ring[i][1];
-    const xj = ring[j][0], yj = ring[j][1];
-    const cross = xi * yj - xj * yi;
-    area += cross;
-    cx += (xi + xj) * cross;
-    cy += (yi + yj) * cross;
-  }
-
-  area *= 0.5;
-  if (Math.abs(area) < 1e-10) return null;
-
-  const factor = 1 / (6 * area);
-  return [cx * factor, cy * factor];
-}
-
-/**
- * Get the centroid [lng, lat] for a GeoJSON Polygon or MultiPolygon geometry.
- */
-function polygonCentroid(geometry) {
-  if (geometry.type === 'Polygon') {
-    return ringCentroid(geometry.coordinates[0]);
-  }
-  if (geometry.type === 'MultiPolygon') {
-    // Use the largest sub-polygon (by vertex count) for centroid
-    let largest = geometry.coordinates[0];
-    for (const poly of geometry.coordinates) {
-      if (poly[0].length > largest[0].length) largest = poly;
-    }
-    return ringCentroid(largest[0]);
-  }
-  return null;
-}
 
 export default function FirePerimetersLayer({ geoJSON, visible }) {
   const vis = visible ? 'visible' : 'none';
 
-  // Derive a Point FeatureCollection of perimeter centroids for the center dots
+  // Derive a Point FeatureCollection of perimeter centroids for the center dots.
+  // Perimeters with HideFromCentroid=true have their centroid dot suppressed
+  // because a repositioned IRWIN incident dot already covers that location.
   const centroidGeoJSON = useMemo(() => {
     if (!geoJSON?.features?.length) return EMPTY_GEOJSON;
 
     const features = [];
     for (const f of geoJSON.features) {
+      if (f.properties?.HideFromCentroid) continue;
       const center = polygonCentroid(f.geometry);
       if (center) {
         features.push({

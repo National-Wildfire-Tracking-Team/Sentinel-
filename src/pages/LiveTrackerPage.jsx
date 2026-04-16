@@ -18,6 +18,7 @@ import { useSpcOutlooks } from '../hooks/useSpcOutlooks';
 import { useFireReports, reportsToGeoJSON } from '../hooks/useFireReports';
 import { useEvacZones } from '../hooks/useEvacZones';
 import { useCaPerimeters } from '../hooks/useCaPerimeters';
+import { polygonCentroid } from '../utils/geoUtils';
 
 // Components
 import Header from '../components/Header/Header';
@@ -196,6 +197,100 @@ export default function LiveTrackerPage() {
     [approvedReports]
   );
 
+  // ── Enrich CA FIRIS perimeters with matching IRWIN incident data ──
+  // Builds: enriched perimeter GeoJSON + centroid map for dot repositioning.
+  // For each FIRIS perimeter whose name matches an IRWIN incident we:
+  //   1. Merge IRWIN fields (cause, personnel, containment) into the perimeter
+  //   2. Set HideFromCentroid=true so FirePerimetersLayer skips the redundant
+  //      centroid dot (the repositioned IRWIN dot takes its place)
+  const { enrichedCaPerimetersGeoJSON, firisPerimeterCentroidMap } = useMemo(() => {
+    const centroidMap = new Map();
+
+    if (!caPerimetersGeoJSON?.features?.length) {
+      return { enrichedCaPerimetersGeoJSON: caPerimetersGeoJSON, firisPerimeterCentroidMap: centroidMap };
+    }
+
+    // Index IRWIN incidents by normalised name key
+    const incidentByKey = new Map();
+    incidents.forEach(inc => {
+      const key = getFireMatchKey(inc.name);
+      if (key) incidentByKey.set(key, inc);
+    });
+
+    // Build centroid map (all FIRIS perimeters, matched or not)
+    caPerimetersGeoJSON.features.forEach(f => {
+      const key = getFireMatchKey(f.properties.IncidentName);
+      if (!key || !f.geometry) return;
+      const centroid = polygonCentroid(f.geometry);
+      if (centroid) centroidMap.set(key, centroid);
+    });
+
+    const enrichedFeatures = caPerimetersGeoJSON.features.map(f => {
+      const key = getFireMatchKey(f.properties.IncidentName);
+      if (!key || !incidentByKey.has(key)) return f;
+      const inc = incidentByKey.get(key);
+      return {
+        ...f,
+        properties: {
+          ...f.properties,
+          FireCause: f.properties.FireCause !== 'Under Investigation'
+            ? f.properties.FireCause
+            : (inc.cause || 'Under Investigation'),
+          GISAcres: Math.max(f.properties.GISAcres || 0, inc.acres || 0),
+          TotalIncidentPersonnel: f.properties.TotalIncidentPersonnel || inc.personnel || 0,
+          PercentContained: Math.max(f.properties.PercentContained || 0, inc.contained || 0),
+          StructuresDestroyed: f.properties.StructuresDestroyed || inc.structures_destroyed || 0,
+          StructuresDamaged: f.properties.StructuresDamaged || inc.structures_damaged || 0,
+          // Suppress the duplicate perimeter centroid dot — IRWIN dot is moved here instead
+          HideFromCentroid: true,
+        },
+      };
+    });
+
+    return {
+      enrichedCaPerimetersGeoJSON: { ...caPerimetersGeoJSON, features: enrichedFeatures },
+      firisPerimeterCentroidMap: centroidMap,
+    };
+  }, [caPerimetersGeoJSON, incidents]);
+
+  // ── FIRIS-only incidents for sidebar ──
+  // Fires that have a CA FIRIS perimeter but no matching IRWIN incident
+  // are invisible in the sidebar. Build incident objects from their perimeter
+  // data so they appear in the feed.
+  const firisOnlyIncidents = useMemo(() => {
+    if (!enrichedCaPerimetersGeoJSON?.features?.length) return [];
+    const irwinKeys = new Set(incidents.map(i => getFireMatchKey(i.name)).filter(Boolean));
+    return enrichedCaPerimetersGeoJSON.features
+      .filter(f => {
+        const key = getFireMatchKey(f.properties.IncidentName);
+        return key && !irwinKeys.has(key);
+      })
+      .map(f => {
+        const p = f.properties;
+        const contained = Number(p.PercentContained) || 0;
+        const centroid = firisPerimeterCentroidMap.get(getFireMatchKey(p.IncidentName));
+        return {
+          id: p.UniqueFireIdentifier || `firis-${p.IncidentName}`,
+          name: p.IncidentName,
+          state: p.POOState || 'CA',
+          county: p.POOCounty || '',
+          lat: centroid ? centroid[1] : 0,
+          lng: centroid ? centroid[0] : 0,
+          acres: Math.round(p.GISAcres) || 0,
+          contained,
+          started: p.FireDiscoveryDateTime || null,
+          updated: p.ModifiedOnDateTime || null,
+          cause: p.FireCause || 'Under Investigation',
+          status: contained >= 100 ? 'controlled' : 'active',
+          personnel: p.TotalIncidentPersonnel || 0,
+          structures_destroyed: p.StructuresDestroyed || 0,
+          structures_damaged: p.StructuresDamaged || 0,
+          structures_threatened: 0,
+          source: 'CA_FIRIS',
+        };
+      });
+  }, [enrichedCaPerimetersGeoJSON, incidents, firisPerimeterCentroidMap]);
+
   // ── Apply feed filter to map fire layers ──
   const isFocused = feedFilter === 'focused';
 
@@ -228,17 +323,17 @@ export default function LiveTrackerPage() {
         })
       : perimetersGeoJSON;
 
-    // Merge CA FIRIS perimeters into the national NIFC dataset so they share
-    // the same layer toggle and render together as a single source.
-    if (!caPerimetersGeoJSON?.features?.length) return base;
+    // Merge enriched CA FIRIS perimeters into the national NIFC dataset so they
+    // share the same layer toggle and render together as a single source.
+    if (!enrichedCaPerimetersGeoJSON?.features?.length) return base;
     return {
       type: 'FeatureCollection',
       features: [
         ...(base?.features || []),
-        ...caPerimetersGeoJSON.features,
+        ...enrichedCaPerimetersGeoJSON.features,
       ],
     };
-  }, [isFocused, perimetersGeoJSON, caPerimetersGeoJSON]);
+  }, [isFocused, perimetersGeoJSON, enrichedCaPerimetersGeoJSON]);
 
   const filteredIncidentDotsGeoJSON = useMemo(() => {
     const focused = isFocused
@@ -268,12 +363,19 @@ export default function LiveTrackerPage() {
     return keys;
   }, [filteredPerimetersGeoJSON]);
 
+  // ── Combine IRWIN incidents with FIRIS-only fires for sidebar ──
+  // FIRIS-only fires have no IRWIN record; add them so they appear in the feed.
+  const allIncidents = useMemo(
+    () => [...incidents, ...firisOnlyIncidents],
+    [incidents, firisOnlyIncidents]
+  );
+
   // ── Reporter incidents replace matching external data incidents ──
   // When an approved reporter report shares a fire name with an IRWIN incident,
   // the external incident is replaced in the sidebar feed with a merged record
   // that keeps authoritative external stats but surfaces reporter-contributed data.
   const mergedIncidents = useMemo(() => {
-    if (!approvedReports.length) return incidents;
+    if (!approvedReports.length) return allIncidents;
 
     // Index reporter reports by normalised fire name key (same algorithm used
     // in useMergedFireData to match perimeters to incident dots).
@@ -283,7 +385,7 @@ export default function LiveTrackerPage() {
       if (key) reporterByKey.set(key, r);
     });
 
-    return incidents.map(inc => {
+    return allIncidents.map(inc => {
       const key = getFireMatchKey(inc.name);
       if (!key || !reporterByKey.has(key)) return inc;
 
@@ -308,7 +410,7 @@ export default function LiveTrackerPage() {
         reportedAt: report.created_at,
       };
     });
-  }, [incidents, approvedReports]);
+  }, [allIncidents, approvedReports]);
 
   // Build the set of reporter-matched fire name keys once for GeoJSON filtering.
   const reporterMatchKeys = useMemo(() => {
@@ -318,24 +420,32 @@ export default function LiveTrackerPage() {
     );
   }, [approvedReports]);
 
-  // Remove IRWIN incident markers where a reporter report already exists so the
-  // map does not show two overlapping markers for the same fire. Also remove
-  // IRWIN markers when a matching perimeter exists so we keep the centered
-  // perimeter centroid indicator and hide the off-center duplicate dot.
+  // Deduplicate and reposition IRWIN incident markers:
+  //  - Reporter match → suppress (reporter dot takes over)
+  //  - CA FIRIS perimeter match → move dot to perimeter centroid so it sits
+  //    at the geographic center of the fire and carries full IRWIN detail
+  //  - NIFC perimeter match → suppress (enriched perimeter centroid shows instead)
   const deduplicatedIncidentsGeoJSON = useMemo(() => {
     if (!filteredIncidentsGeoJSON?.features)
       return filteredIncidentsGeoJSON;
     return {
       ...filteredIncidentsGeoJSON,
-      features: filteredIncidentsGeoJSON.features.filter(f => {
-        const key = getFireMatchKey(f.properties.name);
-        if (!key) return true;
-        if (reporterMatchKeys.has(key)) return false;
-        if (perimeterMatchKeys.has(key)) return false;
-        return true;
-      }),
+      features: filteredIncidentsGeoJSON.features
+        .map(f => {
+          const key = getFireMatchKey(f.properties.name);
+          if (!key) return f;
+          if (reporterMatchKeys.has(key)) return null;
+          if (firisPerimeterCentroidMap.has(key)) {
+            // Move dot to FIRIS perimeter centroid for accurate placement
+            const centroid = firisPerimeterCentroidMap.get(key);
+            return { ...f, geometry: { type: 'Point', coordinates: centroid } };
+          }
+          if (perimeterMatchKeys.has(key)) return null;
+          return f;
+        })
+        .filter(Boolean),
     };
-  }, [filteredIncidentsGeoJSON, reporterMatchKeys, perimeterMatchKeys]);
+  }, [filteredIncidentsGeoJSON, reporterMatchKeys, perimeterMatchKeys, firisPerimeterCentroidMap]);
 
   // Same deduplication for incident dot markers (fires without NIFC perimeters).
   const deduplicatedIncidentDotsGeoJSON = useMemo(() => {

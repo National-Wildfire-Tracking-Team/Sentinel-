@@ -382,6 +382,8 @@ export default function MapView({
         discovered:  p.FireDiscoveryDateTime,
         updated:     p.ModifiedOnDateTime,
         orgType:     p.IncidentManagementOrganization,
+        cause:       p.FireCause || null,
+        source:      p.Source || null,
       });
     } else if (feature.layer.id === 'fire-incidents-circle') {
       selectFire({
