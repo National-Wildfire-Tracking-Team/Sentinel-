@@ -12,6 +12,7 @@ import 'mapbox-gl/dist/mapbox-gl.css';
 import { useApp } from '../../context/AppContext';
 import { formatAcres, formatContainment, formatFRP } from '../../utils/formatUtils';
 import { frpToLabel } from '../../utils/colorUtils';
+import * as hrrRateLimiter from '../../utils/hrrRateLimiter';
 
 // Data layer components
 import FireHotspotsLayer  from './layers/FireHotspotsLayer';
@@ -476,6 +477,20 @@ export default function MapView({
     }
   }, []);
 
+  // Rate-limit HRRR WMS tile requests (9 999 / day)
+  const TRANSPARENT_TILE =
+    'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
+
+  const transformRequest = useCallback((url, resourceType) => {
+    if (resourceType === 'Tile' && url.includes('nomads.ncep.noaa.gov')) {
+      if (hrrRateLimiter.tryAcquire()) {
+        return { url };
+      }
+      console.warn('[HRRR rate-limiter] 9 999 daily requests reached – serving blank tile');
+      return { url: TRANSPARENT_TILE };
+    }
+  }, []);
+
   // Sync viewport to context
   const handleMove = useCallback((evt) => {
     setViewport(evt.viewState);
@@ -494,6 +509,7 @@ export default function MapView({
         onMouseMove={handleMouseMove}
         onMouseLeave={handleMouseLeave}
         onMove={handleMove}
+        transformRequest={transformRequest}
         attributionControl={false}
         maxTileCacheSize={150}
         fadeDuration={150}
