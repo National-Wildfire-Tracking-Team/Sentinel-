@@ -6,6 +6,23 @@
 import { useMemo, useState } from 'react';
 import { Loader2, AlertCircle, ShieldAlert, AlertTriangle, Info, CloudSun } from 'lucide-react';
 import { nwsAlertColor, nwsAlertCategory } from '../../utils/nwsColors';
+import { useApp } from '../../context/AppContext';
+
+/** Compute a representative center [lng, lat] from a GeoJSON Polygon or MultiPolygon. */
+function getAlertCenter(alert) {
+  const geom = alert.geometry;
+  if (!geom) return null;
+  let ring;
+  if (geom.type === 'Polygon') {
+    ring = geom.coordinates[0];
+  } else if (geom.type === 'MultiPolygon') {
+    ring = geom.coordinates[0]?.[0];
+  }
+  if (!ring?.length) return null;
+  const sumLng = ring.reduce((s, c) => s + c[0], 0);
+  const sumLat = ring.reduce((s, c) => s + c[1], 0);
+  return { lng: sumLng / ring.length, lat: sumLat / ring.length };
+}
 
 const SEVERITY_STYLES = {
   Extreme:  'border-red-600/60 bg-red-950/50 text-red-200',
@@ -33,17 +50,27 @@ const SEVERITY_RANK = {
 
 function AlertRow({ alert }) {
   const [expanded, setExpanded] = useState(false);
+  const { selectFire, setViewport } = useApp();
   const severity = alert.severity || 'Unknown';
   const styles = SEVERITY_STYLES[severity] || SEVERITY_STYLES.Unknown;
   const Icon = SEVERITY_ICONS[severity] || Info;
   const accentColor = nwsAlertColor(alert.type);
   const category = nwsAlertCategory(alert.type);
 
+  const handleClick = () => {
+    selectFire({ ...alert, type: 'weather-alert', eventType: alert.type });
+    const center = getAlertCenter(alert);
+    if (center) {
+      setViewport({ longitude: center.lng, latitude: center.lat, zoom: 7 });
+    }
+    setExpanded((e) => !e);
+  };
+
   return (
     <div className={`rounded-lg border p-2.5 ${styles}`}>
       <button
         type="button"
-        onClick={() => setExpanded((e) => !e)}
+        onClick={handleClick}
         className="w-full text-left"
       >
         <div className="flex items-start gap-2">
