@@ -68,47 +68,16 @@ const WEATHER_LAYER_PRESET = {
 };
 
 /**
- * Filter a GeoJSON FeatureCollection, removing old (>72h) or mostly contained (>95%) fires.
- * When keepFullyContained is true, fires at exactly 100% containment are always kept
- * (they will be rendered grey to indicate controlled status).
+ * Filter a GeoJSON FeatureCollection to only include fires less than 95% contained.
+ * Used in "Active Fires" mode across all data sources.
  */
-function filterFireGeoJSON(geoJSON, { containedKey, updatedKey, startedKey, keepFullyContained = false }) {
+function filterActiveFiresGeoJSON(geoJSON, { containedKey }) {
   if (!geoJSON?.features) return geoJSON;
-  const cutoffMs = Date.now() - (72 * 60 * 60 * 1000);
   return {
     ...geoJSON,
     features: geoJSON.features.filter(f => {
-      const p = f.properties;
-      const contained = Number(p[containedKey]) || 0;
-      if (keepFullyContained && contained >= 100) return true;
-      if (contained > 95) return false;
-      const updatedMs = p[updatedKey] ? new Date(p[updatedKey]).getTime() : 0;
-      const startedMs = p[startedKey] ? new Date(p[startedKey]).getTime() : 0;
-      const mostRecentMs = Math.max(updatedMs, startedMs);
-      if (mostRecentMs > 0 && mostRecentMs < cutoffMs) return false;
-      return true;
-    }),
-  };
-}
-
-/**
- * Remove fires that are 100% contained and have not been updated in 5+ days.
- * Applied to fires without perimeters — fully contained fires with perimeters
- * are kept on the map and rendered grey instead.
- */
-function filterFullyContainedStale(geoJSON, { containedKey, updatedKey, startedKey }) {
-  if (!geoJSON?.features) return geoJSON;
-  const cutoff5d = Date.now() - (5 * 24 * 60 * 60 * 1000);
-  return {
-    ...geoJSON,
-    features: geoJSON.features.filter(f => {
-      const p = f.properties;
-      const contained = Number(p[containedKey]) || 0;
-      if (contained < 100) return true;
-      const updatedMs = p[updatedKey] ? new Date(p[updatedKey]).getTime() : 0;
-      const startedMs = p[startedKey] ? new Date(p[startedKey]).getTime() : 0;
-      const mostRecentMs = Math.max(updatedMs, startedMs);
-      return mostRecentMs > 0 && mostRecentMs >= cutoff5d;
+      const contained = Number(f.properties[containedKey]) || 0;
+      return contained < 95;
     }),
   };
 }
@@ -295,60 +264,32 @@ export default function LiveTrackerPage() {
   const isFocused = feedFilter === 'focused';
 
   const filteredIncidentsGeoJSON = useMemo(() => {
-    const focused = isFocused
-      ? filterFireGeoJSON(incidentsGeoJSON, {
-          containedKey: 'contained',
-          updatedKey: 'updated',
-          startedKey: 'started',
-        })
-      : incidentsGeoJSON;
-    // Always remove 100% contained fires without perimeters that haven't been
-    // updated in 5+ days — they are no longer relevant to track.
-    return filterFullyContainedStale(focused, {
-      containedKey: 'contained',
-      updatedKey: 'updated',
-      startedKey: 'started',
-    });
+    if (!isFocused) return incidentsGeoJSON;
+    return filterActiveFiresGeoJSON(incidentsGeoJSON, { containedKey: 'contained' });
   }, [isFocused, incidentsGeoJSON]);
 
   const filteredPerimetersGeoJSON = useMemo(() => {
-    // Keep 100% contained perimeters in focused mode — they render grey on
-    // the map to show the fire footprint of a controlled incident.
-    const base = isFocused
-      ? filterFireGeoJSON(perimetersGeoJSON, {
-          containedKey: 'PercentContained',
-          updatedKey: 'ModifiedOnDateTime',
-          startedKey: 'FireDiscoveryDateTime',
-          keepFullyContained: true,
-        })
+    const basePerimeters = isFocused
+      ? filterActiveFiresGeoJSON(perimetersGeoJSON, { containedKey: 'PercentContained' })
       : perimetersGeoJSON;
 
-    // Merge enriched CA FIRIS perimeters into the national NIFC dataset so they
-    // share the same layer toggle and render together as a single source.
-    if (!enrichedCaPerimetersGeoJSON?.features?.length) return base;
+    const baseCaPerimeters = isFocused
+      ? filterActiveFiresGeoJSON(enrichedCaPerimetersGeoJSON, { containedKey: 'PercentContained' })
+      : enrichedCaPerimetersGeoJSON;
+
+    if (!baseCaPerimeters?.features?.length) return basePerimeters;
     return {
       type: 'FeatureCollection',
       features: [
-        ...(base?.features || []),
-        ...enrichedCaPerimetersGeoJSON.features,
+        ...(basePerimeters?.features || []),
+        ...baseCaPerimeters.features,
       ],
     };
   }, [isFocused, perimetersGeoJSON, enrichedCaPerimetersGeoJSON]);
 
   const filteredIncidentDotsGeoJSON = useMemo(() => {
-    const focused = isFocused
-      ? filterFireGeoJSON(incidentDotsGeoJSON, {
-          containedKey: 'PercentContained',
-          updatedKey: 'ModifiedOnDateTime',
-          startedKey: 'FireDiscoveryDateTime',
-        })
-      : incidentDotsGeoJSON;
-    // Always remove 100% contained dot markers (no perimeter) stale for 5+ days.
-    return filterFullyContainedStale(focused, {
-      containedKey: 'PercentContained',
-      updatedKey: 'ModifiedOnDateTime',
-      startedKey: 'FireDiscoveryDateTime',
-    });
+    if (!isFocused) return incidentDotsGeoJSON;
+    return filterActiveFiresGeoJSON(incidentDotsGeoJSON, { containedKey: 'PercentContained' });
   }, [isFocused, incidentDotsGeoJSON]);
 
   // Fires with perimeter overlays already render a centered perimeter centroid
