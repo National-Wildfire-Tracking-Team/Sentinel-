@@ -9,7 +9,12 @@ import { fetchFireHotspots, consolidateHotspots, csvHotspotsToPoints } from '../
 
 const REFRESH_MS = parseInt(import.meta.env.VITE_REFRESH_INTERVAL || '300000', 10);
 const FIRMS_SOURCES = ['VIIRS_SNPP_NRT', 'VIIRS_NOAA20_NRT', 'MODIS_NRT'];
-const MAX_HOTSPOT_AGE_MS = 24 * 60 * 60 * 1000;
+// FIRMS day_range is calendar-day based in UTC and NRT data lags ~3h, so a
+// single-day query can return nothing around UTC midnight. Fetch two days
+// and keep detections from roughly the last 24h client-side so the map
+// always has fresh coverage regardless of when the user loads the page.
+const FIRMS_DAY_RANGE = 2;
+const MAX_HOTSPOT_AGE_MS = 48 * 60 * 60 * 1000;
 
 function toAcquiredAtMs(spot) {
   if (!spot?.acq_date) return null;
@@ -23,7 +28,9 @@ function toAcquiredAtMs(spot) {
 
 function isRecentHotspot(spot, nowMs) {
   const acquiredAtMs = toAcquiredAtMs(spot);
-  if (!acquiredAtMs) return false;
+  // If the timestamp is unparseable, keep the detection rather than drop it –
+  // FIRMS has already limited the result set to the requested day range.
+  if (acquiredAtMs == null) return true;
   return (nowMs - acquiredAtMs) <= MAX_HOTSPOT_AGE_MS;
 }
 
@@ -42,7 +49,7 @@ export function useFireHotspots(bounds) {
       setError(null);
       const sourceResults = await Promise.all(
         FIRMS_SOURCES.map(async (source) => {
-          const spots = await fetchFireHotspots(bounds, 1, source);
+          const spots = await fetchFireHotspots(bounds, FIRMS_DAY_RANGE, source);
           return { source, spots };
         }),
       );
