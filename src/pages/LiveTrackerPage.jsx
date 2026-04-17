@@ -17,7 +17,6 @@ import { useStormReports } from '../hooks/useStormReports';
 import { useSpcOutlooks } from '../hooks/useSpcOutlooks';
 import { useFireReports, reportsToGeoJSON } from '../hooks/useFireReports';
 import { useEvacZones } from '../hooks/useEvacZones';
-import { useCaPerimeters } from '../hooks/useCaPerimeters';
 import { polygonCentroid } from '../utils/geoUtils';
 
 // Components
@@ -186,113 +185,12 @@ export default function LiveTrackerPage() {
     refresh: refreshEvacZones,
   } = useEvacZones();
 
-  // California perimeters (NIFC FIRIS CA public view)
-  const {
-    geoJSON: caPerimetersGeoJSON,
-    refresh: refreshCaPerimeters,
-  } = useCaPerimeters();
-
   // Community-submitted reports – only approved ones, realtime-subscribed
   const { reports: approvedReports, refresh: refreshUserReports } = useFireReports('approved');
   const userReportsGeoJSON = useMemo(
     () => reportsToGeoJSON(approvedReports),
     [approvedReports]
   );
-
-  // ── Enrich CA FIRIS perimeters with matching IRWIN incident data ──
-  // Builds: enriched perimeter GeoJSON + centroid map for dot repositioning.
-  // For each FIRIS perimeter whose name matches an IRWIN incident we:
-  //   1. Merge IRWIN fields (cause, personnel, containment) into the perimeter
-  //   2. Set HideFromCentroid=true so FirePerimetersLayer skips the redundant
-  //      centroid dot (the repositioned IRWIN dot takes its place)
-  const { enrichedCaPerimetersGeoJSON, firisPerimeterCentroidMap } = useMemo(() => {
-    const centroidMap = new Map();
-
-    if (!caPerimetersGeoJSON?.features?.length) {
-      return { enrichedCaPerimetersGeoJSON: caPerimetersGeoJSON, firisPerimeterCentroidMap: centroidMap };
-    }
-
-    // Index IRWIN incidents by normalised name key
-    const incidentByKey = new Map();
-    incidents.forEach(inc => {
-      const key = getFireMatchKey(inc.name);
-      if (key) incidentByKey.set(key, inc);
-    });
-
-    // Build centroid map (all FIRIS perimeters, matched or not)
-    caPerimetersGeoJSON.features.forEach(f => {
-      const key = getFireMatchKey(f.properties.IncidentName);
-      if (!key || !f.geometry) return;
-      const centroid = polygonCentroid(f.geometry);
-      if (centroid) centroidMap.set(key, centroid);
-    });
-
-    const enrichedFeatures = caPerimetersGeoJSON.features.map(f => {
-      const key = getFireMatchKey(f.properties.IncidentName);
-      if (!key || !incidentByKey.has(key)) return f;
-      const inc = incidentByKey.get(key);
-      return {
-        ...f,
-        properties: {
-          ...f.properties,
-          FireCause: f.properties.FireCause !== 'Under Investigation'
-            ? f.properties.FireCause
-            : (inc.cause || 'Under Investigation'),
-          GISAcres: Math.max(f.properties.GISAcres || 0, inc.acres || 0),
-          TotalIncidentPersonnel: f.properties.TotalIncidentPersonnel || inc.personnel || 0,
-          PercentContained: Math.max(f.properties.PercentContained || 0, inc.contained || 0),
-          StructuresDestroyed: f.properties.StructuresDestroyed || inc.structures_destroyed || 0,
-          StructuresDamaged: f.properties.StructuresDamaged || inc.structures_damaged || 0,
-          // Suppress the duplicate perimeter centroid dot — IRWIN dot is moved here instead
-          HideFromCentroid: true,
-        },
-      };
-    });
-
-    return {
-      enrichedCaPerimetersGeoJSON: { ...caPerimetersGeoJSON, features: enrichedFeatures },
-      firisPerimeterCentroidMap: centroidMap,
-    };
-  }, [caPerimetersGeoJSON, incidents]);
-
-  // ── FIRIS-only incidents for sidebar ──
-  // Fires that have a CA FIRIS perimeter but no matching IRWIN incident
-  // are invisible in the sidebar. Build incident objects from their perimeter
-  // data so they appear in the feed.
-  const firisOnlyIncidents = useMemo(() => {
-    if (!enrichedCaPerimetersGeoJSON?.features?.length) return [];
-    const irwinKeys = new Set(incidents.map(i => getFireMatchKey(i.name)).filter(Boolean));
-    return enrichedCaPerimetersGeoJSON.features
-      .filter(f => {
-        const key = getFireMatchKey(f.properties.IncidentName);
-        return key && !irwinKeys.has(key);
-      })
-      .map(f => {
-        const p = f.properties;
-        const contained = Number(p.PercentContained) || 0;
-        const centroid = firisPerimeterCentroidMap.get(getFireMatchKey(p.IncidentName));
-        return {
-          id: p.UniqueFireIdentifier || `firis-${p.IncidentName}`,
-          name: p.IncidentName,
-          displayLabel: p.DisplayLabel || null,
-          state: p.POOState || 'CA',
-          county: p.POOCounty || '',
-          lat: centroid ? centroid[1] : 0,
-          lng: centroid ? centroid[0] : 0,
-          acres: Math.round(p.GISAcres) || 0,
-          contained,
-          started: p.FireDiscoveryDateTime || null,
-          updated: p.ModifiedOnDateTime || null,
-          cause: p.FireCause || 'Under Investigation',
-          status: contained >= 100 ? 'controlled' : 'active',
-          personnel: p.TotalIncidentPersonnel || 0,
-          structures_destroyed: p.StructuresDestroyed || 0,
-          structures_damaged: p.StructuresDamaged || 0,
-          structures_threatened: 0,
-          source: 'CA_FIRIS',
-        };
-      });
-  }, [enrichedCaPerimetersGeoJSON, incidents, firisPerimeterCentroidMap]);
 
   // ── Remove stale fully-contained fires (100% contained, no update in 3+ days) ──
   const freshIncidents = useMemo(
@@ -310,11 +208,6 @@ export default function LiveTrackerPage() {
     [perimetersGeoJSON]
   );
 
-  const freshCaPerimetersGeoJSON = useMemo(
-    () => filterStaleContainedGeoJSON(enrichedCaPerimetersGeoJSON, 'PercentContained', 'ModifiedOnDateTime'),
-    [enrichedCaPerimetersGeoJSON]
-  );
-
   const freshIncidentDotsGeoJSON = useMemo(
     () => filterStaleContainedGeoJSON(incidentDotsGeoJSON, 'PercentContained', 'ModifiedOnDateTime'),
     [incidentDotsGeoJSON]
@@ -328,27 +221,14 @@ export default function LiveTrackerPage() {
     return filterActiveFiresGeoJSON(freshIncidentsGeoJSON, { containedKey: 'contained' });
   }, [isFocused, freshIncidentsGeoJSON]);
 
-  const filteredPerimetersGeoJSON = useMemo(() => {
-    const basePerimeters = isFocused
+  const filteredPerimetersGeoJSON = useMemo(() => (
+    isFocused
       ? filterActiveFiresGeoJSON(freshPerimetersGeoJSON, { containedKey: 'PercentContained' })
-      : freshPerimetersGeoJSON;
-
-    const baseCaPerimeters = isFocused
-      ? filterActiveFiresGeoJSON(freshCaPerimetersGeoJSON, { containedKey: 'PercentContained' })
-      : freshCaPerimetersGeoJSON;
-
-    if (!baseCaPerimeters?.features?.length) return basePerimeters;
-    return {
-      type: 'FeatureCollection',
-      features: [
-        ...(basePerimeters?.features || []),
-        ...baseCaPerimeters.features,
-      ],
-    };
-  }, [isFocused, freshPerimetersGeoJSON, freshCaPerimetersGeoJSON]);
+      : freshPerimetersGeoJSON
+  ), [isFocused, freshPerimetersGeoJSON]);
 
   // ── Perimeter-only incidents for sidebar ──
-  // Some fires have perimeter polygons (NIFC/WFIGS or CA FIRIS) but no matching
+  // Some fires have perimeter polygons (NIFC/WFIGS) but no matching
   // IRWIN incident point. Build incident objects from those perimeters so they
   // still appear in the sidebar feed.
   const perimeterOnlyIncidents = useMemo(() => {
@@ -362,7 +242,7 @@ export default function LiveTrackerPage() {
       .map(f => {
         const p = f.properties;
         const contained = Number(p.PercentContained) || 0;
-        const centroid = polygonCentroid(f.geometry) || firisPerimeterCentroidMap.get(getFireMatchKey(p.IncidentName));
+        const centroid = polygonCentroid(f.geometry);
         return {
           id: p.UniqueFireIdentifier || `perimeter-${p.IncidentName}`,
           name: p.IncidentName,
@@ -384,7 +264,7 @@ export default function LiveTrackerPage() {
           source: p.Source || 'NIFC_WFIGS',
         };
       });
-  }, [filteredPerimetersGeoJSON, incidents, firisPerimeterCentroidMap]);
+  }, [filteredPerimetersGeoJSON, incidents]);
 
   const filteredIncidentDotsGeoJSON = useMemo(() => {
     if (!isFocused) return freshIncidentDotsGeoJSON;
@@ -460,10 +340,8 @@ export default function LiveTrackerPage() {
     );
   }, [approvedReports]);
 
-  // Deduplicate and reposition IRWIN incident markers:
+  // Deduplicate IRWIN incident markers:
   //  - Reporter match → suppress (reporter dot takes over)
-  //  - CA FIRIS perimeter match → move dot to perimeter centroid so it sits
-  //    at the geographic center of the fire and carries full IRWIN detail
   //  - NIFC perimeter match → suppress (enriched perimeter centroid shows instead)
   const deduplicatedIncidentsGeoJSON = useMemo(() => {
     if (!filteredIncidentsGeoJSON?.features)
@@ -475,17 +353,12 @@ export default function LiveTrackerPage() {
           const key = getFireMatchKey(f.properties.name);
           if (!key) return f;
           if (reporterMatchKeys.has(key)) return null;
-          if (firisPerimeterCentroidMap.has(key)) {
-            // Move dot to FIRIS perimeter centroid for accurate placement
-            const centroid = firisPerimeterCentroidMap.get(key);
-            return { ...f, geometry: { type: 'Point', coordinates: centroid } };
-          }
           if (perimeterMatchKeys.has(key)) return null;
           return f;
         })
         .filter(Boolean),
     };
-  }, [filteredIncidentsGeoJSON, reporterMatchKeys, perimeterMatchKeys, firisPerimeterCentroidMap]);
+  }, [filteredIncidentsGeoJSON, reporterMatchKeys, perimeterMatchKeys]);
 
   // Same deduplication for incident dot markers (fires without NIFC perimeters).
   const deduplicatedIncidentDotsGeoJSON = useMemo(() => {
@@ -562,9 +435,8 @@ export default function LiveTrackerPage() {
     refreshSpcOutlooks();
     refreshUserReports();
     refreshEvacZones();
-    refreshCaPerimeters();
     if (layers.aqi) refreshAQI();
-  }, [refreshHotspots, refreshPerimeters, refreshAlerts, refreshIncidents, refreshStormReports, refreshSpcOutlooks, refreshUserReports, refreshEvacZones, refreshCaPerimeters, refreshAQI, layers.aqi]);
+  }, [refreshHotspots, refreshPerimeters, refreshAlerts, refreshIncidents, refreshStormReports, refreshSpcOutlooks, refreshUserReports, refreshEvacZones, refreshAQI, layers.aqi]);
 
   return (
     <div className="h-screen w-screen flex flex-col bg-sentinel-900 text-white overflow-hidden select-none">
