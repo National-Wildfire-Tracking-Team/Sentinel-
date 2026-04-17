@@ -6,7 +6,7 @@
 
 import { useState } from 'react';
 import {
-  Layers, Flame, MapPin, Wind, CloudRain, Eye, ChevronDown, ChevronRight, CloudLightning, Radar, AlertTriangle,
+  Layers, Flame, MapPin, Wind, CloudRain, Eye, ChevronDown, ChevronRight, CloudLightning, Radar, AlertTriangle, Ruler, Hexagon,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 
@@ -98,6 +98,10 @@ function LayerToggle({ layerKey, label, sublabel, icon: Icon, color }) {
 
 export default function LayerControl({
   activeMapTab = 'wildfire',
+  measureActive = false,
+  measureMode = 'distance',
+  onMeasureActivate,
+  onMeasureClose,
 }) {
   const { layerPanelOpen, toggleLayerPanel } = useApp();
   const [collapsed, setCollapsed] = useState({});
@@ -128,10 +132,34 @@ export default function LayerControl({
         <div className="w-56 bg-sentinel-900 border border-sentinel-700
                         rounded-xl shadow-2xl overflow-hidden animate-fade-in">
           {/* Header */}
-          <div className="px-3 py-2.5 border-b border-sentinel-700">
+          <div className="px-3 py-2 border-b border-sentinel-700 flex items-center justify-between">
             <span className="text-xs font-bold text-sentinel-100 uppercase tracking-widest">
               Map Layers
             </span>
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => (measureActive && measureMode === 'distance') ? onMeasureClose?.() : onMeasureActivate?.('distance')}
+                title="Measure distance"
+                className={`w-7 h-7 flex items-center justify-center rounded-md transition-all ${
+                  measureActive && measureMode === 'distance'
+                    ? 'bg-orange-500 text-white border border-orange-400'
+                    : 'text-sentinel-300 hover:text-white hover:bg-sentinel-700'
+                }`}
+              >
+                <Ruler size={13} />
+              </button>
+              <button
+                onClick={() => (measureActive && measureMode === 'polygon') ? onMeasureClose?.() : onMeasureActivate?.('polygon')}
+                title="Measure area"
+                className={`w-7 h-7 flex items-center justify-center rounded-md transition-all ${
+                  measureActive && measureMode === 'polygon'
+                    ? 'bg-orange-500 text-white border border-orange-400'
+                    : 'text-sentinel-300 hover:text-white hover:bg-sentinel-700'
+                }`}
+              >
+                <Hexagon size={13} />
+              </button>
+            </div>
           </div>
 
           {/* Layer groups */}
