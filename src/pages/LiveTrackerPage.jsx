@@ -67,6 +67,38 @@ const WEATHER_LAYER_PRESET = {
   evacZones: false,
 };
 
+const THREE_DAYS_MS = 3 * 24 * 60 * 60 * 1000;
+
+/**
+ * Returns true if a fire is 100% contained AND has not been updated in 3+ days.
+ * These fires should be removed from the map entirely.
+ */
+function isStaleContained(contained, updatedTimestamp) {
+  if (Number(contained) < 100) return false;
+  if (!updatedTimestamp) return false;
+  return Date.now() - new Date(updatedTimestamp).getTime() >= THREE_DAYS_MS;
+}
+
+/**
+ * Remove fully-contained fires that haven't been updated in 3+ days from a GeoJSON collection.
+ */
+function filterStaleContainedGeoJSON(geoJSON, containedKey, updatedKey) {
+  if (!geoJSON?.features) return geoJSON;
+  return {
+    ...geoJSON,
+    features: geoJSON.features.filter(
+      f => !isStaleContained(f.properties[containedKey], f.properties[updatedKey])
+    ),
+  };
+}
+
+/**
+ * Remove fully-contained fires that haven't been updated in 3+ days from an incidents array.
+ */
+function filterStaleContainedIncidents(incidents) {
+  return incidents.filter(inc => !isStaleContained(inc.contained, inc.updated));
+}
+
 /**
  * Filter a GeoJSON FeatureCollection to only include fires less than 95% contained.
  * Used in "Active Fires" mode across all data sources.
@@ -260,22 +292,48 @@ export default function LiveTrackerPage() {
       });
   }, [enrichedCaPerimetersGeoJSON, incidents, firisPerimeterCentroidMap]);
 
+  // ── Remove stale fully-contained fires (100% contained, no update in 3+ days) ──
+  const freshIncidents = useMemo(
+    () => filterStaleContainedIncidents(incidents),
+    [incidents]
+  );
+
+  const freshIncidentsGeoJSON = useMemo(
+    () => filterStaleContainedGeoJSON(incidentsGeoJSON, 'contained', 'updated'),
+    [incidentsGeoJSON]
+  );
+
+  const freshPerimetersGeoJSON = useMemo(
+    () => filterStaleContainedGeoJSON(perimetersGeoJSON, 'PercentContained', 'ModifiedOnDateTime'),
+    [perimetersGeoJSON]
+  );
+
+  const freshCaPerimetersGeoJSON = useMemo(
+    () => filterStaleContainedGeoJSON(enrichedCaPerimetersGeoJSON, 'PercentContained', 'ModifiedOnDateTime'),
+    [enrichedCaPerimetersGeoJSON]
+  );
+
+  const freshIncidentDotsGeoJSON = useMemo(
+    () => filterStaleContainedGeoJSON(incidentDotsGeoJSON, 'PercentContained', 'ModifiedOnDateTime'),
+    [incidentDotsGeoJSON]
+  );
+
   // ── Apply feed filter to map fire layers ──
   const isFocused = feedFilter === 'focused';
 
   const filteredIncidentsGeoJSON = useMemo(() => {
-    if (!isFocused) return incidentsGeoJSON;
-    return filterActiveFiresGeoJSON(incidentsGeoJSON, { containedKey: 'contained' });
-  }, [isFocused, incidentsGeoJSON]);
+    if (!isFocused) return freshIncidentsGeoJSON;
+    return filterActiveFiresGeoJSON(freshIncidentsGeoJSON, { containedKey: 'contained' });
+  }, [isFocused, freshIncidentsGeoJSON]);
 
   const filteredPerimetersGeoJSON = useMemo(() => {
     const basePerimeters = isFocused
-      ? filterActiveFiresGeoJSON(perimetersGeoJSON, { containedKey: 'PercentContained' })
-      : perimetersGeoJSON;
+      ? filterActiveFiresGeoJSON(freshPerimetersGeoJSON, { containedKey: 'PercentContained' })
+      : freshPerimetersGeoJSON;
 
     const baseCaPerimeters = isFocused
-      ? filterActiveFiresGeoJSON(enrichedCaPerimetersGeoJSON, { containedKey: 'PercentContained' })
-      : enrichedCaPerimetersGeoJSON;
+      ? filterActiveFiresGeoJSON(freshCaPerimetersGeoJSON, { containedKey: 'PercentContained' })
+      : freshCaPerimetersGeoJSON;
 
     if (!baseCaPerimeters?.features?.length) return basePerimeters;
     return {
@@ -285,12 +343,12 @@ export default function LiveTrackerPage() {
         ...baseCaPerimeters.features,
       ],
     };
-  }, [isFocused, perimetersGeoJSON, enrichedCaPerimetersGeoJSON]);
+  }, [isFocused, freshPerimetersGeoJSON, freshCaPerimetersGeoJSON]);
 
   const filteredIncidentDotsGeoJSON = useMemo(() => {
-    if (!isFocused) return incidentDotsGeoJSON;
-    return filterActiveFiresGeoJSON(incidentDotsGeoJSON, { containedKey: 'PercentContained' });
-  }, [isFocused, incidentDotsGeoJSON]);
+    if (!isFocused) return freshIncidentDotsGeoJSON;
+    return filterActiveFiresGeoJSON(freshIncidentDotsGeoJSON, { containedKey: 'PercentContained' });
+  }, [isFocused, freshIncidentDotsGeoJSON]);
 
   // Fires with perimeter overlays already render a centered perimeter centroid
   // indicator. Build a set of those names so we can hide off-center IRWIN dots.
@@ -307,8 +365,8 @@ export default function LiveTrackerPage() {
   // ── Combine IRWIN incidents with FIRIS-only fires for sidebar ──
   // FIRIS-only fires have no IRWIN record; add them so they appear in the feed.
   const allIncidents = useMemo(
-    () => [...incidents, ...firisOnlyIncidents],
-    [incidents, firisOnlyIncidents]
+    () => [...freshIncidents, ...filterStaleContainedIncidents(firisOnlyIncidents)],
+    [freshIncidents, firisOnlyIncidents]
   );
 
   // ── Reporter incidents replace matching external data incidents ──

@@ -9,14 +9,20 @@ import { Source, Layer } from 'react-map-gl';
 
 const EMPTY_GEOJSON = { type: 'FeatureCollection', features: [] };
 
-// Circle color: red (active) -> yellow (partial containment) -> green (controlled)
+const IS_FULLY_CONTAINED = ['>=', ['coalesce', ['get', 'contained'], 0], 100];
+
+// Grey at 100% contained; otherwise interpolate red -> orange -> yellow -> lime
 const CONTAINMENT_COLOR = [
-  'interpolate', ['linear'], ['get', 'contained'],
-  0,   '#ef4444',
-  25,  '#f97316',
-  50,  '#eab308',
-  75,  '#84cc16',
-  100, '#22c55e',
+  'case',
+  IS_FULLY_CONTAINED,
+  '#6b7280',
+  [
+    'interpolate', ['linear'], ['get', 'contained'],
+    0,  '#ef4444',
+    25, '#f97316',
+    50, '#eab308',
+    75, '#84cc16',
+  ],
 ];
 
 const DOT_RADIUS = 7;
@@ -77,7 +83,7 @@ export default function IncidentLocationsLayer({ geoJSON, visible }) {
           'text-max-width': 10,
         }}
         paint={{
-          'text-color': '#ffffff',
+          'text-color': ['case', IS_FULLY_CONTAINED, '#9ca3af', '#ffffff'],
           'text-halo-color': 'rgba(0,0,0,0.8)',
           'text-halo-width': 1.5,
         }}
