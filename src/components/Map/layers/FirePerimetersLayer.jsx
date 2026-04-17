@@ -57,6 +57,8 @@ export default function FirePerimetersLayer({ geoJSON, visible }) {
             ],
             'fill-opacity': [
               'case',
+              isContained,
+              0,
               ['boolean', ['feature-state', 'selected'], false],
               0.35,
               0.14,
@@ -114,13 +116,12 @@ export default function FirePerimetersLayer({ geoJSON, visible }) {
           id="fire-perimeter-centroids-glow"
           type="circle"
           source="fire-perimeter-centroids"
+          filter={['<', ['coalesce', ['get', 'PercentContained'], 0], 100]}
           layout={{ visibility: vis }}
           paint={{
             'circle-radius': 14,
             'circle-color': [
               'case',
-              isContained,
-              '#6b7280',
               ['==', ['get', 'Source'], 'CA_FIRIS'],
               '#dc2626',
               '#ff8c00',
@@ -133,13 +134,12 @@ export default function FirePerimetersLayer({ geoJSON, visible }) {
           id="fire-perimeter-centroids-circle"
           type="circle"
           source="fire-perimeter-centroids"
+          filter={['<', ['coalesce', ['get', 'PercentContained'], 0], 100]}
           layout={{ visibility: vis }}
           paint={{
             'circle-radius': 7,
             'circle-color': [
               'case',
-              isContained,
-              '#9ca3af',
               ['==', ['get', 'Source'], 'CA_FIRIS'],
               '#f87171',
               '#ffaa00',
