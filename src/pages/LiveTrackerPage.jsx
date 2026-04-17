@@ -117,6 +117,7 @@ function filterActiveFiresGeoJSON(geoJSON, { containedKey }) {
 export default function LiveTrackerPage() {
   const { layers, setLayer, setRefreshed, setLoading, feedFilter } = useApp();
   const [activeMapTab, setActiveMapTab] = useState(MAP_TABS.wildfire);
+  const [bannerDismissed, setBannerDismissed] = useState(false);
 
   // Apply layer presets only when the active tab changes
   useEffect(() => {
@@ -531,7 +532,7 @@ export default function LiveTrackerPage() {
       <Header onRefresh={handleRefresh} />
 
       {/* ── Active alert banner ── */}
-      <AlertBanner />
+      <AlertBanner dismissed={bannerDismissed} onDismiss={() => setBannerDismissed(true)} />
 
       {/* ── Main content area ── */}
       <div className="flex flex-1 overflow-hidden relative">
@@ -544,6 +545,7 @@ export default function LiveTrackerPage() {
           onTabChange={setActiveMapTab}
           weatherAlertsLoading={alertsLoading}
           weatherAlertsError={alertsError}
+          onReopenBanner={() => setBannerDismissed(false)}
         />
 
         {/* Map area */}
