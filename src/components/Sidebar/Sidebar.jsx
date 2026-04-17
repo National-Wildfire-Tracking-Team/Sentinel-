@@ -10,8 +10,8 @@ import IncidentFeed from './IncidentFeed';
 import WeatherAlertsFeed from './WeatherAlertsFeed';
 import AddressAlertSearch from './AddressAlertSearch';
 
-function StatPill({ icon: Icon, label, value, color = 'text-white', onClick }) {
-  const base = "flex flex-col items-center gap-0.5 px-3 py-2 bg-sentinel-800 rounded-lg border border-sentinel-700 min-w-[70px]";
+function StatPill({ icon: Icon, label, value, color = 'text-white', onClick, className = '' }) {
+  const base = `flex flex-col items-center gap-0.5 px-3 py-2 bg-sentinel-800 rounded-lg border border-sentinel-700 min-w-[70px] ${className}`;
   const inner = (
     <>
       <Icon size={14} className={color} />
@@ -167,9 +167,9 @@ export default function Sidebar({
               </>
             ) : (
               <>
-                <StatPill icon={Flame}     label="Active"       value={activeCount}  color="text-fire-400" />
-                <StatPill icon={TrendingUp} label="Acres"        value={acresDisplay} color="text-orange-400" />
-                <StatPill icon={Wind} label="Red Flags" value={rfwCount} color="text-red-400" onClick={rfwCount > 0 ? onReopenBanner : undefined} />
+                <StatPill icon={Flame}      label="Active"     value={activeCount}  color="text-fire-400"    className="flex-1" />
+                <StatPill icon={TrendingUp} label="Acres"      value={acresDisplay} color="text-orange-400"  className="flex-1" />
+                <StatPill icon={Wind}       label="Red Flags"  value={rfwCount}     color="text-red-400"     className="flex-1" onClick={rfwCount > 0 ? onReopenBanner : undefined} />
               </>
             )}
           </div>
