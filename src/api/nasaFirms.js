@@ -164,7 +164,21 @@ export async function fetchFireHotspots(
   if (!isSupabaseConfigured && !MAP_KEY) {
     console.info('[FIRMS] No API key configured – using demo data');
   }
-  return MOCK_FIRE_HOTSPOTS;
+  return withRecentAcquisition(MOCK_FIRE_HOTSPOTS);
+}
+
+/**
+ * Stamp each mock hotspot with an acq_date / acq_time in the last few hours
+ * so the client-side recency filter keeps it. Without this, the demo fallback
+ * (and any live fetch failure that falls back to it) leaves the map empty.
+ */
+function withRecentAcquisition(hotspots) {
+  const now = new Date();
+  const isoDate = now.toISOString().slice(0, 10); // YYYY-MM-DD (UTC)
+  const hh = String(now.getUTCHours()).padStart(2, '0');
+  const mm = String(now.getUTCMinutes()).padStart(2, '0');
+  const acqTime = `${hh}${mm}`;
+  return hotspots.map((h) => ({ ...h, acq_date: isoDate, acq_time: acqTime }));
 }
 
 /**
