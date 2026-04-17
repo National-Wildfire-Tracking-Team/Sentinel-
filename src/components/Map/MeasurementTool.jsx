@@ -8,7 +8,7 @@
  *   MeasurementToolbar – toolbar buttons to activate/deactivate modes
  */
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Source, Layer } from 'react-map-gl';
 import { Ruler, Hexagon, X, Trash2 } from 'lucide-react';
 
@@ -287,26 +287,32 @@ export function MeasurementPanel({ mode, points, onClear, onClose }) {
  * Rendered at bottom-right of the map container, above the NavigationControl.
  */
 export function MeasurementToolbar({ active, mode, onActivate, onClose }) {
+  const [hovered, setHovered] = useState(null);
   const baseBtn = 'w-9 h-9 flex items-center justify-center rounded-lg shadow-lg transition-all';
   const inactiveBtn = `${baseBtn} bg-sentinel-800 text-gray-300 hover:bg-sentinel-700 hover:text-white border border-sentinel-600`;
   const activeBtn = `${baseBtn} bg-orange-500 text-white ring-2 ring-orange-400/50 border border-orange-400`;
+  const tooltip = 'absolute top-full mt-1.5 left-1/2 -translate-x-1/2 whitespace-nowrap rounded px-2 py-0.5 text-[11px] font-medium bg-gray-900 text-gray-100 shadow pointer-events-none z-50';
 
   return (
     <div className="absolute bottom-32 right-3 z-40 flex flex-col gap-1.5 pointer-events-auto">
-      <button
-        onClick={() => (active && mode === 'distance') ? onClose() : onActivate('distance')}
-        title="Measure distance (click points on the map)"
-        className={active && mode === 'distance' ? activeBtn : inactiveBtn}
-      >
-        <Ruler size={16} />
-      </button>
-      <button
-        onClick={() => (active && mode === 'polygon') ? onClose() : onActivate('polygon')}
-        title="Measure area (click to draw a polygon)"
-        className={active && mode === 'polygon' ? activeBtn : inactiveBtn}
-      >
-        <Hexagon size={16} />
-      </button>
+      <div className="relative" onMouseEnter={() => setHovered('distance')} onMouseLeave={() => setHovered(null)}>
+        <button
+          onClick={() => (active && mode === 'distance') ? onClose() : onActivate('distance')}
+          className={active && mode === 'distance' ? activeBtn : inactiveBtn}
+        >
+          <Ruler size={16} />
+        </button>
+        {hovered === 'distance' && <span className={tooltip}>Distance</span>}
+      </div>
+      <div className="relative" onMouseEnter={() => setHovered('area')} onMouseLeave={() => setHovered(null)}>
+        <button
+          onClick={() => (active && mode === 'polygon') ? onClose() : onActivate('polygon')}
+          className={active && mode === 'polygon' ? activeBtn : inactiveBtn}
+        >
+          <Hexagon size={16} />
+        </button>
+        {hovered === 'area' && <span className={tooltip}>Area</span>}
+      </div>
     </div>
   );
 }

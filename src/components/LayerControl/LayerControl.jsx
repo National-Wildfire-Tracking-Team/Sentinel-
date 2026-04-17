@@ -137,28 +137,36 @@ export default function LayerControl({
               Map Layers
             </span>
             <div className="flex items-center gap-1">
-              <button
-                onClick={() => (measureActive && measureMode === 'distance') ? onMeasureClose?.() : onMeasureActivate?.('distance')}
-                title="Measure distance"
-                className={`w-7 h-7 flex items-center justify-center rounded-md transition-all ${
-                  measureActive && measureMode === 'distance'
-                    ? 'bg-orange-500 text-white border border-orange-400'
-                    : 'text-sentinel-300 hover:text-white hover:bg-sentinel-700'
-                }`}
-              >
-                <Ruler size={13} />
-              </button>
-              <button
-                onClick={() => (measureActive && measureMode === 'polygon') ? onMeasureClose?.() : onMeasureActivate?.('polygon')}
-                title="Measure area"
-                className={`w-7 h-7 flex items-center justify-center rounded-md transition-all ${
-                  measureActive && measureMode === 'polygon'
-                    ? 'bg-orange-500 text-white border border-orange-400'
-                    : 'text-sentinel-300 hover:text-white hover:bg-sentinel-700'
-                }`}
-              >
-                <Hexagon size={13} />
-              </button>
+              <div className="relative group">
+                <button
+                  onClick={() => (measureActive && measureMode === 'distance') ? onMeasureClose?.() : onMeasureActivate?.('distance')}
+                  className={`w-7 h-7 flex items-center justify-center rounded-md transition-all ${
+                    measureActive && measureMode === 'distance'
+                      ? 'bg-orange-500 text-white border border-orange-400'
+                      : 'text-sentinel-300 hover:text-white hover:bg-sentinel-700'
+                  }`}
+                >
+                  <Ruler size={13} />
+                </button>
+                <span className="absolute top-full mt-1.5 left-1/2 -translate-x-1/2 whitespace-nowrap rounded px-2 py-0.5 text-[11px] font-medium bg-gray-900 text-gray-100 shadow pointer-events-none z-50 opacity-0 group-hover:opacity-100 transition-opacity">
+                  Distance
+                </span>
+              </div>
+              <div className="relative group">
+                <button
+                  onClick={() => (measureActive && measureMode === 'polygon') ? onMeasureClose?.() : onMeasureActivate?.('polygon')}
+                  className={`w-7 h-7 flex items-center justify-center rounded-md transition-all ${
+                    measureActive && measureMode === 'polygon'
+                      ? 'bg-orange-500 text-white border border-orange-400'
+                      : 'text-sentinel-300 hover:text-white hover:bg-sentinel-700'
+                  }`}
+                >
+                  <Hexagon size={13} />
+                </button>
+                <span className="absolute top-full mt-1.5 left-1/2 -translate-x-1/2 whitespace-nowrap rounded px-2 py-0.5 text-[11px] font-medium bg-gray-900 text-gray-100 shadow pointer-events-none z-50 opacity-0 group-hover:opacity-100 transition-opacity">
+                  Area
+                </span>
+              </div>
             </div>
           </div>
 
