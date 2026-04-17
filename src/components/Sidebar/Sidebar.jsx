@@ -161,10 +161,10 @@ export default function Sidebar({
           <div className="flex justify-center gap-2 overflow-x-auto pb-1 scrollbar-none">
             {isWeatherTab ? (
               <>
-                <StatPill icon={CloudSun}    label="Active Alerts" value={alertsCount}  color="text-sky-300" />
-                <StatPill icon={ShieldAlert} label="Severe"        value={severeCount}  color="text-red-300" />
-                <StatPill icon={Wind}        label="Warnings"      value={warningCount} color="text-amber-300" />
-                <StatPill icon={Radar}       label="NEXRAD"        value="Live"         color="text-emerald-300" />
+                <StatPill icon={CloudSun}    label="Active Alerts" value={alertsCount}  color="text-sky-300"      className="flex-1" />
+                <StatPill icon={ShieldAlert} label="Severe"        value={severeCount}  color="text-red-300"      className="flex-1" />
+                <StatPill icon={Wind}        label="Warnings"      value={warningCount} color="text-amber-300"    className="flex-1" />
+                <StatPill icon={Radar}       label="NEXRAD"        value="Live"         color="text-emerald-300"  className="flex-1" />
               </>
             ) : (
               <>
