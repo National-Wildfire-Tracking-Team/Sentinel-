@@ -6,8 +6,8 @@
 
 import { Source, Layer } from 'react-map-gl';
 
-// Hide fire dots below 0.4 acres
 const MIN_ACRES_FILTER = ['>=', ['get', 'GISAcres'], 0.4];
+const IS_FULLY_CONTAINED = ['>=', ['coalesce', ['get', 'PercentContained'], 0], 100];
 
 const incidentCircleLayer = {
   id: 'fire-incidents-circle',
@@ -16,14 +16,13 @@ const incidentCircleLayer = {
   filter: MIN_ACRES_FILTER,
   paint: {
     'circle-radius': 7,
-    'circle-color': '#ffaa00',
+    'circle-color': ['case', IS_FULLY_CONTAINED, '#9ca3af', '#ffaa00'],
     'circle-opacity': 0.9,
     'circle-stroke-color': 'rgba(255,255,255,0.7)',
     'circle-stroke-width': 1.5,
   },
 };
 
-// Subtle glow ring to visually distinguish from hotspot dots
 const incidentGlowLayer = {
   id: 'fire-incidents-glow',
   type: 'circle',
@@ -31,7 +30,7 @@ const incidentGlowLayer = {
   filter: MIN_ACRES_FILTER,
   paint: {
     'circle-radius': 14,
-    'circle-color': '#ff8c00',
+    'circle-color': ['case', IS_FULLY_CONTAINED, '#6b7280', '#ff8c00'],
     'circle-opacity': 0.12,
     'circle-stroke-width': 0,
   },
