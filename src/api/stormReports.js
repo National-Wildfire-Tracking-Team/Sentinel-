@@ -48,7 +48,7 @@ function normalizeSpcRow(row, idx = 0) {
 
 function normalizeIemFeature(feature, idx = 0) {
   const p = feature?.properties || {};
-  const [lng, lat] = feature?.geometry?.coordinates || [null, null];
+  const [lng, lat] = feature?.geometry?.coordinates || [NaN, NaN];
   const typetext = String(p.typetext || p.type || '').toLowerCase();
 
   const reportType =
