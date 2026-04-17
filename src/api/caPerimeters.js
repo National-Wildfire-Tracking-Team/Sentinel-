@@ -23,7 +23,7 @@ const CA_FIRIS_BASE =
 export async function fetchCaPerimeters() {
   const params = new URLSearchParams({
     where: '1=1',
-    outFields: 'type,poly_DateCurrent,incident_name,area_acres,description,FireDiscoveryDate,CreationDate,EditDate,LocalIncidentIdentifier',
+    outFields: 'type,poly_DateCurrent,incident_name,area_acres,description,FireDiscoveryDate,CreationDate,EditDate',
     outSR: '4326',
     f: 'geojson',
   });
@@ -46,8 +46,8 @@ function normalizePerimeters(geojson) {
     ...geojson,
     features: geojson.features.map(f => {
       const p = f.properties || {};
-      const missionLabel = getCAMissionLabel(p.LocalIncidentIdentifier);
-      const fireName = p.incident_name || missionLabel || 'Unknown Fire';
+      const missionLabel = getCAMissionLabel(p.incident_name);
+      const fireName = missionLabel || p.incident_name || 'Unknown Fire';
       const discoveryDate = p.FireDiscoveryDate || p.CreationDate || null;
       return {
         ...f,
