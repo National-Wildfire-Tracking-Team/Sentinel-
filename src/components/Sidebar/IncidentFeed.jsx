@@ -19,7 +19,7 @@ export default function IncidentFeed({ incidents, loading, error }) {
   const [search, setSearch] = useState('');
   const [sort,   setSort]   = useState('acres');
 
-  const cutoffMs = Date.now() - (72 * 60 * 60 * 1000); // 72 hours
+  const cutoffMs = Date.now() - (5 * 24 * 60 * 60 * 1000); // 5 days
 
   // Filter by search term
   const filtered = incidents.filter(inc => {
