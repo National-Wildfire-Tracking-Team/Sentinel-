@@ -28,7 +28,7 @@ import UserReportsLayer   from './layers/UserReportsLayer';
 import SPCOutlookLayer from './layers/SPCOutlookLayer';
 import RadarLayer from './layers/RadarLayer';
 import EvacZonesLayer from './layers/EvacZonesLayer';
-import { MeasurementLayer, MeasurementPanel, MeasurementToolbar } from './MeasurementTool';
+import { MeasurementLayer, MeasurementPanel } from './MeasurementTool';
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN || '';
 const HAS_MAPBOX_TOKEN = Boolean(MAPBOX_TOKEN.trim());
@@ -251,6 +251,10 @@ export default function MapView({
   spcOutlooksGeoJSON,
   userReportsGeoJSON,
   evacZonesGeoJSON,
+  measureActive = false,
+  measureMode = 'distance',
+  onMeasureActivate,
+  onMeasureClose,
 }) {
   const { layers, alerts, selectFire, viewport, setViewport } = useApp();
   const mapRef = useRef(null);
@@ -261,25 +265,22 @@ export default function MapView({
   const [hoverFeature, setHoverFeature] = useState(null);
   const [hoverLngLat,  setHoverLngLat]  = useState(null);
 
-  // Measurement tool state
-  const [measureActive,  setMeasureActive]  = useState(false);
-  const [measureMode,    setMeasureMode]    = useState('distance'); // 'distance' | 'polygon'
-  const [measurePoints,  setMeasurePoints]  = useState([]);        // [{lng, lat}, ...]
-  const [measurePreview, setMeasurePreview] = useState(null);      // {lng, lat} – live cursor
+  // Measurement tool state (active/mode lifted to LiveTrackerPage; points/preview stay local)
+  const [measurePoints,  setMeasurePoints]  = useState([]);   // [{lng, lat}, ...]
+  const [measurePreview, setMeasurePreview] = useState(null); // {lng, lat} – live cursor
 
   const activateMeasure = useCallback((mode) => {
-    setMeasureMode(mode);
-    setMeasureActive(true);
+    onMeasureActivate?.(mode);
     setMeasurePoints([]);
     setMeasurePreview(null);
-  }, []);
+  }, [onMeasureActivate]);
 
   const closeMeasure = useCallback(() => {
-    setMeasureActive(false);
+    onMeasureClose?.();
     setMeasurePoints([]);
     setMeasurePreview(null);
     if (mapRef.current) mapRef.current.getCanvas().style.cursor = '';
-  }, []);
+  }, [onMeasureClose]);
 
   const clearMeasure = useCallback(() => {
     setMeasurePoints([]);
@@ -670,14 +671,6 @@ export default function MapView({
         {/* Hover tooltip */}
         <HoverTooltip feature={hoverFeature} lngLat={hoverLngLat} />
       </Map>
-
-      {/* Measurement toolbar – always visible, toggles modes */}
-      <MeasurementToolbar
-        active={measureActive}
-        mode={measureMode}
-        onActivate={activateMeasure}
-        onClose={closeMeasure}
-      />
 
       {/* Measurement results panel – visible while tool is active */}
       {measureActive && (

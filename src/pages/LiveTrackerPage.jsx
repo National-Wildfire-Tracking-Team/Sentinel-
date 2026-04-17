@@ -117,6 +117,17 @@ export default function LiveTrackerPage() {
   const { layers, setLayer, setRefreshed, setLoading, feedFilter } = useApp();
   const [activeMapTab, setActiveMapTab] = useState(MAP_TABS.wildfire);
   const [bannerDismissed, setBannerDismissed] = useState(false);
+  const [measureActive, setMeasureActive] = useState(false);
+  const [measureMode, setMeasureMode] = useState('distance');
+
+  const onMeasureActivate = useCallback((mode) => {
+    setMeasureMode(mode);
+    setMeasureActive(true);
+  }, []);
+
+  const onMeasureClose = useCallback(() => {
+    setMeasureActive(false);
+  }, []);
 
   // Apply layer presets only when the active tab changes
   useEffect(() => {
@@ -475,10 +486,18 @@ export default function LiveTrackerPage() {
             spcOutlooksGeoJSON={spcOutlooksGeoJSON}
             userReportsGeoJSON={userReportsGeoJSON}
             evacZonesGeoJSON={evacZonesGeoJSON}
+            measureActive={measureActive}
+            measureMode={measureMode}
+            onMeasureActivate={onMeasureActivate}
+            onMeasureClose={onMeasureClose}
           />
 
           <LayerControl
             activeMapTab={activeMapTab}
+            measureActive={measureActive}
+            measureMode={measureMode}
+            onMeasureActivate={onMeasureActivate}
+            onMeasureClose={onMeasureClose}
           />
 
           <Legend />
