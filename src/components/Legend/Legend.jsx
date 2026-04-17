@@ -9,6 +9,14 @@ import { Info, ChevronDown, ChevronUp } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { AQI_CATEGORIES } from '../../utils/colorUtils';
 
+const CONTAINMENT_SCALE = [
+  { color: '#ef4444', label: 'Uncontained (0%)' },
+  { color: '#f97316', label: 'Low (1–24%)' },
+  { color: '#eab308', label: 'Moderate (25–49%)' },
+  { color: '#84cc16', label: 'High (50–74%)' },
+  { color: '#22c55e', label: 'Contained (75–100%)' },
+];
+
 const FRP_SCALE = [
   { color: '#ffe066', label: 'Very Low  (<10 MW)' },
   { color: '#ffea00', label: 'Low  (10–50 MW)' },
@@ -63,7 +71,7 @@ export default function Legend() {
 
   if (!legendOpen) return null;
 
-  const anyActive = layers.fireHotspots || layers.aqi || layers.firePerimeters || layers.spcOutlooks || layers.weatherAlerts || layers.radar;
+  const anyActive = layers.fireHotspots || layers.aqi || layers.firePerimeters || layers.spcOutlooks || layers.weatherAlerts || layers.radar || layers.incidentLocations;
   if (!anyActive) return null;
 
   return (
@@ -84,6 +92,13 @@ export default function Legend() {
 
         {!collapsed && (
           <div className="p-3 space-y-3 max-h-72 overflow-y-auto">
+
+            {/* Incident Locations containment scale */}
+            {layers.incidentLocations && (
+              <Section title="Fire Containment">
+                {CONTAINMENT_SCALE.map(row => <ColorRow key={row.label} {...row} />)}
+              </Section>
+            )}
 
             {/* Fire Hotspots FRP scale */}
             {layers.fireHotspots && (

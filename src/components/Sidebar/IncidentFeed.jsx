@@ -19,9 +19,7 @@ export default function IncidentFeed({ incidents, loading, error }) {
   const [search, setSearch] = useState('');
   const [sort,   setSort]   = useState('acres');
 
-  const cutoffMs = Date.now() - (5 * 24 * 60 * 60 * 1000); // 5 days
-
-  // Filter by search term
+  // Filter by search term and feed mode
   const filtered = incidents.filter(inc => {
     const matchesSearch =
       inc.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -31,13 +29,8 @@ export default function IncidentFeed({ incidents, loading, error }) {
     if (!matchesSearch) return false;
     if (feedFilter === 'all') return true;
 
-    const lastUpdatedMs = inc.updated ? new Date(inc.updated).getTime() : 0;
-    const startedMs = inc.started ? new Date(inc.started).getTime() : 0;
-    const mostRecentMs = Math.max(lastUpdatedMs, startedMs);
-    const isOld = mostRecentMs > 0 && mostRecentMs < cutoffMs;
-    const mostlyContained = (inc.contained ?? 0) >= 95;
-
-    return !isOld && !mostlyContained;
+    // Active fires: only fires less than 95% contained
+    return (inc.contained ?? 0) < 95;
   });
 
   // Sort

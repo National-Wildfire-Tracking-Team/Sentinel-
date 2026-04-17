@@ -67,48 +67,49 @@ const WEATHER_LAYER_PRESET = {
   evacZones: false,
 };
 
+const THREE_DAYS_MS = 3 * 24 * 60 * 60 * 1000;
+
 /**
- * Filter a GeoJSON FeatureCollection, removing old (>72h) or mostly contained (>95%) fires.
- * When keepFullyContained is true, fires at exactly 100% containment are always kept
- * (they will be rendered grey to indicate controlled status).
+ * Returns true if a fire is 100% contained AND has not been updated in 3+ days.
+ * These fires should be removed from the map entirely.
  */
-function filterFireGeoJSON(geoJSON, { containedKey, updatedKey, startedKey, keepFullyContained = false }) {
+function isStaleContained(contained, updatedTimestamp) {
+  if (Number(contained) < 100) return false;
+  if (!updatedTimestamp) return false;
+  return Date.now() - new Date(updatedTimestamp).getTime() >= THREE_DAYS_MS;
+}
+
+/**
+ * Remove fully-contained fires that haven't been updated in 3+ days from a GeoJSON collection.
+ */
+function filterStaleContainedGeoJSON(geoJSON, containedKey, updatedKey) {
   if (!geoJSON?.features) return geoJSON;
-  const cutoffMs = Date.now() - (72 * 60 * 60 * 1000);
   return {
     ...geoJSON,
-    features: geoJSON.features.filter(f => {
-      const p = f.properties;
-      const contained = Number(p[containedKey]) || 0;
-      if (keepFullyContained && contained >= 100) return true;
-      if (contained > 95) return false;
-      const updatedMs = p[updatedKey] ? new Date(p[updatedKey]).getTime() : 0;
-      const startedMs = p[startedKey] ? new Date(p[startedKey]).getTime() : 0;
-      const mostRecentMs = Math.max(updatedMs, startedMs);
-      if (mostRecentMs > 0 && mostRecentMs < cutoffMs) return false;
-      return true;
-    }),
+    features: geoJSON.features.filter(
+      f => !isStaleContained(f.properties[containedKey], f.properties[updatedKey])
+    ),
   };
 }
 
 /**
- * Remove fires that are 100% contained and have not been updated in 5+ days.
- * Applied to fires without perimeters — fully contained fires with perimeters
- * are kept on the map and rendered grey instead.
+ * Remove fully-contained fires that haven't been updated in 3+ days from an incidents array.
  */
-function filterFullyContainedStale(geoJSON, { containedKey, updatedKey, startedKey }) {
+function filterStaleContainedIncidents(incidents) {
+  return incidents.filter(inc => !isStaleContained(inc.contained, inc.updated));
+}
+
+/**
+ * Filter a GeoJSON FeatureCollection to only include fires less than 95% contained.
+ * Used in "Active Fires" mode across all data sources.
+ */
+function filterActiveFiresGeoJSON(geoJSON, { containedKey }) {
   if (!geoJSON?.features) return geoJSON;
-  const cutoff5d = Date.now() - (5 * 24 * 60 * 60 * 1000);
   return {
     ...geoJSON,
     features: geoJSON.features.filter(f => {
-      const p = f.properties;
-      const contained = Number(p[containedKey]) || 0;
-      if (contained < 100) return true;
-      const updatedMs = p[updatedKey] ? new Date(p[updatedKey]).getTime() : 0;
-      const startedMs = p[startedKey] ? new Date(p[startedKey]).getTime() : 0;
-      const mostRecentMs = Math.max(updatedMs, startedMs);
-      return mostRecentMs > 0 && mostRecentMs >= cutoff5d;
+      const contained = Number(f.properties[containedKey]) || 0;
+      return contained < 95;
     }),
   };
 }
@@ -116,6 +117,7 @@ function filterFullyContainedStale(geoJSON, { containedKey, updatedKey, startedK
 export default function LiveTrackerPage() {
   const { layers, setLayer, setRefreshed, setLoading, feedFilter } = useApp();
   const [activeMapTab, setActiveMapTab] = useState(MAP_TABS.wildfire);
+  const [bannerDismissed, setBannerDismissed] = useState(false);
 
   // Apply layer presets only when the active tab changes
   useEffect(() => {
@@ -253,49 +255,96 @@ export default function LiveTrackerPage() {
     };
   }, [caPerimetersGeoJSON, incidents]);
 
+  // ── FIRIS-only incidents for sidebar ──
+  // Fires that have a CA FIRIS perimeter but no matching IRWIN incident
+  // are invisible in the sidebar. Build incident objects from their perimeter
+  // data so they appear in the feed.
+  const firisOnlyIncidents = useMemo(() => {
+    if (!enrichedCaPerimetersGeoJSON?.features?.length) return [];
+    const irwinKeys = new Set(incidents.map(i => getFireMatchKey(i.name)).filter(Boolean));
+    return enrichedCaPerimetersGeoJSON.features
+      .filter(f => {
+        const key = getFireMatchKey(f.properties.IncidentName);
+        return key && !irwinKeys.has(key);
+      })
+      .map(f => {
+        const p = f.properties;
+        const contained = Number(p.PercentContained) || 0;
+        const centroid = firisPerimeterCentroidMap.get(getFireMatchKey(p.IncidentName));
+        return {
+          id: p.UniqueFireIdentifier || `firis-${p.IncidentName}`,
+          name: p.IncidentName,
+          state: p.POOState || 'CA',
+          county: p.POOCounty || '',
+          lat: centroid ? centroid[1] : 0,
+          lng: centroid ? centroid[0] : 0,
+          acres: Math.round(p.GISAcres) || 0,
+          contained,
+          started: p.FireDiscoveryDateTime || null,
+          updated: p.ModifiedOnDateTime || null,
+          cause: p.FireCause || 'Under Investigation',
+          status: contained >= 100 ? 'controlled' : 'active',
+          personnel: p.TotalIncidentPersonnel || 0,
+          structures_destroyed: p.StructuresDestroyed || 0,
+          structures_damaged: p.StructuresDamaged || 0,
+          structures_threatened: 0,
+          source: 'CA_FIRIS',
+        };
+      });
+  }, [enrichedCaPerimetersGeoJSON, incidents, firisPerimeterCentroidMap]);
+
+  // ── Remove stale fully-contained fires (100% contained, no update in 3+ days) ──
+  const freshIncidents = useMemo(
+    () => filterStaleContainedIncidents(incidents),
+    [incidents]
+  );
+
+  const freshIncidentsGeoJSON = useMemo(
+    () => filterStaleContainedGeoJSON(incidentsGeoJSON, 'contained', 'updated'),
+    [incidentsGeoJSON]
+  );
+
+  const freshPerimetersGeoJSON = useMemo(
+    () => filterStaleContainedGeoJSON(perimetersGeoJSON, 'PercentContained', 'ModifiedOnDateTime'),
+    [perimetersGeoJSON]
+  );
+
+  const freshCaPerimetersGeoJSON = useMemo(
+    () => filterStaleContainedGeoJSON(enrichedCaPerimetersGeoJSON, 'PercentContained', 'ModifiedOnDateTime'),
+    [enrichedCaPerimetersGeoJSON]
+  );
+
+  const freshIncidentDotsGeoJSON = useMemo(
+    () => filterStaleContainedGeoJSON(incidentDotsGeoJSON, 'PercentContained', 'ModifiedOnDateTime'),
+    [incidentDotsGeoJSON]
+  );
+
   // ── Apply feed filter to map fire layers ──
   const isFocused = feedFilter === 'focused';
 
   const filteredIncidentsGeoJSON = useMemo(() => {
-    const focused = isFocused
-      ? filterFireGeoJSON(incidentsGeoJSON, {
-          containedKey: 'contained',
-          updatedKey: 'updated',
-          startedKey: 'started',
-        })
-      : incidentsGeoJSON;
-    // Always remove 100% contained fires without perimeters that haven't been
-    // updated in 5+ days — they are no longer relevant to track.
-    return filterFullyContainedStale(focused, {
-      containedKey: 'contained',
-      updatedKey: 'updated',
-      startedKey: 'started',
-    });
-  }, [isFocused, incidentsGeoJSON]);
+    if (!isFocused) return freshIncidentsGeoJSON;
+    return filterActiveFiresGeoJSON(freshIncidentsGeoJSON, { containedKey: 'contained' });
+  }, [isFocused, freshIncidentsGeoJSON]);
 
   const filteredPerimetersGeoJSON = useMemo(() => {
-    // Keep 100% contained perimeters in focused mode — they render grey on
-    // the map to show the fire footprint of a controlled incident.
-    const base = isFocused
-      ? filterFireGeoJSON(perimetersGeoJSON, {
-          containedKey: 'PercentContained',
-          updatedKey: 'ModifiedOnDateTime',
-          startedKey: 'FireDiscoveryDateTime',
-          keepFullyContained: true,
-        })
-      : perimetersGeoJSON;
+    const basePerimeters = isFocused
+      ? filterActiveFiresGeoJSON(freshPerimetersGeoJSON, { containedKey: 'PercentContained' })
+      : freshPerimetersGeoJSON;
 
-    // Merge enriched CA FIRIS perimeters into the national NIFC dataset so they
-    // share the same layer toggle and render together as a single source.
-    if (!enrichedCaPerimetersGeoJSON?.features?.length) return base;
+    const baseCaPerimeters = isFocused
+      ? filterActiveFiresGeoJSON(freshCaPerimetersGeoJSON, { containedKey: 'PercentContained' })
+      : freshCaPerimetersGeoJSON;
+
+    if (!baseCaPerimeters?.features?.length) return basePerimeters;
     return {
       type: 'FeatureCollection',
       features: [
-        ...(base?.features || []),
-        ...enrichedCaPerimetersGeoJSON.features,
+        ...(basePerimeters?.features || []),
+        ...baseCaPerimeters.features,
       ],
     };
-  }, [isFocused, perimetersGeoJSON, enrichedCaPerimetersGeoJSON]);
+  }, [isFocused, freshPerimetersGeoJSON, freshCaPerimetersGeoJSON]);
 
   // ── Perimeter-only incidents for sidebar ──
   // Some fires have perimeter polygons (NIFC/WFIGS or CA FIRIS) but no matching
@@ -336,20 +385,9 @@ export default function LiveTrackerPage() {
   }, [filteredPerimetersGeoJSON, incidents, firisPerimeterCentroidMap]);
 
   const filteredIncidentDotsGeoJSON = useMemo(() => {
-    const focused = isFocused
-      ? filterFireGeoJSON(incidentDotsGeoJSON, {
-          containedKey: 'PercentContained',
-          updatedKey: 'ModifiedOnDateTime',
-          startedKey: 'FireDiscoveryDateTime',
-        })
-      : incidentDotsGeoJSON;
-    // Always remove 100% contained dot markers (no perimeter) stale for 5+ days.
-    return filterFullyContainedStale(focused, {
-      containedKey: 'PercentContained',
-      updatedKey: 'ModifiedOnDateTime',
-      startedKey: 'FireDiscoveryDateTime',
-    });
-  }, [isFocused, incidentDotsGeoJSON]);
+    if (!isFocused) return freshIncidentDotsGeoJSON;
+    return filterActiveFiresGeoJSON(freshIncidentDotsGeoJSON, { containedKey: 'PercentContained' });
+  }, [isFocused, freshIncidentDotsGeoJSON]);
 
   // Fires with perimeter overlays already render a centered perimeter centroid
   // indicator. Build a set of those names so we can hide off-center IRWIN dots.
@@ -532,7 +570,7 @@ export default function LiveTrackerPage() {
       <Header onRefresh={handleRefresh} />
 
       {/* ── Active alert banner ── */}
-      <AlertBanner />
+      <AlertBanner dismissed={bannerDismissed} onDismiss={() => setBannerDismissed(true)} />
 
       {/* ── Main content area ── */}
       <div className="flex flex-1 overflow-hidden relative">
@@ -545,6 +583,7 @@ export default function LiveTrackerPage() {
           onTabChange={setActiveMapTab}
           weatherAlertsLoading={alertsLoading}
           weatherAlertsError={alertsError}
+          onReopenBanner={() => setBannerDismissed(false)}
         />
 
         {/* Map area */}

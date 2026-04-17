@@ -4,20 +4,29 @@
  */
 
 import { Link } from 'react-router-dom';
-import { Flame, TrendingUp, Wind, ChevronLeft, CloudSun, ShieldAlert, Radar, ArrowLeft } from 'lucide-react';
+import { Flame, TrendingUp, Wind, ChevronLeft, CloudSun, ShieldAlert, ArrowLeft } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import IncidentFeed from './IncidentFeed';
 import WeatherAlertsFeed from './WeatherAlertsFeed';
 import AddressAlertSearch from './AddressAlertSearch';
 
-function StatPill({ icon: Icon, label, value, color = 'text-white' }) {
-  return (
-    <div className="flex flex-col items-center gap-0.5 px-3 py-2 bg-sentinel-800 rounded-lg border border-sentinel-700 min-w-[70px]">
+function StatPill({ icon: Icon, label, value, color = 'text-white', onClick, className = '' }) {
+  const base = `flex flex-col items-center gap-0.5 px-3 py-2 bg-sentinel-800 rounded-lg border border-sentinel-700 min-w-[70px] ${className}`;
+  const inner = (
+    <>
       <Icon size={14} className={color} />
       <span className={`text-base font-bold ${color}`}>{value}</span>
       <span className="text-sentinel-300 text-[10px] text-center leading-tight">{label}</span>
-    </div>
+    </>
   );
+  if (onClick) {
+    return (
+      <button onClick={onClick} className={`${base} hover:bg-sentinel-700 transition-colors cursor-pointer`}>
+        {inner}
+      </button>
+    );
+  }
+  return <div className={base}>{inner}</div>;
 }
 
 export default function Sidebar({
@@ -28,6 +37,7 @@ export default function Sidebar({
   onTabChange,
   weatherAlertsLoading = false,
   weatherAlertsError = null,
+  onReopenBanner,
 }) {
   const { sidebarOpen, toggleSidebar, alerts } = useApp();
   const isWeatherTab = activeMapTab === 'weather';
@@ -148,19 +158,18 @@ export default function Sidebar({
 
         {/* Summary stats strip */}
         <div className="px-3 py-2 border-b border-sentinel-700 shrink-0">
-          <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
+          <div className="flex justify-center gap-2 overflow-x-auto pb-1 scrollbar-none">
             {isWeatherTab ? (
               <>
                 <StatPill icon={CloudSun}    label="Active Alerts" value={alertsCount}  color="text-sky-300" />
                 <StatPill icon={ShieldAlert} label="Severe"        value={severeCount}  color="text-red-300" />
                 <StatPill icon={Wind}        label="Warnings"      value={warningCount} color="text-amber-300" />
-                <StatPill icon={Radar}       label="NEXRAD"        value="Live"         color="text-emerald-300" />
               </>
             ) : (
               <>
-                <StatPill icon={Flame}     label="Active"       value={activeCount}  color="text-fire-400" />
-                <StatPill icon={TrendingUp} label="Acres"        value={acresDisplay} color="text-orange-400" />
-                <StatPill icon={Wind}      label="Red Flags"    value={rfwCount}     color="text-red-400" />
+                <StatPill icon={Flame}      label="Active"     value={activeCount}  color="text-fire-400"    className="flex-1" />
+                <StatPill icon={TrendingUp} label="Acres"      value={acresDisplay} color="text-orange-400"  className="flex-1" />
+                <StatPill icon={Wind}       label="Red Flags"  value={rfwCount}     color="text-red-400"     className="flex-1" onClick={rfwCount > 0 ? onReopenBanner : undefined} />
               </>
             )}
           </div>
