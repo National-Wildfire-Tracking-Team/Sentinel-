@@ -10,6 +10,7 @@
  */
 
 import { fetchWithCache } from '../utils/dataCache';
+import { getCAMissionLabel } from '../utils/formatUtils';
 
 const CA_FIRIS_BASE =
   'https://services1.arcgis.com/jUJYIo9tSA7EHvfZ/arcgis/rest/services' +
@@ -22,7 +23,7 @@ const CA_FIRIS_BASE =
 export async function fetchCaPerimeters() {
   const params = new URLSearchParams({
     where: '1=1',
-    outFields: 'type,poly_DateCurrent,incident_name,area_acres,description,FireDiscoveryDate,CreationDate,EditDate',
+    outFields: 'type,poly_DateCurrent,incident_name,area_acres,description,FireDiscoveryDate,CreationDate,EditDate,LocalIncidentIdentifier',
     outSR: '4326',
     f: 'geojson',
   });
@@ -45,7 +46,8 @@ function normalizePerimeters(geojson) {
     ...geojson,
     features: geojson.features.map(f => {
       const p = f.properties || {};
-      const fireName = p.incident_name || 'Unknown Fire';
+      const missionLabel = getCAMissionLabel(p.LocalIncidentIdentifier);
+      const fireName = p.incident_name || missionLabel || 'Unknown Fire';
       const discoveryDate = p.FireDiscoveryDate || p.CreationDate || null;
       return {
         ...f,
@@ -54,6 +56,7 @@ function normalizePerimeters(geojson) {
             ? `CA-FIRIS-${fireName}-${discoveryDate || ''}`.replace(/\s+/g, '-')
             : null,
           IncidentName:           fireName,
+          DisplayLabel:           missionLabel || null,
           GISAcres:               p.area_acres || 0,
           PercentContained:       0,
           FireDiscoveryDateTime:  discoveryDate,
