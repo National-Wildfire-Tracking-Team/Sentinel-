@@ -23,24 +23,20 @@ const NIFC_BASE =
  * @param {number} [opts.minAcres=100]  Filter perimeters below this size
  * @returns {Promise<object>}  GeoJSON FeatureCollection
  */
-export async function fetchFirePerimeters({ minAcres = 100 } = {}) {
+export async function fetchFirePerimeters({ minAcres = 0 } = {}) {
+  const whereClause = minAcres > 0
+    ? `poly_GISAcres>=${minAcres}`
+    : '1=1';
+
   const params = new URLSearchParams({
-    where: `attr_IncidentTypeCategory='WF' AND poly_GISAcres>=${minAcres}`,
-    outFields: [
-      'poly_IncidentName', 'poly_GISAcres', 'poly_DateCurrent',
-      'attr_IncidentName', 'attr_IncidentTypeCategory',
-      'attr_PercentContained', 'attr_FireDiscoveryDateTime',
-      'attr_ModifiedOnDateTime_dt', 'attr_POOState', 'attr_POOCounty',
-      'attr_IncidentManagementOrg', 'attr_TotalIncidentPersonnel',
-      'attr_UniqueFireIdentifier', 'attr_FireCause',
-    ].join(','),
-    f: 'geojson',
+    where: whereClause,
+    outFields: '*',
     outSR: '4326',
-    resultRecordCount: 500,
+    f: 'geojson',
   });
 
   const url = `${NIFC_BASE}?${params}`;
-  const cacheKey = `nifc:perimeters:${minAcres}`;
+  const cacheKey = `nifc:perimeters:all:${minAcres}`;
 
   try {
     const data = await fetchWithCache(url, cacheKey, {}, 10 * 60 * 1000);

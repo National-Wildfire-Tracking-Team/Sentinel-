@@ -133,23 +133,16 @@ function HotspotDetail({ fire }) {
 
 function PerimeterDetail({ fire }) {
   const containColor = containmentToColor(fire.contained || 0);
-  const isFiris = fire.source === 'CA_FIRIS';
 
   return (
     <>
       <div className="flex items-center gap-2 mb-4">
         <div className="p-2 bg-red-900/40 rounded-lg">
-          <ShieldAlert size={18} className={isFiris ? 'text-red-400' : 'text-orange-400'} />
+          <ShieldAlert size={18} className="text-orange-400" />
         </div>
         <div>
           <h3 className="font-bold text-white text-base">{fire.name}</h3>
           <p className="text-sentinel-400 text-xs">{fire.county} Co. · {fire.state?.replace('US-', '')}</p>
-          {isFiris && (
-            <span className="inline-block mt-0.5 text-[10px] font-bold uppercase tracking-wider
-                             px-1.5 py-0.5 rounded bg-red-900/40 text-red-400">
-              CA FIRIS
-            </span>
-          )}
         </div>
       </div>
 
