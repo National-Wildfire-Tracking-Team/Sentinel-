@@ -37,7 +37,7 @@ export default function IncidentCard({ incident, isSelected }) {
               className={incident.status === 'active' ? 'text-fire-400 animate-pulse-fire' : 'text-sentinel-400'}
             />
           </div>
-          <span className="font-semibold text-white text-sm truncate">{incident.name}</span>
+          <span className="font-semibold text-white text-sm truncate">{incident.displayLabel || incident.name}</span>
         </div>
 
         {/* Status badge */}

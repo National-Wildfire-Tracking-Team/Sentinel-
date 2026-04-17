@@ -10,6 +10,7 @@
  */
 
 import { fetchWithCache } from '../utils/dataCache';
+import { getCAMissionLabel } from '../utils/formatUtils';
 
 const CA_FIRIS_BASE =
   'https://services1.arcgis.com/jUJYIo9tSA7EHvfZ/arcgis/rest/services' +
@@ -30,10 +31,15 @@ export async function fetchCaPerimeters() {
   const url = `${CA_FIRIS_BASE}?${params}`;
   const cacheKey = 'ca-firis:perimeters';
 
-  const data = await fetchWithCache(url, cacheKey, {}, 10 * 60 * 1000);
-  if (data?.error) throw new Error(data.error.message || 'ArcGIS error');
-  if (data?.features) return normalizePerimeters(data);
-  throw new Error('Unexpected response format');
+  try {
+    const data = await fetchWithCache(url, cacheKey, {}, 10 * 60 * 1000);
+    if (data?.error) throw new Error(data.error.message || 'ArcGIS error');
+    if (data?.features) return normalizePerimeters(data);
+    throw new Error('Unexpected response format');
+  } catch (err) {
+    console.warn('[CAPerimeters] Failed to fetch CA FIRIS perimeters:', err.message);
+    return { type: 'FeatureCollection', features: [] };
+  }
 }
 
 /**
@@ -45,7 +51,8 @@ function normalizePerimeters(geojson) {
     ...geojson,
     features: geojson.features.map(f => {
       const p = f.properties || {};
-      const fireName = p.incident_name || 'Unknown Fire';
+      const missionLabel = getCAMissionLabel(p.incident_name);
+      const fireName = missionLabel || p.incident_name || 'Unknown Fire';
       const discoveryDate = p.FireDiscoveryDate || p.CreationDate || null;
       return {
         ...f,
@@ -54,6 +61,7 @@ function normalizePerimeters(geojson) {
             ? `CA-FIRIS-${fireName}-${discoveryDate || ''}`.replace(/\s+/g, '-')
             : null,
           IncidentName:           fireName,
+          DisplayLabel:           missionLabel || null,
           GISAcres:               p.area_acres || 0,
           PercentContained:       0,
           FireDiscoveryDateTime:  discoveryDate,
