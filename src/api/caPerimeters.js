@@ -30,10 +30,15 @@ export async function fetchCaPerimeters() {
   const url = `${CA_FIRIS_BASE}?${params}`;
   const cacheKey = 'ca-firis:perimeters';
 
-  const data = await fetchWithCache(url, cacheKey, {}, 10 * 60 * 1000);
-  if (data?.error) throw new Error(data.error.message || 'ArcGIS error');
-  if (data?.features) return normalizePerimeters(data);
-  throw new Error('Unexpected response format');
+  try {
+    const data = await fetchWithCache(url, cacheKey, {}, 10 * 60 * 1000);
+    if (data?.error) throw new Error(data.error.message || 'ArcGIS error');
+    if (data?.features) return normalizePerimeters(data);
+    throw new Error('Unexpected response format');
+  } catch (err) {
+    console.warn('[CAPerimeters] Failed to fetch CA FIRIS perimeters:', err.message);
+    return { type: 'FeatureCollection', features: [] };
+  }
 }
 
 /**

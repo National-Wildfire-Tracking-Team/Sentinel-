@@ -61,23 +61,26 @@ export async function fetchFirePerimeters({ minAcres = 100 } = {}) {
 function normalizePerimeters(geojson) {
   return {
     ...geojson,
-    features: geojson.features.map(f => ({
-      ...f,
-      properties: {
-        UniqueFireIdentifier:      f.properties.attr_UniqueFireIdentifier || '',
-        IncidentName:              f.properties.attr_IncidentName || f.properties.poly_IncidentName || 'Unknown Fire',
-        GISAcres:                  f.properties.poly_GISAcres || 0,
-        PercentContained:          f.properties.attr_PercentContained ?? 0,
-        FireDiscoveryDateTime:     f.properties.attr_FireDiscoveryDateTime,
-        ModifiedOnDateTime:        f.properties.attr_ModifiedOnDateTime_dt,
-        POOState:                  f.properties.attr_POOState || '',
-        POOCounty:                 f.properties.attr_POOCounty || '',
-        IncidentManagementOrganization: f.properties.attr_IncidentManagementOrg || '',
-        TotalIncidentPersonnel:    f.properties.attr_TotalIncidentPersonnel || 0,
-        IncidentTypeCategory:      f.properties.attr_IncidentTypeCategory || 'WF',
-        FireCause:                 f.properties.attr_FireCause || '',
-        DisplayLabel:              getCAMissionLabel(f.properties.attr_LocalIncidentIdentifier),
-      },
-    })),
+    features: geojson.features.map(f => {
+      const p = f.properties || {};
+      return {
+        ...f,
+        properties: {
+          UniqueFireIdentifier:      p.attr_UniqueFireIdentifier || '',
+          IncidentName:              p.attr_IncidentName || p.poly_IncidentName || 'Unknown Fire',
+          GISAcres:                  p.poly_GISAcres || 0,
+          PercentContained:          p.attr_PercentContained ?? 0,
+          FireDiscoveryDateTime:     p.attr_FireDiscoveryDateTime,
+          ModifiedOnDateTime:        p.attr_ModifiedOnDateTime_dt,
+          POOState:                  p.attr_POOState || '',
+          POOCounty:                 p.attr_POOCounty || '',
+          IncidentManagementOrganization: p.attr_IncidentManagementOrg || '',
+          TotalIncidentPersonnel:    p.attr_TotalIncidentPersonnel || 0,
+          IncidentTypeCategory:      p.attr_IncidentTypeCategory || 'WF',
+          FireCause:                 p.attr_FireCause || '',
+          DisplayLabel:              getCAMissionLabel(p.attr_LocalIncidentIdentifier),
+        },
+      };
+    }),
   };
 }
