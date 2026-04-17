@@ -23,7 +23,7 @@ const REFRESH_MS = parseInt(import.meta.env.VITE_REFRESH_INTERVAL || '300000', 1
 export function getFireMatchKey(name) {
   if (!name) return null;
   const upper = name.toUpperCase().trim();
-  if (upper === 'UNKNOWN' || upper === 'UNNAMED' || upper === '') return null;
+  if (upper === 'UNKNOWN' || upper === 'UNKNOWN FIRE' || upper === 'UNNAMED' || upper === '') return null;
 
   let key = upper;
   if (key.includes('/')) {
@@ -41,6 +41,30 @@ export function getFireMatchKey(name) {
   return key.length > 0 ? key : null;
 }
 
+/** Ray-casting point-in-ring check (2D, works for lng/lat). */
+function pointInRing(point, ring) {
+  const [px, py] = point;
+  let inside = false;
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const [xi, yi] = ring[i];
+    const [xj, yj] = ring[j];
+    if ((yi > py) !== (yj > py) && px < ((xj - xi) * (py - yi)) / (yj - yi) + xi) {
+      inside = !inside;
+    }
+  }
+  return inside;
+}
+
+/** Returns true if [lng, lat] falls inside a GeoJSON Polygon or MultiPolygon. */
+function pointInGeometry(point, geometry) {
+  if (!geometry) return false;
+  if (geometry.type === 'Polygon') return pointInRing(point, geometry.coordinates[0]);
+  if (geometry.type === 'MultiPolygon') {
+    return geometry.coordinates.some(poly => pointInRing(point, poly[0]));
+  }
+  return false;
+}
+
 /**
  * Merge perimeter GeoJSON with incident GeoJSON.
  * Returns enriched perimeters and a dot GeoJSON for unmatched incidents.
@@ -55,6 +79,7 @@ function mergeFireData(perimeters, incidents) {
 
   const usedKeys = new Set();
 
+  // Pass 1: name-based matching
   const enrichedFeatures = perimeters.features.map(f => {
     const key = getFireMatchKey(f.properties.IncidentName);
     if (key && incidentsByKey.has(key)) {
@@ -64,17 +89,44 @@ function mergeFireData(perimeters, incidents) {
         ...f,
         properties: {
           ...f.properties,
-          // Fill in missing cause from incident record
           FireCause: f.properties.FireCause || inc.FireCause || 'Undetermined',
-          // Take the larger acreage between perimeter GIS calc and incident report
           GISAcres: Math.max(f.properties.GISAcres || 0, inc.GISAcres || 0),
-          // Fill in personnel if perimeter record lacks it
           TotalIncidentPersonnel:
             f.properties.TotalIncidentPersonnel || inc.TotalIncidentPersonnel || 0,
         },
       };
     }
     return f;
+  });
+
+  // Pass 2: proximity fallback — nameless perimeters adopt the name of any
+  // unmatched incident dot whose point falls inside the perimeter polygon.
+  const finalFeatures = enrichedFeatures.map(f => {
+    if (getFireMatchKey(f.properties.IncidentName) !== null) return f;
+
+    const match = incidents.features.find(dot => {
+      const dotKey = getFireMatchKey(dot.properties.IncidentName);
+      if (!dotKey || usedKeys.has(dotKey)) return false;
+      const coords = dot.geometry?.coordinates;
+      return Array.isArray(coords) && pointInGeometry([coords[0], coords[1]], f.geometry);
+    });
+
+    if (!match) return f;
+
+    const matchKey = getFireMatchKey(match.properties.IncidentName);
+    usedKeys.add(matchKey);
+    const inc = match.properties;
+    return {
+      ...f,
+      properties: {
+        ...f.properties,
+        IncidentName: inc.IncidentName,
+        FireCause: f.properties.FireCause || inc.FireCause || 'Undetermined',
+        GISAcres: Math.max(f.properties.GISAcres || 0, inc.GISAcres || 0),
+        TotalIncidentPersonnel:
+          f.properties.TotalIncidentPersonnel || inc.TotalIncidentPersonnel || 0,
+      },
+    };
   });
 
   // Dot markers: incidents that have no matching perimeter
@@ -84,7 +136,7 @@ function mergeFireData(perimeters, incidents) {
   });
 
   return {
-    perimeters: { ...perimeters, features: enrichedFeatures },
+    perimeters: { ...perimeters, features: finalFeatures },
     dots: { type: 'FeatureCollection', features: dotFeatures },
   };
 }
