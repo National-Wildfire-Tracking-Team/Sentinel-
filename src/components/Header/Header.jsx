@@ -39,7 +39,12 @@ export default function Header({ onRefresh }) {
 
       {/* Right – Status indicators */}
       <div className="flex items-center gap-2 sm:gap-3">
-{/* Last updated */}
+        {/* Donation widget */}
+        <div className="hidden sm:block">
+          <givebutter-widget id="g6WWrD"></givebutter-widget>
+        </div>
+
+        {/* Last updated */}
         {lastRefreshed && (
           <span className="hidden md:inline text-xs text-sentinel-400">
             Updated {formatRelativeTime(lastRefreshed)}
