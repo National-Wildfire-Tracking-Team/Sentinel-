@@ -51,10 +51,8 @@ export default function FirePerimetersLayer({ geoJSON, visible }) {
             'fill-opacity': [
               'case',
               isContained,
-              0,
-              ['boolean', ['feature-state', 'selected'], false],
-              0.35,
-              0.14,
+              ['case', ['boolean', ['feature-state', 'selected'], false], 0.3, 0.15],
+              ['case', ['boolean', ['feature-state', 'selected'], false], 0.35, 0.14],
             ],
           }}
         />

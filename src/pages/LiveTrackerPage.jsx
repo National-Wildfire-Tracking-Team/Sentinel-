@@ -146,7 +146,7 @@ export default function LiveTrackerPage() {
     perimetersCount,
     dotsCount,
     refresh: refreshPerimeters,
-  } = useMergedFireData(100);
+  } = useMergedFireData(5);
 
   const {
     geoJSON: aqiGeoJSON,
