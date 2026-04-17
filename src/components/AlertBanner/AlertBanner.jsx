@@ -9,9 +9,8 @@ import { AlertTriangle, X, ChevronRight } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { alertTypeToColor } from '../../utils/colorUtils';
 
-export default function AlertBanner() {
+export default function AlertBanner({ dismissed, onDismiss }) {
   const { alerts, selectFire } = useApp();
-  const [dismissed, setDismissed] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
 
   // Only show Red Flag Warnings in the banner
@@ -59,7 +58,7 @@ export default function AlertBanner() {
 
       {/* Dismiss */}
       <button
-        onClick={() => setDismissed(true)}
+        onClick={onDismiss}
         className="shrink-0 p-0.5 text-red-500 hover:text-red-200 transition-colors"
         aria-label="Dismiss alert banner"
       >
