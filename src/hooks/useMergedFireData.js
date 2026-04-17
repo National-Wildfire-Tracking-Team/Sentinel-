@@ -37,6 +37,7 @@ export function getFireMatchKey(name) {
     .replace(/\bFIRE\b/g, '')
     .replace(/\s+/g, '');
 
+  if (key === 'UNKNOWN' || key === 'UNNAMED') return null;
   return key.length > 0 ? key : null;
 }
 
