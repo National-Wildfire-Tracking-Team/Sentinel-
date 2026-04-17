@@ -95,7 +95,7 @@ export default function FirePerimetersLayer({ geoJSON, visible }) {
           minzoom={7}
           layout={{
             visibility: vis,
-            'text-field': ['get', 'IncidentName'],
+            'text-field': ['coalesce', ['get', 'DisplayLabel'], ['get', 'IncidentName']],
             'text-font': ['DIN Pro Medium', 'Arial Unicode MS Bold'],
             'text-size': 12,
             'text-anchor': 'top',

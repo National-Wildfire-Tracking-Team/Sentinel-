@@ -141,6 +141,23 @@ export function formatHumidity(pct) {
 }
 
 /**
+ * Derive a short display label from a NIFC LocalIncidentIdentifier.
+ * "CA-RRU-SPRINGS-N50X" → "RRU-SPRINGS"
+ * Returns null for non-CA identifiers or missing input.
+ * @param {string} localId
+ * @returns {string|null}
+ */
+export function getCAMissionLabel(localId) {
+  if (!localId) return null;
+  const upper = localId.toUpperCase().trim();
+  if (!upper.startsWith('CA-')) return null;
+  let label = upper.slice(3); // remove "CA-"
+  const lastDash = label.lastIndexOf('-');
+  if (lastDash > 0) label = label.slice(0, lastDash);
+  return label || null;
+}
+
+/**
  * Format containment percentage
  * @param {number} pct
  * @returns {string}

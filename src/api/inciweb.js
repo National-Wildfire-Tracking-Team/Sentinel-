@@ -13,6 +13,7 @@
 
 import { fetchWithCache } from '../utils/dataCache';
 import { MOCK_INCIDENTS } from '../data/mockData';
+import { getCAMissionLabel } from '../utils/formatUtils';
 
 const IRWIN_BASE =
   'https://services3.arcgis.com/T4QMspbfLg3qTGWY/ArcGIS/rest/services' +
@@ -39,7 +40,7 @@ export async function fetchIncidents({ minAcres = 10 } = {}) {
       'UniqueFireIdentifier', 'IncidentName', 'POOState', 'POOCounty',
       'IncidentSize', 'PercentContained', 'FireDiscoveryDateTime',
       'ModifiedOnDateTime_dt', 'FireCause', 'TotalIncidentPersonnel',
-      'IncidentManagementOrganization',
+      'IncidentManagementOrganization', 'LocalIncidentIdentifier',
     ].join(','),
     orderByFields: 'IncidentSize DESC',
     f: 'json',
@@ -79,6 +80,7 @@ export async function fetchIncidentLocationsGeoJSON({ minAcres = 10 } = {}) {
       'UniqueFireIdentifier', 'IncidentName', 'POOState', 'POOCounty',
       'IncidentSize', 'PercentContained', 'FireDiscoveryDateTime',
       'ModifiedOnDateTime_dt', 'FireCause', 'TotalIncidentPersonnel',
+      'LocalIncidentIdentifier',
     ].join(','),
     orderByFields: 'IncidentSize DESC',
     f: 'geojson',
@@ -118,6 +120,7 @@ function normalizeIncidentGeoJSON(geojson) {
           POOCounty:             f.properties.POOCounty || '',
           TotalIncidentPersonnel: f.properties.TotalIncidentPersonnel || 0,
           FireCause:             f.properties.FireCause || 'Under Investigation',
+          DisplayLabel:          getCAMissionLabel(f.properties.LocalIncidentIdentifier),
         },
       })),
   };
@@ -146,6 +149,7 @@ function normalizeIncidents(features) {
                        ? new Date(p.ModifiedOnDateTime_dt).toISOString()
                        : null,
       cause:         p.FireCause || 'Under Investigation',
+      displayLabel:  getCAMissionLabel(p.LocalIncidentIdentifier),
       status:        contained >= 100 ? 'controlled' : 'active',
       personnel:     p.TotalIncidentPersonnel || 0,
       structures_destroyed: p.StructuresDestroyed || 0,
@@ -176,9 +180,10 @@ export function incidentsToGeoJSON(incidents) {
         type: 'Feature',
         geometry: { type: 'Point', coordinates: [inc.lng, inc.lat] },
         properties: {
-          id:        inc.id,
-          name:      inc.name,
-          state:     inc.state,
+          id:           inc.id,
+          name:         inc.name,
+          displayLabel: inc.displayLabel || null,
+          state:        inc.state,
           county:    inc.county,
           acres:     inc.acres,
           contained: inc.contained,
