@@ -43,32 +43,37 @@ export async function fetchCaPerimeters() {
 function normalizePerimeters(geojson) {
   return {
     ...geojson,
-    features: geojson.features.map(f => {
-      const p = f.properties || {};
-      const fireName = p.FIRE_NAME || p.IncidentName || p.INCIDENT_NAME || 'Unknown Fire';
-      const fireYear = p.FIRE_YEAR || p.FIRE_YEAR_1 || '';
-      return {
-        ...f,
-        properties: {
-          UniqueFireIdentifier: p.UniqueFireIdentifier ||
-            (fireName && fireYear ? `CA-FIRIS-${fireName}-${fireYear}` : null),
-          IncidentName:        fireName,
-          GISAcres:            p.GIS_ACRES || p.GISACRES || p.GISAcres || 0,
-          PercentContained:    p.PERCENT_CONTAINED ?? p.PercentContained ?? 0,
-          FireDiscoveryDateTime: p.ALARM_DATE || p.FireDiscoveryDateTime || null,
-          ModifiedOnDateTime:  p.CONT_DATE  || p.ModifiedOnDateTime    || null,
-          POOState:            p.STATE      || p.POOState              || 'CA',
-          POOCounty:           p.COUNTY     || p.POOCounty             || '',
-          Agency:              p.AGENCY     || p.AGENCY_1              || '',
-          FireYear:            fireYear,
-          FireCause:           p.FireCause || 'Under Investigation',
-          TotalIncidentPersonnel: p.TotalIncidentPersonnel || 0,
-          StructuresDestroyed: p.StructuresDestroyed || 0,
-          StructuresDamaged:   p.StructuresDamaged || 0,
-          IncidentManagementOrganization: p.IncidentManagementOrganization || '',
-          Source:              'CA_FIRIS',
-        },
-      };
-    }),
+    features: geojson.features
+      .filter(f => {
+        const p = f.properties || {};
+        return p.FIRE_NAME || p.IncidentName || p.INCIDENT_NAME;
+      })
+      .map(f => {
+        const p = f.properties || {};
+        const fireName = p.FIRE_NAME || p.IncidentName || p.INCIDENT_NAME;
+        const fireYear = p.FIRE_YEAR || p.FIRE_YEAR_1 || '';
+        return {
+          ...f,
+          properties: {
+            UniqueFireIdentifier: p.UniqueFireIdentifier ||
+              (fireName && fireYear ? `CA-FIRIS-${fireName}-${fireYear}` : null),
+            IncidentName:        fireName,
+            GISAcres:            p.GIS_ACRES || p.GISACRES || p.GISAcres || 0,
+            PercentContained:    p.PERCENT_CONTAINED ?? p.PercentContained ?? 0,
+            FireDiscoveryDateTime: p.ALARM_DATE || p.FireDiscoveryDateTime || null,
+            ModifiedOnDateTime:  p.CONT_DATE  || p.ModifiedOnDateTime    || null,
+            POOState:            p.STATE      || p.POOState              || 'CA',
+            POOCounty:           p.COUNTY     || p.POOCounty             || '',
+            Agency:              p.AGENCY     || p.AGENCY_1              || '',
+            FireYear:            fireYear,
+            FireCause:           p.FireCause || 'Under Investigation',
+            TotalIncidentPersonnel: p.TotalIncidentPersonnel || 0,
+            StructuresDestroyed: p.StructuresDestroyed || 0,
+            StructuresDamaged:   p.StructuresDamaged || 0,
+            IncidentManagementOrganization: p.IncidentManagementOrganization || '',
+            Source:              'CA_FIRIS',
+          },
+        };
+      }),
   };
 }
