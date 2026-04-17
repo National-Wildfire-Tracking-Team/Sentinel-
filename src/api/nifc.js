@@ -65,7 +65,7 @@ function normalizePerimeters(geojson) {
       ...f,
       properties: {
         UniqueFireIdentifier:      f.properties.attr_UniqueFireIdentifier || '',
-        IncidentName:              f.properties.attr_IncidentName || f.properties.poly_IncidentName || 'Unknown Fire',
+        IncidentName:              f.properties.attr_IncidentName || f.properties.poly_IncidentName || getCAMissionLabel(f.properties.attr_LocalIncidentIdentifier) || 'Unknown Fire',
         GISAcres:                  f.properties.poly_GISAcres || 0,
         PercentContained:          f.properties.attr_PercentContained ?? 0,
         FireDiscoveryDateTime:     f.properties.attr_FireDiscoveryDateTime,
