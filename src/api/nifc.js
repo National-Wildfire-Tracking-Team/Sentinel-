@@ -12,7 +12,6 @@
 
 import { fetchWithCache } from '../utils/dataCache';
 import { MOCK_FIRE_PERIMETERS } from '../data/mockData';
-import { getCAMissionLabel } from '../utils/formatUtils';
 
 const NIFC_BASE =
   'https://services3.arcgis.com/T4QMspbfLg3qTGWY/arcgis/rest/services' +
@@ -34,7 +33,6 @@ export async function fetchFirePerimeters({ minAcres = 100 } = {}) {
       'attr_ModifiedOnDateTime_dt', 'attr_POOState', 'attr_POOCounty',
       'attr_IncidentManagementOrg', 'attr_TotalIncidentPersonnel',
       'attr_UniqueFireIdentifier', 'attr_FireCause',
-      'attr_LocalIncidentIdentifier',
     ].join(','),
     f: 'geojson',
     outSR: '4326',
@@ -76,7 +74,6 @@ function normalizePerimeters(geojson) {
         TotalIncidentPersonnel:    f.properties.attr_TotalIncidentPersonnel || 0,
         IncidentTypeCategory:      f.properties.attr_IncidentTypeCategory || 'WF',
         FireCause:                 f.properties.attr_FireCause || '',
-        DisplayLabel:              getCAMissionLabel(f.properties.attr_LocalIncidentIdentifier),
       },
     })),
   };
