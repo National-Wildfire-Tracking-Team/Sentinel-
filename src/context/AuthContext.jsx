@@ -35,7 +35,7 @@ export function AuthProvider({ children }) {
 
     return () => {
       active = false;
-      sub?.subscription?.unsubscribe?.();
+      sub?.unsubscribe?.();
     };
   }, []);
 

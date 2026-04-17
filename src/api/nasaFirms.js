@@ -30,8 +30,7 @@ const MAP_KEY = import.meta.env.VITE_NASA_FIRMS_API_KEY;
 function parseCSVLine(line) {
   const fields = [];
   let i = 0;
-  while (i <= line.length) {
-    if (i === line.length) { fields.push(''); break; }
+  while (i < line.length) {
     if (line[i] === '"') {
       // Quoted field – collect until closing quote (doubled quotes "" are escaped)
       let value = '';
@@ -62,6 +61,8 @@ function parseCSVLine(line) {
       i = next + 1;
     }
   }
+  // A trailing comma means the final field is an empty string
+  if (line.length > 0 && line[line.length - 1] === ',') fields.push('');
   return fields;
 }
 

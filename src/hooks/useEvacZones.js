@@ -15,20 +15,26 @@ export function useEvacZones(enabled = true) {
   const [loading, setLoading]   = useState(false);
   const [error,   setError]     = useState(null);
   const intervalRef             = useRef(null);
+  const mountedRef              = useRef(false);
 
   const load = useCallback(async () => {
     if (!enabled) return;
     setLoading(true);
     setError(null);
     const data = await fetchCAEvacZones();
+    if (!mountedRef.current) return;
     setGeoJSON(data);
     setLoading(false);
   }, [enabled]);
 
   useEffect(() => {
+    mountedRef.current = true;
     load();
     intervalRef.current = setInterval(load, REFRESH_MS);
-    return () => clearInterval(intervalRef.current);
+    return () => {
+      mountedRef.current = false;
+      clearInterval(intervalRef.current);
+    };
   }, [load]);
 
   return { geoJSON, loading, error, refresh: load };
