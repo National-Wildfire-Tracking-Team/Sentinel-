@@ -5,9 +5,9 @@
 
 import { useApp } from '../../context/AppContext';
 import { formatRelativeTime } from '../../utils/formatUtils';
-import { Flame, Menu, RefreshCw, Wifi, WifiOff } from 'lucide-react';
+import { Flame, Menu, RefreshCw } from 'lucide-react';
 
-export default function Header({ onRefresh, isOnline = true }) {
+export default function Header({ onRefresh }) {
   const { toggleSidebar, lastRefreshed, isLoading } = useApp();
 
   return (
@@ -39,13 +39,7 @@ export default function Header({ onRefresh, isOnline = true }) {
 
       {/* Right – Status indicators */}
       <div className="flex items-center gap-2 sm:gap-3">
-        {/* Online / offline indicator */}
-        <div className={`hidden sm:flex items-center gap-1.5 text-xs font-medium ${isOnline ? 'text-green-400' : 'text-red-400'}`}>
-          {isOnline ? <Wifi size={13} /> : <WifiOff size={13} />}
-          <span className="hidden md:inline">{isOnline ? 'Live' : 'Offline'}</span>
-        </div>
-
-        {/* Last updated */}
+{/* Last updated */}
         {lastRefreshed && (
           <span className="hidden md:inline text-xs text-sentinel-400">
             Updated {formatRelativeTime(lastRefreshed)}
