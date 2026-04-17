@@ -12,7 +12,6 @@
 
 import { fetchWithCache } from '../utils/dataCache';
 import { MOCK_FIRE_PERIMETERS } from '../data/mockData';
-import { getCAMissionLabel } from '../utils/formatUtils';
 
 const NIFC_BASE =
   'https://services3.arcgis.com/T4QMspbfLg3qTGWY/arcgis/rest/services' +
@@ -34,7 +33,6 @@ export async function fetchFirePerimeters({ minAcres = 100 } = {}) {
       'attr_ModifiedOnDateTime_dt', 'attr_POOState', 'attr_POOCounty',
       'attr_IncidentManagementOrg', 'attr_TotalIncidentPersonnel',
       'attr_UniqueFireIdentifier', 'attr_FireCause',
-      'attr_LocalIncidentIdentifier',
     ].join(','),
     f: 'geojson',
     outSR: '4326',
@@ -61,32 +59,22 @@ export async function fetchFirePerimeters({ minAcres = 100 } = {}) {
 function normalizePerimeters(geojson) {
   return {
     ...geojson,
-    features: geojson.features.map(f => {
-      // Find the first available name that exists and isn't the literal string 'Unknown'
-      const validName = [
-        f.properties.attr_IncidentName,
-        f.properties.poly_IncidentName,
-        getCAMissionLabel(f.properties.attr_LocalIncidentIdentifier)
-      ].find(name => name && name.trim().toLowerCase() !== 'unknown');
-
-      return {
-        ...f,
-        properties: {
-          UniqueFireIdentifier:      f.properties.attr_UniqueFireIdentifier || '',
-          IncidentName:              validName || 'Unknown Fire',
-          GISAcres:                  f.properties.poly_GISAcres || 0,
-          PercentContained:          f.properties.attr_PercentContained ?? 0,
-          FireDiscoveryDateTime:     f.properties.attr_FireDiscoveryDateTime,
-          ModifiedOnDateTime:        f.properties.attr_ModifiedOnDateTime_dt,
-          POOState:                  f.properties.attr_POOState || '',
-          POOCounty:                 f.properties.attr_POOCounty || '',
-          IncidentManagementOrganization: f.properties.attr_IncidentManagementOrg || '',
-          TotalIncidentPersonnel:    f.properties.attr_TotalIncidentPersonnel || 0,
-          IncidentTypeCategory:      f.properties.attr_IncidentTypeCategory || 'WF',
-          FireCause:                 f.properties.attr_FireCause || '',
-          DisplayLabel:              getCAMissionLabel(f.properties.attr_LocalIncidentIdentifier),
-        }
-      };
-    }),
+    features: geojson.features.map(f => ({
+      ...f,
+      properties: {
+        UniqueFireIdentifier:      f.properties.attr_UniqueFireIdentifier || '',
+        IncidentName:              f.properties.attr_IncidentName || f.properties.poly_IncidentName || 'Unknown Fire',
+        GISAcres:                  f.properties.poly_GISAcres || 0,
+        PercentContained:          f.properties.attr_PercentContained ?? 0,
+        FireDiscoveryDateTime:     f.properties.attr_FireDiscoveryDateTime,
+        ModifiedOnDateTime:        f.properties.attr_ModifiedOnDateTime_dt,
+        POOState:                  f.properties.attr_POOState || '',
+        POOCounty:                 f.properties.attr_POOCounty || '',
+        IncidentManagementOrganization: f.properties.attr_IncidentManagementOrg || '',
+        TotalIncidentPersonnel:    f.properties.attr_TotalIncidentPersonnel || 0,
+        IncidentTypeCategory:      f.properties.attr_IncidentTypeCategory || 'WF',
+        FireCause:                 f.properties.attr_FireCause || '',
+      },
+    })),
   };
 }

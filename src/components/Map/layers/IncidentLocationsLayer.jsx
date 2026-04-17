@@ -75,7 +75,7 @@ export default function IncidentLocationsLayer({ geoJSON, visible }) {
         minzoom={7}
         layout={{
           visibility: vis,
-          'text-field': ['coalesce', ['get', 'displayLabel'], ['get', 'name']],
+          'text-field': ['get', 'name'],
           'text-font': ['DIN Pro Medium', 'Arial Unicode MS Bold'],
           'text-size': 11,
           'text-anchor': 'top',
