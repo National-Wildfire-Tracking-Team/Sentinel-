@@ -346,6 +346,44 @@ export default function LiveTrackerPage() {
     };
   }, [isFocused, freshPerimetersGeoJSON, freshCaPerimetersGeoJSON]);
 
+  // ── Perimeter-only incidents for sidebar ──
+  // Some fires have perimeter polygons (NIFC/WFIGS or CA FIRIS) but no matching
+  // IRWIN incident point. Build incident objects from those perimeters so they
+  // still appear in the sidebar feed.
+  const perimeterOnlyIncidents = useMemo(() => {
+    if (!filteredPerimetersGeoJSON?.features?.length) return [];
+    const irwinKeys = new Set(incidents.map(i => getFireMatchKey(i.name)).filter(Boolean));
+    return filteredPerimetersGeoJSON.features
+      .filter(f => {
+        const key = getFireMatchKey(f.properties.IncidentName);
+        return key && !irwinKeys.has(key);
+      })
+      .map(f => {
+        const p = f.properties;
+        const contained = Number(p.PercentContained) || 0;
+        const centroid = polygonCentroid(f.geometry) || firisPerimeterCentroidMap.get(getFireMatchKey(p.IncidentName));
+        return {
+          id: p.UniqueFireIdentifier || `perimeter-${p.IncidentName}`,
+          name: p.IncidentName,
+          state: p.POOState || '',
+          county: p.POOCounty || '',
+          lat: centroid ? centroid[1] : 0,
+          lng: centroid ? centroid[0] : 0,
+          acres: Math.round(p.GISAcres) || 0,
+          contained,
+          started: p.FireDiscoveryDateTime || null,
+          updated: p.ModifiedOnDateTime || null,
+          cause: p.FireCause || 'Under Investigation',
+          status: contained >= 100 ? 'controlled' : 'active',
+          personnel: p.TotalIncidentPersonnel || 0,
+          structures_destroyed: p.StructuresDestroyed || 0,
+          structures_damaged: p.StructuresDamaged || 0,
+          structures_threatened: 0,
+          source: p.Source || 'NIFC_WFIGS',
+        };
+      });
+  }, [filteredPerimetersGeoJSON, incidents, firisPerimeterCentroidMap]);
+
   const filteredIncidentDotsGeoJSON = useMemo(() => {
     if (!isFocused) return freshIncidentDotsGeoJSON;
     return filterActiveFiresGeoJSON(freshIncidentDotsGeoJSON, { containedKey: 'PercentContained' });
@@ -363,11 +401,11 @@ export default function LiveTrackerPage() {
     return keys;
   }, [filteredPerimetersGeoJSON]);
 
-  // ── Combine IRWIN incidents with FIRIS-only fires for sidebar ──
-  // FIRIS-only fires have no IRWIN record; add them so they appear in the feed.
+  // ── Combine IRWIN incidents with perimeter-only fires for sidebar ──
+  // Perimeter-only fires have no IRWIN record; add them so they appear in the feed.
   const allIncidents = useMemo(
-    () => [...freshIncidents, ...filterStaleContainedIncidents(firisOnlyIncidents)],
-    [freshIncidents, firisOnlyIncidents]
+    () => [...incidents, ...perimeterOnlyIncidents],
+    [incidents, perimeterOnlyIncidents]
   );
 
   // ── Reporter incidents replace matching external data incidents ──
