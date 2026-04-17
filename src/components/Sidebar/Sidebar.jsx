@@ -4,7 +4,7 @@
  */
 
 import { Link } from 'react-router-dom';
-import { Flame, TrendingUp, Wind, ChevronLeft, CloudSun, ShieldAlert, Radar, ArrowLeft } from 'lucide-react';
+import { Flame, TrendingUp, Wind, ChevronLeft, CloudSun, ShieldAlert, ArrowLeft } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import IncidentFeed from './IncidentFeed';
 import WeatherAlertsFeed from './WeatherAlertsFeed';
@@ -164,7 +164,6 @@ export default function Sidebar({
                 <StatPill icon={CloudSun}    label="Active Alerts" value={alertsCount}  color="text-sky-300" />
                 <StatPill icon={ShieldAlert} label="Severe"        value={severeCount}  color="text-red-300" />
                 <StatPill icon={Wind}        label="Warnings"      value={warningCount} color="text-amber-300" />
-                <StatPill icon={Radar}       label="NEXRAD"        value="Live"         color="text-emerald-300" />
               </>
             ) : (
               <>
