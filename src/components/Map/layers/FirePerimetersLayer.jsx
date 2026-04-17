@@ -96,7 +96,8 @@ export default function FirePerimetersLayer({ geoJSON, visible }) {
             'text-field': ['get', 'IncidentName'],
             'text-font': ['DIN Pro Medium', 'Arial Unicode MS Bold'],
             'text-size': 12,
-            'text-anchor': 'center',
+            'text-anchor': 'top',
+            'text-offset': [0, 1.2],
             'text-max-width': 10,
           }}
           paint={{
