@@ -22,7 +22,7 @@ const CA_FIRIS_BASE =
 export async function fetchCaPerimeters() {
   const params = new URLSearchParams({
     where: '1=1',
-    outFields: '*',
+    outFields: 'type,poly_DateCurrent,incident_name,area_acres,description,FireDiscoveryDate,CreationDate,EditDate',
     outSR: '4326',
     f: 'geojson',
   });
@@ -38,35 +38,37 @@ export async function fetchCaPerimeters() {
 
 /**
  * Normalise CA FIRIS field names to the flat schema the map layers expect.
- * FIRIS uses mixed-case field names – fall back across common variants.
+ * Fields as of the current NIFC FIRIS public view service schema.
  */
 function normalizePerimeters(geojson) {
   return {
     ...geojson,
     features: geojson.features.map(f => {
       const p = f.properties || {};
-      const fireName = p.FIRE_NAME || p.IncidentName || p.INCIDENT_NAME || 'Unknown Fire';
-      const fireYear = p.FIRE_YEAR || p.FIRE_YEAR_1 || '';
+      const fireName = p.incident_name || 'Unknown Fire';
+      const discoveryDate = p.FireDiscoveryDate || p.CreationDate || null;
       return {
         ...f,
         properties: {
-          UniqueFireIdentifier: p.UniqueFireIdentifier ||
-            (fireName && fireYear ? `CA-FIRIS-${fireName}-${fireYear}` : null),
-          IncidentName:        fireName,
-          GISAcres:            p.GIS_ACRES || p.GISACRES || p.GISAcres || 0,
-          PercentContained:    p.PERCENT_CONTAINED ?? p.PercentContained ?? 0,
-          FireDiscoveryDateTime: p.ALARM_DATE || p.FireDiscoveryDateTime || null,
-          ModifiedOnDateTime:  p.CONT_DATE  || p.ModifiedOnDateTime    || null,
-          POOState:            p.STATE      || p.POOState              || 'CA',
-          POOCounty:           p.COUNTY     || p.POOCounty             || '',
-          Agency:              p.AGENCY     || p.AGENCY_1              || '',
-          FireYear:            fireYear,
-          FireCause:           p.FireCause || 'Under Investigation',
-          TotalIncidentPersonnel: p.TotalIncidentPersonnel || 0,
-          StructuresDestroyed: p.StructuresDestroyed || 0,
-          StructuresDamaged:   p.StructuresDamaged || 0,
-          IncidentManagementOrganization: p.IncidentManagementOrganization || '',
-          Source:              'CA_FIRIS',
+          UniqueFireIdentifier: fireName
+            ? `CA-FIRIS-${fireName}-${discoveryDate || ''}`.replace(/\s+/g, '-')
+            : null,
+          IncidentName:           fireName,
+          GISAcres:               p.area_acres || 0,
+          PercentContained:       0,
+          FireDiscoveryDateTime:  discoveryDate,
+          ModifiedOnDateTime:     p.poly_DateCurrent || p.EditDate || null,
+          POOState:               'CA',
+          POOCounty:              '',
+          Agency:                 '',
+          FireCause:              'Under Investigation',
+          FireType:               p.type || '',
+          Description:            p.description || '',
+          TotalIncidentPersonnel: 0,
+          StructuresDestroyed:    0,
+          StructuresDamaged:      0,
+          IncidentManagementOrganization: '',
+          Source:                 'CA_FIRIS',
         },
       };
     }),
