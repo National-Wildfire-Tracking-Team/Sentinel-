@@ -5,7 +5,7 @@
  *
  * Service: WFIGS_Interagency_Perimeters_YearToDate
  * https://services3.arcgis.com/T4QMspbfLg3qTGWY/arcgis/rest/services/
- *   WFIGS_Interagency_Perimeters_YearToDate/FeatureServer/0/query
+ * WFIGS_Interagency_Perimeters_YearToDate/FeatureServer/0/query
  *
  * No API key required – public government data service.
  */

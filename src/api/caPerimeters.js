@@ -4,7 +4,7 @@
  *
  * Service: CA_Perimeters_NIFC_FIRIS_public_view
  * https://services1.arcgis.com/jUJYIo9tSA7EHvfZ/arcgis/rest/services/
- *   CA_Perimeters_NIFC_FIRIS_public_view/FeatureServer/0/query
+ * CA_Perimeters_NIFC_FIRIS_public_view/FeatureServer/0/query
  *
  * No API key required – public government data service.
  */
@@ -30,10 +30,15 @@ export async function fetchCaPerimeters() {
   const url = `${CA_FIRIS_BASE}?${params}`;
   const cacheKey = 'ca-firis:perimeters';
 
-  const data = await fetchWithCache(url, cacheKey, {}, 10 * 60 * 1000);
-  if (data?.error) throw new Error(data.error.message || 'ArcGIS error');
-  if (data?.features) return normalizePerimeters(data);
-  throw new Error('Unexpected response format');
+  try {
+    const data = await fetchWithCache(url, cacheKey, {}, 10 * 60 * 1000);
+    if (data?.error) throw new Error(data.error.message || 'ArcGIS error');
+    if (data?.features) return normalizePerimeters(data);
+    throw new Error('Unexpected response format');
+  } catch (err) {
+    console.warn('[CAPerimeters] Failed to fetch CA FIRIS perimeters:', err.message);
+    return { type: 'FeatureCollection', features: [] };
+  }
 }
 
 /**
@@ -45,8 +50,15 @@ function normalizePerimeters(geojson) {
     ...geojson,
     features: geojson.features.map(f => {
       const p = f.properties || {};
-      const fireName = p.incident_name || 'Unknown Fire';
+      
+      // Prevent literal string "Unknown" from bypassing the fallback
+      const rawName = p.incident_name;
+      const fireName = (rawName && rawName.trim().toLowerCase() !== 'unknown') 
+        ? rawName 
+        : 'Unknown Fire';
+
       const discoveryDate = p.FireDiscoveryDate || p.CreationDate || null;
+      
       return {
         ...f,
         properties: {
