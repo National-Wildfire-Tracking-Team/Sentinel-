@@ -4,13 +4,12 @@
  *
  * Service: CA_Perimeters_NIFC_FIRIS_public_view
  * https://services1.arcgis.com/jUJYIo9tSA7EHvfZ/arcgis/rest/services/
- *   CA_Perimeters_NIFC_FIRIS_public_view/FeatureServer/0/query
+ * CA_Perimeters_NIFC_FIRIS_public_view/FeatureServer/0/query
  *
  * No API key required – public government data service.
  */
 
 import { fetchWithCache } from '../utils/dataCache';
-import { getCAMissionLabel } from '../utils/formatUtils';
 
 const CA_FIRIS_BASE =
   'https://services1.arcgis.com/jUJYIo9tSA7EHvfZ/arcgis/rest/services' +
@@ -51,9 +50,15 @@ function normalizePerimeters(geojson) {
     ...geojson,
     features: geojson.features.map(f => {
       const p = f.properties || {};
-      const missionLabel = getCAMissionLabel(p.incident_name);
-      const fireName = missionLabel || p.incident_name || 'Unknown Fire';
+      
+      // Prevent literal string "Unknown" from bypassing the fallback
+      const rawName = p.incident_name;
+      const fireName = (rawName && rawName.trim().toLowerCase() !== 'unknown') 
+        ? rawName 
+        : 'Unknown Fire';
+
       const discoveryDate = p.FireDiscoveryDate || p.CreationDate || null;
+      
       return {
         ...f,
         properties: {
@@ -61,7 +66,6 @@ function normalizePerimeters(geojson) {
             ? `CA-FIRIS-${fireName}-${discoveryDate || ''}`.replace(/\s+/g, '-')
             : null,
           IncidentName:           fireName,
-          DisplayLabel:           missionLabel || null,
           GISAcres:               p.area_acres || 0,
           PercentContained:       0,
           FireDiscoveryDateTime:  discoveryDate,
