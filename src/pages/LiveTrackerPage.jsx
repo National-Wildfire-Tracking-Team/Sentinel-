@@ -274,6 +274,7 @@ export default function LiveTrackerPage() {
         return {
           id: p.UniqueFireIdentifier || `firis-${p.IncidentName}`,
           name: p.IncidentName,
+          displayLabel: p.DisplayLabel || null,
           state: p.POOState || 'CA',
           county: p.POOCounty || '',
           lat: centroid ? centroid[1] : 0,
@@ -365,6 +366,7 @@ export default function LiveTrackerPage() {
         return {
           id: p.UniqueFireIdentifier || `perimeter-${p.IncidentName}`,
           name: p.IncidentName,
+          displayLabel: p.DisplayLabel || null,
           state: p.POOState || '',
           county: p.POOCounty || '',
           lat: centroid ? centroid[1] : 0,
