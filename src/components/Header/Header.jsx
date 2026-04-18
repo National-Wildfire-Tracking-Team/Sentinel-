@@ -28,8 +28,9 @@ export default function Header({ onRefresh }) {
             {/* pulsing dot for active status */}
             <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-fire-500 rounded-full animate-pulse" />
           </div>
-          <span className="font-bold text-white text-lg tracking-tight leading-none">
-            Sentinel<sup className="ml-0.5 text-[0.6em] font-bold tracking-wider align-super text-fire-400">BETA</sup>
+          <span className="inline-flex items-center font-bold text-white text-lg tracking-tight">
+            Sentinel
+            <span className="self-start ml-0.5 mt-0.5 text-[0.45em] font-bold tracking-wider text-fire-400">BETA</span>
           </span>
           <span className="hidden sm:inline text-sentinel-400 text-sm font-light">
             All Hazard Intelligence
