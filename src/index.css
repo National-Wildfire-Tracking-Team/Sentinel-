@@ -12,17 +12,38 @@
 
 /* Navigation control dark theme */
 .mapboxgl-ctrl-group {
-  @apply bg-sentinel-800/95 border border-sentinel-700 rounded-xl overflow-hidden shadow-xl;
+  @apply bg-sentinel-800 border border-sentinel-600 rounded-xl overflow-hidden;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.6) !important;
 }
 
 .mapboxgl-ctrl-group button {
-  @apply text-sentinel-100 hover:bg-sentinel-700 hover:text-white transition-colors;
+  @apply hover:bg-sentinel-700 transition-colors;
   width: 36px;
   height: 36px;
 }
 
 .mapboxgl-ctrl-group button + button {
-  @apply border-t border-sentinel-700;
+  @apply border-t border-sentinel-600;
+}
+
+/* Zoom +/− icons are dark SVGs — invert to show on dark background */
+.mapboxgl-ctrl-zoom-in .mapboxgl-ctrl-icon,
+.mapboxgl-ctrl-zoom-out .mapboxgl-ctrl-icon {
+  filter: invert(0.8);
+}
+
+.mapboxgl-ctrl-group button:hover .mapboxgl-ctrl-zoom-in .mapboxgl-ctrl-icon,
+.mapboxgl-ctrl-group button:hover .mapboxgl-ctrl-zoom-out .mapboxgl-ctrl-icon {
+  filter: invert(1);
+}
+
+/* Compass north needle — fire-600 orange to match site accent */
+.mapboxgl-ctrl-compass-arrow path:first-child {
+  fill: #ff5a00 !important;
+}
+
+.mapboxgl-ctrl-compass-arrow path:last-child {
+  fill: #3d4a58 !important;
 }
 
 /* Scale control */
