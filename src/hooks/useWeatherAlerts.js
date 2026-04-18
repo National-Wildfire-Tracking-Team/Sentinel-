@@ -3,6 +3,7 @@
  * Unified nationwide alert system:
  * - NOAA/NWS (primary, full coverage)
  * - FEMA IPAWS (supplement)
+ * - OpenWeatherMap One Call API (supplement)
  * - Deduplication + merging
  * - GeoJSON output for mapping
  */
@@ -10,6 +11,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useApp } from "../context/AppContext";
 import xml2js from "xml2js";
+import { fetchOpenWeatherAlerts } from "../api/openWeatherAlerts";
 
 const REFRESH_MS = 60 * 1000;
 
@@ -104,23 +106,22 @@ function fingerprint(alert) {
   return `${event}|${area}|${time}`;
 }
 
-function mergeAlerts(nws, fema) {
-  const seenIds = new Set(nws.map(a => a.id));
+function mergeAlerts(nws, fema, openWeather) {
+  const seenIds  = new Set(nws.map(a => a.id));
   const seenKeys = new Set(nws.map(fingerprint));
 
-  const filteredFema = fema.filter(a => {
-    if (a.id && seenIds.has(a.id)) return false;
+  function addUnique(candidates) {
+    return candidates.filter(a => {
+      if (a.id && seenIds.has(a.id)) return false;
+      const key = fingerprint(a);
+      if (seenKeys.has(key)) return false;
+      seenIds.add(a.id);
+      seenKeys.add(key);
+      return true;
+    });
+  }
 
-    const key = fingerprint(a);
-    if (seenKeys.has(key)) return false;
-
-    seenIds.add(a.id);
-    seenKeys.add(key);
-
-    return true;
-  });
-
-  return [...nws, ...filteredFema];
+  return [...nws, ...addUnique(fema), ...addUnique(openWeather)];
 }
 
 /* =========================
@@ -162,14 +163,15 @@ export function useWeatherAlerts() {
     try {
       setError(null);
 
-      const [nws, fema] = await Promise.all([
+      const [nws, fema, openWeather] = await Promise.all([
         fetchAllNWSAlerts(),
-        fetchFemaAlerts()
+        fetchFemaAlerts(),
+        fetchOpenWeatherAlerts(),
       ]);
 
       if (!mountedRef.current) return;
 
-      const merged = mergeAlerts(nws, fema);
+      const merged = mergeAlerts(nws, fema, openWeather);
 
       setAlertsState(merged);
       setAlerts(merged);
