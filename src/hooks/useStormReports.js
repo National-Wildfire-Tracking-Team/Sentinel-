@@ -3,7 +3,7 @@
  * Pulls storm reports from both SPC (live feed) and IEM (geojson map reports).
  */
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   fetchSpcStormReports,
   fetchIemStormReports,
@@ -15,47 +15,58 @@ const REFRESH_MS = 2 * 60 * 1000;
 export function useStormReports(enabled = false) {
   const [spcReports, setSpcReports] = useState([]);
   const [iemReports, setIemReports] = useState([]);
-  const [spcGeoJSON, setSpcGeoJSON] = useState(null);
-  const [iemGeoJSON, setIemGeoJSON] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  
   const intervalRef = useRef(null);
-  const mountedRef = useRef(true);
 
-  const load = useCallback(async () => {
+  // Memoize the GeoJSON conversion so it only runs when the underlying data changes
+  const spcGeoJSON = useMemo(() => stormReportsToGeoJSON(spcReports), [spcReports]);
+  const iemGeoJSON = useMemo(() => stormReportsToGeoJSON(iemReports), [iemReports]);
+
+  const load = useCallback(async (abortSignal) => {
     if (!enabled) return;
+    
     try {
       setLoading(true);
       setError(null);
 
+      // Pass the abortSignal to your API functions if they support it
       const [spc, iem] = await Promise.all([
-        fetchSpcStormReports(),
-        fetchIemStormReports(),
+        fetchSpcStormReports({ signal: abortSignal }),
+        fetchIemStormReports({ signal: abortSignal }),
       ]);
-
-      if (!mountedRef.current) return;
 
       setSpcReports(spc);
       setIemReports(iem);
-      setSpcGeoJSON(stormReportsToGeoJSON(spc));
-      setIemGeoJSON(stormReportsToGeoJSON(iem));
     } catch (err) {
-      if (!mountedRef.current) return;
+      // Ignore AbortErrors as they are intentional
+      if (err.name === 'AbortError') return;
       setError(err.message || 'Could not load storm reports');
     } finally {
-      if (mountedRef.current) setLoading(false);
+      setLoading(false);
     }
   }, [enabled]);
 
   useEffect(() => {
-    mountedRef.current = true;
-    load();
+    const controller = new AbortController();
 
-    if (enabled) intervalRef.current = setInterval(load, REFRESH_MS);
+    // Initial load
+    load(controller.signal);
 
+    // Set up the interval if enabled
+    if (enabled) {
+      intervalRef.current = setInterval(() => {
+        load(controller.signal);
+      }, REFRESH_MS);
+    }
+
+    // Cleanup function runs on unmount OR when dependencies (enabled/load) change
     return () => {
-      mountedRef.current = false;
-      clearInterval(intervalRef.current);
+      controller.abort(); // Cancels any in-flight fetch requests
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+      }
     };
   }, [load, enabled]);
 
@@ -66,6 +77,6 @@ export function useStormReports(enabled = false) {
     iemGeoJSON,
     loading,
     error,
-    refresh: load,
+    refresh: () => load(), // Wrapper so manual calls don't require an abort signal
   };
 }
