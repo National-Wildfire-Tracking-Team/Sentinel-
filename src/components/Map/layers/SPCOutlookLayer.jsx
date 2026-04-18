@@ -10,9 +10,9 @@ const EMPTY_GEOJSON = { type: 'FeatureCollection', features: [] };
 const SPC_RISK_COLOR = [
   'match', ['get', 'riskCategory'],
   'TSTM', '#55BB55',
-  'MRGL', '#00FF00',
-  'SLGT', '#F9F200',
-  'ENH', '#FF9900',
+  'MRGL', '#005500',
+  'SLGT', '#DDAA00',
+  'ENH', '#FF6600',
   'MDT', '#FF0000',
   'HIGH', '#FF00FF',
   '#55BB55',
@@ -48,8 +48,8 @@ export default function SPCOutlookLayer({ geoJSON, visible }) {
         source="spc-outlooks"
         layout={{ visibility: vis }}
         paint={{
-          'line-color': SPC_RISK_COLOR,
-          'line-opacity': 0.95,
+          'line-color': '#ffffff',
+          'line-opacity': 0.85,
           'line-width': [
             'interpolate', ['linear'], ['zoom'],
             3, 1,
