@@ -12,7 +12,7 @@ import {
 } from 'lucide-react';
 
 const roleOptions = [
-  'Fire Intelligence Analyst',
+  'Reporter',
   'Data Engineer',
   'Weather Analyst',
   'Communications / Social Media',
