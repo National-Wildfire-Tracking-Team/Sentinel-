@@ -30,6 +30,7 @@ import RadarLayer from './layers/RadarLayer';
 import EvacZonesLayer from './layers/EvacZonesLayer';
 import { MeasurementLayer, MeasurementPanel } from './MeasurementTool';
 import FlightLayer from './layers/FlightLayer';
+import RAWSLayer from './layers/RAWSLayer';
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN || '';
 const HAS_MAPBOX_TOKEN = Boolean(MAPBOX_TOKEN.trim());
@@ -206,6 +207,33 @@ function HoverTooltip({ feature, lngLat }) {
       );
       break;
     }
+    case 'raws-stations-circle': {
+      const rh  = p.relHumidity != null ? `${Math.round(p.relHumidity)}%` : '—';
+      const tmp = p.temp        != null ? `${Math.round(p.temp)}°F` : '—';
+      const ws  = p.windSpeed   != null ? `${Math.round(p.windSpeed)} mph` : '—';
+      const wd  = p.windDir     != null ? `${Math.round(p.windDir)}°` : '—';
+      content = (
+        <>
+          <div className="font-semibold text-orange-300">{p.stationName}</div>
+          {p.state && <div className="text-gray-400 text-xs">{p.state}</div>}
+          <div className="text-gray-300 text-xs mt-1 space-y-0.5">
+            <div>Temp: <span className="text-white font-medium">{tmp}</span>
+              {' '}· RH: <span className="text-white font-medium">{rh}</span>
+            </div>
+            <div>Wind: <span className="text-white font-medium">{ws}</span>
+              {' '}@ <span className="text-white font-medium">{wd}</span>
+            </div>
+            {p.fuelMoisture != null && (
+              <div>Fuel Moisture: <span className="text-white font-medium">{Math.round(p.fuelMoisture)}%</span></div>
+            )}
+          </div>
+          {p.elevation != null && (
+            <div className="text-gray-500 text-[10px] mt-1">Elev: {Math.round(p.elevation).toLocaleString()} ft</div>
+          )}
+        </>
+      );
+      break;
+    }
     case 'evac-zones-fill': {
       const statusColors = {
         'evacuation order':   'text-red-400',
@@ -320,6 +348,7 @@ function FlightDetailPopup({ flight, lngLat, onClose }) {
  * @param {object|null} props.userReportsGeoJSON
  * @param {object|null} props.evacZonesGeoJSON
  * @param {object|null} props.flightsGeoJSON
+ * @param {object|null} props.rawsGeoJSON
  * @param {'wildfire'|'weather'} [props.activeMapTab]
  */
 export default function MapView({
@@ -337,6 +366,7 @@ export default function MapView({
   userReportsGeoJSON,
   evacZonesGeoJSON,
   flightsGeoJSON,
+  rawsGeoJSON,
   measureActive = false,
   measureMode = 'distance',
   onMeasureActivate,
@@ -405,11 +435,13 @@ export default function MapView({
     if (isWeatherTab && layers.iemReports && iemReportsGeoJSON)          ids.push('iem-reports-circle');
     if (isWildfireTab && layers.evacZones && evacZonesGeoJSON)            ids.push('evac-zones-fill');
     if (layers.flights && flightsGeoJSON)                                 ids.push('flights-symbol');
+    if (layers.rawsStations && rawsGeoJSON)                               ids.push('raws-stations-circle');
     return ids;
   }, [measureActive, isWildfireTab, isWeatherTab, layers.fireHotspots, layers.firePerimeters, layers.incidentLocations, layers.aqi,
       layers.weatherAlerts, layers.spcOutlooks, layers.spcReports, layers.iemReports, layers.userReports, layers.evacZones, layers.flights,
+      layers.rawsStations,
       hotspotsGeoJSON, perimetersGeoJSON, incidentsGeoJSON, aqiGeoJSON, alertsGeoJSON, spcOutlooksGeoJSON,
-      spcReportsGeoJSON, iemReportsGeoJSON, userReportsGeoJSON, evacZonesGeoJSON, flightsGeoJSON]);
+      spcReportsGeoJSON, iemReportsGeoJSON, userReportsGeoJSON, evacZonesGeoJSON, flightsGeoJSON, rawsGeoJSON]);
 
   // Clear stale hover when layers change
   const prevLayersRef = useRef(layers);
@@ -748,6 +780,12 @@ export default function MapView({
         <EvacZonesLayer
           geoJSON={evacZonesGeoJSON}
           visible={isWildfireTab && layers.evacZones}
+        />
+
+        {/* RAWS weather stations – visible on both wildfire and weather tabs */}
+        <RAWSLayer
+          geoJSON={rawsGeoJSON}
+          visible={layers.rawsStations}
         />
 
         {/* Fire hotspot points – rendered last (top) */}

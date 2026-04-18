@@ -19,6 +19,7 @@ import { useSpcOutlooks } from '../hooks/useSpcOutlooks';
 import { useFireReports, reportsToGeoJSON } from '../hooks/useFireReports';
 import { useEvacZones } from '../hooks/useEvacZones';
 import { useFlightData } from '../hooks/useFlightData';
+import { useRAWSData } from '../hooks/useRAWSData';
 import { polygonCentroid } from '../utils/geoUtils';
 
 // Components
@@ -52,6 +53,7 @@ const WILDFIRE_LAYER_PRESET = {
   spcOutlooks: false,
   radar: false,
   evacZones: false,
+  rawsStations: true,
 };
 
 const WEATHER_LAYER_PRESET = {
@@ -67,6 +69,7 @@ const WEATHER_LAYER_PRESET = {
   spcOutlooks: true,
   radar: true,
   evacZones: false,
+  rawsStations: true,
 };
 
 const THREE_DAYS_MS = 3 * 24 * 60 * 60 * 1000;
@@ -224,6 +227,12 @@ export default function LiveTrackerPage() {
     error: flightsError,
     refresh: refreshFlights,
   } = useFlightData(US_BOUNDS, layers.flights);
+
+  // RAWS weather stations (NIFC ArcGIS – fire weather conditions)
+  const {
+    geoJSON: rawsGeoJSON,
+    refresh: refreshRAWS,
+  } = useRAWSData(layers.rawsStations);
 
   useEffect(() => {
     if (flightsError) console.error('[FlightTracking] Error:', flightsError);
@@ -481,7 +490,8 @@ export default function LiveTrackerPage() {
     refreshEvacZones();
     if (layers.aqi) refreshAQI();
     if (layers.flights) refreshFlights();
-  }, [refreshHotspots, refreshPerimeters, refreshAlerts, refreshIncidents, refreshStormReports, refreshSpcOutlooks, refreshUserReports, refreshEvacZones, refreshAQI, refreshFlights, layers.aqi, layers.flights]);
+    if (layers.rawsStations) refreshRAWS();
+  }, [refreshHotspots, refreshPerimeters, refreshAlerts, refreshIncidents, refreshStormReports, refreshSpcOutlooks, refreshUserReports, refreshEvacZones, refreshAQI, refreshFlights, refreshRAWS, layers.aqi, layers.flights, layers.rawsStations]);
 
   return (
     <div className="h-screen w-screen flex flex-col bg-sentinel-900 text-white overflow-hidden select-none">
@@ -524,6 +534,7 @@ export default function LiveTrackerPage() {
             userReportsGeoJSON={userReportsGeoJSON}
             evacZonesGeoJSON={evacZonesGeoJSON}
             flightsGeoJSON={flightsGeoJSON}
+            rawsGeoJSON={rawsGeoJSON}
             measureActive={measureActive}
             measureMode={measureMode}
             onMeasureActivate={onMeasureActivate}

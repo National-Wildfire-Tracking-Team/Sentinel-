@@ -6,7 +6,7 @@
 
 import { useState } from 'react';
 import {
-  Layers, Flame, MapPin, Wind, CloudRain, Eye, ChevronDown, ChevronRight, CloudLightning, Radar, AlertTriangle, Ruler, Hexagon, PlaneTakeoff, Satellite, Map as MapIcon,
+  Layers, Flame, MapPin, Wind, CloudRain, Eye, ChevronDown, ChevronRight, CloudLightning, Radar, AlertTriangle, Ruler, Hexagon, PlaneTakeoff, Satellite, Map as MapIcon, Thermometer,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 
@@ -14,11 +14,12 @@ const LAYER_GROUPS = [
   {
     label: 'Fire Data',
     layers: [
-      { key: 'fireHotspots',      label: 'Fire Hotspots',       sublabel: 'NASA FIRMS satellite',   icon: Flame,    color: '#ff4500' },
-      { key: 'firePerimeters',    label: 'Fire Perimeters',     sublabel: 'NIFC WFIGS',            icon: MapPin, color: '#ff6600' },
-      { key: 'incidentLocations', label: 'Incident Locations',  sublabel: 'WFIGS Current',      icon: Flame,    color: '#f59e0b' },
-      { key: 'userReports',       label: 'Community Reports',   sublabel: 'NWTT verified',      icon: Flame,         color: '#22d3ee' },
-      { key: 'evacZones',         label: 'Evacuation Zones',    sublabel: 'Cal OES Hosted',     icon: AlertTriangle, color: '#ef4444' },
+      { key: 'fireHotspots',      label: 'Fire Hotspots',       sublabel: 'NASA FIRMS satellite',   icon: Flame,        color: '#ff4500' },
+      { key: 'firePerimeters',    label: 'Fire Perimeters',     sublabel: 'NIFC WFIGS',             icon: MapPin,       color: '#ff6600' },
+      { key: 'incidentLocations', label: 'Incident Locations',  sublabel: 'WFIGS Current',          icon: Flame,        color: '#f59e0b' },
+      { key: 'userReports',       label: 'Community Reports',   sublabel: 'NWTT verified',          icon: Flame,        color: '#22d3ee' },
+      { key: 'evacZones',         label: 'Evacuation Zones',    sublabel: 'Cal OES Hosted',         icon: AlertTriangle, color: '#ef4444' },
+      { key: 'rawsStations',      label: 'RAWS Stations',       sublabel: 'Fire weather stations',  icon: Thermometer,  color: '#f97316' },
     ],
   },
   {
@@ -31,10 +32,11 @@ const LAYER_GROUPS = [
   {
     label: 'Weather',
     layers: [
-      { key: 'weatherAlerts', label: 'Fire Weather Alerts', sublabel: 'NOAA NWS', icon: Wind, color: '#ef4444' },
-      { key: 'spcOutlooks', label: 'SPC Risk Outlooks', sublabel: 'SPC Day 1-3 categorical', icon: CloudLightning, color: '#f472b6' },
-      { key: 'spcReports', label: 'SPC Storm Reports', sublabel: 'NOAA SPC live reports', icon: CloudLightning, color: '#06b6d4' },
-      { key: 'iemReports', label: 'IEM Storm Reports', sublabel: 'Iowa State Mesonet GeoJSON', icon: CloudLightning, color: '#60a5fa' },
+      { key: 'weatherAlerts',  label: 'Fire Weather Alerts',  sublabel: 'NOAA NWS',                  icon: Wind,          color: '#ef4444' },
+      { key: 'spcOutlooks',    label: 'SPC Risk Outlooks',    sublabel: 'SPC Day 1-3 categorical',    icon: CloudLightning, color: '#f472b6' },
+      { key: 'spcReports',     label: 'SPC Storm Reports',    sublabel: 'NOAA SPC live reports',      icon: CloudLightning, color: '#06b6d4' },
+      { key: 'iemReports',     label: 'IEM Storm Reports',    sublabel: 'Iowa State Mesonet GeoJSON', icon: CloudLightning, color: '#60a5fa' },
+      { key: 'rawsStations',   label: 'RAWS Stations',        sublabel: 'Fire weather stations',      icon: Thermometer,   color: '#f97316' },
     ],
   },
   {
