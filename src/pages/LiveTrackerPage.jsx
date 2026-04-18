@@ -34,8 +34,9 @@ import FireDetailPanel from '../components/FireDetailPanel/FireDetailPanel';
 const US_BOUNDS = { west: -130, south: 24, east: -65, north: 50 };
 
 const MAP_TABS = {
-  wildfire: 'wildfire',
-  weather: 'weather',
+  wildfire:  'wildfire',
+  weather:   'weather',
+  locations: 'locations',
 };
 
 const WILDFIRE_LAYER_PRESET = {
@@ -133,13 +134,16 @@ export default function LiveTrackerPage() {
     setMeasureActive(false);
   }, []);
 
-  // Apply layer presets only when the active tab changes
+  // Apply layer presets only when switching between wildfire/weather tabs.
+  // The locations tab keeps whatever layers were already active.
   useEffect(() => {
+    if (activeMapTab === MAP_TABS.locations) return;
     const presets = {
       [MAP_TABS.wildfire]: WILDFIRE_LAYER_PRESET,
       [MAP_TABS.weather]:  WEATHER_LAYER_PRESET,
     };
-    const preset = presets[activeMapTab] || WILDFIRE_LAYER_PRESET;
+    const preset = presets[activeMapTab];
+    if (!preset) return;
     Object.entries(preset).forEach(([layer, value]) => {
       setLayer(layer, value);
     });
