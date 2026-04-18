@@ -302,7 +302,14 @@ export default function LoginPage() {
             </>
           )}
 
-          <div className="mt-8 text-center">
+          <p className="mt-6 text-center text-sm text-sentinel-400">
+            Don&apos;t have an account?{' '}
+            <Link to="/register" className="text-[#0096ff] hover:text-blue-300 font-medium transition-colors">
+              Create one
+            </Link>
+          </p>
+
+          <div className="mt-4 text-center">
             <Link to="/" className="text-xs text-sentinel-500 hover:text-sentinel-300 transition-colors">
               ← Back to home
             </Link>
