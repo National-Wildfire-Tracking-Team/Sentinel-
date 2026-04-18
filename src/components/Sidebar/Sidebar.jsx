@@ -38,6 +38,8 @@ export default function Sidebar({
   weatherAlertsLoading = false,
   weatherAlertsError = null,
   onReopenBanner,
+  weatherAlertFilter = 'all',
+  onWeatherAlertFilterChange,
 }) {
   const { sidebarOpen, toggleSidebar, alerts } = useApp();
   const isWeatherTab = activeMapTab === 'weather';
@@ -180,6 +182,8 @@ export default function Sidebar({
               alerts={alerts}
               loading={weatherAlertsLoading}
               error={weatherAlertsError}
+              activeFilter={weatherAlertFilter}
+              onFilterChange={onWeatherAlertFilterChange}
             />
           ) : (
             <IncidentFeed incidents={incidents} loading={loading} error={error} />
