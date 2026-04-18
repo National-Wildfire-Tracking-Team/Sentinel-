@@ -10,8 +10,6 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useApp } from "../context/AppContext";
-import xml2js from "xml2js";
-import { fetchOpenWeatherAlerts } from "../api/openWeatherAlerts";
 
 const REFRESH_MS = 60 * 1000;
 
@@ -66,22 +64,23 @@ async function fetchFemaAlerts() {
     const res = await fetch(url);
     const xml = await res.text();
 
-    const parser = new xml2js.Parser({ explicitArray: false });
-    const data = await parser.parseStringPromise(xml);
+    const doc = new DOMParser().parseFromString(xml, "application/xml");
+    const entries = Array.from(doc.querySelectorAll("entry"));
 
-    const entries = data.feed?.entry || [];
-
-    return entries.map(e => ({
-      id: e.id,
-      type: e["cap:event"],
-      severity: e["cap:severity"],
-      urgency: e["cap:urgency"],
-      affectedArea: e["cap:areaDesc"],
-      effective: e["cap:effective"],
-      sent: e["cap:sent"],
-      geometry: null,
-      source: "FEMA"
-    }));
+    return entries.map(e => {
+      const getText = tag => e.querySelector(tag)?.textContent ?? null;
+      return {
+        id: getText("id"),
+        type: getText("cap\\:event, event"),
+        severity: getText("cap\\:severity, severity"),
+        urgency: getText("cap\\:urgency, urgency"),
+        affectedArea: getText("cap\\:areaDesc, areaDesc"),
+        effective: getText("cap\\:effective, effective"),
+        sent: getText("cap\\:sent, sent"),
+        geometry: null,
+        source: "FEMA"
+      };
+    });
   } catch (err) {
     console.warn("FEMA failed:", err.message);
     return [];
