@@ -6,7 +6,7 @@
 
 import { useState } from 'react';
 import {
-  Layers, Flame, MapPin, Wind, CloudRain, Eye, ChevronDown, ChevronRight, CloudLightning, Radar, AlertTriangle, Ruler, Hexagon,
+  Layers, Flame, MapPin, Wind, CloudRain, Eye, ChevronDown, ChevronRight, CloudLightning, Radar, AlertTriangle, Ruler, Hexagon, PlaneTakeoff,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 
@@ -48,6 +48,13 @@ const LAYER_GROUPS = [
     label: 'Radar',
     layers: [
       { key: 'radar', label: 'NEXRAD Reflectivity', sublabel: 'NEXRAD Level 2 composite', icon: Radar, color: '#10b981' },
+    ],
+  },
+  {
+    label: 'Aviation',
+    showAlways: true,
+    layers: [
+      { key: 'flights', label: 'Live Flight Tracking', sublabel: 'OpenSky Network ADS-B', icon: PlaneTakeoff, color: '#ff5a00' },
     ],
   },
 ];
@@ -106,6 +113,7 @@ export default function LayerControl({
   const { layerPanelOpen, toggleLayerPanel } = useApp();
   const [collapsed, setCollapsed] = useState({});
   const visibleGroups = LAYER_GROUPS.filter((group) => {
+    if (group.showAlways) return true;
     if (activeMapTab === 'wildfire') return group.label === 'Fire Data';
     return group.label !== 'Fire Data';
   });

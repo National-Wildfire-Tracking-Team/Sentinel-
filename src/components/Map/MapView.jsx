@@ -29,6 +29,7 @@ import SPCOutlookLayer from './layers/SPCOutlookLayer';
 import RadarLayer from './layers/RadarLayer';
 import EvacZonesLayer from './layers/EvacZonesLayer';
 import { MeasurementLayer, MeasurementPanel } from './MeasurementTool';
+import FlightLayer from './layers/FlightLayer';
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN || '';
 const HAS_MAPBOX_TOKEN = Boolean(MAPBOX_TOKEN.trim());
@@ -183,6 +184,23 @@ function HoverTooltip({ feature, lngLat }) {
         </>
       );
       break;
+    case 'flights-symbol': {
+      const alt   = p.baro_altitude != null ? `${Math.round(p.baro_altitude).toLocaleString()} m` : 'N/A';
+      const spd   = p.velocity      != null ? `${Math.round(p.velocity * 1.94384)} kts` : 'N/A';
+      const hdg   = p.true_track    != null ? `${Math.round(p.true_track)}°` : 'N/A';
+      content = (
+        <>
+          <div className="font-semibold text-orange-400">{p.callsign || p.icao24}</div>
+          <div className="text-gray-300 text-xs mt-0.5">
+            Alt: <span className="text-white font-medium">{alt}</span>
+            {' '}· Spd: <span className="text-white font-medium">{spd}</span>
+          </div>
+          <div className="text-gray-400 text-xs">Hdg: {hdg} · {p.origin_country}</div>
+          <div className="text-gray-500 text-[10px] mt-0.5">Click for full details</div>
+        </>
+      );
+      break;
+    }
     case 'evac-zones-fill': {
       const statusColors = {
         'evacuation order':   'text-red-400',
@@ -226,6 +244,63 @@ function HoverTooltip({ feature, lngLat }) {
   );
 }
 
+const FLIGHT_FIELDS = [
+  { key: 'icao24',        label: 'ICAO24' },
+  { key: 'callsign',      label: 'Callsign' },
+  { key: 'squawk',        label: 'Squawk' },
+  { key: 'true_track',    label: 'Heading', fmt: v => v != null ? `${Math.round(v)}°` : '—' },
+  { key: 'baro_altitude', label: 'Altitude', fmt: v => v != null ? `${Math.round(v).toLocaleString()} m` : '—' },
+  { key: 'velocity',      label: 'Speed', fmt: v => v != null ? `${Math.round(v * 1.94384)} kts` : '—' },
+  { key: 'vertical_rate', label: 'Vert. Rate', fmt: v => v != null ? `${v > 0 ? '+' : ''}${v.toFixed(1)} m/s` : '—' },
+  { key: 'category',      label: 'Category' },
+];
+
+function FlightDetailPopup({ flight, lngLat, onClose }) {
+  return (
+    <Popup
+      longitude={lngLat.lng}
+      latitude={lngLat.lat}
+      closeButton={false}
+      closeOnClick={false}
+      anchor="top"
+      offset={[0, 8]}
+      className="sentinel-popup"
+    >
+      <div className="bg-sentinel-800 border border-sentinel-600 rounded-lg shadow-2xl text-sm min-w-[200px] overflow-hidden">
+        {/* Header */}
+        <div className="flex items-center justify-between px-3 py-2 border-b border-sentinel-600 bg-sentinel-700/50">
+          <div className="flex items-center gap-2">
+            <span className="text-[10px]" style={{ color: '#ff5a00' }}>✈</span>
+            <span className="font-semibold text-orange-400">
+              {flight.callsign || flight.icao24}
+            </span>
+          </div>
+          <button
+            onClick={onClose}
+            className="text-sentinel-300 hover:text-white transition-colors text-xs leading-none ml-3"
+            aria-label="Close"
+          >
+            ✕
+          </button>
+        </div>
+        {/* Fields */}
+        <div className="px-3 py-2 space-y-1">
+          {FLIGHT_FIELDS.map(({ key, label, fmt }) => {
+            const raw = flight[key];
+            const display = fmt ? fmt(raw) : (raw != null && raw !== '' ? String(raw) : '—');
+            return (
+              <div key={key} className="flex items-baseline justify-between gap-4">
+                <span className="text-sentinel-300 text-[10px] uppercase tracking-wide shrink-0">{label}</span>
+                <span className="text-white text-xs font-mono text-right">{display}</span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </Popup>
+  );
+}
+
 /**
  * @param {object} props
  * @param {object|null} props.hotspotsGeoJSON
@@ -239,6 +314,7 @@ function HoverTooltip({ feature, lngLat }) {
  * @param {object|null} props.spcOutlooksGeoJSON
  * @param {object|null} props.userReportsGeoJSON
  * @param {object|null} props.evacZonesGeoJSON
+ * @param {object|null} props.flightsGeoJSON
  * @param {'wildfire'|'weather'} [props.activeMapTab]
  */
 export default function MapView({
@@ -254,6 +330,7 @@ export default function MapView({
   spcOutlooksGeoJSON,
   userReportsGeoJSON,
   evacZonesGeoJSON,
+  flightsGeoJSON,
   measureActive = false,
   measureMode = 'distance',
   onMeasureActivate,
@@ -267,6 +344,10 @@ export default function MapView({
   // Hover tooltip state
   const [hoverFeature, setHoverFeature] = useState(null);
   const [hoverLngLat,  setHoverLngLat]  = useState(null);
+
+  // Selected aircraft popup state
+  const [selectedFlight,       setSelectedFlight]       = useState(null);
+  const [selectedFlightLngLat, setSelectedFlightLngLat] = useState(null);
 
   // Measurement tool state (active/mode lifted to LiveTrackerPage; points/preview stay local)
   const [measurePoints,  setMeasurePoints]  = useState([]);   // [{lng, lat}, ...]
@@ -317,11 +398,12 @@ export default function MapView({
     if (isWeatherTab && layers.spcReports && spcReportsGeoJSON)          ids.push('spc-reports-circle');
     if (isWeatherTab && layers.iemReports && iemReportsGeoJSON)          ids.push('iem-reports-circle');
     if (isWildfireTab && layers.evacZones && evacZonesGeoJSON)            ids.push('evac-zones-fill');
+    if (layers.flights && flightsGeoJSON)                                 ids.push('flights-symbol');
     return ids;
   }, [measureActive, isWildfireTab, isWeatherTab, layers.fireHotspots, layers.firePerimeters, layers.incidentLocations, layers.aqi,
-      layers.weatherAlerts, layers.spcOutlooks, layers.spcReports, layers.iemReports, layers.userReports, layers.evacZones,
+      layers.weatherAlerts, layers.spcOutlooks, layers.spcReports, layers.iemReports, layers.userReports, layers.evacZones, layers.flights,
       hotspotsGeoJSON, perimetersGeoJSON, incidentsGeoJSON, aqiGeoJSON, alertsGeoJSON, spcOutlooksGeoJSON,
-      spcReportsGeoJSON, iemReportsGeoJSON, userReportsGeoJSON, evacZonesGeoJSON]);
+      spcReportsGeoJSON, iemReportsGeoJSON, userReportsGeoJSON, evacZonesGeoJSON, flightsGeoJSON]);
 
   // Clear stale hover when layers change
   const prevLayersRef = useRef(layers);
@@ -344,11 +426,23 @@ export default function MapView({
     const features = evt.features;
     if (!features?.length) {
       selectFire(null);
+      setSelectedFlight(null);
+      setSelectedFlightLngLat(null);
       return;
     }
 
     const feature = features[0];
     const p = feature.properties;
+
+    if (feature.layer.id === 'flights-symbol') {
+      setSelectedFlight(feature.properties);
+      setSelectedFlightLngLat(evt.lngLat);
+      return;
+    }
+
+    // Clicking any non-flight feature closes the flight popup
+    setSelectedFlight(null);
+    setSelectedFlightLngLat(null);
 
     if (feature.layer.id === 'fire-hotspots-circle') {
       selectFire({
@@ -662,6 +756,12 @@ export default function MapView({
           visible={isWildfireTab && layers.userReports}
         />
 
+        {/* Live flight tracking – always on top of all fire/weather layers */}
+        <FlightLayer
+          geoJSON={flightsGeoJSON}
+          visible={layers.flights}
+        />
+
         {/* Measurement geometry – rendered last so it's always on top */}
         {measureActive && (
           <MeasurementLayer
@@ -673,6 +773,15 @@ export default function MapView({
 
         {/* Hover tooltip */}
         <HoverTooltip feature={hoverFeature} lngLat={hoverLngLat} />
+
+        {/* Flight detail popup – shown on aircraft click */}
+        {selectedFlight && selectedFlightLngLat && (
+          <FlightDetailPopup
+            flight={selectedFlight}
+            lngLat={selectedFlightLngLat}
+            onClose={() => { setSelectedFlight(null); setSelectedFlightLngLat(null); }}
+          />
+        )}
       </Map>
 
       {/* Measurement results panel – visible while tool is active */}
