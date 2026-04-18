@@ -10,6 +10,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useApp } from "../context/AppContext";
+import { fetchOpenWeatherAlerts } from "../api/openWeatherAlerts";
 
 const REFRESH_MS = 60 * 1000;
 
