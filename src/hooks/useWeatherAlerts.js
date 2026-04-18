@@ -73,7 +73,8 @@ export function useWeatherAlerts() {
 
       if (!mountedRef.current) return;
 
-      const merged = mergeAndDeduplicate(noaaAlerts, femaAlerts);
+      const merged = mergeAndDeduplicate(noaaAlerts, femaAlerts)
+        .filter(a => !a.type?.startsWith('Small Craft Advisory'));
 
       const enriched = await enrichAlertsWithGeometry(merged);
       if (!mountedRef.current) return;
