@@ -95,7 +95,9 @@ export function useFlightData(bounds, enabled = false) {
         () => {
           readFromTable()
             .then(geo => { if (mountedRef.current) setGeoJSON(geo); })
-            .catch(() => {});
+            .catch(err => {
+              console.warn('[FlightData] Realtime read error:', err.message);
+            });
         },
       )
       .subscribe();
