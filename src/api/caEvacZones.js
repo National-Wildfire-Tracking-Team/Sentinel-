@@ -1,20 +1,20 @@
 /**
  * caEvacZones.js
  *
- * California Evacuation Zones – Cal OES Near-Real-Time
+ * California Evacuation Zones – CalOES Hosted View
  * Fetches active evacuation orders, warnings, and watches from the
- * California Governor's Office of Emergency Services (Cal OES) public ArcGIS service.
+ * California Governor's Office of Emergency Services (Cal OES) ArcGIS service.
  *
- * Service: OESNRT_EvacWarnings (FeatureServer, public – no API key required)
- * https://services1.arcgis.com/jUJYIo9tSA7EHvfZ/arcgis/rest/services/
- *   OESNRT_EvacWarnings/FeatureServer/0/query
+ * Service: CA_EVACUATIONS_CalOESHosted_view (FeatureServer, public – no API key required)
+ * https://services.arcgis.com/BLN4oKB0N1YSgvY8/arcgis/rest/services/
+ *   CA_EVACUATIONS_CalOESHosted_view/FeatureServer/0/query
  */
 
 import { fetchWithCache } from '../utils/dataCache';
 
 const CAEVAC_BASE =
-  'https://services1.arcgis.com/jUJYIo9tSA7EHvfZ/arcgis/rest/services' +
-  '/OESNRT_EvacWarnings/FeatureServer/0/query';
+  'https://services.arcgis.com/BLN4oKB0N1YSgvY8/arcgis/rest/services' +
+  '/CA_EVACUATIONS_CalOESHosted_view/FeatureServer/0/query';
 
 const EMPTY_GEOJSON = { type: 'FeatureCollection', features: [] };
 
@@ -27,17 +27,14 @@ const EMPTY_GEOJSON = { type: 'FeatureCollection', features: [] };
  */
 export async function fetchCAEvacZones() {
   const params = new URLSearchParams({
-    where: '1=1',
-    outFields: [
-      'OBJECTID', 'ZoneName', 'WarningType', 'County',
-      'ExternalURL', 'EffectiveDate', 'ExpirationDate',
-    ].join(','),
-    f: 'geojson',
-    outSR: '4326',
-    resultRecordCount: 1000,
+    where:             '1=1',
+    outFields:         '*',
+    f:                 'geojson',
+    outSR:             '4326',
+    resultRecordCount: 2000,
   });
 
-  const url = `${CAEVAC_BASE}?${params}`;
+  const url      = `${CAEVAC_BASE}?${params}`;
   const cacheKey = 'caevac:zones';
 
   try {
@@ -62,7 +59,39 @@ export async function fetchCAEvacZones() {
 }
 
 /**
- * Normalize Cal OES GeoJSON properties to a consistent flat schema.
+ * Return the first non-null, non-empty value from a set of candidate keys.
+ * Used to handle field name variations between CalOES service versions.
+ */
+function pick(props, ...keys) {
+  for (const k of keys) {
+    const v = props[k];
+    if (v !== undefined && v !== null && v !== '') return v;
+  }
+  return null;
+}
+
+/**
+ * Normalize a raw WarningType / Status value to one of the three canonical
+ * strings expected by EvacZonesLayer color-match expression:
+ *   "Evacuation Order" | "Evacuation Warning" | "Evacuation Watch"
+ */
+function normalizeWarningType(raw) {
+  if (!raw) return 'Evacuation Warning';
+  const s = String(raw).trim().toLowerCase();
+
+  if (s.includes('order') || s.includes('mandatory') || s === 'eo') {
+    return 'Evacuation Order';
+  }
+  if (s.includes('watch') || s === 'ew' && s.length === 2) {
+    return 'Evacuation Watch';
+  }
+  // "warning", "voluntary", "advisory", or anything else → Warning
+  return 'Evacuation Warning';
+}
+
+/**
+ * Normalize CalOES GeoJSON properties to a consistent flat schema.
+ * Handles field name variations between service versions.
  */
 function normalizeEvacZones(geojson) {
   return {
@@ -71,16 +100,23 @@ function normalizeEvacZones(geojson) {
       .filter(f => f.geometry)
       .map(f => {
         const p = f.properties || {};
+
+        const rawType = pick(
+          p,
+          'WarningType', 'warning_type', 'Status', 'status',
+          'EvacStatus', 'evac_status', 'Type', 'type', 'ExZoneStatus',
+        );
+
         return {
           ...f,
           properties: {
-            id:             p.OBJECTID || '',
-            zoneName:       p.ZoneName  || 'Evacuation Zone',
-            warningType:    p.WarningType || 'Evacuation Warning',
-            county:         p.County    || '',
-            externalURL:    p.ExternalURL || '',
-            effectiveDate:  p.EffectiveDate  || null,
-            expirationDate: p.ExpirationDate || null,
+            id:             pick(p, 'OBJECTID', 'ObjectID', 'GlobalID', 'globalid') ?? '',
+            zoneName:       pick(p, 'ZoneName', 'zone_name', 'Name', 'name', 'ZoneID', 'ExZoneName') || 'Evacuation Zone',
+            warningType:    normalizeWarningType(rawType),
+            county:         pick(p, 'County', 'county', 'COUNTY', 'CountyName', 'county_name') || '',
+            externalURL:    pick(p, 'ExternalURL', 'external_url', 'URL', 'url', 'MoreInfo') || '',
+            effectiveDate:  pick(p, 'EffectiveDate', 'effective_date', 'DateEffective', 'DateTimeEffective', 'created_date') || null,
+            expirationDate: pick(p, 'ExpirationDate', 'expiration_date', 'DateExpires', 'DateTimeExpires', 'expire_date') || null,
           },
         };
       }),
