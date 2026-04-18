@@ -23,10 +23,10 @@ function normalizeSpcRow(row, idx = 0) {
   const lat = Number(row.lat ?? row.latitude);
   const lng = Number(row.lon ?? row.lng ?? row.longitude);
   const reportTypeRaw = String(row.type || row.phenom || '').toLowerCase();
-  const reportType =
-    reportTypeRaw.includes('torn') ? 'Tornado'
-      : reportTypeRaw.includes('hail') ? 'Hail'
-        : 'Wind';
+  
+  const reportType = reportTypeRaw.includes('torn') ? 'Tornado'
+    : reportTypeRaw.includes('hail') ? 'Hail'
+    : 'Wind';
 
   const date = row.date ?? new Date().toISOString().slice(0, 10);
   const time = row.time ?? row.time_utc ?? row.utc ?? '0000';
@@ -51,10 +51,9 @@ function normalizeIemFeature(feature, idx = 0) {
   const [lng, lat] = feature?.geometry?.coordinates || [NaN, NaN];
   const typetext = String(p.typetext || p.type || '').toLowerCase();
 
-  const reportType =
-    typetext.includes('torn') ? 'Tornado'
-      : typetext.includes('hail') ? 'Hail'
-        : 'Wind';
+  const reportType = typetext.includes('torn') ? 'Tornado'
+    : typetext.includes('hail') ? 'Hail'
+    : 'Wind';
 
   const reportedAt = p.valid
     ? new Date(p.valid).toISOString()
@@ -75,13 +74,17 @@ function normalizeIemFeature(feature, idx = 0) {
   };
 }
 
-export async function fetchSpcStormReports() {
-  const data = await fetchWithCache(SPC_REPORTS_URL, 'spc:today-reports', {}, 60 * 1000);
+// Added options parameter to accept { signal } from the hook
+export async function fetchSpcStormReports(options = {}) {
+  // Pass the signal into the fetch options
+  const fetchOptions = { ...options }; 
+  const data = await fetchWithCache(SPC_REPORTS_URL, 'spc:today-reports', fetchOptions, 60 * 1000);
   const rows = Array.isArray(data) ? data : data?.reports || [];
   return rows.map(normalizeSpcRow).filter(r => Number.isFinite(r.lat) && Number.isFinite(r.lng));
 }
 
-export async function fetchIemStormReports() {
+// Added options parameter to accept { signal } from the hook
+export async function fetchIemStormReports(options = {}) {
   const now = new Date();
   const year = now.getUTCFullYear();
   const month = String(now.getUTCMonth() + 1).padStart(2, '0');
@@ -95,7 +98,8 @@ export async function fetchIemStormReports() {
   });
 
   const url = `${IEM_BASE_URL}?${params}`;
-  const data = await fetchWithCache(url, `iem:spc:${year}-${month}-${day}`, {}, 5 * 60 * 1000);
+  const fetchOptions = { ...options };
+  const data = await fetchWithCache(url, `iem:spc:${year}-${month}-${day}`, fetchOptions, 5 * 60 * 1000);
   const features = data?.features || [];
   return features.map(normalizeIemFeature).filter(r => Number.isFinite(r.lat) && Number.isFinite(r.lng));
 }
