@@ -1,10 +1,12 @@
 /**
  * openSkyApi.js
- * Fetches live aircraft state vectors from the OpenSky Network API.
+ * Calls the opensky-proxy Supabase edge function which:
+ *   - reads credentials from Supabase Vault secrets (OPENSKY_USERNAME / OPENSKY_PASSWORD)
+ *   - enforces a global server-side rate limit of 166 requests / hour
+ *   - upserts fresh aircraft positions into the aircraft_positions table
  *
- * Uses the Supabase edge function (opensky-proxy) when Supabase is configured
- * so that optional credentials stay server-side. Falls back to a direct
- * unauthenticated request when Supabase is not available.
+ * The hook (useFlightData) reads from that table directly; this module is
+ * only responsible for triggering the edge-function fetch.
  *
  * OpenSky state vector index reference:
  *   [0]  icao24          [1]  callsign        [2]  origin_country
@@ -18,110 +20,64 @@
 import { supabase, isSupabaseConfigured } from './supabaseClient';
 import { acquireSlot, remaining } from '../utils/openSkyRateLimiter';
 
-const OPENSKY_BASE = 'https://opensky-network.org/api';
-
-const AIRCRAFT_CATEGORIES = {
-  0:  'No information',
-  1:  'No ADS-B emitter category',
-  2:  'Light aircraft',
-  3:  'Small aircraft',
-  4:  'Large aircraft',
-  5:  'High vortex large',
-  6:  'Heavy aircraft',
-  7:  'High performance',
-  8:  'Rotorcraft',
-  9:  'Glider / Sailplane',
-  10: 'Lighter-than-air',
-  11: 'Parachutist / Skydiver',
-  12: 'Ultralight / Hang-glider',
-  13: 'Reserved',
-  14: 'Unmanned aerial vehicle',
-  15: 'Space vehicle',
-  16: 'Surface – Emergency',
-  17: 'Surface – Service',
-  18: 'Point obstacle',
-  19: 'Cluster obstacle',
-  20: 'Line obstacle',
-};
-
-function stateToProperties(s) {
-  const category = s[17] != null ? (AIRCRAFT_CATEGORIES[s[17]] ?? String(s[17])) : null;
-  return {
-    icao24:        s[0] ?? '',
-    callsign:      (s[1] ?? '').trim() || (s[0] ?? ''),
-    origin_country: s[2] ?? '',
-    baro_altitude: s[7],
-    on_ground:     s[8],
-    velocity:      s[9],
-    true_track:    s[10] ?? 0,
-    vertical_rate: s[11],
-    squawk:        s[14] ?? '',
-    category,
-  };
-}
-
-function statesToGeoJSON(states) {
-  if (!Array.isArray(states) || !states.length) {
-    return { type: 'FeatureCollection', features: [] };
-  }
-  const features = states
-    .filter(s => s[5] != null && s[6] != null && s[8] === false)
-    .map(s => ({
-      type: 'Feature',
-      geometry: {
-        type: 'Point',
-        coordinates: [s[5], s[6]],
-      },
-      properties: stateToProperties(s),
-    }));
-  return { type: 'FeatureCollection', features };
-}
-
 /**
- * Fetch airborne state vectors within a bounding box.
+ * Triggers the opensky-proxy edge function to fetch fresh aircraft data and
+ * store it in the aircraft_positions table.  Applies the client-side credit
+ * budget before calling; the edge function applies the server-side budget.
+ *
  * @param {{ west, south, east, north }} bounds
- * @returns {Promise<GeoJSON.FeatureCollection>}
+ * @returns {Promise<void>}
  */
-export async function fetchFlights(bounds = { west: -130, south: 24, east: -65, north: 50 }) {
+export async function triggerFlightFetch(
+  bounds = { west: -130, south: 24, east: -65, north: 50 },
+) {
   if (remaining() === 0) {
-    console.warn('[OpenSky] Hourly credit limit reached – skipping fetch');
-    return { type: 'FeatureCollection', features: [] };
+    console.warn('[OpenSky] Client hourly credit limit reached – skipping fetch');
+    return;
   }
   await acquireSlot();
 
-  // Preferred: Supabase edge function keeps any credentials server-side
-  if (isSupabaseConfigured) {
-    try {
-      const { data, error } = await supabase.functions.invoke('opensky-proxy', {
-        body: {
-          lamin: bounds.south,
-          lomin: bounds.west,
-          lamax: bounds.north,
-          lomax: bounds.east,
-        },
-      });
-      if (error) throw new Error(error.message || 'Edge function error');
-      const json = typeof data === 'string' ? JSON.parse(data) : data;
-      return statesToGeoJSON(json?.states ?? []);
-    } catch (err) {
-      console.warn('[OpenSky] Supabase edge function failed, trying direct:', err.message);
-    }
+  if (!isSupabaseConfigured) {
+    console.warn('[OpenSky] Supabase not configured – cannot trigger edge function fetch');
+    return;
   }
 
-  // Fallback: direct call (OpenSky supports CORS for public access)
   try {
-    const params = new URLSearchParams({
-      lamin: String(bounds.south),
-      lomin: String(bounds.west),
-      lamax: String(bounds.north),
-      lomax: String(bounds.east),
+    const { data, error } = await supabase.functions.invoke('opensky-proxy', {
+      body: {
+        lamin: bounds.south,
+        lomin: bounds.west,
+        lamax: bounds.north,
+        lomax: bounds.east,
+      },
     });
-    const resp = await fetch(`${OPENSKY_BASE}/states/all?${params}`);
-    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-    const json = await resp.json();
-    return statesToGeoJSON(json?.states ?? []);
+
+    if (error) throw new Error(error.message || 'Edge function error');
+
+    const json = typeof data === 'string' ? JSON.parse(data) : data;
+
+    if (json?.rate_limited) {
+      console.info(
+        `[OpenSky] Server-side rate limit reached ` +
+        `(${json.credits_used ?? '?'} / 166 credits used this hour). ` +
+        `Displaying cached positions from Supabase table.`,
+      );
+    } else if (json?.credits_remaining != null) {
+      console.debug(
+        `[OpenSky] Fetch OK – ${json.credits_remaining} server credits remaining this hour.`,
+      );
+    }
   } catch (err) {
-    console.error('[OpenSky] Direct fetch failed:', err.message);
-    return { type: 'FeatureCollection', features: [] };
+    console.warn('[OpenSky] Edge function call failed:', err.message);
   }
+}
+
+// ---------------------------------------------------------------------------
+// Legacy export kept for any call-sites that imported fetchFlights directly.
+// It now delegates to triggerFlightFetch and always returns an empty GeoJSON
+// because the real data flows through the Supabase table → useFlightData hook.
+// ---------------------------------------------------------------------------
+export async function fetchFlights(bounds) {
+  await triggerFlightFetch(bounds);
+  return { type: 'FeatureCollection', features: [] };
 }
