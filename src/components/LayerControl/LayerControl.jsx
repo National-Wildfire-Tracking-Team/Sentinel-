@@ -142,40 +142,44 @@ export default function LayerControl({
         <div className="w-56 bg-sentinel-900 border border-sentinel-700
                         rounded-xl shadow-2xl overflow-hidden animate-fade-in">
           {/* Header */}
-          <div className="px-3 py-2 border-b border-sentinel-700 flex items-center justify-between">
-            <span className="text-xs font-bold text-sentinel-100 uppercase tracking-widest">
-              Map Layers
-            </span>
-            {/* Map type toggle */}
-            <div className="flex items-center bg-sentinel-800 border border-sentinel-600 rounded-lg p-0.5 mx-2">
-              <button
-                type="button"
-                onClick={() => onMapTypeChange?.('satellite')}
-                className={`flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-semibold transition-all ${
-                  mapType === 'satellite'
-                    ? 'bg-fire-600 text-white shadow'
-                    : 'text-sentinel-300 hover:text-white'
-                }`}
-                title="Satellite view"
-              >
-                <Satellite size={11} />
-                <span>SAT</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => onMapTypeChange?.('rendered')}
-                className={`flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-semibold transition-all ${
-                  mapType === 'rendered'
-                    ? 'bg-fire-600 text-white shadow'
-                    : 'text-sentinel-300 hover:text-white'
-                }`}
-                title="Map view"
-              >
-                <MapIcon size={11} />
-                <span>MAP</span>
-              </button>
+          <div className="px-3 pt-2 pb-1.5 border-b border-sentinel-700">
+            {/* Row 1: label + map type toggle */}
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-sentinel-100 uppercase tracking-widest">
+                Map Layers
+              </span>
+              {/* Map type toggle */}
+              <div className="flex items-center bg-sentinel-800 border border-sentinel-600 rounded-lg p-0.5">
+                <button
+                  type="button"
+                  onClick={() => onMapTypeChange?.('satellite')}
+                  className={`flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-semibold transition-all ${
+                    mapType === 'satellite'
+                      ? 'bg-fire-600 text-white shadow'
+                      : 'text-sentinel-300 hover:text-white'
+                  }`}
+                  title="Satellite view"
+                >
+                  <Satellite size={11} />
+                  <span>SAT</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onMapTypeChange?.('rendered')}
+                  className={`flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-semibold transition-all ${
+                    mapType === 'rendered'
+                      ? 'bg-fire-600 text-white shadow'
+                      : 'text-sentinel-300 hover:text-white'
+                  }`}
+                  title="Map view"
+                >
+                  <MapIcon size={11} />
+                  <span>MAP</span>
+                </button>
+              </div>
             </div>
-            <div className="flex items-center gap-1">
+            {/* Row 2: measurement tools pushed right */}
+            <div className="flex items-center justify-end gap-1 mt-1.5">
               <div className="relative group">
                 <button
                   onClick={() => (measureActive && measureMode === 'distance') ? onMeasureClose?.() : onMeasureActivate?.('distance')}
