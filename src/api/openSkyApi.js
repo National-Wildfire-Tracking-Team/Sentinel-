@@ -31,16 +31,16 @@ import { acquireSlot, remaining } from '../utils/openSkyRateLimiter';
 export async function triggerFlightFetch(
   bounds = { west: -130, south: 24, east: -65, north: 50 },
 ) {
+  if (!isSupabaseConfigured) {
+    console.warn('[OpenSky] Supabase not configured – cannot trigger edge function fetch');
+    return;
+  }
+
   if (remaining() === 0) {
     console.warn('[OpenSky] Client hourly credit limit reached – skipping fetch');
     return;
   }
   await acquireSlot();
-
-  if (!isSupabaseConfigured) {
-    console.warn('[OpenSky] Supabase not configured – cannot trigger edge function fetch');
-    return;
-  }
 
   try {
     const { data, error } = await supabase.functions.invoke('opensky-proxy', {

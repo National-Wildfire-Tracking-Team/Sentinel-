@@ -220,8 +220,14 @@ export default function LiveTrackerPage() {
   // Live flight tracking (OpenSky Network ADS-B)
   const {
     geoJSON: flightsGeoJSON,
+    loading: flightsLoading,
+    error: flightsError,
     refresh: refreshFlights,
   } = useFlightData(US_BOUNDS, layers.flights);
+
+  useEffect(() => {
+    if (flightsError) console.error('[FlightTracking] Error:', flightsError);
+  }, [flightsError]);
 
   // Community-submitted reports – only approved ones, realtime-subscribed
   const { reports: approvedReports, refresh: refreshUserReports } = useFireReports('approved');
