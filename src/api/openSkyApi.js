@@ -16,6 +16,7 @@
  */
 
 import { supabase, isSupabaseConfigured } from './supabaseClient';
+import { acquireSlot, remaining } from '../utils/openSkyRateLimiter';
 
 const OPENSKY_BASE = 'https://opensky-network.org/api';
 
@@ -82,6 +83,12 @@ function statesToGeoJSON(states) {
  * @returns {Promise<GeoJSON.FeatureCollection>}
  */
 export async function fetchFlights(bounds = { west: -130, south: 24, east: -65, north: 50 }) {
+  if (remaining() === 0) {
+    console.warn('[OpenSky] Hourly credit limit reached – skipping fetch');
+    return { type: 'FeatureCollection', features: [] };
+  }
+  await acquireSlot();
+
   // Preferred: Supabase edge function keeps any credentials server-side
   if (isSupabaseConfigured) {
     try {
