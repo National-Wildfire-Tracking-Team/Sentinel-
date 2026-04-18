@@ -37,10 +37,15 @@ const HAS_MAPBOX_TOKEN = Boolean(MAPBOX_TOKEN.trim());
 // Quick helper if you don't already have one exported from utils
 const num = (val) => Number(val);
 
-// ─── Base map style ───────────────────────────────────────────────────────────
-const MAP_STYLE = HAS_MAPBOX_TOKEN
-  ? 'mapbox://styles/mapbox/satellite-streets-v12'
-  : 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json';
+// ─── Base map styles ──────────────────────────────────────────────────────────
+const MAP_STYLES = {
+  satellite: HAS_MAPBOX_TOKEN
+    ? 'mapbox://styles/mapbox/satellite-streets-v12'
+    : 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json',
+  rendered: HAS_MAPBOX_TOKEN
+    ? 'mapbox://styles/mapbox/dark-v11'
+    : 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json',
+};
 
 /**
  * Tooltip shown on hover
@@ -319,6 +324,7 @@ function FlightDetailPopup({ flight, lngLat, onClose }) {
  */
 export default function MapView({
   activeMapTab = 'wildfire',
+  mapType = 'satellite',
   hotspotsGeoJSON,
   perimetersGeoJSON,
   incidentsGeoJSON, // Renamed to match usage inside
@@ -653,7 +659,7 @@ export default function MapView({
         ref={mapRef}
         {...viewport}
         mapboxAccessToken={HAS_MAPBOX_TOKEN ? MAPBOX_TOKEN : undefined}
-        mapStyle={MAP_STYLE}
+        mapStyle={MAP_STYLES[mapType] ?? MAP_STYLES.satellite}
         style={{ width: '100%', height: '100%', background: '#0a0c0e' }}
         interactiveLayerIds={interactiveLayerIds}
         onClick={handleClick}
