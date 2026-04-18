@@ -30,6 +30,7 @@ import RadarLayer from './layers/RadarLayer';
 import EvacZonesLayer from './layers/EvacZonesLayer';
 import { MeasurementLayer, MeasurementPanel } from './MeasurementTool';
 import FlightLayer from './layers/FlightLayer';
+import RAWSLayer from './layers/RAWSLayer';
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN || '';
 const HAS_MAPBOX_TOKEN = Boolean(MAPBOX_TOKEN.trim());
@@ -206,6 +207,46 @@ function HoverTooltip({ feature, lngLat }) {
       );
       break;
     }
+    case 'raws-stations-circle': {
+      const fmt  = (v, unit) => v != null ? `${Math.round(v)}${unit}` : '—';
+      const fmtD = (v) => v != null ? `${Math.round(v)}°` : '—';
+      content = (
+        <>
+          <div className="font-semibold text-purple-300">{p.stationName}</div>
+          <div className="text-gray-400 text-[10px]">
+            {[p.county && `${p.county} Co.`, p.state, p.agency].filter(Boolean).join(' · ')}
+          </div>
+          <div className="text-gray-300 text-xs mt-1.5 space-y-0.5">
+            <div>
+              Temp: <span className="text-white font-medium">{fmt(p.temp, '°F')}</span>
+              {' '}· RH: <span className="text-white font-medium">{fmt(p.relHumidity, '%')}</span>
+            </div>
+            <div>
+              Wind: <span className="text-white font-medium">{fmt(p.windSpeed, ' mph')}</span>
+              {' '}@ <span className="text-white font-medium">{fmtD(p.windDir)}</span>
+              {p.windSpeedPeak != null && (
+                <span className="text-gray-400"> (peak {fmt(p.windSpeedPeak, ' mph')})</span>
+              )}
+            </div>
+            {(p.fuelMoisture != null || p.fuelTemp != null) && (
+              <div>
+                {p.fuelMoisture != null && <>FM: <span className="text-white font-medium">{fmt(p.fuelMoisture, '%')}</span></>}
+                {p.fuelMoisture != null && p.fuelTemp != null && ' · '}
+                {p.fuelTemp != null && <>Fuel Temp: <span className="text-white font-medium">{fmt(p.fuelTemp, '°F')}</span></>}
+              </div>
+            )}
+            {p.precip != null && p.precip > 0 && (
+              <div>Precip: <span className="text-white font-medium">{p.precip.toFixed(2)}"</span></div>
+            )}
+          </div>
+          <div className="text-gray-500 text-[10px] mt-1 flex justify-between gap-3">
+            {p.elevation != null && <span>Elev: {Math.round(p.elevation).toLocaleString()} ft</span>}
+            {p.observationTime && <span>{new Date(p.observationTime).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</span>}
+          </div>
+        </>
+      );
+      break;
+    }
     case 'evac-zones-fill': {
       const statusColors = {
         'evacuation order':   'text-red-400',
@@ -320,6 +361,7 @@ function FlightDetailPopup({ flight, lngLat, onClose }) {
  * @param {object|null} props.userReportsGeoJSON
  * @param {object|null} props.evacZonesGeoJSON
  * @param {object|null} props.flightsGeoJSON
+ * @param {object|null} props.rawsGeoJSON
  * @param {'wildfire'|'weather'} [props.activeMapTab]
  */
 export default function MapView({
@@ -337,6 +379,7 @@ export default function MapView({
   userReportsGeoJSON,
   evacZonesGeoJSON,
   flightsGeoJSON,
+  rawsGeoJSON,
   measureActive = false,
   measureMode = 'distance',
   onMeasureActivate,
@@ -405,11 +448,13 @@ export default function MapView({
     if (isWeatherTab && layers.iemReports && iemReportsGeoJSON)          ids.push('iem-reports-circle');
     if (isWildfireTab && layers.evacZones && evacZonesGeoJSON)            ids.push('evac-zones-fill');
     if (layers.flights && flightsGeoJSON)                                 ids.push('flights-symbol');
+    if (layers.rawsStations && rawsGeoJSON)                               ids.push('raws-stations-circle');
     return ids;
   }, [measureActive, isWildfireTab, isWeatherTab, layers.fireHotspots, layers.firePerimeters, layers.incidentLocations, layers.aqi,
       layers.weatherAlerts, layers.spcOutlooks, layers.spcReports, layers.iemReports, layers.userReports, layers.evacZones, layers.flights,
+      layers.rawsStations,
       hotspotsGeoJSON, perimetersGeoJSON, incidentsGeoJSON, aqiGeoJSON, alertsGeoJSON, spcOutlooksGeoJSON,
-      spcReportsGeoJSON, iemReportsGeoJSON, userReportsGeoJSON, evacZonesGeoJSON, flightsGeoJSON]);
+      spcReportsGeoJSON, iemReportsGeoJSON, userReportsGeoJSON, evacZonesGeoJSON, flightsGeoJSON, rawsGeoJSON]);
 
   // Clear stale hover when layers change
   const prevLayersRef = useRef(layers);
@@ -748,6 +793,12 @@ export default function MapView({
         <EvacZonesLayer
           geoJSON={evacZonesGeoJSON}
           visible={isWildfireTab && layers.evacZones}
+        />
+
+        {/* RAWS weather stations – visible on both wildfire and weather tabs */}
+        <RAWSLayer
+          geoJSON={rawsGeoJSON}
+          visible={layers.rawsStations}
         />
 
         {/* Fire hotspot points – rendered last (top) */}

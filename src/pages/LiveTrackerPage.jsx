@@ -19,6 +19,7 @@ import { useSpcOutlooks } from '../hooks/useSpcOutlooks';
 import { useFireReports, reportsToGeoJSON } from '../hooks/useFireReports';
 import { useEvacZones } from '../hooks/useEvacZones';
 import { useFlightData } from '../hooks/useFlightData';
+import { useRAWSData } from '../hooks/useRAWSData';
 import { polygonCentroid } from '../utils/geoUtils';
 
 // Components
@@ -52,6 +53,7 @@ const WILDFIRE_LAYER_PRESET = {
   spcOutlooks: false,
   radar: false,
   evacZones: false,
+  rawsStations: true,
 };
 
 const WEATHER_LAYER_PRESET = {
@@ -67,6 +69,7 @@ const WEATHER_LAYER_PRESET = {
   spcOutlooks: true,
   radar: true,
   evacZones: false,
+  rawsStations: true,
 };
 
 const THREE_DAYS_MS = 3 * 24 * 60 * 60 * 1000;
@@ -116,8 +119,11 @@ function filterActiveFiresGeoJSON(geoJSON, { containedKey }) {
   };
 }
 
+// RAWS stations only load once the map is zoomed in to ~10-mile scale
+const RAWS_MIN_ZOOM = 11;
+
 export default function LiveTrackerPage() {
-  const { layers, setLayer, setRefreshed, setLoading, feedFilter } = useApp();
+  const { layers, setLayer, setRefreshed, setLoading, feedFilter, viewport } = useApp();
   const [activeMapTab, setActiveMapTab] = useState(MAP_TABS.wildfire);
   const [mapType, setMapType] = useState('satellite');
   const [weatherAlertFilter, setWeatherAlertFilter] = useState('all');
@@ -224,6 +230,13 @@ export default function LiveTrackerPage() {
     error: flightsError,
     refresh: refreshFlights,
   } = useFlightData(US_BOUNDS, layers.flights);
+
+  // RAWS weather stations – only fetch when layer is on AND zoomed in enough
+  const rawsEnabled = layers.rawsStations && (viewport?.zoom ?? 0) >= RAWS_MIN_ZOOM;
+  const {
+    geoJSON: rawsGeoJSON,
+    refresh: refreshRAWS,
+  } = useRAWSData(rawsEnabled);
 
   useEffect(() => {
     if (flightsError) console.error('[FlightTracking] Error:', flightsError);
@@ -481,7 +494,8 @@ export default function LiveTrackerPage() {
     refreshEvacZones();
     if (layers.aqi) refreshAQI();
     if (layers.flights) refreshFlights();
-  }, [refreshHotspots, refreshPerimeters, refreshAlerts, refreshIncidents, refreshStormReports, refreshSpcOutlooks, refreshUserReports, refreshEvacZones, refreshAQI, refreshFlights, layers.aqi, layers.flights]);
+    if (rawsEnabled) refreshRAWS();
+  }, [refreshHotspots, refreshPerimeters, refreshAlerts, refreshIncidents, refreshStormReports, refreshSpcOutlooks, refreshUserReports, refreshEvacZones, refreshAQI, refreshFlights, refreshRAWS, layers.aqi, layers.flights, rawsEnabled]);
 
   return (
     <div className="h-screen w-screen flex flex-col bg-sentinel-900 text-white overflow-hidden select-none">
@@ -524,6 +538,7 @@ export default function LiveTrackerPage() {
             userReportsGeoJSON={userReportsGeoJSON}
             evacZonesGeoJSON={evacZonesGeoJSON}
             flightsGeoJSON={flightsGeoJSON}
+            rawsGeoJSON={rawsGeoJSON}
             measureActive={measureActive}
             measureMode={measureMode}
             onMeasureActivate={onMeasureActivate}

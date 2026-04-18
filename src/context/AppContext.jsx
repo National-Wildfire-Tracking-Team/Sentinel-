@@ -25,6 +25,7 @@ const initialState = {
     radar:             false,
     evacZones:         false,
     flights:           false,
+    rawsStations:      false,
   },
   // Currently clicked/selected fire feature (hotspot or perimeter)
   selectedFire: null,
