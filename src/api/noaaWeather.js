@@ -166,13 +166,10 @@ export async function fetchFireWeatherAlerts() {
   const cached = getCached(cacheKey);
   if (cached !== null) return cached;
 
-  const params = new URLSearchParams({
-    status: 'actual',
-    message_type: 'alert,update',
-  });
-
   try {
-    let url = `${NOAA_BASE}/alerts/active?${params}`;
+    // Build URL with literal comma so NWS receives message_type=alert,update
+    // (URLSearchParams would encode the comma to %2C which some NWS endpoints reject)
+    let url = `${NOAA_BASE}/alerts/active?status=actual&message_type=alert,update`;
     const allFeatures = [];
 
     // Follow pagination.next until all pages are consumed
@@ -223,19 +220,25 @@ function normalizeAlerts(features) {
 /**
  * Fetch active weather alerts for a specific lat/lng point.
  * Uses the NOAA /alerts/active endpoint with the point parameter.
+ * Follows pagination so all alerts for the point are returned.
  * @param {number} lat  Latitude
  * @param {number} lng  Longitude
  * @returns {Promise<Array>}  Normalized alert objects for that location
  */
 export async function fetchAlertsByPoint(lat, lng) {
-  const url = `${NOAA_BASE}/alerts/active?point=${lat},${lng}&status=actual&message_type=alert,update`;
+  let url = `${NOAA_BASE}/alerts/active?point=${lat},${lng}&status=actual&message_type=alert,update`;
+  const allFeatures = [];
 
-  const res = await fetch(url, { headers: NWS_HEADERS });
-  if (!res.ok) throw new Error(`NOAA API error: ${res.status}`);
-  const data = await res.json();
+  while (url) {
+    const res = await fetch(url, { headers: NWS_HEADERS });
+    if (!res.ok) throw new Error(`NOAA API error: ${res.status}`);
+    const data = await res.json();
+    for (const f of (data.features || [])) allFeatures.push(f);
+    url = data.pagination?.next ?? null;
+  }
 
-  if (!data?.features?.length) return [];
-  return normalizeAlerts(data.features);
+  if (!allFeatures.length) return [];
+  return normalizeAlerts(allFeatures);
 }
 
 /**
