@@ -59,8 +59,7 @@ async function fetchAllNWSAlerts() {
 ========================= */
 async function fetchFemaAlerts() {
   try {
-    const url =
-      "https://apps.fema.gov/IPAWSOPEN_EAS_SERVICE/rest/feed";
+    const url = "/api/fema";
 
     const res = await fetch(url);
     const xml = await res.text();
