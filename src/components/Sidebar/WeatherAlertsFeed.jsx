@@ -133,7 +133,33 @@ function AlertRow({ alert }) {
   );
 }
 
+const FILTER_OPTIONS = [
+  { key: 'all',       label: 'All' },
+  { key: 'warning',   label: 'Warnings' },
+  { key: 'watch',     label: 'Watches' },
+  { key: 'advisory',  label: 'Advisories' },
+  { key: 'statement', label: 'Statements' },
+];
+
+const FILTER_COLORS = {
+  all:       'bg-sentinel-700 text-white border-sentinel-500',
+  warning:   'bg-red-700/70 text-red-100 border-red-500/60',
+  watch:     'bg-orange-700/70 text-orange-100 border-orange-500/60',
+  advisory:  'bg-yellow-700/70 text-yellow-100 border-yellow-500/60',
+  statement: 'bg-sky-700/70 text-sky-100 border-sky-500/60',
+};
+
+const FILTER_COLORS_INACTIVE = {
+  all:       'text-sentinel-300 border-sentinel-600 hover:bg-sentinel-700/50',
+  warning:   'text-red-300 border-red-800/50 hover:bg-red-900/30',
+  watch:     'text-orange-300 border-orange-800/50 hover:bg-orange-900/30',
+  advisory:  'text-yellow-300 border-yellow-800/50 hover:bg-yellow-900/30',
+  statement: 'text-sky-300 border-sky-800/50 hover:bg-sky-900/30',
+};
+
 export default function WeatherAlertsFeed({ alerts = [], loading, error }) {
+  const [activeFilter, setActiveFilter] = useState('all');
+
   const sorted = useMemo(() => {
     return [...alerts].sort((a, b) => {
       const ra = SEVERITY_RANK[a.severity] ?? SEVERITY_RANK.Unknown;
@@ -145,8 +171,46 @@ export default function WeatherAlertsFeed({ alerts = [], loading, error }) {
     });
   }, [alerts]);
 
+  const filtered = useMemo(() => {
+    if (activeFilter === 'all') return sorted;
+    return sorted.filter((a) => nwsAlertCategory(a.type) === activeFilter);
+  }, [sorted, activeFilter]);
+
+  const counts = useMemo(() => {
+    const c = { all: alerts.length };
+    for (const { key } of FILTER_OPTIONS) {
+      if (key !== 'all') c[key] = alerts.filter((a) => nwsAlertCategory(a.type) === key).length;
+    }
+    return c;
+  }, [alerts]);
+
   return (
     <div className="flex flex-col h-full">
+      {/* Filter buttons */}
+      <div className="px-2 pt-2 pb-1 shrink-0">
+        <div className="flex gap-1 flex-wrap">
+          {FILTER_OPTIONS.map(({ key, label }) => {
+            const isActive = activeFilter === key;
+            const count = counts[key] ?? 0;
+            return (
+              <button
+                key={key}
+                type="button"
+                onClick={() => setActiveFilter(key)}
+                className={`inline-flex items-center gap-1 px-2 py-1 rounded-md border text-[11px] font-semibold transition-colors ${
+                  isActive ? FILTER_COLORS[key] : `bg-transparent ${FILTER_COLORS_INACTIVE[key]}`
+                }`}
+              >
+                {label}
+                <span className={`text-[10px] font-bold ${isActive ? 'opacity-90' : 'opacity-60'}`}>
+                  {count}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
       <div className="flex-1 overflow-y-auto p-2 space-y-2">
         {loading && (
           <div className="flex items-center justify-center gap-2 py-8 text-sentinel-200">
@@ -162,14 +226,14 @@ export default function WeatherAlertsFeed({ alerts = [], loading, error }) {
           </div>
         )}
 
-        {!loading && !error && sorted.length === 0 && (
+        {!loading && !error && filtered.length === 0 && (
           <div className="text-center py-8 text-sentinel-300 text-sm flex flex-col items-center gap-2">
             <CloudSun size={18} />
-            <span>No active NWS or FEMA alerts.</span>
+            <span>{activeFilter === 'all' ? 'No active NWS or FEMA alerts.' : `No active ${activeFilter}s.`}</span>
           </div>
         )}
 
-        {!loading && !error && sorted.map((alert) => (
+        {!loading && !error && filtered.map((alert) => (
           <AlertRow key={alert.id} alert={alert} />
         ))}
       </div>
