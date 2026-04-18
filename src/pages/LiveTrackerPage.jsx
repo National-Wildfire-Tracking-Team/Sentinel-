@@ -118,6 +118,7 @@ function filterActiveFiresGeoJSON(geoJSON, { containedKey }) {
 export default function LiveTrackerPage() {
   const { layers, setLayer, setRefreshed, setLoading, feedFilter } = useApp();
   const [activeMapTab, setActiveMapTab] = useState(MAP_TABS.wildfire);
+  const [mapType, setMapType] = useState('satellite');
   const [weatherAlertFilter, setWeatherAlertFilter] = useState('all');
   const [bannerDismissed, setBannerDismissed] = useState(false);
   const [measureActive, setMeasureActive] = useState(false);
@@ -500,6 +501,7 @@ export default function LiveTrackerPage() {
         <div className="flex-1 relative overflow-hidden">
           <MapView
             activeMapTab={activeMapTab}
+            mapType={mapType}
             hotspotsGeoJSON={hotspotsGeoJSON}
             perimetersGeoJSON={filteredPerimetersGeoJSON}
             incidentsGeoJSON={deduplicatedIncidentsGeoJSON}
@@ -520,6 +522,8 @@ export default function LiveTrackerPage() {
 
           <LayerControl
             activeMapTab={activeMapTab}
+            mapType={mapType}
+            onMapTypeChange={setMapType}
             measureActive={measureActive}
             measureMode={measureMode}
             onMeasureActivate={onMeasureActivate}

@@ -6,7 +6,7 @@
 
 import { useState } from 'react';
 import {
-  Layers, Flame, MapPin, Wind, CloudRain, Eye, ChevronDown, ChevronRight, CloudLightning, Radar, AlertTriangle, Ruler, Hexagon, PlaneTakeoff,
+  Layers, Flame, MapPin, Wind, CloudRain, Eye, ChevronDown, ChevronRight, CloudLightning, Radar, AlertTriangle, Ruler, Hexagon, PlaneTakeoff, Satellite, Map as MapIcon,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 
@@ -105,6 +105,8 @@ function LayerToggle({ layerKey, label, sublabel, icon: Icon, color }) {
 
 export default function LayerControl({
   activeMapTab = 'wildfire',
+  mapType = 'satellite',
+  onMapTypeChange,
   measureActive = false,
   measureMode = 'distance',
   onMeasureActivate,
@@ -144,6 +146,35 @@ export default function LayerControl({
             <span className="text-xs font-bold text-sentinel-100 uppercase tracking-widest">
               Map Layers
             </span>
+            {/* Map type toggle */}
+            <div className="flex items-center bg-sentinel-800 border border-sentinel-600 rounded-lg p-0.5 mx-2">
+              <button
+                type="button"
+                onClick={() => onMapTypeChange?.('satellite')}
+                className={`flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-semibold transition-all ${
+                  mapType === 'satellite'
+                    ? 'bg-fire-600 text-white shadow'
+                    : 'text-sentinel-300 hover:text-white'
+                }`}
+                title="Satellite view"
+              >
+                <Satellite size={11} />
+                <span>SAT</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => onMapTypeChange?.('rendered')}
+                className={`flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-semibold transition-all ${
+                  mapType === 'rendered'
+                    ? 'bg-fire-600 text-white shadow'
+                    : 'text-sentinel-300 hover:text-white'
+                }`}
+                title="Map view"
+              >
+                <MapIcon size={11} />
+                <span>MAP</span>
+              </button>
+            </div>
             <div className="flex items-center gap-1">
               <div className="relative group">
                 <button
