@@ -208,28 +208,41 @@ function HoverTooltip({ feature, lngLat }) {
       break;
     }
     case 'raws-stations-circle': {
-      const rh  = p.relHumidity != null ? `${Math.round(p.relHumidity)}%` : '—';
-      const tmp = p.temp        != null ? `${Math.round(p.temp)}°F` : '—';
-      const ws  = p.windSpeed   != null ? `${Math.round(p.windSpeed)} mph` : '—';
-      const wd  = p.windDir     != null ? `${Math.round(p.windDir)}°` : '—';
+      const fmt  = (v, unit) => v != null ? `${Math.round(v)}${unit}` : '—';
+      const fmtD = (v) => v != null ? `${Math.round(v)}°` : '—';
       content = (
         <>
-          <div className="font-semibold text-orange-300">{p.stationName}</div>
-          {p.state && <div className="text-gray-400 text-xs">{p.state}</div>}
-          <div className="text-gray-300 text-xs mt-1 space-y-0.5">
-            <div>Temp: <span className="text-white font-medium">{tmp}</span>
-              {' '}· RH: <span className="text-white font-medium">{rh}</span>
+          <div className="font-semibold text-purple-300">{p.stationName}</div>
+          <div className="text-gray-400 text-[10px]">
+            {[p.county && `${p.county} Co.`, p.state, p.agency].filter(Boolean).join(' · ')}
+          </div>
+          <div className="text-gray-300 text-xs mt-1.5 space-y-0.5">
+            <div>
+              Temp: <span className="text-white font-medium">{fmt(p.temp, '°F')}</span>
+              {' '}· RH: <span className="text-white font-medium">{fmt(p.relHumidity, '%')}</span>
             </div>
-            <div>Wind: <span className="text-white font-medium">{ws}</span>
-              {' '}@ <span className="text-white font-medium">{wd}</span>
+            <div>
+              Wind: <span className="text-white font-medium">{fmt(p.windSpeed, ' mph')}</span>
+              {' '}@ <span className="text-white font-medium">{fmtD(p.windDir)}</span>
+              {p.windSpeedPeak != null && (
+                <span className="text-gray-400"> (peak {fmt(p.windSpeedPeak, ' mph')})</span>
+              )}
             </div>
-            {p.fuelMoisture != null && (
-              <div>Fuel Moisture: <span className="text-white font-medium">{Math.round(p.fuelMoisture)}%</span></div>
+            {(p.fuelMoisture != null || p.fuelTemp != null) && (
+              <div>
+                {p.fuelMoisture != null && <>FM: <span className="text-white font-medium">{fmt(p.fuelMoisture, '%')}</span></>}
+                {p.fuelMoisture != null && p.fuelTemp != null && ' · '}
+                {p.fuelTemp != null && <>Fuel Temp: <span className="text-white font-medium">{fmt(p.fuelTemp, '°F')}</span></>}
+              </div>
+            )}
+            {p.precip != null && p.precip > 0 && (
+              <div>Precip: <span className="text-white font-medium">{p.precip.toFixed(2)}"</span></div>
             )}
           </div>
-          {p.elevation != null && (
-            <div className="text-gray-500 text-[10px] mt-1">Elev: {Math.round(p.elevation).toLocaleString()} ft</div>
-          )}
+          <div className="text-gray-500 text-[10px] mt-1 flex justify-between gap-3">
+            {p.elevation != null && <span>Elev: {Math.round(p.elevation).toLocaleString()} ft</span>}
+            {p.observationTime && <span>{new Date(p.observationTime).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</span>}
+          </div>
         </>
       );
       break;
