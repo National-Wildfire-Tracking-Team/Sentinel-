@@ -153,6 +153,9 @@ function HoverTooltip({ feature, lngLat }) {
           {p.outlookLabel && (
             <div className="text-gray-400 text-xs">{p.outlookLabel}</div>
           )}
+          {p.DESC && (
+            <div className="text-gray-400 text-xs mt-1 max-w-[220px] line-clamp-3">{p.DESC}</div>
+          )}
         </>
       );
       break;

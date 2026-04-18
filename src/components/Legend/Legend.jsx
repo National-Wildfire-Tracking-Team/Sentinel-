@@ -40,9 +40,9 @@ const RADAR_DBZ_SCALE = [
 
 const SPC_RISK_SCALE = [
   { color: '#55BB55', label: 'TSTM (General Thunderstorms)' },
-  { color: '#00FF00', label: 'MRGL (Marginal)' },
-  { color: '#F9F200', label: 'SLGT (Slight)' },
-  { color: '#FF9900', label: 'ENH (Enhanced)' },
+  { color: '#005500', label: 'MRGL (Marginal)' },
+  { color: '#DDAA00', label: 'SLGT (Slight)' },
+  { color: '#FF6600', label: 'ENH (Enhanced)' },
   { color: '#FF0000', label: 'MDT (Moderate)' },
   { color: '#FF00FF', label: 'HIGH (High)' },
 ];
