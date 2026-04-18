@@ -79,7 +79,7 @@ export default function HomePage() {
             <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-white leading-tight tracking-tight">
               Protecting Communities{' '}
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-fire-500 to-fire-300">
-                Through Wildfire Intelligence
+                Through all hazard Intelligence
               </span>
             </h1>
 
