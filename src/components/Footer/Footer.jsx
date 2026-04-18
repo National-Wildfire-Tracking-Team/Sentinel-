@@ -62,6 +62,11 @@ export default function Footer() {
                   National Weather Service
                 </a>
               </li>
+              <li>
+                <a href="http://www.ADSBexchange.com" target="_blank" rel="noopener noreferrer" className="text-sentinel-300 hover:text-fire-400 text-sm transition-colors">
+                  ADS-B Exchange
+                </a>
+              </li>
             </ul>
           </div>
         </div>
