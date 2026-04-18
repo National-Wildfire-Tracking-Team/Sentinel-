@@ -1,96 +1,125 @@
 /**
  * RAWSLayer.jsx
- * Renders RAWS (Remote Automated Weather Stations) as color-coded circles.
- * Color encodes relative humidity: low RH = red (fire-danger), high = blue (safe).
- * Falls back to a neutral amber if RH is unavailable.
+ * RAWS weather stations rendered as a purple circle with a wind direction
+ * arrow and speed / humidity labels – matches the compact station badge design.
+ *
+ * All sub-layers use minzoom 11 so they only appear when the map is zoomed
+ * in to roughly a 10-mile view; data is never requested at wider scales.
  */
 
 import { Source, Layer } from 'react-map-gl';
 
 const EMPTY_GEOJSON = { type: 'FeatureCollection', features: [] };
-
-// RH-based color gradient: low humidity → fire danger red, high → blue
-const RH_COLOR_EXPRESSION = [
-  'case',
-  ['==', ['get', 'relHumidity'], null],
-  '#f59e0b', // amber fallback when RH unavailable
-  [
-    'interpolate', ['linear'], ['get', 'relHumidity'],
-    0,   '#ef4444', // 0% – extreme fire danger
-    15,  '#f97316', // 15% – very high
-    25,  '#f59e0b', // 25% – high
-    40,  '#84cc16', // 40% – moderate
-    60,  '#22d3ee', // 60% – low danger
-    80,  '#3b82f6', // 80% – minimal danger
-    100, '#6366f1', // 100%
-  ],
-];
+const MIN_ZOOM = 11;
 
 export default function RAWSLayer({ geoJSON, visible }) {
   const vis = visible ? 'visible' : 'none';
 
   return (
     <Source id="raws-stations" type="geojson" data={geoJSON || EMPTY_GEOJSON}>
-      {/* Outer glow ring */}
+
+      {/* Soft purple glow behind the circle */}
       <Layer
-        id="raws-stations-glow"
+        id="raws-glow"
         type="circle"
-        source="raws-stations"
+        minzoom={MIN_ZOOM}
         layout={{ visibility: vis }}
         paint={{
           'circle-radius': [
             'interpolate', ['linear'], ['zoom'],
-            4, 7,
-            8, 11,
-            12, 15,
+            11, 14,
+            15, 22,
           ],
-          'circle-color': RH_COLOR_EXPRESSION,
-          'circle-opacity': 0.2,
+          'circle-color': '#a855f7',
+          'circle-opacity': 0.18,
+          'circle-blur': 0.6,
           'circle-stroke-width': 0,
         }}
       />
 
-      {/* Main station dot */}
+      {/* Main purple station circle – interactive target */}
       <Layer
         id="raws-stations-circle"
         type="circle"
-        source="raws-stations"
+        minzoom={MIN_ZOOM}
         layout={{ visibility: vis }}
         paint={{
           'circle-radius': [
             'interpolate', ['linear'], ['zoom'],
-            4, 4,
-            8, 7,
-            12, 10,
+            11, 8,
+            14, 12,
+            17, 16,
           ],
-          'circle-color': RH_COLOR_EXPRESSION,
-          'circle-opacity': 0.9,
-          'circle-stroke-color': 'rgba(255,255,255,0.6)',
-          'circle-stroke-width': 1.5,
+          'circle-color': '#a855f7',
+          'circle-opacity': 0.95,
+          'circle-stroke-color': '#ffffff',
+          'circle-stroke-width': 2,
         }}
       />
 
-      {/* Station name label – only visible when zoomed in */}
+      {/* Wind direction arrow – rotated ↑ centered on the circle */}
       <Layer
-        id="raws-stations-label"
+        id="raws-wind-arrow"
         type="symbol"
-        source="raws-stations"
-        minzoom={8}
+        minzoom={MIN_ZOOM}
         layout={{
           visibility: vis,
-          'text-field': ['get', 'stationName'],
-          'text-font': ['DIN Pro Medium', 'Arial Unicode MS Regular'],
-          'text-size': 10,
-          'text-anchor': 'top',
-          'text-offset': [0, 1],
-          'text-max-width': 10,
+          'text-field': '↑',
+          'text-size': [
+            'interpolate', ['linear'], ['zoom'],
+            11, 11,
+            14, 15,
+          ],
+          'text-font': ['DIN Pro Bold', 'Arial Unicode MS Bold'],
+          'text-rotate': ['coalesce', ['get', 'windDir'], 0],
+          'text-rotation-alignment': 'map',
+          'text-anchor': 'center',
+          'text-allow-overlap': true,
+          'text-ignore-placement': true,
         }}
         paint={{
-          'text-color': '#e2e8f0',
-          'text-halo-color': 'rgba(0,0,0,0.8)',
+          'text-color': '#ffffff',
+          'text-halo-color': 'rgba(0,0,0,0)',
+          'text-halo-width': 0,
+        }}
+      />
+
+      {/* Speed + humidity label below the circle */}
+      <Layer
+        id="raws-label"
+        type="symbol"
+        minzoom={MIN_ZOOM}
+        layout={{
+          visibility: vis,
+          'text-field': [
+            'format',
+            ['concat',
+              ['to-string', ['round', ['coalesce', ['get', 'windSpeed'], 0]]],
+              ' mph',
+            ],
+            { 'font-scale': 0.85 },
+            '\n',
+            {},
+            ['concat',
+              ['to-string', ['round', ['coalesce', ['get', 'relHumidity'], 0]]],
+              '% RH',
+            ],
+            { 'font-scale': 0.75 },
+          ],
+          'text-anchor': 'top',
+          'text-offset': [0, 1.5],
+          'text-size': 11,
+          'text-font': ['DIN Pro Medium', 'Arial Unicode MS Regular'],
+          'text-allow-overlap': false,
+          'text-ignore-placement': false,
+        }}
+        paint={{
+          'text-color': '#ffffff',
+          'text-halo-color': 'rgba(0,0,0,0.85)',
           'text-halo-width': 1.5,
         }}
       />
+
     </Source>
   );
 }
