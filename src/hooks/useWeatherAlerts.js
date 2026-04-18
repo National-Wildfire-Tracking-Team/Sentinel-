@@ -1,104 +1,204 @@
 /**
  * useWeatherAlerts.js
- * Fetches active alerts from NOAA/NWS and FEMA IPAWS, merges them,
- * deduplicates cross-source overlaps, and enriches with zone geometry.
- * NOAA alerts take priority when an alert appears in both feeds.
+ * Unified nationwide alert system:
+ * - NOAA/NWS (primary, full coverage)
+ * - FEMA IPAWS (supplement)
+ * - Deduplication + merging
+ * - GeoJSON output for mapping
  */
 
-import { useState, useEffect, useCallback, useRef } from 'react';
-import { fetchFireWeatherAlerts, alertsToGeoJSON, enrichAlertsWithGeometry } from '../api/noaaWeather';
-import { fetchFemaAlerts } from '../api/fema';
-import { useApp } from '../context/AppContext';
+import { useState, useEffect, useCallback, useRef } from "react";
+import { useApp } from "../context/AppContext";
+import xml2js from "xml2js";
 
-const REFRESH_MS = 5 * 60 * 1000;
+const REFRESH_MS = 60 * 1000;
 
-/**
- * Build a stable fingerprint for an alert to detect cross-source duplicates.
- * Matches on: normalized event type + first 30 chars of affected area + hour of onset.
- */
-function alertFingerprint(alert) {
-  const event = (alert.type || '').toLowerCase().replace(/\s+/g, '');
-  const area  = (alert.affectedArea || '').slice(0, 30).toLowerCase().replace(/\W/g, '');
-  const time  = (alert.effective || alert.onset || alert.sent || '').slice(0, 13); // YYYY-MM-DDTHH
+/* =========================
+   NWS FETCH (FULL NATIONWIDE)
+========================= */
+async function fetchAllNWSAlerts() {
+  let url = "https://api.weather.gov/alerts/active";
+  let alerts = [];
+
+  while (url) {
+    const res = await fetch(url, {
+      headers: {
+        "User-Agent": "sentinel-app (your@email.com)",
+        "Accept": "application/geo+json"
+      }
+    });
+
+    if (!res.ok) throw new Error("NWS fetch failed");
+
+    const data = await res.json();
+
+    const mapped = data.features.map(f => ({
+      id: f.id,
+      type: f.properties.event,
+      severity: f.properties.severity,
+      urgency: f.properties.urgency,
+      affectedArea: f.properties.areaDesc,
+      effective: f.properties.effective,
+      onset: f.properties.onset,
+      sent: f.properties.sent,
+      expires: f.properties.expires,
+      geometry: f.geometry,
+      source: "NWS"
+    }));
+
+    alerts.push(...mapped);
+    url = data.pagination?.next || null;
+  }
+
+  return alerts;
+}
+
+/* =========================
+   FEMA IPAWS FETCH
+========================= */
+async function fetchFemaAlerts() {
+  try {
+    const url =
+      "https://apps.fema.gov/IPAWSOPEN_EAS_SERVICE/rest/feed";
+
+    const res = await fetch(url);
+    const xml = await res.text();
+
+    const parser = new xml2js.Parser({ explicitArray: false });
+    const data = await parser.parseStringPromise(xml);
+
+    const entries = data.feed?.entry || [];
+
+    return entries.map(e => ({
+      id: e.id,
+      type: e["cap:event"],
+      severity: e["cap:severity"],
+      urgency: e["cap:urgency"],
+      affectedArea: e["cap:areaDesc"],
+      effective: e["cap:effective"],
+      sent: e["cap:sent"],
+      geometry: null,
+      source: "FEMA"
+    }));
+  } catch (err) {
+    console.warn("FEMA failed:", err.message);
+    return [];
+  }
+}
+
+/* =========================
+   DEDUPLICATION
+========================= */
+function fingerprint(alert) {
+  const event = (alert.type || "")
+    .toLowerCase()
+    .replace(/\s+/g, "");
+
+  const area = (alert.affectedArea || "")
+    .slice(0, 30)
+    .toLowerCase()
+    .replace(/\W/g, "");
+
+  const time = (alert.effective || alert.sent || "").slice(0, 13);
+
   return `${event}|${area}|${time}`;
 }
 
-/**
- * Merge two alert arrays, deduplicating by exact ID and by fingerprint.
- * `primary` alerts win on conflict — their entries are kept and duplicates
- * from `secondary` are dropped.
- * @param {Array} primary   Higher-priority alerts (NOAA)
- * @param {Array} secondary Lower-priority alerts (FEMA)
- * @returns {Array}
- */
-function mergeAndDeduplicate(primary, secondary) {
-  const seenIds  = new Set(primary.map(a => a.id).filter(Boolean));
-  const seenKeys = new Set(primary.map(alertFingerprint));
+function mergeAlerts(nws, fema) {
+  const seenIds = new Set(nws.map(a => a.id));
+  const seenKeys = new Set(nws.map(fingerprint));
 
-  const unique = secondary.filter(alert => {
-    if (alert.id && seenIds.has(alert.id)) return false;
-    const key = alertFingerprint(alert);
+  const filteredFema = fema.filter(a => {
+    if (a.id && seenIds.has(a.id)) return false;
+
+    const key = fingerprint(a);
     if (seenKeys.has(key)) return false;
-    // Register so later FEMA entries don't duplicate each other either
-    if (alert.id) seenIds.add(alert.id);
+
+    seenIds.add(a.id);
     seenKeys.add(key);
+
     return true;
   });
 
-  return [...primary, ...unique];
+  return [...nws, ...filteredFema];
 }
 
+/* =========================
+   GEOJSON CONVERSION
+========================= */
+function toGeoJSON(alerts) {
+  return {
+    type: "FeatureCollection",
+    features: alerts
+      .filter(a => a.geometry)
+      .map(a => ({
+        type: "Feature",
+        geometry: a.geometry,
+        properties: {
+          id: a.id,
+          type: a.type,
+          severity: a.severity,
+          urgency: a.urgency,
+          source: a.source
+        }
+      }))
+  };
+}
+
+/* =========================
+   MAIN HOOK
+========================= */
 export function useWeatherAlerts() {
-  const [alerts,   setAlertsState] = useState([]);
-  const [geoJSON,  setGeoJSON]     = useState(null);
-  const [loading,  setLoading]     = useState(true);
-  const [error,    setError]       = useState(null);
-  const { setAlerts }              = useApp();
+  const [alerts, setAlertsState] = useState([]);
+  const [geoJSON, setGeoJSON] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  const { setAlerts } = useApp();
+  const mountedRef = useRef(true);
   const intervalRef = useRef(null);
-  const mountedRef  = useRef(true);
 
   const load = useCallback(async () => {
     try {
-      setLoading(true);
       setError(null);
 
-      // Fetch both sources concurrently; FEMA failure is non-fatal
-      const [noaaAlerts, femaAlerts] = await Promise.all([
-        fetchFireWeatherAlerts(),
-        fetchFemaAlerts().catch(err => {
-          console.warn('[useWeatherAlerts] FEMA fetch failed, skipping:', err.message);
-          return [];
-        }),
+      const [nws, fema] = await Promise.all([
+        fetchAllNWSAlerts(),
+        fetchFemaAlerts()
       ]);
 
       if (!mountedRef.current) return;
 
-      const merged = mergeAndDeduplicate(noaaAlerts, femaAlerts)
-        .filter(a => !a.type?.startsWith('Small Craft Advisory'));
+      const merged = mergeAlerts(nws, fema);
 
-      const enriched = await enrichAlertsWithGeometry(merged);
-      if (!mountedRef.current) return;
-
-      setAlertsState(enriched);
-      setAlerts(enriched);
-      setGeoJSON(alertsToGeoJSON(enriched));
+      setAlertsState(merged);
+      setAlerts(merged);
+      setGeoJSON(toGeoJSON(merged));
+      setLoading(false);
     } catch (err) {
       if (!mountedRef.current) return;
       setError(err.message);
-    } finally {
-      if (mountedRef.current) setLoading(false);
+      setLoading(false);
     }
   }, [setAlerts]);
 
   useEffect(() => {
     mountedRef.current = true;
+
     load();
     intervalRef.current = setInterval(load, REFRESH_MS);
+
     return () => {
       mountedRef.current = false;
       clearInterval(intervalRef.current);
     };
   }, [load]);
 
-  return { alerts, geoJSON, loading, error, refresh: load };
+  return {
+    alerts,
+    geoJSON,
+    loading,
+    error,
+    refresh: load
+  };
 }
