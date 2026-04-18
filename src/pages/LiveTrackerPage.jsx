@@ -141,6 +141,9 @@ export default function LiveTrackerPage() {
     Object.entries(preset).forEach(([layer, value]) => {
       setLayer(layer, value);
     });
+    if (activeMapTab === MAP_TABS.weather) {
+      setWeatherAlertFilter('all');
+    }
   }, [activeMapTab, setLayer]);
 
   // ── Data feeds ──
