@@ -81,7 +81,14 @@ function AlertRow({ alert }) {
           />
           <Icon size={14} className="shrink-0 mt-0.5" />
           <div className="flex-1 min-w-0">
-            <div className="text-xs font-semibold leading-tight truncate">{alert.type}</div>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <div className="text-xs font-semibold leading-tight truncate">{alert.type}</div>
+              {alert.source === 'fema' && (
+                <span className="text-[9px] font-bold px-1 py-0 rounded bg-orange-800/60 text-orange-200 shrink-0 uppercase tracking-wide">
+                  FEMA
+                </span>
+              )}
+            </div>
             {alert.headline && (
               <div className="text-[11px] opacity-80 mt-0.5 line-clamp-2">{alert.headline}</div>
             )}
@@ -151,14 +158,14 @@ export default function WeatherAlertsFeed({ alerts = [], loading, error }) {
         {error && !loading && (
           <div className="flex items-start gap-2 p-3 bg-red-950/40 border border-red-800/50 rounded-lg text-red-300 text-sm">
             <AlertCircle size={15} className="shrink-0 mt-0.5" />
-            <span>Could not load active NWS alerts.</span>
+            <span>Could not load active NWS/FEMA alerts.</span>
           </div>
         )}
 
         {!loading && !error && sorted.length === 0 && (
           <div className="text-center py-8 text-sentinel-300 text-sm flex flex-col items-center gap-2">
             <CloudSun size={18} />
-            <span>No active NWS alerts.</span>
+            <span>No active NWS or FEMA alerts.</span>
           </div>
         )}
 
