@@ -18,6 +18,7 @@ import { useStormReports } from '../hooks/useStormReports';
 import { useSpcOutlooks } from '../hooks/useSpcOutlooks';
 import { useFireReports, reportsToGeoJSON } from '../hooks/useFireReports';
 import { useEvacZones } from '../hooks/useEvacZones';
+import { useFlightData } from '../hooks/useFlightData';
 import { polygonCentroid } from '../utils/geoUtils';
 
 // Components
@@ -210,6 +211,12 @@ export default function LiveTrackerPage() {
     geoJSON: evacZonesGeoJSON,
     refresh: refreshEvacZones,
   } = useEvacZones();
+
+  // Live flight tracking (OpenSky Network ADS-B)
+  const {
+    geoJSON: flightsGeoJSON,
+    refresh: refreshFlights,
+  } = useFlightData(US_BOUNDS, layers.flights);
 
   // Community-submitted reports – only approved ones, realtime-subscribed
   const { reports: approvedReports, refresh: refreshUserReports } = useFireReports('approved');
@@ -462,7 +469,8 @@ export default function LiveTrackerPage() {
     refreshUserReports();
     refreshEvacZones();
     if (layers.aqi) refreshAQI();
-  }, [refreshHotspots, refreshPerimeters, refreshAlerts, refreshIncidents, refreshStormReports, refreshSpcOutlooks, refreshUserReports, refreshEvacZones, refreshAQI, layers.aqi]);
+    if (layers.flights) refreshFlights();
+  }, [refreshHotspots, refreshPerimeters, refreshAlerts, refreshIncidents, refreshStormReports, refreshSpcOutlooks, refreshUserReports, refreshEvacZones, refreshAQI, refreshFlights, layers.aqi, layers.flights]);
 
   return (
     <div className="h-screen w-screen flex flex-col bg-sentinel-900 text-white overflow-hidden select-none">
@@ -503,6 +511,7 @@ export default function LiveTrackerPage() {
             spcOutlooksGeoJSON={spcOutlooksGeoJSON}
             userReportsGeoJSON={userReportsGeoJSON}
             evacZonesGeoJSON={evacZonesGeoJSON}
+            flightsGeoJSON={flightsGeoJSON}
             measureActive={measureActive}
             measureMode={measureMode}
             onMeasureActivate={onMeasureActivate}
