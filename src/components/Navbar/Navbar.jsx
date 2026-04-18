@@ -81,7 +81,7 @@ export default function Navbar() {
               to="/sentinel"
               className="ml-2 px-4 py-2 rounded-lg text-sm font-semibold bg-fire-600 text-white hover:bg-fire-500 transition-colors"
             >
-              Sentinel
+              Sentinel<sup className="ml-0.5 text-[0.6em] font-bold tracking-wider align-super">BETA</sup>
             </NavLink>
           </div>
 
