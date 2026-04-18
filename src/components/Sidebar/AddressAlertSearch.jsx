@@ -27,13 +27,34 @@ const SEVERITY_ICONS = {
   Unknown:  Info,
 };
 
+const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN;
+
+async function geocodeViaDirect(address) {
+  if (!MAPBOX_TOKEN) throw new Error('Geocoding unavailable – Mapbox token not configured');
+  const params = new URLSearchParams({
+    access_token: MAPBOX_TOKEN,
+    country: 'us',
+    limit: '1',
+    types: 'address,place,postcode,neighborhood,locality',
+  });
+  const encoded = encodeURIComponent(address.trim());
+  const resp = await fetch(
+    `https://api.mapbox.com/geocoding/v5/mapbox.places/${encoded}.json?${params}`
+  );
+  if (!resp.ok) throw new Error(`Geocoding failed (${resp.status})`);
+  const data = await resp.json();
+  if (!data?.features?.length) throw new Error('Address not found');
+  const [lng, lat] = data.features[0].center;
+  return { lat, lng, placeName: data.features[0].place_name };
+}
+
 async function geocodeAddress(address) {
-  if (!isSupabaseConfigured) throw new Error('Geocoding unavailable – Supabase not configured');
+  if (!isSupabaseConfigured) return geocodeViaDirect(address);
   await acquireSlot();
   const { data, error } = await supabase.functions.invoke('mapbox-geocoding', {
     body: { query: address, country: 'us', limit: 1, types: 'address,place,postcode,neighborhood,locality' },
   });
-  if (error) throw new Error('Geocoding failed');
+  if (error) return geocodeViaDirect(address);
   if (!data?.features?.length) throw new Error('Address not found');
   const [lng, lat] = data.features[0].center;
   return { lat, lng, placeName: data.features[0].place_name };
