@@ -115,6 +115,32 @@ const ADVISORIES = {
   'Avalanche Advisory':                    '#CD853F',
 };
 
+// ─── FEMA IPAWS / EAS-specific alert types ───────────────────────────────────
+// These are issued through the Emergency Alert System and may arrive via the
+// FEMA IPAWS feed without a matching NWS event type.
+const FEMA_EAS = {
+  'Emergency Alert System':             '#CC2936',
+  'Presidential Alert':                 '#CC2936',
+  'Emergency Action Notification':      '#CC2936',
+  'Emergency Action Termination':       '#708090',
+  'National Periodic Test':             '#708090',
+  'Required Monthly Test':              '#708090',
+  'Required Weekly Test':               '#708090',
+  'AMBER Alert':                        '#FF6600',
+  'Child Abduction Emergency':          '#FF6600',
+  'Wireless Emergency Alert':           '#E88656',
+  'Extreme Wind Warning':               '#EB8E3B',
+  'Shelter in Place Warning':           '#E27D6E',
+  'Hazardous Materials Warning':        '#7B68EE',
+  'Nuclear Power Plant Warning':        '#CC2936',
+  'Radiological Hazard Warning':        '#CC2936',
+  'Volcano Warning':                    '#CC2936',
+  'Earthquake Warning':                 '#C0C0C0',
+  '911 Telephone Outage Emergency':     '#C0C0C0',
+  'Administrative Message':             '#708090',
+  'National Information Center':        '#708090',
+};
+
 // ─── Statements ──────────────────────────────────────────────────────────────
 const STATEMENTS = {
   'Special Weather Statement':     '#6EFAF7',
@@ -133,6 +159,7 @@ export const NWS_ALERT_COLORS = {
   ...WATCHES,
   ...ADVISORIES,
   ...STATEMENTS,
+  ...FEMA_EAS,
 };
 
 /** Classification of an alert event. */
@@ -141,6 +168,7 @@ export function nwsAlertCategory(event) {
   if (WATCHES[event])    return 'watch';
   if (ADVISORIES[event]) return 'advisory';
   if (STATEMENTS[event]) return 'statement';
+  if (FEMA_EAS[event])   return 'eas';
   return 'other';
 }
 
