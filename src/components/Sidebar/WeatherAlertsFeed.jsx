@@ -157,8 +157,7 @@ const FILTER_COLORS_INACTIVE = {
   statement: 'text-sky-300 border-sky-800/50 hover:bg-sky-900/30',
 };
 
-export default function WeatherAlertsFeed({ alerts = [], loading, error }) {
-  const [activeFilter, setActiveFilter] = useState('all');
+export default function WeatherAlertsFeed({ alerts = [], loading, error, activeFilter = 'all', onFilterChange }) {
 
   const sorted = useMemo(() => {
     return [...alerts].sort((a, b) => {
@@ -196,7 +195,7 @@ export default function WeatherAlertsFeed({ alerts = [], loading, error }) {
               <button
                 key={key}
                 type="button"
-                onClick={() => setActiveFilter(key)}
+                onClick={() => onFilterChange?.(key)}
                 className={`inline-flex items-center gap-1 px-2 py-1 rounded-md border text-[11px] font-semibold transition-colors ${
                   isActive ? FILTER_COLORS[key] : `bg-transparent ${FILTER_COLORS_INACTIVE[key]}`
                 }`}

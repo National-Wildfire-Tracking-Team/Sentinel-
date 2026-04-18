@@ -6,6 +6,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useApp } from '../context/AppContext';
+import { nwsAlertCategory } from '../utils/nwsColors';
 
 // Data hooks
 import { useFireHotspots } from '../hooks/useFireHotspots';
@@ -116,6 +117,7 @@ function filterActiveFiresGeoJSON(geoJSON, { containedKey }) {
 export default function LiveTrackerPage() {
   const { layers, setLayer, setRefreshed, setLoading, feedFilter } = useApp();
   const [activeMapTab, setActiveMapTab] = useState(MAP_TABS.wildfire);
+  const [weatherAlertFilter, setWeatherAlertFilter] = useState('all');
   const [bannerDismissed, setBannerDismissed] = useState(false);
   const [measureActive, setMeasureActive] = useState(false);
   const [measureMode, setMeasureMode] = useState('distance');
@@ -170,6 +172,16 @@ export default function LiveTrackerPage() {
     error: alertsError,
     refresh: refreshAlerts,
   } = useWeatherAlerts();
+
+  const filteredAlertsGeoJSON = useMemo(() => {
+    if (weatherAlertFilter === 'all' || !alertsGeoJSON?.features) return alertsGeoJSON;
+    return {
+      ...alertsGeoJSON,
+      features: alertsGeoJSON.features.filter(
+        f => nwsAlertCategory(f.properties.type) === weatherAlertFilter
+      ),
+    };
+  }, [alertsGeoJSON, weatherAlertFilter]);
 
   const {
     incidents,
@@ -469,6 +481,8 @@ export default function LiveTrackerPage() {
           weatherAlertsLoading={alertsLoading}
           weatherAlertsError={alertsError}
           onReopenBanner={() => setBannerDismissed(false)}
+          weatherAlertFilter={weatherAlertFilter}
+          onWeatherAlertFilterChange={setWeatherAlertFilter}
         />
 
         {/* Map area */}
@@ -480,7 +494,7 @@ export default function LiveTrackerPage() {
             incidentsGeoJSON={deduplicatedIncidentsGeoJSON}
             incidentDotsGeoJSON={finalIncidentDotsGeoJSON}
             aqiGeoJSON={aqiGeoJSON}
-            alertsGeoJSON={alertsGeoJSON}
+            alertsGeoJSON={filteredAlertsGeoJSON}
             spcReportsGeoJSON={spcGeoJSON}
             iemReportsGeoJSON={iemGeoJSON}
             spcOutlooksGeoJSON={spcOutlooksGeoJSON}
