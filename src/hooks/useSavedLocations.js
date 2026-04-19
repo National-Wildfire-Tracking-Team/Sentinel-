@@ -26,7 +26,8 @@ export function useSavedLocations() {
       const { data, error: err } = await supabase
         .from('saved_locations')
         .select('*')
-        .order('created_at', { ascending: true });
+        .order('created_at', { ascending: true })
+        .limit(FREE_LOCATION_LIMIT);
       if (err) throw err;
       setLocations(data || []);
     } catch (err) {
@@ -101,7 +102,7 @@ export function useSavedLocations() {
   }, []);
 
   return {
-    locations,
+    locations: locations.slice(0, FREE_LOCATION_LIMIT),
     loading,
     error,
     refresh: load,

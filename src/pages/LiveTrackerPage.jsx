@@ -165,6 +165,13 @@ export default function LiveTrackerPage() {
     }
   }, [activeMapTab, setLayer]);
 
+  // Saved Locations mode should not show community reporter content.
+  useEffect(() => {
+    if (activeMapTab === MAP_TABS.locations) {
+      setLayer('userReports', false);
+    }
+  }, [activeMapTab, setLayer]);
+
   // ── Data feeds ──
   const {
     geoJSON: hotspotsGeoJSON,
@@ -251,9 +258,13 @@ export default function LiveTrackerPage() {
 
   // Community-submitted reports – only approved ones, realtime-subscribed
   const { reports: approvedReports, refresh: refreshUserReports } = useFireReports('approved');
+  const reporterReports = useMemo(
+    () => (activeMapTab === MAP_TABS.wildfire ? approvedReports : []),
+    [activeMapTab, approvedReports]
+  );
   const userReportsGeoJSON = useMemo(
-    () => reportsToGeoJSON(approvedReports),
-    [approvedReports]
+    () => reportsToGeoJSON(reporterReports),
+    [reporterReports]
   );
 
   // ── Remove stale fully-contained fires (100% contained, no update in 3+ days) ──
@@ -359,12 +370,12 @@ export default function LiveTrackerPage() {
   // the external incident is replaced in the sidebar feed with a merged record
   // that keeps authoritative external stats but surfaces reporter-contributed data.
   const mergedIncidents = useMemo(() => {
-    if (!approvedReports.length) return allIncidents;
+    if (!reporterReports.length) return allIncidents;
 
     // Index reporter reports by normalised fire name key (same algorithm used
     // in useMergedFireData to match perimeters to incident dots).
     const reporterByKey = new Map();
-    approvedReports.forEach(r => {
+    reporterReports.forEach(r => {
       const key = getFireMatchKey(r.title);
       if (key) reporterByKey.set(key, r);
     });
@@ -394,15 +405,15 @@ export default function LiveTrackerPage() {
         reportedAt: report.created_at,
       };
     });
-  }, [allIncidents, approvedReports]);
+  }, [allIncidents, reporterReports]);
 
   // Build the set of reporter-matched fire name keys once for GeoJSON filtering.
   const reporterMatchKeys = useMemo(() => {
-    if (!approvedReports.length) return new Set();
+    if (!reporterReports.length) return new Set();
     return new Set(
-      approvedReports.map(r => getFireMatchKey(r.title)).filter(Boolean)
+      reporterReports.map(r => getFireMatchKey(r.title)).filter(Boolean)
     );
-  }, [approvedReports]);
+  }, [reporterReports]);
 
   // Deduplicate IRWIN incident markers:
   //  - Reporter match → suppress (reporter dot takes over)
