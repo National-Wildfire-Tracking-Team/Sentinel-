@@ -18,6 +18,8 @@ const initialState = {
     smoke:             false,
     goesEast:          false,
     goesWest:          false,
+    goesFire16:        false,
+    goesFire18:        false,
     spcReports:        true,
     iemReports:        true,
     spcOutlooks:       true,

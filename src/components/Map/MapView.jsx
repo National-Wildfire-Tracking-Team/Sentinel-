@@ -725,10 +725,13 @@ export default function MapView({
 
 
 
-        {/* GOES satellite imagery */}
+        {/* GOES satellite imagery – visible/weather bands on weather tab;
+            ABI-L2-MCMIP Day Land Cloud Fire RGB on wildfire tab */}
         <GOESLayer
           eastVisible={isWeatherTab && layers.goesEast}
           westVisible={isWeatherTab && layers.goesWest}
+          fire16Visible={isWildfireTab && layers.goesFire16}
+          fire18Visible={isWildfireTab && layers.goesFire18}
         />
 
         {/* NEXRAD radar reflectivity */}
