@@ -11,6 +11,14 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 
 const IEM_WMS = 'https://mesonet.agron.iastate.edu/cgi-bin/wms/nexrad/n0q.cgi';
 
+// Convert geographic coordinates to EPSG:3857 (Web Mercator) meters
+function toMercator(lng, lat) {
+  const R = 6378137;
+  const x = lng * (Math.PI / 180) * R;
+  const y = Math.log(Math.tan((90 + lat) * (Math.PI / 360))) * R;
+  return [x, y];
+}
+
 // dBZ value → display color
 function dbzColor(dbz) {
   if (dbz === null) return '#4b5563';
@@ -38,7 +46,10 @@ function dbzLabel(dbz) {
  * Returns the reflectivity in dBZ, or null when no precipitation is detected.
  */
 async function queryDbzAtPoint(lat, lng, signal) {
-  const d = 0.1; // bbox half-width in degrees (~11 km)
+  // Use EPSG:3857 — the layer's native projection (900913 = Web Mercator)
+  const [cx, cy] = toMercator(lng, lat);
+  const d = 12000; // bbox half-width in meters (~12 km)
+
   const params = new URLSearchParams({
     SERVICE:       'WMS',
     VERSION:       '1.1.1',
@@ -46,8 +57,8 @@ async function queryDbzAtPoint(lat, lng, signal) {
     LAYERS:        'nexrad-n0q-900913',
     QUERY_LAYERS:  'nexrad-n0q-900913',
     INFO_FORMAT:   'text/plain',
-    SRS:           'EPSG:4326',
-    BBOX:          `${lng - d},${lat - d},${lng + d},${lat + d}`,
+    SRS:           'EPSG:3857',
+    BBOX:          `${cx - d},${cy - d},${cx + d},${cy + d}`,
     WIDTH:         '11',
     HEIGHT:        '11',
     X:             '5',
@@ -65,12 +76,10 @@ async function queryDbzAtPoint(lat, lng, signal) {
 
   if (!match) return null;
   const raw = parseFloat(match[1]);
-  if (!raw || raw <= 0) return null; // 0 = no data / below threshold
+  if (!Number.isFinite(raw) || raw <= 0) return null; // 0 = no data / below threshold
 
-  // Standard N0Q encoding: dBZ = raw * 0.5 – 32.5
-  // If raw already looks like a dBZ value, return it directly.
-  if (raw > 0 && raw <= 255) return raw * 0.5 - 32.5;
-  return raw;
+  // Standard N0Q encoding: dBZ = raw * 0.5 – 32.5  (8-bit byte, range 2–255)
+  return raw * 0.5 - 32.5;
 }
 
 // ── PrecipitationRing ─────────────────────────────────────────────────────────
