@@ -180,6 +180,6 @@ function normalizeRAWS(arcgisJson) {
 
 function toNum(v) {
   if (v == null || v === '') return null;
-  const n = Number(v);
+  const n = parseFloat(v);
   return isNaN(n) ? null : n;
 }
