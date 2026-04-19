@@ -6,7 +6,7 @@
 
 import { useState } from 'react';
 import {
-  Layers, Flame, MapPin, Wind, CloudRain, Eye, ChevronDown, ChevronRight, CloudLightning, Radar, AlertTriangle, Ruler, Hexagon, PlaneTakeoff, Satellite, Map as MapIcon, Thermometer, Crosshair,
+  Layers, Flame, MapPin, Wind, CloudRain, Eye, ChevronDown, ChevronRight, Radar, AlertTriangle, Ruler, Hexagon, PlaneTakeoff, Satellite, Map as MapIcon, Thermometer, Crosshair,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 
@@ -34,7 +34,6 @@ const LAYER_GROUPS = [
     label: 'Weather',
     layers: [
       { key: 'weatherAlerts',  label: 'Fire Weather Alerts',  sublabel: 'NOAA NWS',                  icon: Wind,          color: '#ef4444' },
-      { key: 'spcOutlooks',    label: 'SPC Risk Outlooks',    sublabel: 'SPC Day 1-3 categorical',    icon: CloudLightning, color: '#f472b6' },
       { key: 'rawsStations',   label: 'RAWS Stations',        sublabel: 'Fire weather stations',      icon: Thermometer,   color: '#f97316' },
     ],
   },
