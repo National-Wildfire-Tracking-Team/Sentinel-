@@ -89,12 +89,12 @@ Deno.serve(async (req: Request) => {
       country: String(country),
       limit: String(limit),
       autocomplete: String(autocomplete),
+      q: query.trim(),
     });
 
     if (types) params.set('types', String(types));
 
-    const encoded = encodeURIComponent(query.trim());
-    const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encoded}.json?${params}`;
+    const url = `https://api.mapbox.com/search/geocode/v6/forward?${params}`;
 
     // Record the request just before making the upstream call
     recordRequest();

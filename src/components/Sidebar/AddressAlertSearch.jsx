@@ -35,8 +35,10 @@ async function geocodeAddress(address) {
   });
   if (error) throw new Error('Geocoding failed');
   if (!data?.features?.length) throw new Error('Address not found');
-  const [lng, lat] = data.features[0].center;
-  return { lat, lng, placeName: data.features[0].place_name };
+  const first = data.features[0];
+  if (!Array.isArray(first?.geometry?.coordinates)) throw new Error('Address not found');
+  const [lng, lat] = first.geometry.coordinates;
+  return { lat, lng, placeName: first.properties?.full_address ?? first.properties?.name ?? '' };
 }
 
 function AlertCard({ alert }) {
