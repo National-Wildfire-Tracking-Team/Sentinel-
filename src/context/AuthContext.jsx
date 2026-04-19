@@ -68,6 +68,23 @@ export function AuthProvider({ children }) {
   }, [session?.user?.id]);
 
   const signIn = useCallback(async (email, password, rememberMe = false) => {
+    const normalizedEmail = (email || '').trim().toLowerCase();
+
+    const { data: rateData, error: rateError } = await supabase
+      .rpc('login_rate_limit_status', { p_email: normalizedEmail })
+      .maybeSingle();
+
+    if (rateError) {
+      // eslint-disable-next-line no-console
+      console.warn('[Auth] Rate-limit check failed:', rateError.message);
+    } else if (rateData?.blocked) {
+      const retrySeconds = Number(rateData.retry_after_seconds || 0);
+      const retryMinutes = Math.max(1, Math.ceil(retrySeconds / 60));
+      throw new Error(
+        `Too many login attempts. Please try again in ${retryMinutes} minute${retryMinutes === 1 ? '' : 's'}.`
+      );
+    }
+
     // Set the remember-me flag BEFORE signing in so the storage adapter
     // writes the session to the correct backing store.
     if (rememberMe) {
@@ -75,7 +92,18 @@ export function AuthProvider({ children }) {
     } else {
       localStorage.removeItem(REMEMBER_ME_KEY);
     }
-    return supabase.auth.signInWithPassword({ email, password });
+    const result = await supabase.auth.signInWithPassword({ email: normalizedEmail, password });
+
+    const wasSuccess = !result?.error;
+    const { error: recordError } = await supabase
+      .rpc('record_login_attempt', { p_email: normalizedEmail, p_was_success: wasSuccess });
+
+    if (recordError) {
+      // eslint-disable-next-line no-console
+      console.warn('[Auth] Failed to record login attempt:', recordError.message);
+    }
+
+    return result;
   }, []);
 
   const signUp = useCallback(async (email, password) => {
