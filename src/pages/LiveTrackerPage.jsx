@@ -132,6 +132,7 @@ export default function LiveTrackerPage() {
   const [bannerDismissed, setBannerDismissed] = useState(false);
   const [measureActive, setMeasureActive] = useState(false);
   const [measureMode, setMeasureMode] = useState('distance');
+  const [precipRingActive, setPrecipRingActive] = useState(false);
 
   const onMeasureActivate = useCallback((mode) => {
     setMeasureMode(mode);
@@ -140,6 +141,10 @@ export default function LiveTrackerPage() {
 
   const onMeasureClose = useCallback(() => {
     setMeasureActive(false);
+  }, []);
+
+  const onPrecipRingToggle = useCallback(() => {
+    setPrecipRingActive(v => !v);
   }, []);
 
   // Apply layer presets only when switching between wildfire/weather tabs.
@@ -545,6 +550,7 @@ export default function LiveTrackerPage() {
             measureMode={measureMode}
             onMeasureActivate={onMeasureActivate}
             onMeasureClose={onMeasureClose}
+            precipRingActive={precipRingActive}
           />
 
           <LayerControl
@@ -555,6 +561,8 @@ export default function LiveTrackerPage() {
             measureMode={measureMode}
             onMeasureActivate={onMeasureActivate}
             onMeasureClose={onMeasureClose}
+            precipRingActive={precipRingActive}
+            onPrecipRingToggle={onPrecipRingToggle}
           />
 
           <Legend />
