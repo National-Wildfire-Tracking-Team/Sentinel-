@@ -4,12 +4,11 @@
  */
 
 import { Link } from 'react-router-dom';
-import { Flame, TrendingUp, Wind, ChevronLeft, CloudSun, ShieldAlert, ArrowLeft, MapPin } from 'lucide-react';
+import { Flame, TrendingUp, Wind, ChevronLeft, CloudSun, ShieldAlert, ArrowLeft } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import IncidentFeed from './IncidentFeed';
 import WeatherAlertsFeed from './WeatherAlertsFeed';
 import AddressAlertSearch from './AddressAlertSearch';
-import SavedLocationsPanel from '../SavedLocations/SavedLocationsPanel';
 
 function StatPill({ icon: Icon, label, value, color = 'text-white', onClick, className = '' }) {
   const base = `flex flex-col items-center gap-0.5 px-3 py-2 bg-sentinel-800 rounded-lg border border-sentinel-700 min-w-[70px] ${className}`;
@@ -43,8 +42,7 @@ export default function Sidebar({
   onWeatherAlertFilterChange,
 }) {
   const { sidebarOpen, toggleSidebar, alerts } = useApp();
-  const isWeatherTab   = activeMapTab === 'weather';
-  const isLocationsTab = activeMapTab === 'locations';
+  const isWeatherTab = activeMapTab === 'weather';
 
   const activeCount  = incidents.filter(i => i.status === 'active').length;
   const rfwCount     = alerts.filter(a => a.type === 'Red Flag Warning').length;
@@ -123,31 +121,13 @@ export default function Sidebar({
               Weather
             </button>
 
-            <button
-              type="button"
-              onClick={() => onTabChange?.('locations')}
-              className={`flex-1 inline-flex items-center justify-center gap-1.5 px-2 py-1.5 text-xs font-semibold rounded-lg transition-colors ${
-                activeMapTab === 'locations'
-                  ? 'bg-emerald-600 text-white'
-                  : 'text-sentinel-200 hover:bg-sentinel-700'
-              }`}
-              aria-pressed={activeMapTab === 'locations'}
-            >
-              <MapPin size={13} />
-              Saved
-            </button>
           </div>
         </div>
 
         {/* Sidebar header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-sentinel-700 shrink-0">
           <div className="flex items-center gap-2">
-            {isLocationsTab ? (
-              <>
-                <MapPin size={16} className="text-emerald-400" />
-                <h2 className="font-semibold text-white text-sm">Saved Locations</h2>
-              </>
-            ) : isWeatherTab ? (
+            {isWeatherTab ? (
               <>
                 <CloudSun size={16} className="text-sky-400" />
                 <h2 className="font-semibold text-white text-sm">Weather &amp; Radar</h2>
@@ -174,35 +154,31 @@ export default function Sidebar({
           </button>
         </div>
 
-        {/* Summary stats strip – hidden on Locations tab */}
-        {!isLocationsTab && (
-          <div className="px-3 py-2 border-b border-sentinel-700 shrink-0">
-            <div className="flex justify-center gap-2 overflow-x-auto pb-1 scrollbar-none">
-              {isWeatherTab ? (
-                <>
-                  <StatPill icon={CloudSun}    label="Active Alerts" value={alertsCount}  color="text-sky-300"   className="flex-1" />
-                  <StatPill icon={ShieldAlert} label="Severe"        value={severeCount}  color="text-red-300"   className="flex-1" />
-                  <StatPill icon={Wind}        label="Warnings"      value={warningCount} color="text-amber-300" className="flex-1" />
-                </>
-              ) : (
-                <>
-                  <StatPill icon={Flame}      label="Active"     value={activeCount}  color="text-fire-400"    className="flex-1" />
-                  <StatPill icon={TrendingUp} label="Acres"      value={acresDisplay} color="text-orange-400"  className="flex-1" />
-                  <StatPill icon={Wind}       label="Red Flags"  value={rfwCount}     color="text-red-400"     className="flex-1" onClick={rfwCount > 0 ? onReopenBanner : undefined} />
-                </>
-              )}
-            </div>
+        {/* Summary stats strip */}
+        <div className="px-3 py-2 border-b border-sentinel-700 shrink-0">
+          <div className="flex justify-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+            {isWeatherTab ? (
+              <>
+                <StatPill icon={CloudSun}    label="Active Alerts" value={alertsCount}  color="text-sky-300"   className="flex-1" />
+                <StatPill icon={ShieldAlert} label="Severe"        value={severeCount}  color="text-red-300"   className="flex-1" />
+                <StatPill icon={Wind}        label="Warnings"      value={warningCount} color="text-amber-300" className="flex-1" />
+              </>
+            ) : (
+              <>
+                <StatPill icon={Flame}      label="Active"     value={activeCount}  color="text-fire-400"    className="flex-1" />
+                <StatPill icon={TrendingUp} label="Acres"      value={acresDisplay} color="text-orange-400"  className="flex-1" />
+                <StatPill icon={Wind}       label="Red Flags"  value={rfwCount}     color="text-red-400"     className="flex-1" onClick={rfwCount > 0 ? onReopenBanner : undefined} />
+              </>
+            )}
           </div>
-        )}
+        </div>
 
         {/* Address alert search – weather tab only */}
         {isWeatherTab && <AddressAlertSearch />}
 
         {/* Feed – takes remaining height */}
         <div className="flex-1 overflow-hidden flex flex-col">
-          {isLocationsTab ? (
-            <SavedLocationsPanel />
-          ) : isWeatherTab ? (
+          {isWeatherTab ? (
             <WeatherAlertsFeed
               alerts={alerts}
               loading={weatherAlertsLoading}
