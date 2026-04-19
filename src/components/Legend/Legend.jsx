@@ -71,7 +71,7 @@ export default function Legend() {
 
   if (!legendOpen) return null;
 
-  const anyActive = layers.fireHotspots || layers.aqi || layers.firePerimeters || layers.spcOutlooks || layers.weatherAlerts || layers.radar || layers.incidentLocations;
+  const anyActive = layers.fireHotspots || layers.aqi || layers.firePerimeters || layers.spcOutlooks || layers.weatherAlerts || layers.radar || layers.incidentLocations || layers.spcReports || layers.iemReports;
   if (!anyActive) return null;
 
   return (
@@ -141,6 +141,14 @@ export default function Legend() {
             {layers.spcOutlooks && (
               <Section title="SPC Risk Outlooks">
                 {SPC_RISK_SCALE.map(row => <ColorRow key={row.label} {...row} />)}
+              </Section>
+            )}
+
+            {(layers.spcReports || layers.iemReports) && (
+              <Section title="Storm Reports">
+                <ColorRow color="#ef4444" label="Tornado" />
+                <ColorRow color="#3b82f6" label="Hail" />
+                <ColorRow color="#f59e0b" label="Wind" />
               </Section>
             )}
 
