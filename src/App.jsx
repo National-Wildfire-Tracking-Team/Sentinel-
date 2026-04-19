@@ -18,10 +18,12 @@ const LiveTrackerPage = lazy(() => import('./pages/LiveTrackerPage'));
 const PrivacyPolicyPage = lazy(() => import('./pages/PrivacyPolicyPage'));
 const TermsPage = lazy(() => import('./pages/TermsPage'));
 const LoginPage = lazy(() => import('./pages/LoginPage'));
+const RegisterPage = lazy(() => import('./pages/RegisterPage'));
+const ReporterLoginPage = lazy(() => import('./pages/ReporterLoginPage'));
+const ReporterRegisterPage = lazy(() => import('./pages/ReporterRegisterPage'));
 const SubmitReportPage = lazy(() => import('./pages/SubmitReportPage'));
 const AccountPage = lazy(() => import('./pages/AccountPage'));
 const AdminDashboardPage = lazy(() => import('./pages/AdminDashboardPage'));
-const RegisterPage = lazy(() => import('./pages/RegisterPage'));
 
 /** Scroll to top on route change */
 function ScrollToTop() {
@@ -100,9 +102,11 @@ export default function App() {
             }
           />
 
-          {/* Reporter submission system — full-screen, no Navbar/Footer */}
+          {/* Auth pages — full-screen, no Navbar/Footer */}
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
+          <Route path="/reporter-login" element={<ReporterLoginPage />} />
+          <Route path="/reporter-register" element={<ReporterRegisterPage />} />
           <Route path="/submit-report" element={<SubmitReportPage />} />
           {/* Account settings — protected, not linked in public nav */}
           <Route path="/account" element={<AccountPage />} />

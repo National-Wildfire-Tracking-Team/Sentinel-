@@ -198,10 +198,13 @@ export default function SubmitReportPage() {
     );
   }
   if (!user) {
-    return <Navigate to="/login" state={{ from: '/submit-report' }} replace />;
+    return <Navigate to="/reporter-login" state={{ from: '/submit-report' }} replace />;
   }
-  if (profile?.role && profile.role !== 'reporter') {
-    return <Navigate to={profile.role === 'admin' ? '/admin' : '/sentinel'} replace />;
+  if (profile?.role === 'admin') {
+    return <Navigate to="/admin" replace />;
+  }
+  if (profile?.role === 'public') {
+    return <Navigate to="/reporter-register" replace />;
   }
 
   /* ── Image helpers ── */
