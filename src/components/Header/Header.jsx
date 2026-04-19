@@ -54,13 +54,6 @@ export default function Header({ onRefresh }) {
           <givebutter-widget id="g6WWrD"></givebutter-widget>
         </div>
 
-        {/* Last updated */}
-        {lastRefreshed && (
-          <span className="hidden md:inline text-xs text-sentinel-400">
-            Updated {formatRelativeTime(lastRefreshed)}
-          </span>
-        )}
-
         {/* Auth actions */}
         {isAuthenticated ? (
           <button
@@ -96,6 +89,13 @@ export default function Header({ onRefresh }) {
               Sign Up
             </NavLink>
           </div>
+        )}
+
+        {/* Last updated */}
+        {lastRefreshed && (
+          <span className="hidden md:inline text-xs text-sentinel-400">
+            Updated {formatRelativeTime(lastRefreshed)}
+          </span>
         )}
 
         {/* Manual refresh button */}
