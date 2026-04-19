@@ -51,45 +51,6 @@ const values = [
   },
 ];
 
-const teamRoles = [
-  {
-    title: 'Fire Intelligence Analysts',
-    description:
-      'Monitor satellite feeds and cross-reference fire detections with weather data, terrain models, and ground reports to provide accurate situational awareness.',
-    count: 'Core Team',
-  },
-  {
-    title: 'Data Engineers',
-    description:
-      'Build and maintain the data pipelines that ingest information from NASA FIRMS, NIFC, NWS, and other authoritative sources to power our tracking platform.',
-    count: 'Technical',
-  },
-  {
-    title: 'Weather Analysts',
-    description:
-      'Track fire weather conditions including Red Flag Warnings, wind events, and drought patterns that influence wildfire behavior and spread.',
-    count: 'Specialist',
-  },
-  {
-    title: 'Communications Team',
-    description:
-      'Translate complex fire data into clear, actionable information for the public, media, and partner agencies during wildfire events.',
-    count: 'Outreach',
-  },
-  {
-    title: 'GIS & Mapping Specialists',
-    description:
-      'Create and maintain interactive maps, perimeter overlays, and geospatial visualizations that make wildfire data accessible and understandable.',
-    count: 'Technical',
-  },
-  {
-    title: 'Community Liaisons',
-    description:
-      'Connect with local emergency management agencies, fire departments, and community groups to ensure our intelligence reaches those on the ground.',
-    count: 'Field',
-  },
-];
-
 export default function AboutPage() {
   return (
     <div className="min-h-screen">
@@ -226,34 +187,6 @@ export default function AboutPage() {
                 </div>
               );
             })}
-          </div>
-        </div>
-      </section>
-
-      {/* ── Team Roles ── */}
-      <section className="bg-sentinel-800 py-20">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl sm:text-4xl font-bold text-white">How Our Team Works</h2>
-            <p className="mt-4 text-sentinel-300 text-lg max-w-2xl mx-auto">
-              Our volunteers contribute across multiple disciplines, each playing a
-              critical role in our wildfire intelligence operation.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {teamRoles.map((role) => (
-              <div
-                key={role.title}
-                className="p-6 rounded-2xl bg-sentinel-900 border border-sentinel-700 hover:border-fire-600/30 transition-all"
-              >
-                <span className="inline-block px-2.5 py-0.5 rounded-md bg-fire-600/10 text-fire-400 text-xs font-semibold mb-3">
-                  {role.count}
-                </span>
-                <h3 className="text-lg font-semibold text-white mb-2">{role.title}</h3>
-                <p className="text-sentinel-300 text-sm leading-relaxed">{role.description}</p>
-              </div>
-            ))}
           </div>
         </div>
       </section>
