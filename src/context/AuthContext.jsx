@@ -13,6 +13,7 @@ export function AuthProvider({ children }) {
   const [session, setSession] = useState(null);
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [profileLoading, setProfileLoading] = useState(false);
 
   // Load current session on mount + subscribe to auth changes
   useEffect(() => {
@@ -43,9 +44,11 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     if (!isSupabaseConfigured || !session?.user) {
       setProfile(null);
+      setProfileLoading(false);
       return;
     }
 
+    setProfileLoading(true);
     let cancelled = false;
     (async () => {
       const { data, error } = await supabase
@@ -60,8 +63,11 @@ export function AuthProvider({ children }) {
         console.warn('[Auth] Failed to load profile:', error.message);
         setProfile({ id: session.user.id, email: session.user.email, role: 'public' });
       } else {
-        setProfile(data ?? { id: session.user.id, email: session.user.email, role: 'public' });
+        // If no profile row exists yet (trigger delay on new signup), fall back
+        // to 'reporter' so a new reporter isn't bounced to the register page.
+        setProfile(data ?? { id: session.user.id, email: session.user.email, role: 'reporter' });
       }
+      setProfileLoading(false);
     })();
 
     return () => { cancelled = true; };
@@ -100,6 +106,7 @@ export function AuthProvider({ children }) {
     isReporter: profile?.role === 'reporter',
     isAuthenticated: Boolean(session?.user),
     loading,
+    profileLoading,
     isSupabaseConfigured,
     signIn,
     signUp,

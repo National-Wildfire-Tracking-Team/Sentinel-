@@ -134,7 +134,7 @@ function SectionHeader({ icon: Icon, iconColor = 'text-[#0096ff]', children }) {
 ══════════════════════════════════════════════════════════ */
 
 export default function SubmitReportPage() {
-  const { user, profile, loading, signOut, isSupabaseConfigured } = useAuth();
+  const { user, profile, loading, profileLoading, signOut, isSupabaseConfigured } = useAuth();
   const navigate = useNavigate();
 
   /* Tab navigation: 'add' | 'manage' */
@@ -190,7 +190,7 @@ export default function SubmitReportPage() {
   const [deleteBusy, setDeleteBusy] = useState({});
 
   /* ── Guards ── */
-  if (loading) {
+  if (loading || profileLoading) {
     return (
       <div className="min-h-screen bg-[#0a0c0e] flex items-center justify-center text-sentinel-300 text-sm">
         Loading…
