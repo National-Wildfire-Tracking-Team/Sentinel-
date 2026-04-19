@@ -4,20 +4,12 @@
  * at the current map center via IEM WMS GetFeatureInfo.
  *
  * Exports:
- *   PrecipitationRing  – absolute-positioned overlay (renders outside <Map>)
+ * PrecipitationRing  – absolute-positioned overlay (renders outside <Map>)
  */
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 
 const IEM_WMS = 'https://mesonet.agron.iastate.edu/cgi-bin/wms/nexrad/n0q.cgi';
-
-// Convert geographic coordinates to EPSG:3857 (Web Mercator) meters
-function toMercator(lng, lat) {
-  const R = 6378137;
-  const x = lng * (Math.PI / 180) * R;
-  const y = Math.log(Math.tan((90 + lat) * (Math.PI / 360))) * R;
-  return [x, y];
-}
 
 // dBZ value → display color
 function dbzColor(dbz) {
@@ -27,7 +19,7 @@ function dbzColor(dbz) {
   if (dbz < 40)    return '#facc15'; // yellow – moderate
   if (dbz < 50)    return '#f97316'; // orange – heavy
   if (dbz < 60)    return '#ef4444'; // red    – very heavy / severe
-  return '#a855f7';                   // purple – extreme
+  return '#a855f7';                  // purple – extreme
 }
 
 // dBZ value → intensity label
@@ -46,19 +38,16 @@ function dbzLabel(dbz) {
  * Returns the reflectivity in dBZ, or null when no precipitation is detected.
  */
 async function queryDbzAtPoint(lat, lng, signal) {
-  // Use EPSG:3857 — the layer's native projection (900913 = Web Mercator)
-  const [cx, cy] = toMercator(lng, lat);
-  const d = 12000; // bbox half-width in meters (~12 km)
-
+  const d = 0.1; // bbox half-width in degrees (~11 km)
   const params = new URLSearchParams({
     SERVICE:       'WMS',
     VERSION:       '1.1.1',
     REQUEST:       'GetFeatureInfo',
-    LAYERS:        'nexrad-n0q-900913',
-    QUERY_LAYERS:  'nexrad-n0q-900913',
+    LAYERS:        'nexrad-n0q', // Fixed: Use native layer for EPSG:4326 queries
+    QUERY_LAYERS:  'nexrad-n0q', // Fixed: Use native layer for EPSG:4326 queries
     INFO_FORMAT:   'text/plain',
-    SRS:           'EPSG:3857',
-    BBOX:          `${cx - d},${cy - d},${cx + d},${cy + d}`,
+    SRS:           'EPSG:4326',
+    BBOX:          `${lng - d},${lat - d},${lng + d},${lat + d}`,
     WIDTH:         '11',
     HEIGHT:        '11',
     X:             '5',
@@ -69,17 +58,20 @@ async function queryDbzAtPoint(lat, lng, signal) {
   if (!res.ok) throw new Error(`WMS ${res.status}`);
   const text = await res.text();
 
-  // MapServer text/plain: "  value_0 = 42\n"  (raw band value, 0 = no data)
-  const match = text.match(/value_0\s*=\s*([-\d.]+)/i)
-             ?? text.match(/band_?1\s*=\s*([-\d.]+)/i)
-             ?? text.match(/gray_index\s*=\s*([-\d.]+)/i);
+  // Fixed: MapServer text/plain usually wraps values in quotes e.g., value_0 = '42'
+  const match = text.match(/value_0\s*=\s*['"]?([-\d.]+)['"]?/i)
+             ?? text.match(/band_?1\s*=\s*['"]?([-\d.]+)['"]?/i)
+             ?? text.match(/gray_index\s*=\s*['"]?([-\d.]+)['"]?/i);
 
   if (!match) return null;
   const raw = parseFloat(match[1]);
-  if (!Number.isFinite(raw) || raw <= 0) return null; // 0 = no data / below threshold
+  if (!raw || raw <= 0) return null; // 0 = no data / below threshold
 
-  // Standard N0Q encoding: dBZ = raw * 0.5 – 32.5  (8-bit byte, range 2–255)
-  return raw * 0.5 - 32.5;
+  // Standard N0Q encoding: dBZ = raw * 0.5 - 32.5
+  // Safely return if the value was already translated to dBZ by the WMS
+  if (raw < 0 || !Number.isInteger(raw)) return raw;
+  if (raw > 0 && raw <= 255) return raw * 0.5 - 32.5;
+  return raw;
 }
 
 // ── PrecipitationRing ─────────────────────────────────────────────────────────
@@ -114,7 +106,7 @@ export function PrecipitationRing({ active, lat, lng }) {
   // Debounce on lat/lng change (user panning), then poll every 15 s
   useEffect(() => {
     if (!active) { setDbz(null); setStatus('idle'); return; }
-    if (!lat || !lng) return;
+    if (lat == null || lng == null) return; // Fixed to allow lat/lng of exactly 0
 
     clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => doQuery(lat, lng), 700);
