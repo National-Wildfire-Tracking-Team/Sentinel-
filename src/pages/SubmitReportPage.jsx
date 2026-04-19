@@ -297,6 +297,9 @@ export default function SubmitReportPage() {
   if (!user) {
     return <Navigate to="/login" state={{ from: '/submit-report' }} replace />;
   }
+  if (profile?.role === 'public') {
+    return <Navigate to="/sentinel" replace />;
+  }
 
   /* ── Image helpers ── */
   function handleFiles(files) {
