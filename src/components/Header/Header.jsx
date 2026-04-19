@@ -3,20 +3,88 @@
  * Top navigation bar with logo, title, status, and last-updated indicator.
  */
 
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import { useAuth } from '../../context/AuthContext';
 import { formatRelativeTime } from '../../utils/formatUtils';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { Flame, Menu, RefreshCw } from 'lucide-react';
 
+const ONE_MINUTE_MS = 60_000;
+const JUST_NOW_VISIBLE_MS = 5_000;
+
 export default function Header({ onRefresh }) {
   const { toggleSidebar, lastRefreshed, isLoading } = useApp();
   const { isAuthenticated, signOut } = useAuth();
   const navigate = useNavigate();
 
+  const [nowMs, setNowMs] = useState(() => Date.now());
+  const [showRecentRefreshIndicator, setShowRecentRefreshIndicator] = useState(false);
+  const hideRecentIndicatorTimeoutRef = useRef(null);
+
+  useEffect(() => {
+    const intervalId = window.setInterval(() => setNowMs(Date.now()), 1000);
+    return () => window.clearInterval(intervalId);
+  }, []);
+
+  useEffect(() => {
+    if (!lastRefreshed) return;
+
+    const refreshedMs = new Date(lastRefreshed).getTime();
+    if (Number.isNaN(refreshedMs)) return;
+
+    if (hideRecentIndicatorTimeoutRef.current) {
+      window.clearTimeout(hideRecentIndicatorTimeoutRef.current);
+      hideRecentIndicatorTimeoutRef.current = null;
+    }
+
+    if (Date.now() - refreshedMs < ONE_MINUTE_MS) {
+      setShowRecentRefreshIndicator(true);
+      hideRecentIndicatorTimeoutRef.current = window.setTimeout(() => {
+        setShowRecentRefreshIndicator(false);
+        hideRecentIndicatorTimeoutRef.current = null;
+      }, JUST_NOW_VISIBLE_MS);
+    }
+  }, [lastRefreshed]);
+
+  useEffect(() => () => {
+    if (hideRecentIndicatorTimeoutRef.current) {
+      window.clearTimeout(hideRecentIndicatorTimeoutRef.current);
+    }
+  }, []);
+
+  const refreshAgeMs = useMemo(() => {
+    if (!lastRefreshed) return null;
+    const refreshedMs = new Date(lastRefreshed).getTime();
+    if (Number.isNaN(refreshedMs)) return null;
+    return Math.max(nowMs - refreshedMs, 0);
+  }, [lastRefreshed, nowMs]);
+
+  const isUpdatedOneMinuteOrLater = refreshAgeMs !== null && refreshAgeMs >= ONE_MINUTE_MS;
+  const shouldShowIndicator = Boolean(lastRefreshed) && (isUpdatedOneMinuteOrLater || showRecentRefreshIndicator);
+
+  const indicatorText = isUpdatedOneMinuteOrLater
+    ? `Updated ${formatRelativeTime(lastRefreshed)}`
+    : 'Updated just now';
+
   const handleSignOut = async () => {
     await signOut();
     navigate('/');
+  };
+
+  const handleRefreshClick = () => {
+    if (!shouldShowIndicator) {
+      if (hideRecentIndicatorTimeoutRef.current) {
+        window.clearTimeout(hideRecentIndicatorTimeoutRef.current);
+      }
+      setShowRecentRefreshIndicator(true);
+      hideRecentIndicatorTimeoutRef.current = window.setTimeout(() => {
+        setShowRecentRefreshIndicator(false);
+        hideRecentIndicatorTimeoutRef.current = null;
+      }, JUST_NOW_VISIBLE_MS);
+    }
+
+    onRefresh?.();
   };
 
   return (
@@ -58,12 +126,18 @@ export default function Header({ onRefresh }) {
         {isAuthenticated ? (
           <button
             onClick={handleSignOut}
-            className="hidden sm:inline-flex items-center px-3 py-1.5 rounded-md text-xs font-medium text-sentinel-300 hover:text-white hover:bg-sentinel-700 transition-colors"
+            className={`hidden sm:inline-flex items-center px-3 py-1.5 rounded-md text-xs font-medium text-sentinel-300 hover:text-white hover:bg-sentinel-700 transition-transform duration-300 ${
+              shouldShowIndicator ? 'md:translate-x-0' : 'md:translate-x-2'
+            }`}
           >
             Sign Out
           </button>
         ) : (
-          <div className="hidden sm:flex items-center gap-2">
+          <div
+            className={`hidden sm:flex items-center gap-2 transition-transform duration-300 ${
+              shouldShowIndicator ? 'md:translate-x-0' : 'md:translate-x-2'
+            }`}
+          >
             <NavLink
               to="/login"
               className={({ isActive }) =>
@@ -92,15 +166,18 @@ export default function Header({ onRefresh }) {
         )}
 
         {/* Last updated */}
-        {lastRefreshed && (
-          <span className="hidden md:inline text-xs text-sentinel-400">
-            Updated {formatRelativeTime(lastRefreshed)}
-          </span>
-        )}
+        <span
+          className={`hidden md:inline text-xs text-sentinel-400 whitespace-nowrap overflow-hidden transition-all duration-300 ${
+            shouldShowIndicator ? 'max-w-40 opacity-100 ml-1' : 'max-w-0 opacity-0 ml-0'
+          }`}
+          aria-hidden={!shouldShowIndicator}
+        >
+          {indicatorText}
+        </span>
 
         {/* Manual refresh button */}
         <button
-          onClick={onRefresh}
+          onClick={handleRefreshClick}
           disabled={isLoading}
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium
                      text-sentinel-300 hover:text-white hover:bg-sentinel-700
