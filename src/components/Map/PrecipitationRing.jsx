@@ -43,8 +43,8 @@ async function queryDbzAtPoint(lat, lng, signal) {
     SERVICE:       'WMS',
     VERSION:       '1.1.1',
     REQUEST:       'GetFeatureInfo',
-    LAYERS:        'nexrad-n0q', // Fixed: Use native layer for EPSG:4326 queries
-    QUERY_LAYERS:  'nexrad-n0q', // Fixed: Use native layer for EPSG:4326 queries
+    LAYERS:        'nexrad-n0q', // Use native layer for EPSG:4326 queries
+    QUERY_LAYERS:  'nexrad-n0q', // Use native layer for EPSG:4326 queries
     INFO_FORMAT:   'text/plain',
     SRS:           'EPSG:4326',
     BBOX:          `${lng - d},${lat - d},${lng + d},${lat + d}`,
@@ -54,24 +54,40 @@ async function queryDbzAtPoint(lat, lng, signal) {
     Y:             '5',
   });
 
+  console.log(`[Radar Ring] Fetching coordinates: Lat ${lat}, Lng ${lng}`);
+
   const res = await fetch(`${IEM_WMS}?${params}`, { signal });
   if (!res.ok) throw new Error(`WMS ${res.status}`);
+  
   const text = await res.text();
+  console.log(`[Radar Ring] Raw Server Response:`, text);
 
-  // Fixed: MapServer text/plain usually wraps values in quotes e.g., value_0 = '42'
+  // MapServer text/plain usually wraps values in quotes e.g., value_0 = '42'
   const match = text.match(/value_0\s*=\s*['"]?([-\d.]+)['"]?/i)
              ?? text.match(/band_?1\s*=\s*['"]?([-\d.]+)['"]?/i)
              ?? text.match(/gray_index\s*=\s*['"]?([-\d.]+)['"]?/i);
 
-  if (!match) return null;
-  const raw = parseFloat(match[1]);
-  if (!raw || raw <= 0) return null; // 0 = no data / below threshold
+  if (!match) {
+    console.log(`[Radar Ring] ❌ Could not find a value in the response text.`);
+    return null;
+  }
 
-  // Standard N0Q encoding: dBZ = raw * 0.5 - 32.5
-  // Safely return if the value was already translated to dBZ by the WMS
-  if (raw < 0 || !Number.isInteger(raw)) return raw;
-  if (raw > 0 && raw <= 255) return raw * 0.5 - 32.5;
-  return raw;
+  const raw = parseFloat(match[1]);
+  console.log(`[Radar Ring] Raw parsed value:`, raw);
+
+  if (!raw || raw <= 0) {
+    console.log(`[Radar Ring] ☁️ Value is 0 or below threshold (No precipitation here).`);
+    return null; 
+  }
+
+  // Calculate dBZ
+  let dbz = raw;
+  if (raw > 0 && raw <= 255) {
+      dbz = raw * 0.5 - 32.5;
+  }
+  
+  console.log(`[Radar Ring] 🌧️ Success! Calculated dBZ:`, dbz);
+  return dbz;
 }
 
 // ── PrecipitationRing ─────────────────────────────────────────────────────────
