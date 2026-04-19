@@ -6,7 +6,7 @@
  */
 
 import { useRef, useCallback, useMemo, useState, useEffect } from 'react';
-import Map, { NavigationControl, ScaleControl, Popup } from 'react-map-gl';
+import Map, { NavigationControl, ScaleControl, Popup, Marker } from 'react-map-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 
 import { useApp } from '../../context/AppContext';
@@ -35,6 +35,7 @@ import RAWSLayer from './layers/RAWSLayer';
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN || '';
 const HAS_MAPBOX_TOKEN = Boolean(MAPBOX_TOKEN.trim());
+const LOCATION_PROMPT_KEY = 'sentinel-live-location-choice';
 
 // Quick helper if you don't already have one exported from utils
 const num = (val) => Number(val);
@@ -399,6 +400,8 @@ export default function MapView({
   // Selected aircraft popup state
   const [selectedFlight,       setSelectedFlight]       = useState(null);
   const [selectedFlightLngLat, setSelectedFlightLngLat] = useState(null);
+  const [showLocationPrompt, setShowLocationPrompt] = useState(false);
+  const [userLocation, setUserLocation] = useState(null);
 
   // Measurement tool state (active/mode lifted to LiveTrackerPage; points/preview stay local)
   const [measurePoints,  setMeasurePoints]  = useState([]);   // [{lng, lat}, ...]
@@ -429,6 +432,53 @@ export default function MapView({
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [measureActive, closeMeasure]);
+
+  // Ask for live location once per browser session when map opens.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const savedChoice = window.sessionStorage.getItem(LOCATION_PROMPT_KEY);
+    if (!savedChoice) setShowLocationPrompt(true);
+    if (savedChoice === 'granted') {
+      setShowLocationPrompt(false);
+    }
+  }, []);
+
+  // Start/stop live location tracking after user choice is made.
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined;
+    const savedChoice = window.sessionStorage.getItem(LOCATION_PROMPT_KEY);
+    if (savedChoice !== 'granted' || !navigator.geolocation) return undefined;
+
+    const watchId = navigator.geolocation.watchPosition(
+      ({ coords }) => {
+        setUserLocation({
+          latitude: coords.latitude,
+          longitude: coords.longitude,
+        });
+      },
+      () => {
+        setUserLocation(null);
+      },
+      { enableHighAccuracy: true, maximumAge: 10000, timeout: 15000 }
+    );
+
+    return () => navigator.geolocation.clearWatch(watchId);
+  }, [showLocationPrompt]);
+
+  const allowLiveLocation = useCallback(() => {
+    if (typeof window !== 'undefined') {
+      window.sessionStorage.setItem(LOCATION_PROMPT_KEY, 'granted');
+    }
+    setShowLocationPrompt(false);
+  }, []);
+
+  const cancelLiveLocation = useCallback(() => {
+    if (typeof window !== 'undefined') {
+      window.sessionStorage.setItem(LOCATION_PROMPT_KEY, 'denied');
+    }
+    setUserLocation(null);
+    setShowLocationPrompt(false);
+  }, []);
 
   // Only include interactive layer IDs for layers that are currently visible.
   // When the measurement tool is active, disable all layer interactions so
@@ -824,6 +874,20 @@ export default function MapView({
           visible={layers.flights}
         />
 
+        {/* User live location marker */}
+        {userLocation && (
+          <Marker
+            longitude={userLocation.longitude}
+            latitude={userLocation.latitude}
+            anchor="center"
+          >
+            <div className="relative flex h-3 w-3 items-center justify-center">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-blue-400 opacity-80" />
+              <span className="relative inline-flex h-3 w-3 rounded-full bg-blue-500 ring-2 ring-white/80" />
+            </div>
+          </Marker>
+        )}
+
         {/* Measurement geometry – rendered last so it's always on top */}
         {measureActive && (
           <MeasurementLayer
@@ -862,6 +926,33 @@ export default function MapView({
         lat={viewport?.latitude}
         lng={viewport?.longitude}
       />
+
+      {showLocationPrompt && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/55 p-4">
+          <div className="w-full max-w-sm rounded-xl border border-sentinel-600 bg-sentinel-800 p-5 shadow-2xl">
+            <h3 className="text-white text-base font-semibold">Use live location?</h3>
+            <p className="mt-2 text-sm text-sentinel-300">
+              Allow live location to place your current position on the map.
+            </p>
+            <div className="mt-4 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={cancelLiveLocation}
+                className="rounded-md border border-sentinel-500 px-3 py-1.5 text-sm text-sentinel-200 hover:bg-sentinel-700 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={allowLiveLocation}
+                className="rounded-md bg-blue-500 px-3 py-1.5 text-sm font-semibold text-white hover:bg-blue-400 transition-colors"
+              >
+                Use Live Location
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
