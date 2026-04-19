@@ -34,27 +34,40 @@ function dbzLabel(dbz) {
 }
 
 /**
- * Query NEXRAD N0Q reflectivity at a geographic point via IEM WMS GetFeatureInfo.
+ * Project standard GPS Lat/Lng into Web Mercator (EPSG:3857) meters.
+ */
+function latLngToWebMercator(lat, lng) {
+  const r = 6378137; // Earth's radius in meters
+  const x = lng * (Math.PI / 180) * r;
+  const y = Math.log(Math.tan((Math.PI / 4) + (lat * (Math.PI / 180) / 2))) * r;
+  return { x, y };
+}
+
+/**
+ * Query NEXRAD N0Q reflectivity via IEM WMS GetFeatureInfo using Web Mercator.
  * Returns the reflectivity in dBZ, or null when no precipitation is detected.
  */
 async function queryDbzAtPoint(lat, lng, signal) {
-  const d = 0.1; 
+  // 1. Project GPS to Web Mercator so the server understands the coordinates
+  const { x, y } = latLngToWebMercator(lat, lng);
+  const d = 1000; // 1,000 meter radius bounding box
+
   const params = new URLSearchParams({
     SERVICE:       'WMS',
     VERSION:       '1.1.1',
     REQUEST:       'GetFeatureInfo',
-    LAYERS:        'nexrad-n0q',
-    QUERY_LAYERS:  'nexrad-n0q',
+    LAYERS:        'nexrad-n0q-900913', 
+    QUERY_LAYERS:  'nexrad-n0q-900913',
     INFO_FORMAT:   'text/plain',
-    SRS:           'EPSG:4326',
-    BBOX:          `${lng - d},${lat - d},${lng + d},${lat + d}`,
+    SRS:           'EPSG:3857',         
+    BBOX:          `${x - d},${y - d},${x + d},${y + d}`,
     WIDTH:         '11',
     HEIGHT:        '11',
     X:             '5',
     Y:             '5',
   });
 
-  console.log(`[Radar Ring] Fetching coordinates: Lat ${lat}, Lng ${lng}`);
+  console.log(`[Radar Ring] Fetching projected coords: X ${x.toFixed(0)}, Y ${y.toFixed(0)}`);
 
   const res = await fetch(`${IEM_WMS}?${params}`, { signal });
   if (!res.ok) throw new Error(`WMS ${res.status}`);
@@ -62,51 +75,30 @@ async function queryDbzAtPoint(lat, lng, signal) {
   const text = await res.text();
   console.log(`[Radar Ring] Raw Server Response:`, text);
 
+  // Parse the MapServer plain text response
   const match = text.match(/value_0\s*=\s*['"]?([-\d.]+)['"]?/i)
              ?? text.match(/band_?1\s*=\s*['"]?([-\d.]+)['"]?/i)
-             ?? text.match(/gray_index\s*=\s*['"]?([-\d.]+)['"]?/i);
+             ?? text.match(/gray_index\s*=\s*['"]?([-\d.]+)['"]?/i)
+             ?? text.match(/Pixel_Value\s*=\s*['"]?([-\d.]+)['"]?/i); 
 
   if (!match) {
-    console.log(`[Radar Ring] ❌ Could not find a value in the response text.`);
+    console.log(`[Radar Ring] ❌ No valid pixel value found in response.`);
     return null;
   }
 
   const raw = parseFloat(match[1]);
-  console.log(`[Radar Ring] Raw parsed value:`, raw);
-
-  if (!raw || raw <= 0) {
-    console.log(`[Radar Ring] ☁️ Value is 0 (No precipitation at this exact spot).`);
+  
+  // NEXRAD N0Q encoding rules: 0 and 255 are transparent background / no data
+  if (!raw || raw <= 0 || raw >= 255) {
+    console.log(`[Radar Ring] ☁️ Value is empty/background. No precipitation.`);
     return null; 
   }
 
-  // Calculate dBZ
-  let dbz = raw;
-  if (raw > 0 && raw <= 255) {
-      dbz = raw * 0.5 - 32.5;
-  }
+  // Standard calculation: dBZ = raw * 0.5 - 32.5
+  const dbz = raw * 0.5 - 32.5;
+  console.log(`[Radar Ring] 🌧️ Success! Raw: ${raw} -> Calculated dBZ:`, dbz);
   
-  console.log(`[Radar Ring] 🌧️ Success! Calculated dBZ:`, dbz);
   return dbz;
-}
-
-  const res = await fetch(`${IEM_WMS}?${params}`, { signal });
-  if (!res.ok) throw new Error(`WMS ${res.status}`);
-  const text = await res.text();
-
-  // Fixed: MapServer text/plain usually wraps values in quotes e.g., value_0 = '42'
-  const match = text.match(/value_0\s*=\s*['"]?([-\d.]+)['"]?/i)
-             ?? text.match(/band_?1\s*=\s*['"]?([-\d.]+)['"]?/i)
-             ?? text.match(/gray_index\s*=\s*['"]?([-\d.]+)['"]?/i);
-
-  if (!match) return null;
-  const raw = parseFloat(match[1]);
-  if (!raw || raw <= 0) return null; // 0 = no data / below threshold
-
-  // Standard N0Q encoding: dBZ = raw * 0.5 - 32.5
-  // Safely return if the value was already translated to dBZ by the WMS
-  if (raw < 0 || !Number.isInteger(raw)) return raw;
-  if (raw > 0 && raw <= 255) return raw * 0.5 - 32.5;
-  return raw;
 }
 
 // ── PrecipitationRing ─────────────────────────────────────────────────────────
@@ -141,7 +133,7 @@ export function PrecipitationRing({ active, lat, lng }) {
   // Debounce on lat/lng change (user panning), then poll every 15 s
   useEffect(() => {
     if (!active) { setDbz(null); setStatus('idle'); return; }
-    if (lat == null || lng == null) return; // Fixed to allow lat/lng of exactly 0
+    if (lat == null || lng == null) return; 
 
     clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => doQuery(lat, lng), 700);
