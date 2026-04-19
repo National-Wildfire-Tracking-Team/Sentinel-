@@ -155,7 +155,7 @@ export default function AddressAlertSearch() {
             ref={inputRef}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search address for alerts..."
+            placeholder="Search Zip Code for Alerts..."
             className="w-full pl-8 pr-8 py-1.5 bg-sentinel-700 border border-sentinel-600 rounded-md text-sm text-white placeholder-sentinel-300 focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500/30 transition-colors"
           />
           {query && (
