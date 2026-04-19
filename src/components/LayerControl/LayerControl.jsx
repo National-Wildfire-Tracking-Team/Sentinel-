@@ -24,6 +24,7 @@ const LAYER_GROUPS = [
   },
   {
     label: 'Air Quality',
+    hidden: true,
     layers: [
       { key: 'aqi',   label: 'AQI Overlay',    sublabel: 'EPA AirNow + heatmap',   icon: Wind,    color: '#3b82f6' },
       { key: 'smoke', label: 'Smoke Forecast', sublabel: 'NOAA HRRR',   icon: CloudRain, color: '#94a3b8' },
@@ -117,6 +118,7 @@ export default function LayerControl({
   const { layerPanelOpen, toggleLayerPanel } = useApp();
   const [collapsed, setCollapsed] = useState({});
   const visibleGroups = LAYER_GROUPS.filter((group) => {
+    if (group.hidden) return false;
     if (group.showAlways) return true;
     if (activeMapTab === 'wildfire') return group.label === 'Fire Data';
     return group.label !== 'Fire Data';
