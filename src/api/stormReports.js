@@ -35,7 +35,7 @@ function normalizeSpcRow(row, idx = 0) {
     id: row.id || `spc-${date}-${time}-${idx}`,
     source: 'SPC',
     reportType,
-    magnitude: row.magnitude || row.mag || row.size || null,
+    magnitude: row.magnitude || row.mag || row.size || row.f_scale || row.speed || null,
     city: row.city || row.location || '',
     county: row.county || '',
     state: row.state || '',
@@ -76,10 +76,24 @@ function normalizeIemFeature(feature, idx = 0) {
 
 // Added options parameter to accept { signal } from the hook
 export async function fetchSpcStormReports(options = {}) {
-  // Pass the signal into the fetch options
-  const fetchOptions = { ...options }; 
-  const data = await fetchWithCache(SPC_REPORTS_URL, 'spc:today-reports', fetchOptions, 60 * 1000);
-  const rows = Array.isArray(data) ? data : data?.reports || [];
+  const data = await fetchWithCache(SPC_REPORTS_URL, 'spc:today-reports', { ...options }, 60 * 1000);
+
+  // SPC today.json: { date, reports: { torn: [...], hail: [...], wind: [...] } }
+  // Older/alternate formats may return reports as a flat array.
+  let rows = [];
+  if (Array.isArray(data)) {
+    rows = data;
+  } else if (Array.isArray(data?.reports)) {
+    rows = data.reports;
+  } else if (data?.reports && typeof data.reports === 'object') {
+    const r = data.reports;
+    rows = [
+      ...(Array.isArray(r.torn) ? r.torn.map(row => ({ ...row, type: 'torn' })) : []),
+      ...(Array.isArray(r.hail) ? r.hail.map(row => ({ ...row, type: 'hail' })) : []),
+      ...(Array.isArray(r.wind) ? r.wind.map(row => ({ ...row, type: 'wind' })) : []),
+    ];
+  }
+
   return rows.map(normalizeSpcRow).filter(r => Number.isFinite(r.lat) && Number.isFinite(r.lng));
 }
 
