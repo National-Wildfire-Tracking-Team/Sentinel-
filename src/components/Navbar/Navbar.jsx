@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
-import { Flame, Menu, X, LogOut, Heart, UserPlus, LogIn } from 'lucide-react';
+import { Flame, Menu, X, LogOut, Heart } from 'lucide-react';
 
 import { useAuth } from '../../context/AuthContext';
 
@@ -59,40 +59,13 @@ export default function Navbar() {
                 {link.label}
               </NavLink>
             ))}
-            {isAuthenticated ? (
+            {isAuthenticated && (
               <button
                 onClick={handleSignOut}
                 className="inline-flex items-center gap-1 px-3 py-2 rounded-lg text-sm font-medium text-sentinel-300 hover:text-white hover:bg-sentinel-700/60 transition-colors"
               >
                 <LogOut size={13} /> Sign Out
               </button>
-            ) : (
-              <>
-                <NavLink
-                  to="/login"
-                  className={({ isActive }) =>
-                    `inline-flex items-center gap-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                      isActive
-                        ? 'bg-fire-600/15 text-fire-400'
-                        : 'text-sentinel-200 hover:text-white hover:bg-sentinel-700/60'
-                    }`
-                  }
-                >
-                  <LogIn size={13} /> Sign In
-                </NavLink>
-                <NavLink
-                  to="/register"
-                  className={({ isActive }) =>
-                    `inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium border transition-colors ${
-                      isActive
-                        ? 'border-[#0096ff] bg-[#0096ff]/20 text-[#0096ff]'
-                        : 'border-[#0096ff]/50 text-[#0096ff] hover:bg-[#0096ff]/10 hover:border-[#0096ff]'
-                    }`
-                  }
-                >
-                  <UserPlus size={13} /> Sign Up
-                </NavLink>
-              </>
             )}
 
             <a
@@ -156,42 +129,13 @@ export default function Navbar() {
               Donate
             </a>
 
-            {isAuthenticated ? (
+            {isAuthenticated && (
               <button
                 onClick={handleSignOut}
                 className="w-full text-left block px-4 py-2.5 rounded-lg text-sm font-medium text-sentinel-300 hover:text-white hover:bg-sentinel-700/60"
               >
                 Sign Out
               </button>
-            ) : (
-              <>
-                <NavLink
-                  to="/login"
-                  onClick={() => setMobileOpen(false)}
-                  className={({ isActive }) =>
-                    `flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-                      isActive
-                        ? 'bg-fire-600/15 text-fire-400'
-                        : 'text-sentinel-200 hover:text-white hover:bg-sentinel-700/60'
-                    }`
-                  }
-                >
-                  <LogIn size={15} /> Sign In
-                </NavLink>
-                <NavLink
-                  to="/register"
-                  onClick={() => setMobileOpen(false)}
-                  className={({ isActive }) =>
-                    `flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-                      isActive
-                        ? 'text-[#0096ff] bg-[#0096ff]/15'
-                        : 'text-[#0096ff] hover:bg-[#0096ff]/10'
-                    }`
-                  }
-                >
-                  <UserPlus size={15} /> Sign Up
-                </NavLink>
-              </>
             )}
           </div>
         </div>

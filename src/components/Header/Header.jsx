@@ -4,11 +4,20 @@
  */
 
 import { useApp } from '../../context/AppContext';
+import { useAuth } from '../../context/AuthContext';
 import { formatRelativeTime } from '../../utils/formatUtils';
+import { NavLink, useNavigate } from 'react-router-dom';
 import { Flame, Menu, RefreshCw } from 'lucide-react';
 
 export default function Header({ onRefresh }) {
   const { toggleSidebar, lastRefreshed, isLoading } = useApp();
+  const { isAuthenticated, signOut } = useAuth();
+  const navigate = useNavigate();
+
+  const handleSignOut = async () => {
+    await signOut();
+    navigate('/');
+  };
 
   return (
     <header className="relative z-40 flex items-center justify-between h-14 px-4 bg-sentinel-900/95 backdrop-blur-sm border-b border-sentinel-700 shrink-0">
@@ -50,6 +59,43 @@ export default function Header({ onRefresh }) {
           <span className="hidden md:inline text-xs text-sentinel-400">
             Updated {formatRelativeTime(lastRefreshed)}
           </span>
+        )}
+
+        {/* Auth actions */}
+        {isAuthenticated ? (
+          <button
+            onClick={handleSignOut}
+            className="hidden sm:inline-flex items-center px-3 py-1.5 rounded-md text-xs font-medium text-sentinel-300 hover:text-white hover:bg-sentinel-700 transition-colors"
+          >
+            Sign Out
+          </button>
+        ) : (
+          <div className="hidden sm:flex items-center gap-2">
+            <NavLink
+              to="/login"
+              className={({ isActive }) =>
+                `inline-flex items-center px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                  isActive
+                    ? 'bg-fire-600/15 text-fire-400'
+                    : 'text-sentinel-200 hover:text-white hover:bg-sentinel-700'
+                }`
+              }
+            >
+              Sign In
+            </NavLink>
+            <NavLink
+              to="/register"
+              className={({ isActive }) =>
+                `inline-flex items-center px-3 py-1.5 rounded-md text-xs font-medium border transition-colors ${
+                  isActive
+                    ? 'border-[#0096ff] bg-[#0096ff]/20 text-[#0096ff]'
+                    : 'border-[#0096ff]/50 text-[#0096ff] hover:bg-[#0096ff]/10 hover:border-[#0096ff]'
+                }`
+              }
+            >
+              Sign Up
+            </NavLink>
+          </div>
         )}
 
         {/* Manual refresh button */}
