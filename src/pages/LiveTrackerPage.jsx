@@ -119,8 +119,8 @@ function filterActiveFiresGeoJSON(geoJSON, { containedKey }) {
   };
 }
 
-// RAWS stations only load once the map is zoomed in to ~10-mile scale
-const RAWS_MIN_ZOOM = 11;
+// RAWS stations only load once the map is zoomed in to a 10-mile scale
+const RAWS_MIN_ZOOM = 12;
 
 export default function LiveTrackerPage() {
   const { layers, setLayer, setRefreshed, setLoading, feedFilter, viewport } = useApp();
