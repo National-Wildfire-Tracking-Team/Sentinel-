@@ -6,7 +6,7 @@
 
 import { useState } from 'react';
 import {
-  Layers, Flame, MapPin, Wind, CloudRain, Eye, ChevronDown, ChevronRight, CloudLightning, Radar, AlertTriangle, Ruler, Hexagon, PlaneTakeoff, Satellite, Map as MapIcon, Thermometer,
+  Layers, Flame, MapPin, Wind, CloudRain, Eye, ChevronDown, ChevronRight, CloudLightning, Radar, AlertTriangle, Ruler, Hexagon, PlaneTakeoff, Satellite, Map as MapIcon, Thermometer, Crosshair,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 
@@ -115,6 +115,8 @@ export default function LayerControl({
   measureMode = 'distance',
   onMeasureActivate,
   onMeasureClose,
+  precipRingActive = false,
+  onPrecipRingToggle,
 }) {
   const { layerPanelOpen, toggleLayerPanel } = useApp();
   const [collapsed, setCollapsed] = useState({});
@@ -213,6 +215,24 @@ export default function LayerControl({
                 </button>
                 <span className="absolute top-full mt-1.5 left-1/2 -translate-x-1/2 whitespace-nowrap rounded px-2 py-0.5 text-[11px] font-medium bg-gray-900 text-gray-100 shadow pointer-events-none z-50 opacity-0 group-hover:opacity-100 transition-opacity">
                   Area
+                </span>
+              </div>
+
+              {/* Precipitation ring – dBZ sampler at map center */}
+              <div className="relative group">
+                <button
+                  onClick={() => onPrecipRingToggle?.()}
+                  className={`w-7 h-7 flex items-center justify-center rounded-md transition-all ${
+                    precipRingActive
+                      ? 'bg-cyan-500 text-white border border-cyan-400'
+                      : 'text-sentinel-300 hover:text-white hover:bg-sentinel-700'
+                  }`}
+                  title="Precip Ring"
+                >
+                  <Crosshair size={13} />
+                </button>
+                <span className="absolute top-full mt-1.5 left-1/2 -translate-x-1/2 whitespace-nowrap rounded px-2 py-0.5 text-[11px] font-medium bg-gray-900 text-gray-100 shadow pointer-events-none z-50 opacity-0 group-hover:opacity-100 transition-opacity">
+                  Precip Ring
                 </span>
               </div>
             </div>

@@ -29,6 +29,7 @@ import SPCOutlookLayer from './layers/SPCOutlookLayer';
 import RadarLayer from './layers/RadarLayer';
 import EvacZonesLayer from './layers/EvacZonesLayer';
 import { MeasurementLayer, MeasurementPanel } from './MeasurementTool';
+import { PrecipitationRing } from './PrecipitationRing';
 import FlightLayer from './layers/FlightLayer';
 import RAWSLayer from './layers/RAWSLayer';
 
@@ -384,6 +385,7 @@ export default function MapView({
   measureMode = 'distance',
   onMeasureActivate,
   onMeasureClose,
+  precipRingActive = false,
 }) {
   const { layers, alerts, selectFire, viewport, setViewport } = useApp();
   const mapRef = useRef(null);
@@ -853,6 +855,13 @@ export default function MapView({
           onClose={closeMeasure}
         />
       )}
+
+      {/* Precipitation ring – center-locked dBZ sampler */}
+      <PrecipitationRing
+        active={precipRingActive}
+        lat={viewport?.latitude}
+        lng={viewport?.longitude}
+      />
     </div>
   );
 }
