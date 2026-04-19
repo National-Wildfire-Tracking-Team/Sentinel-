@@ -38,13 +38,13 @@ function dbzLabel(dbz) {
  * Returns the reflectivity in dBZ, or null when no precipitation is detected.
  */
 async function queryDbzAtPoint(lat, lng, signal) {
-  const d = 0.1; // bbox half-width in degrees (~11 km)
+  const d = 0.1; 
   const params = new URLSearchParams({
     SERVICE:       'WMS',
     VERSION:       '1.1.1',
     REQUEST:       'GetFeatureInfo',
-    LAYERS:        'nexrad-n0q', // Fixed: Use native layer for EPSG:4326 queries
-    QUERY_LAYERS:  'nexrad-n0q', // Fixed: Use native layer for EPSG:4326 queries
+    LAYERS:        'nexrad-n0q',
+    QUERY_LAYERS:  'nexrad-n0q',
     INFO_FORMAT:   'text/plain',
     SRS:           'EPSG:4326',
     BBOX:          `${lng - d},${lat - d},${lng + d},${lat + d}`,
@@ -53,6 +53,41 @@ async function queryDbzAtPoint(lat, lng, signal) {
     X:             '5',
     Y:             '5',
   });
+
+  console.log(`[Radar Ring] Fetching coordinates: Lat ${lat}, Lng ${lng}`);
+
+  const res = await fetch(`${IEM_WMS}?${params}`, { signal });
+  if (!res.ok) throw new Error(`WMS ${res.status}`);
+  
+  const text = await res.text();
+  console.log(`[Radar Ring] Raw Server Response:`, text);
+
+  const match = text.match(/value_0\s*=\s*['"]?([-\d.]+)['"]?/i)
+             ?? text.match(/band_?1\s*=\s*['"]?([-\d.]+)['"]?/i)
+             ?? text.match(/gray_index\s*=\s*['"]?([-\d.]+)['"]?/i);
+
+  if (!match) {
+    console.log(`[Radar Ring] ❌ Could not find a value in the response text.`);
+    return null;
+  }
+
+  const raw = parseFloat(match[1]);
+  console.log(`[Radar Ring] Raw parsed value:`, raw);
+
+  if (!raw || raw <= 0) {
+    console.log(`[Radar Ring] ☁️ Value is 0 (No precipitation at this exact spot).`);
+    return null; 
+  }
+
+  // Calculate dBZ
+  let dbz = raw;
+  if (raw > 0 && raw <= 255) {
+      dbz = raw * 0.5 - 32.5;
+  }
+  
+  console.log(`[Radar Ring] 🌧️ Success! Calculated dBZ:`, dbz);
+  return dbz;
+}
 
   const res = await fetch(`${IEM_WMS}?${params}`, { signal });
   if (!res.ok) throw new Error(`WMS ${res.status}`);
