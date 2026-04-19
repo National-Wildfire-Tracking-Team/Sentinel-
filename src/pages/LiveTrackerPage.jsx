@@ -62,14 +62,14 @@ const WEATHER_LAYER_PRESET = {
   incidentLocations: false,
   userReports: false,
   weatherAlerts: true,
-  aqi: true,
-  smoke: true,
-  goesEast: true,
+  aqi: false,
+  smoke: false,
+  goesEast: false,
   goesWest: false,
-  spcOutlooks: true,
-  radar: true,
+  spcOutlooks: false,
+  radar: false,
   evacZones: false,
-  rawsStations: true,
+  rawsStations: false,
 };
 
 const THREE_DAYS_MS = 3 * 24 * 60 * 60 * 1000;

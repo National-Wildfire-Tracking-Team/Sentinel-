@@ -345,24 +345,18 @@ export default function SubmitReportPage() {
   }
 
   function applySuggestion(feature) {
-    const ctx = {};
-    (feature.context || []).forEach((c) => {
-      const key = c.id.split('.')[0];
-      ctx[key] = c;
-    });
+    const props = feature.properties || {};
+    const ctx = props.context || {};
+    const coords = feature.geometry?.coordinates;
 
-    const streetAddress = feature.address
-      ? `${feature.address} ${feature.text}`
-      : feature.text;
-
-    setAddress1(streetAddress || '');
-    setCity(ctx.place?.text || ctx.locality?.text || '');
-    setCounty(ctx.district?.text || '');
-    setUsState(ctx.region?.text || '');
-    setZip(ctx.postcode?.text || '');
-    setAddressSearch(feature.place_name || '');
-    setReportLng(Array.isArray(feature.center) ? Number(feature.center[0]) : null);
-    setReportLat(Array.isArray(feature.center) ? Number(feature.center[1]) : null);
+    setAddress1(props.address_line1 || props.name || '');
+    setCity(ctx.place?.name || ctx.locality?.name || '');
+    setCounty(ctx.district?.name || '');
+    setUsState(ctx.region?.name || '');
+    setZip(ctx.postcode?.name || '');
+    setAddressSearch(props.full_address || props.name || '');
+    setReportLng(Array.isArray(coords) ? Number(coords[0]) : null);
+    setReportLat(Array.isArray(coords) ? Number(coords[1]) : null);
     setSuggestions([]);
     setShowSuggestions(false);
   }
@@ -379,10 +373,10 @@ export default function SubmitReportPage() {
       });
       if (error) return { latitude: null, longitude: null };
       const first = data?.features?.[0];
-      if (!Array.isArray(first?.center)) return { latitude: null, longitude: null };
+      if (!Array.isArray(first?.geometry?.coordinates)) return { latitude: null, longitude: null };
       return {
-        latitude: Number(first.center[1]),
-        longitude: Number(first.center[0]),
+        latitude: Number(first.geometry.coordinates[1]),
+        longitude: Number(first.geometry.coordinates[0]),
       };
     } catch {
       return { latitude: null, longitude: null };
@@ -1159,7 +1153,7 @@ export default function SubmitReportPage() {
                                    hover:bg-sentinel-600 transition-colors flex items-start gap-2.5"
                       >
                         <MapPin size={13} className="text-[#0096ff] shrink-0 mt-0.5" />
-                        <span className="truncate">{feature.place_name}</span>
+                        <span className="truncate">{feature.properties?.full_address}</span>
                       </button>
                     </li>
                   ))}
