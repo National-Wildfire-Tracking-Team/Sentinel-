@@ -3,14 +3,14 @@
  * RAWS weather stations rendered as a purple circle with a wind direction
  * arrow and speed / humidity labels – matches the compact station badge design.
  *
- * All sub-layers use minzoom 12 so they only appear when the map is zoomed
- * in to a ~10-mile view; data is never requested at wider scales.
+ * All sub-layers use minzoom 9 so they appear at county/regional scale,
+ * which is useful for monitoring wind patterns around a fire complex.
  */
 
 import { Source, Layer } from 'react-map-gl';
 
 const EMPTY_GEOJSON = { type: 'FeatureCollection', features: [] };
-const MIN_ZOOM = 12;
+const MIN_ZOOM = 9;
 
 export default function RAWSLayer({ geoJSON, visible }) {
   const vis = visible ? 'visible' : 'none';
@@ -27,6 +27,7 @@ export default function RAWSLayer({ geoJSON, visible }) {
         paint={{
           'circle-radius': [
             'interpolate', ['linear'], ['zoom'],
+            9, 6,
             12, 14,
             15, 22,
           ],
@@ -46,6 +47,7 @@ export default function RAWSLayer({ geoJSON, visible }) {
         paint={{
           'circle-radius': [
             'interpolate', ['linear'], ['zoom'],
+            9, 3,
             12, 8,
             14, 12,
             17, 16,
@@ -67,6 +69,7 @@ export default function RAWSLayer({ geoJSON, visible }) {
           'text-field': '↑',
           'text-size': [
             'interpolate', ['linear'], ['zoom'],
+            9, 7,
             12, 11,
             14, 15,
           ],
