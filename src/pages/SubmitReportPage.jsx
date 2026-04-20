@@ -328,7 +328,7 @@ export default function SubmitReportPage() {
 
       await submitFireReport({ title: fireName.trim(), description, latitude, longitude, userId: user.id });
 
-      setSuccess('Report submitted successfully!');
+      setSuccess('Report submitted and now live on the map!');
       /* Reset form */
       setAddressSearch(''); setIsIntersection(false);
       setAddress1(''); setAddress2(''); setCity(''); setCounty('');
@@ -772,11 +772,8 @@ export default function SubmitReportPage() {
                         <div>
                           <div className="flex items-center gap-2 flex-wrap">
                             <h3 className="text-base font-semibold text-white">{report.title}</h3>
-                            <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wider
-                              ${report.status === 'approved'
-                                ? 'bg-green-600/15 border border-green-600/40 text-green-300'
-                                : 'bg-sentinel-700 border border-sentinel-600 text-sentinel-400'}`}>
-                              {report.status}
+                            <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wider bg-green-600/15 border border-green-600/40 text-green-300">
+                              Live on map
                             </span>
                           </div>
                           <p className="text-xs text-sentinel-400 mt-0.5">
