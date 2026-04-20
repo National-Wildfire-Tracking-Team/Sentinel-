@@ -519,14 +519,10 @@ export default function MapView({
       spcReportsGeoJSON, iemReportsGeoJSON, userReportsGeoJSON, evacZonesGeoJSON, flightsGeoJSON, rawsGeoJSON]);
 
   // Clear stale hover when layers change
-  const prevLayersRef = useRef(layers);
-  if (prevLayersRef.current !== layers) {
-    prevLayersRef.current = layers;
-    if (hoverFeature) {
-      setHoverFeature(null);
-      setHoverLngLat(null);
-    }
-  }
+  useEffect(() => {
+    setHoverFeature(null);
+    setHoverLngLat(null);
+  }, [layers]);
 
   // Handle map click – add measurement point OR select fire for detail panel
   const handleClick = useCallback((evt) => {
@@ -759,10 +755,6 @@ export default function MapView({
   const handleMove = useCallback((evt) => {
     setViewport(evt.viewState);
   }, [setViewport]);
-
-console.log('layers.flights:', layers.flights);
-console.log('flightsGeoJSON exists:', !!flightsGeoJSON);
-console.log('flight feature count:', flightsGeoJSON?.features?.length);
 
   return (
     <div className="absolute inset-0 bg-sentinel-900">
