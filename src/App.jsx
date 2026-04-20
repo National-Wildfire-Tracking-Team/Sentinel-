@@ -23,6 +23,7 @@ const ReporterLoginPage = lazy(() => import('./pages/ReporterLoginPage'));
 const ReporterRegisterPage = lazy(() => import('./pages/ReporterRegisterPage'));
 const SubmitReportPage = lazy(() => import('./pages/SubmitReportPage'));
 const AccountPage = lazy(() => import('./pages/AccountPage'));
+const ManageZipcodesPage = lazy(() => import('./pages/ManageZipcodesPage'));
 const AdminDashboardPage = lazy(() => import('./pages/AdminDashboardPage'));
 
 /** Scroll to top on route change */
@@ -110,6 +111,7 @@ export default function App() {
           <Route path="/submit-report" element={<SubmitReportPage />} />
           {/* Account settings — protected, not linked in public nav */}
           <Route path="/account" element={<AccountPage />} />
+          <Route path="/manage-zipcodes" element={<ManageZipcodesPage />} />
           <Route
             path="/admin"
             element={

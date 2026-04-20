@@ -15,7 +15,6 @@ import {
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../api/supabaseClient';
 import { useSavedLocations, FREE_LOCATION_LIMIT } from '../hooks/useSavedLocations';
-import MapAddressSearchPanel from '../components/Auth/MapAddressSearchPanel';
 
 export default function AccountPage() {
   const { user, profile, isAuthenticated, loading, signOut } = useAuth();
@@ -25,7 +24,6 @@ export default function AccountPage() {
   const [resetSent, setResetSent] = useState(false);
   const [resetBusy, setResetBusy] = useState(false);
   const [resetError, setResetError] = useState(null);
-  const [showZipManager, setShowZipManager] = useState(false);
 
   if (loading) {
     return (
@@ -166,7 +164,7 @@ export default function AccountPage() {
               Saved Zip Codes
             </h2>
             <button
-              onClick={() => setShowZipManager(true)}
+              onClick={() => navigate('/manage-zipcodes')}
               className="text-xs text-emerald-400 hover:text-emerald-300 transition-colors"
             >
               Manage →
@@ -189,7 +187,7 @@ export default function AccountPage() {
             <p className="text-xs text-sentinel-400">
               No zip codes saved yet.{' '}
               <button
-                onClick={() => setShowZipManager(true)}
+                onClick={() => navigate('/manage-zipcodes')}
                 className="text-emerald-400 hover:text-emerald-300 transition-colors underline underline-offset-2"
               >
                 Add your first zip code
@@ -269,10 +267,6 @@ export default function AccountPage() {
         </section>
 
       </div>
-
-      {showZipManager && (
-        <MapAddressSearchPanel onClose={() => setShowZipManager(false)} />
-      )}
     </div>
   );
 }
