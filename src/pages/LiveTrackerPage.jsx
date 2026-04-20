@@ -22,6 +22,10 @@ import { useEvacZones } from '../hooks/useEvacZones';
 import { useFlightData } from '../hooks/useFlightData';
 import { useRAWSData } from '../hooks/useRAWSData';
 import { polygonCentroid } from '../utils/geoUtils';
+const {
+  geoJSON: flightsGeoJSON,
+  refresh: refreshFlights,
+} = useFlightData(layers.flights);
 
 // Components
 import Header from '../components/Header/Header';
