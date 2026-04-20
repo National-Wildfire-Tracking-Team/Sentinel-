@@ -15,15 +15,17 @@ import {
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../api/supabaseClient';
 import { useSavedLocations, FREE_LOCATION_LIMIT } from '../hooks/useSavedLocations';
+import MapAddressSearchPanel from '../components/Auth/MapAddressSearchPanel';
 
 export default function AccountPage() {
   const { user, profile, isAuthenticated, loading, signOut } = useAuth();
   const navigate = useNavigate();
   const { locations } = useSavedLocations();
 
-  const [resetSent,   setResetSent]   = useState(false);
-  const [resetBusy,   setResetBusy]   = useState(false);
-  const [resetError,  setResetError]  = useState(null);
+  const [resetSent,      setResetSent]      = useState(false);
+  const [resetBusy,      setResetBusy]      = useState(false);
+  const [resetError,     setResetError]     = useState(null);
+  const [showZipManager, setShowZipManager] = useState(false);
 
   if (loading) {
     return (
@@ -156,23 +158,22 @@ export default function AccountPage() {
           )}
         </section>
 
-        {/* ── Saved Locations card ── */}
+        {/* ── Saved Zip Codes card ── */}
         <section className="rounded-xl bg-sentinel-900 border border-sentinel-700 p-6 space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
               <MapPin size={14} className="text-emerald-400" />
-              Saved Locations
+              Saved Zip Codes
             </h2>
-            <Link
-              to="/sentinel"
-              className="text-xs text-sentinel-400 hover:text-white transition-colors"
+            <button
+              onClick={() => setShowZipManager(true)}
+              className="text-xs text-emerald-400 hover:text-emerald-300 transition-colors"
             >
               Manage →
-            </Link>
+            </button>
           </div>
 
           <div className="flex items-center gap-3">
-            {/* Usage bar */}
             <div className="flex-1 h-2 rounded-full bg-sentinel-700 overflow-hidden">
               <div
                 className="h-full rounded-full bg-emerald-500 transition-all"
@@ -184,18 +185,26 @@ export default function AccountPage() {
             </span>
           </div>
 
-          <p className="text-xs text-sentinel-400">
-            Free accounts can save up to {FREE_LOCATION_LIMIT} locations with real-time fire &amp; weather alert monitoring.
-            Open the <Link to="/sentinel" className="text-emerald-400 hover:text-emerald-300 transition-colors">Live Tracker</Link> and select the <strong className="text-white">Saved</strong> tab to manage your locations.
-          </p>
-
-          {locations.length > 0 && (
+          {locations.length === 0 ? (
+            <p className="text-xs text-sentinel-400">
+              No zip codes saved yet.{' '}
+              <button
+                onClick={() => setShowZipManager(true)}
+                className="text-emerald-400 hover:text-emerald-300 transition-colors underline underline-offset-2"
+              >
+                Add your first zip code
+              </button>{' '}
+              to get real-time fire &amp; weather alerts.
+            </p>
+          ) : (
             <ul className="space-y-1.5">
               {locations.map(loc => (
                 <li key={loc.id} className="flex items-center gap-2 text-xs text-sentinel-300">
                   <MapPin size={11} className="text-emerald-400 shrink-0" />
                   <span className="font-medium text-white">{loc.name}</span>
-                  {loc.address && <span className="text-sentinel-400 truncate">{loc.address}</span>}
+                  {loc.address && loc.address !== loc.name && (
+                    <span className="text-sentinel-400 truncate">{loc.address}</span>
+                  )}
                 </li>
               ))}
             </ul>
@@ -260,6 +269,10 @@ export default function AccountPage() {
         </section>
 
       </div>
+
+      {showZipManager && (
+        <MapAddressSearchPanel onClose={() => setShowZipManager(false)} />
+      )}
     </div>
   );
 }
