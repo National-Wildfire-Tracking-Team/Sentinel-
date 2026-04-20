@@ -43,8 +43,6 @@ const LAYER_GROUPS = [
     layers: [
       { key: 'goesEast',   label: 'GOES East Imagery',        sublabel: 'NOAA GOES East · visible',                            icon: Eye, color: '#8b5cf6' },
       { key: 'goesWest',   label: 'GOES West Imagery',        sublabel: 'NOAA GOES West · visible',                            icon: Eye, color: '#7c3aed' },
-      { key: 'goesFire16', label: 'GOES-16 Fire RGB',         sublabel: 'ABI-L2-MCMIP Day Land Cloud Fire · s3://noaa-goes16', icon: Eye, color: '#f97316', wildfireOnly: true },
-      { key: 'goesFire18', label: 'GOES-18 Fire RGB',         sublabel: 'ABI-L2-MCMIP Day Land Cloud Fire · s3://noaa-goes18', icon: Eye, color: '#fb923c', wildfireOnly: true },
     ],
   },
   {
