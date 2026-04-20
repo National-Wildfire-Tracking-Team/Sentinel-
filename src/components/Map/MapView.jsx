@@ -390,8 +390,16 @@ export default function MapView({
   onMeasureClose,
   precipRingActive = false,
 }) {
-  const { layers, alerts, selectFire, viewport, setViewport } = useApp();
+  const { layers, alerts, selectFire, viewport, setViewport, sidebarOpen } = useApp();
   const mapRef = useRef(null);
+
+  // Resize the Mapbox canvas after the sidebar transition completes (300ms)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (mapRef.current) mapRef.current.resize();
+    }, 310);
+    return () => clearTimeout(timer);
+  }, [sidebarOpen]);
   const isWildfireTab = activeMapTab === 'wildfire';
   const isWeatherTab  = activeMapTab === 'weather';
 
