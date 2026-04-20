@@ -48,6 +48,9 @@ const FlightLayer = memo(function FlightLayer({ geoJSON, visible }) {
 
   const vis = visible ? 'visible' : 'none';
 
+console.log('FlightLayer visible:', visible);
+console.log('FlightLayer feature count:', geoJSON?.features?.length);
+
   return (
     <Source
       id="flights"
@@ -55,39 +58,18 @@ const FlightLayer = memo(function FlightLayer({ geoJSON, visible }) {
       data={geoJSON || EMPTY_GEOJSON}
     >
       <Layer
-        id="flights-symbol"
-        type="symbol"
-        source="flights"
-        layout={{
-          visibility: vis,
-          'icon-image': ICON_ID,
-          'icon-size': [
-            'interpolate', ['linear'], ['zoom'],
-            4, 0.3,
-            8, 0.5,
-            12, 0.7,
-          ],
-          'icon-rotate': ['get', 'true_track'],
-          'icon-rotation-alignment': 'map',
-          'icon-allow-overlap': true,
-          'icon-ignore-placement': true,
-          'text-field': [
-            'step', ['zoom'],
-            '',        // zoom < 7: no label
-            7, ['get', 'callsign'],
-          ],
-          'text-size': 10,
-          'text-offset': [0, 1.5],
-          'text-anchor': 'top',
-          'text-allow-overlap': false,
-          'text-optional': true,
-        }}
-        paint={{
-          'text-color': '#ff5a00',
-          'text-halo-color': 'rgba(10,12,14,0.85)',
-          'text-halo-width': 1.5,
-        }}
-      />
+  id="flights-symbol"
+  type="circle"
+  source="flights"
+  layout={{
+    visibility: vis,
+  }}
+  paint={{
+    'circle-radius': 3,
+    'circle-color': '#ff5a00',
+    'circle-opacity': 0.9,
+  }}
+/>
     </Source>
   );
 });

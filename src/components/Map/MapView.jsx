@@ -760,6 +760,10 @@ export default function MapView({
     setViewport(evt.viewState);
   }, [setViewport]);
 
+console.log('layers.flights:', layers.flights);
+console.log('flightsGeoJSON exists:', !!flightsGeoJSON);
+console.log('flight feature count:', flightsGeoJSON?.features?.length);
+
   return (
     <div className="absolute inset-0 bg-sentinel-900">
       <Map
