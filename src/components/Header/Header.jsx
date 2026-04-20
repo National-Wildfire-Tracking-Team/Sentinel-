@@ -192,13 +192,14 @@ const userInitial = user?.email ? user.email[0].toUpperCase() : '?';
                     <p className="text-[10px] text-sentinel-400 mt-0.5">Signed in</p>
                   </div>
                   <div className="py-1">
-                    <button
-                      onClick={() => { setShowUserMenu(false); setShowAddressSetup(true); }}
+                    <Link
+                      to="/manage-zipcodes"
+                      onClick={() => setShowUserMenu(false)}
                       className="w-full text-left px-3 py-2 text-sm text-sentinel-200 hover:bg-sentinel-700 hover:text-white transition-colors flex items-center gap-2"
                     >
                       <MapPin size={13} />
                       Manage My Zip Codes
-                    </button>
+                    </Link>
                     <Link
                       to="/account"
                       onClick={() => setShowUserMenu(false)}
