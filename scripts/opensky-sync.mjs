@@ -26,7 +26,7 @@ async function main() {
   const openskyUrl = `https://opensky-network.org/api/states/all?${params.toString()}`;
   console.log('[opensky-sync] requesting:', openskyUrl);
 
-  const openskyResp = await fetch(openskyUrl, {
+  const openskyResp = await fetchWithRetry(openskyUrl, {
     headers: {
       Accept: 'application/json',
       Authorization:
@@ -86,7 +86,6 @@ async function main() {
 
     const upsertText = await upsertResp.text().catch(() => '');
     console.log('[opensky-sync] upsert status:', upsertResp.status, upsertResp.statusText);
-    console.log('[opensky-sync] upsert response preview:', upsertText.slice(0, 500));
 
     if (!upsertResp.ok) {
       throw new Error(`Supabase upsert failed ${upsertResp.status}: ${upsertText.slice(0, 500)}`);
@@ -107,33 +106,48 @@ async function main() {
     }
   );
 
-  const deleteText = await deleteResp.text().catch(() => '');
-  console.log('[opensky-sync] delete status:', deleteResp.status, deleteResp.statusText);
-  console.log('[opensky-sync] delete response preview:', deleteText.slice(0, 500));
-
   if (!deleteResp.ok) {
+    const deleteText = await deleteResp.text().catch(() => '');
     throw new Error(`Supabase delete failed ${deleteResp.status}: ${deleteText.slice(0, 500)}`);
   }
 
-  const countResp = await fetch(
-    `${SUPABASE_URL}/rest/v1/aircraft_positions?select=icao24`,
-    {
-      method: 'GET',
-      headers: {
-        apikey: SUPABASE_SERVICE_ROLE_KEY,
-        Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
-        Prefer: 'count=exact',
-      },
-    }
-  );
-
-  console.log('[opensky-sync] count status:', countResp.status, countResp.statusText);
-  console.log('[opensky-sync] content-range:', countResp.headers.get('content-range'));
-
-  const countText = await countResp.text().catch(() => '');
-  console.log('[opensky-sync] count response preview:', countText.slice(0, 500));
-
   console.log('[opensky-sync] done');
+}
+
+async function fetchWithRetry(url, options, maxAttempts = 4) {
+  let lastErr;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    const timeoutMs = 30000;
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), timeoutMs);
+
+    try {
+      console.log(`[opensky-sync] fetch attempt ${attempt}/${maxAttempts}`);
+      const resp = await fetch(url, {
+        ...options,
+        signal: controller.signal,
+      });
+      clearTimeout(timeout);
+      return resp;
+    } catch (err) {
+      clearTimeout(timeout);
+      lastErr = err;
+      console.warn(`[opensky-sync] fetch attempt ${attempt} failed:`, err?.message || err);
+
+      if (attempt < maxAttempts) {
+        const backoffMs = attempt * 15000;
+        console.log(`[opensky-sync] waiting ${backoffMs}ms before retry`);
+        await sleep(backoffMs);
+      }
+    }
+  }
+
+  throw lastErr;
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function toNullableNumber(value) {

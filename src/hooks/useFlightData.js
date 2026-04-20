@@ -10,7 +10,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase, isSupabaseConfigured } from '../api/supabaseClient';
 
 const REFRESH_MS = 30_000;
-const STALE_MS   = 10 * 60 * 1000; // match edge function cleanup window
+const STALE_MS = 3 * 60 * 60 * 1000; // match edge function cleanup window
 
 const AIRCRAFT_CATEGORIES = {
   0:  'No information',
