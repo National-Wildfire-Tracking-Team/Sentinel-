@@ -8,7 +8,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
-  Mail, Lock, Eye, EyeOff, Flame, AlertCircle, CheckCircle2, Radio,
+  Mail, Lock, Eye, EyeOff, Flame, AlertCircle, Radio,
 } from 'lucide-react';
 
 import { useAuth } from '../context/AuthContext';
@@ -24,7 +24,6 @@ export default function ReporterRegisterPage() {
   const [showConfirm,     setShowConfirm]     = useState(false);
   const [error,           setError]           = useState(null);
   const [busy,            setBusy]            = useState(false);
-  const [success,         setSuccess]         = useState(false);
 
   const inputBase =
     'w-full rounded-lg bg-sentinel-800 border border-sentinel-700 text-white placeholder-sentinel-500 ' +
@@ -45,14 +44,10 @@ export default function ReporterRegisterPage() {
 
     setBusy(true);
     try {
-      const { data, error: err } = await signUp(email, password, { intended_role: 'reporter' });
+      const { error: err } = await signUp(email, password, { intended_role: 'reporter' });
       if (err) throw err;
 
-      if (data?.session) {
-        navigate('/submit-report', { replace: true });
-      } else {
-        setSuccess(true);
-      }
+      navigate('/submit-report', { replace: true });
     } catch (err) {
       setError(err?.message || 'Registration failed');
     } finally {
@@ -127,27 +122,7 @@ export default function ReporterRegisterPage() {
             <span className="text-white font-bold text-sm">Sentinel NWTT</span>
           </div>
 
-          {success ? (
-            <div className="text-center space-y-4">
-              <div className="flex items-center justify-center w-16 h-16 rounded-full bg-green-600/15 border border-green-500/30 mx-auto">
-                <CheckCircle2 size={32} className="text-green-400" />
-              </div>
-              <h2 className="text-2xl font-bold text-white">Check your email</h2>
-              <p className="text-sentinel-400 text-sm leading-relaxed">
-                We sent a confirmation link to{' '}
-                <span className="text-white font-medium">{email}</span>.
-                Click the link to activate your reporter account, then sign in.
-              </p>
-              <Link
-                to="/reporter-login"
-                className="inline-block mt-4 px-6 py-3 rounded-lg font-bold text-sm tracking-widest uppercase
-                           text-white bg-fire-600 hover:bg-fire-500 transition-all"
-              >
-                Go to Reporter Login
-              </Link>
-            </div>
-          ) : (
-            <>
+          <>
               <div className="flex items-center gap-3 mb-1">
                 <Radio size={22} className="text-fire-400" />
                 <h2 className="text-3xl font-bold text-white">Reporter Sign Up</h2>
@@ -264,7 +239,6 @@ export default function ReporterRegisterPage() {
                 </Link>
               </p>
             </>
-          )}
 
           <div className="mt-8 text-center space-y-2">
             <div>
