@@ -27,6 +27,7 @@ const roles = [
     description:
       'Build and maintain data pipelines that ingest information from NASA FIRMS, NIFC, NWS, and other authoritative sources to power our tracking platform.',
     badge: 'Technical',
+    link: 'https://docs.google.com/forms/d/e/1FAIpQLSfbjW4BisLzInH3eEbDPzDH10pVHGx_ubbVPQGlf5wzRbqaLw/viewform?usp=header',
   },
   {
     icon: Cloud,
@@ -62,6 +63,7 @@ const roles = [
     description:
       'Help build and improve the tools and interfaces that volunteers and the public rely on for real-time wildfire tracking.',
     badge: 'Technical',
+    link: 'https://docs.google.com/forms/d/e/1FAIpQLSfbjW4BisLzInH3eEbDPzDH10pVHGx_ubbVPQGlf5wzRbqaLw/viewform?usp=header',
   },
   {
     icon: Plus,
@@ -109,7 +111,7 @@ export default function VolunteerPage() {
               return (
                 <a
                   key={role.title}
-                  href={GOOGLE_FORM_URL}
+                  href={role.link || GOOGLE_FORM_URL}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="group p-6 rounded-2xl bg-sentinel-900 border border-sentinel-700 hover:border-fire-600/50 transition-all cursor-pointer hover:bg-sentinel-900/80"
