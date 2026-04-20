@@ -10,7 +10,7 @@ import { useAuth } from '../../context/AuthContext';
 import { formatRelativeTime } from '../../utils/formatUtils';
 import { Flame, Menu, RefreshCw, User } from 'lucide-react';
 import LoginModal from '../Auth/LoginModal';
-import AddressSetupScreen from '../Auth/AddressSetupScreen';
+import MapAddressSearchPanel from '../Auth/MapAddressSearchPanel';
 
 const ONE_MINUTE_MS = 60_000;
 const JUST_NOW_VISIBLE_MS = 5_000;
@@ -224,10 +224,10 @@ const userInitial = user?.email ? user.email[0].toUpperCase() : '?';
         />
       )}
 
-      {/* Address setup screen (shown after login) */}
+      {/* Address search panel (shown after login on the live map) */}
       {showAddressSetup && (
-        <AddressSetupScreen
-          onReturn={handleAddressSetupReturn}
+        <MapAddressSearchPanel
+          onClose={handleAddressSetupReturn}
         />
       )}
     </>
