@@ -5,9 +5,13 @@ on:
   schedule:
     - cron: "*/5 * * * *"
 
+permissions:
+  contents: read
+
 jobs:
   sync:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
 
     steps:
       - name: Check out repo
@@ -17,6 +21,18 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
+
+      - name: Verify required secrets exist
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          OPENSKY_USERNAME: ${{ secrets.OPENSKY_USERNAME }}
+          OPENSKY_PASSWORD: ${{ secrets.OPENSKY_PASSWORD }}
+        run: |
+          test -n "$SUPABASE_URL" || (echo "Missing SUPABASE_URL" && exit 1)
+          test -n "$SUPABASE_SERVICE_ROLE_KEY" || (echo "Missing SUPABASE_SERVICE_ROLE_KEY" && exit 1)
+          test -n "$OPENSKY_USERNAME" || (echo "Missing OPENSKY_USERNAME" && exit 1)
+          test -n "$OPENSKY_PASSWORD" || (echo "Missing OPENSKY_PASSWORD" && exit 1)
 
       - name: Run OpenSky sync
         env:
