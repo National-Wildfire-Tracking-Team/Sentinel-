@@ -252,14 +252,11 @@ const flightBounds = useMemo(() => {
 
   if (!Number.isFinite(lng) || !Number.isFinite(lat)) return null;
 
-  // Rough bbox estimate from center + zoom
   let lonSpan = 360 / Math.pow(2, zoom - 1);
   let latSpan = 170 / Math.pow(2, zoom - 1);
 
-  // Keep a minimum search area so flights do not disappear when zooming in
-  // too far. This still gives a regional view, not nationwide.
-  lonSpan = Math.max(lonSpan, 8); // ~multi-state width
-  latSpan = Math.max(latSpan, 6); // ~regional height
+  lonSpan = Math.max(lonSpan, 8);
+  latSpan = Math.max(latSpan, 6);
 
   return {
     west: lng - lonSpan / 2,

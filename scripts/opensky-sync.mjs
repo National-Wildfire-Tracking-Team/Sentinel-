@@ -10,45 +10,40 @@ if (!OPENSKY_USERNAME || !OPENSKY_PASSWORD) {
   throw new Error('Missing OpenSky credentials');
 }
 
-const STALE_MS = 10 * 60 * 1000;
+const STALE_MS = 3 * 60 * 60 * 1000;
+
+// Split the US into a few large regions so each OpenSky request is smaller.
+const REGIONS = [
+  { name: 'west',    lamin: 31, lomin: -125, lamax: 49, lomax: -108 },
+  { name: 'central', lamin: 28, lomin: -108, lamax: 49, lomax: -92 },
+  { name: 'south',   lamin: 24, lomin: -106, lamax: 37, lomax: -80 },
+  { name: 'east',    lamin: 36, lomin: -92,  lamax: 48, lomax: -66 },
+];
 
 async function main() {
   console.log('[opensky-sync] starting');
   console.log('[opensky-sync] supabase url:', SUPABASE_URL);
 
-  const params = new URLSearchParams({
-    lamin: '24',
-    lomin: '-130',
-    lamax: '50',
-    lomax: '-65',
-  });
+  const allStates = [];
+  const seen = new Set();
 
-  const openskyUrl = `https://opensky-network.org/api/states/all?${params.toString()}`;
-  console.log('[opensky-sync] requesting:', openskyUrl);
+  for (const region of REGIONS) {
+    const states = await fetchRegion(region);
+    console.log(`[opensky-sync] region ${region.name}: ${states.length} states`);
 
-  const openskyResp = await fetchWithRetry(openskyUrl, {
-    headers: {
-      Accept: 'application/json',
-      Authorization:
-        'Basic ' +
-        Buffer.from(`${OPENSKY_USERNAME}:${OPENSKY_PASSWORD}`).toString('base64'),
-    },
-  });
-
-  console.log('[opensky-sync] opensky status:', openskyResp.status, openskyResp.statusText);
-
-  if (!openskyResp.ok) {
-    const txt = await openskyResp.text().catch(() => '');
-    throw new Error(`OpenSky returned ${openskyResp.status}: ${txt.slice(0, 500)}`);
+    for (const s of states) {
+      const icao24 = String(s?.[0] ?? '').trim();
+      if (!icao24 || seen.has(icao24)) continue;
+      seen.add(icao24);
+      allStates.push(s);
+    }
   }
 
-  const openSkyData = await openskyResp.json();
-  const states = Array.isArray(openSkyData?.states) ? openSkyData.states : [];
+  console.log('[opensky-sync] total deduped states:', allStates.length);
+
   const fetchedAt = new Date().toISOString();
 
-  console.log('[opensky-sync] states received:', states.length);
-
-  const positions = states
+  const positions = allStates
     .filter((s) => Array.isArray(s) && s[5] != null && s[6] != null)
     .map((s) => ({
       icao24: String(s[0] ?? ''),
@@ -78,7 +73,7 @@ async function main() {
           apikey: SUPABASE_SERVICE_ROLE_KEY,
           Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
           'Content-Type': 'application/json',
-          Prefer: 'resolution=merge-duplicates,return=representation',
+          Prefer: 'resolution=merge-duplicates',
         },
         body: JSON.stringify(positions),
       }
@@ -112,6 +107,37 @@ async function main() {
   }
 
   console.log('[opensky-sync] done');
+}
+
+async function fetchRegion(region) {
+  const params = new URLSearchParams({
+    lamin: String(region.lamin),
+    lomin: String(region.lomin),
+    lamax: String(region.lamax),
+    lomax: String(region.lomax),
+  });
+
+  const openskyUrl = `https://opensky-network.org/api/states/all?${params.toString()}`;
+  console.log(`[opensky-sync] requesting region ${region.name}: ${openskyUrl}`);
+
+  const resp = await fetchWithRetry(openskyUrl, {
+    headers: {
+      Accept: 'application/json',
+      Authorization:
+        'Basic ' +
+        Buffer.from(`${OPENSKY_USERNAME}:${OPENSKY_PASSWORD}`).toString('base64'),
+    },
+  });
+
+  console.log('[opensky-sync] opensky status:', resp.status, resp.statusText, `for ${region.name}`);
+
+  if (!resp.ok) {
+    const txt = await resp.text().catch(() => '');
+    throw new Error(`OpenSky returned ${resp.status} for ${region.name}: ${txt.slice(0, 500)}`);
+  }
+
+  const json = await resp.json();
+  return Array.isArray(json?.states) ? json.states : [];
 }
 
 async function fetchWithRetry(url, options, maxAttempts = 4) {
