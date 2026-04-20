@@ -93,6 +93,13 @@ export default function AccountPage() {
             Back
           </button>
           <button
+            onClick={() => navigate('/sentinel')}
+            className="flex items-center gap-1.5 text-xs bg-fire-600/15 border border-fire-500/25 text-fire-400 hover:bg-fire-600/25 hover:text-fire-300 transition-colors px-2.5 py-1.5 rounded-md"
+          >
+            <MapPin size={12} />
+            Back to Sentinel
+          </button>
+          <button
             onClick={handleSignOut}
             className="flex items-center gap-1.5 text-xs text-sentinel-400 hover:text-white transition-colors"
           >
