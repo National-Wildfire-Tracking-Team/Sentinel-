@@ -12,7 +12,6 @@ export default function LoginModal({ onClose, onLoginSuccess }) {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [registerSuccess, setRegisterSuccess] = useState(false);
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -44,9 +43,13 @@ export default function LoginModal({ onClose, onLoginSuccess }) {
     setError('');
     setLoading(true);
     try {
-      const { error: err } = await signUp(email.trim(), password);
+      const { data, error: err } = await signUp(email.trim(), password);
       if (err) throw err;
-      setRegisterSuccess(true);
+      if (data?.session) {
+        onLoginSuccess?.();
+      } else {
+        setMode('login');
+      }
     } catch (err) {
       setError(err.message || 'Registration failed. Please try again.');
     } finally {
@@ -90,21 +93,7 @@ export default function LoginModal({ onClose, onLoginSuccess }) {
               </div>
             )}
 
-            {registerSuccess ? (
-              <div className="text-center py-4">
-                <div className="text-green-400 font-semibold mb-2">Account created!</div>
-                <p className="text-sentinel-300 text-sm mb-4">
-                  Check your email for a confirmation link, then sign in below.
-                </p>
-                <button
-                  onClick={() => { setMode('login'); setRegisterSuccess(false); setEmail(''); setPassword(''); setConfirmPassword(''); }}
-                  className="text-fire-400 hover:text-fire-300 text-sm font-medium transition-colors"
-                >
-                  Back to Sign In
-                </button>
-              </div>
-            ) : (
-              <>
+            <>
                 <h2 className="text-lg font-semibold text-white mb-5 text-center">
                   {mode === 'login' ? 'Sign in to your account' : 'Create an account'}
                 </h2>
@@ -207,7 +196,6 @@ export default function LoginModal({ onClose, onLoginSuccess }) {
                   )}
                 </div>
               </>
-            )}
           </div>
         </div>
       </div>

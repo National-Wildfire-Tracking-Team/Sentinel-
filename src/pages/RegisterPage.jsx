@@ -6,7 +6,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
-  Mail, Lock, Eye, EyeOff, Flame, AlertCircle, CheckCircle2, UserPlus,
+  Mail, Lock, Eye, EyeOff, Flame, AlertCircle, UserPlus,
 } from 'lucide-react';
 
 import { useAuth } from '../context/AuthContext';
@@ -22,7 +22,6 @@ export default function RegisterPage() {
   const [showConfirm,     setShowConfirm]     = useState(false);
   const [error,           setError]           = useState(null);
   const [busy,            setBusy]            = useState(false);
-  const [success,         setSuccess]         = useState(false);
 
   const inputBase =
     'w-full rounded-lg bg-sentinel-800 border border-sentinel-700 text-white placeholder-sentinel-500 ' +
@@ -43,16 +42,10 @@ export default function RegisterPage() {
 
     setBusy(true);
     try {
-      const { data, error: err } = await signUp(email, password);
+      const { error: err } = await signUp(email, password);
       if (err) throw err;
 
-      // If Supabase returns a session immediately the user is auto-confirmed;
-      // redirect to the dashboard. Otherwise show a "check your email" notice.
-      if (data?.session) {
-        navigate('/submit-report', { replace: true });
-      } else {
-        setSuccess(true);
-      }
+      navigate('/submit-report', { replace: true });
     } catch (err) {
       setError(err?.message || 'Registration failed');
     } finally {
@@ -123,27 +116,7 @@ export default function RegisterPage() {
             <span className="text-white font-bold text-sm">Sentinel NWTT</span>
           </div>
 
-          {success ? (
-            /* ── Success state ── */
-            <div className="text-center space-y-4">
-              <div className="flex items-center justify-center w-16 h-16 rounded-full bg-green-600/15 border border-green-500/30 mx-auto">
-                <CheckCircle2 size={32} className="text-green-400" />
-              </div>
-              <h2 className="text-2xl font-bold text-white">Check your email</h2>
-              <p className="text-sentinel-400 text-sm leading-relaxed">
-                We sent a confirmation link to <span className="text-white font-medium">{email}</span>.
-                Click the link to activate your account, then sign in.
-              </p>
-              <Link
-                to="/login"
-                style={{ backgroundColor: '#0096ff' }}
-                className="inline-block mt-4 px-6 py-3 rounded-lg font-bold text-sm tracking-widest uppercase text-white hover:brightness-110 transition-all"
-              >
-                Go to Sign In
-              </Link>
-            </div>
-          ) : (
-            <>
+          <>
               <div className="flex items-center gap-3 mb-1">
                 <UserPlus size={22} className="text-[#0096ff]" />
                 <h2 className="text-3xl font-bold text-white">Create Account</h2>
@@ -266,7 +239,6 @@ export default function RegisterPage() {
                 </Link>
               </p>
             </>
-          )}
 
           <div className="mt-8 text-center">
             <Link to="/" className="text-xs text-sentinel-500 hover:text-sentinel-300 transition-colors">
