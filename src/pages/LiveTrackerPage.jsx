@@ -44,7 +44,7 @@ const MAP_TABS = {
 };
 
 const WILDFIRE_LAYER_PRESET = {
-  fireHotspots: true,
+  fireHotspots: false,
   firePerimeters: true,
   incidentLocations: true,
   weatherAlerts: false,
@@ -55,7 +55,7 @@ const WILDFIRE_LAYER_PRESET = {
   spcOutlooks: false,
   radar: false,
   evacZones: false,
-  rawsStations: true,
+  rawsStations: false,
   flights: false,
 };
 
