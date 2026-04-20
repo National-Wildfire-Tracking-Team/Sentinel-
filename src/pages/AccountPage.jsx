@@ -6,7 +6,7 @@
  */
 
 import { useState } from 'react';
-import { Navigate, Link, useNavigate } from 'react-router-dom';
+import { Navigate, useNavigate } from 'react-router-dom';
 import {
   Flame, User, Mail, Shield, Calendar, Lock,
   CheckCircle2, AlertCircle, LogOut, ChevronLeft, MapPin,
@@ -22,9 +22,9 @@ export default function AccountPage() {
   const navigate = useNavigate();
   const { locations } = useSavedLocations();
 
-  const [resetSent,      setResetSent]      = useState(false);
-  const [resetBusy,      setResetBusy]      = useState(false);
-  const [resetError,     setResetError]     = useState(null);
+  const [resetSent, setResetSent] = useState(false);
+  const [resetBusy, setResetBusy] = useState(false);
+  const [resetError, setResetError] = useState(null);
   const [showZipManager, setShowZipManager] = useState(false);
 
   if (loading) {
@@ -39,8 +39,8 @@ export default function AccountPage() {
     return <Navigate to="/login" state={{ from: '/account' }} replace />;
   }
 
-  const email      = profile?.email  || user?.email  || '—';
-  const role       = profile?.role   || 'reporter';
+  const email = profile?.email || user?.email || '—';
+  const role = profile?.role || 'reporter';
   const memberSince = user?.created_at
     ? new Date(user.created_at).toLocaleDateString('en-US', {
         year: 'numeric', month: 'long', day: 'numeric',
@@ -177,15 +177,15 @@ export default function AccountPage() {
             <div className="flex-1 h-2 rounded-full bg-sentinel-700 overflow-hidden">
               <div
                 className="h-full rounded-full bg-emerald-500 transition-all"
-                style={{ width: `${(locations.length / FREE_LOCATION_LIMIT) * 100}%` }}
+                style={{ width: `${((locations?.length || 0) / FREE_LOCATION_LIMIT) * 100}%` }}
               />
             </div>
             <span className="text-xs text-sentinel-300 shrink-0">
-              {locations.length} / {FREE_LOCATION_LIMIT} used
+              {locations?.length || 0} / {FREE_LOCATION_LIMIT} used
             </span>
           </div>
 
-          {locations.length === 0 ? (
+          {(!locations || locations.length === 0) ? (
             <p className="text-xs text-sentinel-400">
               No zip codes saved yet.{' '}
               <button
