@@ -74,8 +74,12 @@ Deno.serve(async (req: Request) => {
     }).eq('id', 'opensky');
 
     // ── OpenSky credentials from Vault secrets ───────────────────────────────
-    const username = Deno.env.get('OPENSKY_USERNAME') ?? '';
-    const password = Deno.env.get('OPENSKY_PASSWORD') ?? '';
+    const username = Deno.env.get('OPENSKY_USERNAME');
+    const password = Deno.env.get('OPENSKY_PASSWORD');
+
+    if (!username || !password) {
+      throw new Error('Missing OpenSky credentials');
+    }
 
     // ── Parse bounding box from request body ────────────────────────────────
     const body = await req.json().catch(() => ({}));
