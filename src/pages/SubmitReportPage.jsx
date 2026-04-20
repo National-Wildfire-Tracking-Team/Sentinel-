@@ -254,7 +254,7 @@ export default function SubmitReportPage() {
     const coords = feature.geometry?.coordinates;
     setAddress1(props.address_line1 || props.name || '');
     setCity(ctx.place?.name || ctx.locality?.name || '');
-    setCounty(ctx.district?.name || '');
+    setCounty((ctx.district?.name || '').replace(/\s+county$/i, '').trim());
     setUsState(ctx.region?.name || '');
     setZip(ctx.postcode?.name || '');
     setAddressSearch(props.full_address || props.name || '');
