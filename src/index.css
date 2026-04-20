@@ -12,24 +12,26 @@
 
 /* Navigation control dark theme */
 .mapboxgl-ctrl-group {
-  @apply bg-sentinel-800 border border-sentinel-600 rounded-xl overflow-hidden;
-  box-shadow: 0 8px 32px rgba(0,0,0,0.6) !important;
+  @apply bg-sentinel-800/90 border border-sentinel-700 rounded-xl overflow-hidden;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  box-shadow: 0 20px 48px rgba(0,0,0,0.5), 0 4px 12px rgba(0,0,0,0.3) !important;
 }
 
 .mapboxgl-ctrl-group button {
-  @apply hover:bg-sentinel-700 transition-colors;
+  @apply hover:bg-sentinel-700/80 transition-colors;
   width: 36px;
   height: 36px;
 }
 
 .mapboxgl-ctrl-group button + button {
-  @apply border-t border-sentinel-600;
+  @apply border-t border-sentinel-700;
 }
 
-/* Zoom +/− icons are dark SVGs — invert to show on dark background */
+/* Zoom +/− icons — white on dark background */
 .mapboxgl-ctrl-zoom-in .mapboxgl-ctrl-icon,
 .mapboxgl-ctrl-zoom-out .mapboxgl-ctrl-icon {
-  filter: invert(0.8);
+  filter: invert(0.75) brightness(1.1);
 }
 
 .mapboxgl-ctrl-group button:hover .mapboxgl-ctrl-zoom-in .mapboxgl-ctrl-icon,
@@ -46,12 +48,24 @@
   fill: #3d4a58 !important;
 }
 
+/* Compass icon shell — light on dark */
+.mapboxgl-ctrl-compass .mapboxgl-ctrl-icon {
+  filter: invert(0.75) brightness(1.1);
+}
+
+.mapboxgl-ctrl-group button:hover .mapboxgl-ctrl-compass .mapboxgl-ctrl-icon {
+  filter: invert(1);
+}
+
 /* Scale control */
 .mapboxgl-ctrl-scale {
-  @apply border-sentinel-400 text-sentinel-100 bg-sentinel-900/85 text-[10px];
+  @apply text-sentinel-200 bg-sentinel-800/90 border-sentinel-700 text-[10px] font-medium tracking-wide;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   border-width: 0 2px 2px;
-  padding: 2px 6px;
-  border-radius: 0 0 4px 4px;
+  padding: 3px 8px;
+  border-radius: 0 0 10px 10px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.4);
 }
 
 /* ─── Mapbox popup override ─────────────────────────────────────────────────*/
