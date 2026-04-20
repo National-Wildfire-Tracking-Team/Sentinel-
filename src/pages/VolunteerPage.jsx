@@ -42,6 +42,7 @@ const roles = [
     description:
       'Translate complex fire data into clear, actionable updates for the public, media, and partner agencies during wildfire events.',
     badge: 'Outreach',
+        link: 'https://docs.google.com/forms/d/e/1FAIpQLSf0_7xTXrIA5T8eTLL5tYVjoH7ppqeIw8K302RE5uXpICW2sg/viewform?usp=header',
   },
   {
     icon: Map,
