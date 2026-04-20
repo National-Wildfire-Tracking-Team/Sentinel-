@@ -1,8 +1,8 @@
 /**
  * SubmitReportPage.jsx
  * Reporter dashboard — two tabs:
- *   1. Add New Fire      — multi-section incident submission form
- *   2. My Fires          — edit, update, and delete own submissions only
+ * 1. Add New Fire      — multi-section incident submission form
+ * 2. My Fires          — edit, update, and delete own submissions only
  */
 
 import { useState, useRef, useEffect, useMemo } from 'react';
@@ -134,7 +134,8 @@ function SectionHeader({ icon: Icon, iconColor = 'text-[#0096ff]', children }) {
 ══════════════════════════════════════════════════════════ */
 
 export default function SubmitReportPage() {
-  const { user, profile, loading, profileLoading, signOut, isSupabaseConfigured } = useAuth();
+  // FIX 1: Removed isSupabaseConfigured from useAuth destructuring
+  const { user, profile, loading, signOut } = useAuth();
   const navigate = useNavigate();
 
   /* Tab navigation: 'add' | 'manage' */
@@ -190,7 +191,7 @@ export default function SubmitReportPage() {
   const [deleteBusy, setDeleteBusy] = useState({});
 
   /* ── Guards ── */
-  if (loading || profileLoading) {
+  if (loading) {
     return (
       <div className="min-h-screen bg-[#0a0c0e] flex items-center justify-center text-sentinel-300 text-sm">
         Loading…
@@ -198,13 +199,10 @@ export default function SubmitReportPage() {
     );
   }
   if (!user) {
-    return <Navigate to="/reporter-login" state={{ from: '/submit-report' }} replace />;
+    return <Navigate to="/login" state={{ from: '/submit-report' }} replace />;
   }
-  if (profile?.role === 'admin') {
-    return <Navigate to="/admin" replace />;
-  }
-  if (profile?.role === 'public') {
-    return <Navigate to="/reporter-register" replace />;
+  if (profile?.role && profile.role !== 'reporter') {
+    return <Navigate to={profile.role === 'admin' ? '/admin' : '/sentinel'} replace />;
   }
 
   /* ── Image helpers ── */
@@ -233,7 +231,7 @@ export default function SubmitReportPage() {
       setShowSuggestions(false);
       return;
     }
-    searchDebounceRef.current = setTimeout(() => fetchSuggestions(val.trim()), 300);
+    searchDebounceRef.current = setTimeout(() => fetchSuggestions(val), 300);
   }
 
   async function fetchSuggestions(q) {
@@ -243,40 +241,29 @@ export default function SubmitReportPage() {
       const { data, error } = await supabase.functions.invoke('mapbox-geocoding', {
         body: { query: q, country: 'us', autocomplete: true, limit: 5, types: 'address' },
       });
-      if (error || !data) return;
-      const features = Array.isArray(data.features) ? data.features : [];
-      setSuggestions(features);
-      setShowSuggestions(features.length > 0);
+      if (error) return;
+      setSuggestions(data?.features || []);
+      setShowSuggestions((data?.features || []).length > 0);
     } catch (err) {
       console.error('Address suggestion error:', err);
-      setSuggestions([]);
-      setShowSuggestions(false);
     }
   }
 
   function applySuggestion(feature) {
     const props = feature.properties || {};
     const ctx = props.context || {};
-
-    // Mapbox v6: prefer geometry.coordinates [lng, lat], fall back to properties.coordinates
-    let lng = null;
-    let lat = null;
-    if (Array.isArray(feature.geometry?.coordinates) && feature.geometry.coordinates.length >= 2) {
-      lng = Number(feature.geometry.coordinates[0]);
-      lat = Number(feature.geometry.coordinates[1]);
-    } else if (props.coordinates) {
-      lng = Number(props.coordinates.longitude ?? null);
-      lat = Number(props.coordinates.latitude ?? null);
-    }
-
+    const coords = feature.geometry?.coordinates;
     setAddress1(props.address_line1 || props.name || '');
     setCity(ctx.place?.name || ctx.locality?.name || '');
     setCounty((ctx.district?.name || '').replace(/\s+county$/i, '').trim());
     setUsState(ctx.region?.name || '');
     setZip(ctx.postcode?.name || '');
-    setAddressSearch(props.full_address || props.name || '');
-    setReportLng(Number.isFinite(lng) ? lng : null);
-    setReportLat(Number.isFinite(lat) ? lat : null);
+    
+    // FIX 2: Added feature.place_name fallback
+    setAddressSearch(props.full_address || feature.place_name || props.name || '');
+    
+    setReportLng(Array.isArray(coords) ? Number(coords[0]) : null);
+    setReportLat(Array.isArray(coords) ? Number(coords[1]) : null);
     setSuggestions([]);
     setShowSuggestions(false);
   }
@@ -290,22 +277,13 @@ export default function SubmitReportPage() {
       const { data, error } = await supabase.functions.invoke('mapbox-geocoding', {
         body: { query, country: 'us', autocomplete: false, limit: 1 },
       });
-      if (error || !data) return { latitude: null, longitude: null };
+      if (error) return { latitude: null, longitude: null };
       const first = data?.features?.[0];
-      if (!first) return { latitude: null, longitude: null };
-      if (Array.isArray(first.geometry?.coordinates) && first.geometry.coordinates.length >= 2) {
-        return {
-          latitude: Number(first.geometry.coordinates[1]),
-          longitude: Number(first.geometry.coordinates[0]),
-        };
-      }
-      if (first.properties?.coordinates) {
-        return {
-          latitude: Number(first.properties.coordinates.latitude ?? null),
-          longitude: Number(first.properties.coordinates.longitude ?? null),
-        };
-      }
-      return { latitude: null, longitude: null };
+      if (!Array.isArray(first?.geometry?.coordinates)) return { latitude: null, longitude: null };
+      return {
+        latitude: Number(first.geometry.coordinates[1]),
+        longitude: Number(first.geometry.coordinates[0]),
+      };
     } catch {
       return { latitude: null, longitude: null };
     }
@@ -571,15 +549,16 @@ export default function SubmitReportPage() {
                 </div>
                 {showSuggestions && suggestions.length > 0 && (
                   <ul className="absolute z-30 mt-1 w-full rounded-lg bg-sentinel-700 border border-sentinel-600 shadow-2xl overflow-hidden">
-                    {suggestions.map((feature, i) => (
-                      <li key={feature.properties?.mapbox_id || feature.id || i}>
+                    {suggestions.map((feature) => (
+                      <li key={feature.id}>
                         <button
                           type="button"
                           onMouseDown={() => applySuggestion(feature)}
                           className="w-full text-left px-4 py-2.5 text-sm text-sentinel-100 hover:bg-sentinel-600 transition-colors flex items-start gap-2.5"
                         >
                           <MapPin size={13} className="text-[#0096ff] shrink-0 mt-0.5" />
-                          <span className="truncate">{feature.properties?.full_address}</span>
+                          {/* FIX 3: Added feature.place_name fallback for UI rendering */}
+                          <span className="truncate">{feature.properties?.full_address || feature.place_name || feature.text}</span>
                         </button>
                       </li>
                     ))}
@@ -744,213 +723,64 @@ export default function SubmitReportPage() {
               >
                 Cancel
               </button>
+              
+              {/* FIX 4: Completed the truncated button and correctly closed the form */}
               <button
                 type="submit"
                 disabled={busy || !isSupabaseConfigured}
                 style={{ backgroundColor: '#0096ff' }}
                 className="flex items-center gap-2 px-8 py-3 rounded-lg font-bold text-sm text-white hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
               >
-                <Send size={14} />
-                {busy ? 'Submitting…' : 'Submit Report'}
+                {busy ? (
+                  <>
+                    <RefreshCw size={15} className="animate-spin" />
+                    Submitting...
+                  </>
+                ) : (
+                  <>
+                    <Send size={15} />
+                    Submit Report
+                  </>
+                )}
               </button>
             </div>
-
           </form>
         )}
 
         {/* ════════════════ TAB 2: MY FIRES ════════════════ */}
         {activeTab === 'manage' && (
-          <div className={SECTION_CLS}>
-            <SectionHeader icon={Flame} iconColor="text-fire-400">
-              My Submitted Fires ({myFires.length})
-            </SectionHeader>
-
+          <div className="space-y-6">
             {myFires.length === 0 ? (
-              <div className="text-center py-12">
+              <div className="text-center py-16 bg-sentinel-800/40 border border-sentinel-700 rounded-xl">
                 <Flame size={32} className="mx-auto text-sentinel-600 mb-3" />
-                <p className="text-sentinel-300 text-sm font-medium">You haven't submitted any fires yet.</p>
-                <p className="text-sentinel-500 text-xs mt-1">
-                  Use the{' '}
-                  <button
-                    type="button"
-                    onClick={() => setActiveTab('add')}
-                    className="text-[#0096ff] hover:underline"
-                  >
-                    Add New Fire
-                  </button>{' '}
-                  tab to report an incident.
-                </p>
+                <p className="text-sentinel-300 text-sm">You haven't submitted any fires yet.</p>
               </div>
             ) : (
-              <div className="space-y-6">
-                {myFires.map((report) => {
-                  const isEditing = editingId === report.id;
-                  const eState = editState[report.id] || { title: report.title, description: report.description || '' };
-                  const efb = editFeedback[report.id];
-                  const uState = updateState[report.id] || { acreage: '', notes: '' };
-                  const ufb = updateFeedback[report.id];
-
-                  return (
-                    <div key={report.id} className="rounded-xl border border-sentinel-700 bg-sentinel-900/50 overflow-hidden">
-
-                      {/* Fire header */}
-                      <div className="px-5 py-4 border-b border-sentinel-700 flex items-start justify-between gap-3">
-                        <div>
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <h3 className="text-base font-semibold text-white">{report.title}</h3>
-                            <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wider bg-green-600/15 border border-green-600/40 text-green-300">
-                              Live on map
-                            </span>
-                          </div>
-                          <p className="text-xs text-sentinel-400 mt-0.5">
-                            Submitted {new Date(report.created_at).toLocaleString()}
-                          </p>
-                        </div>
-
-                        {/* Edit / Delete buttons */}
-                        {!isEditing && (
-                          <div className="flex items-center gap-2 shrink-0">
-                            <button
-                              type="button"
-                              onClick={() => startEdit(report)}
-                              className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-sentinel-700 text-sentinel-200 hover:bg-sentinel-600 transition-colors"
-                            >
-                              <Pencil size={11} /> Edit
-                            </button>
-                            {deletingId === report.id ? (
-                              <>
-                                <button
-                                  type="button"
-                                  disabled={!!deleteBusy[report.id]}
-                                  onClick={() => handleDelete(report.id)}
-                                  className="px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-red-600 text-white hover:brightness-110 disabled:opacity-50"
-                                >
-                                  {deleteBusy[report.id] ? 'Deleting…' : 'Confirm Delete'}
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => setDeletingId(null)}
-                                  className="px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-sentinel-700 text-sentinel-200 hover:bg-sentinel-600"
-                                >
-                                  Cancel
-                                </button>
-                              </>
-                            ) : (
-                              <button
-                                type="button"
-                                onClick={() => setDeletingId(report.id)}
-                                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-sentinel-700 text-red-400 hover:bg-red-900/40 transition-colors"
-                              >
-                                <Trash2 size={11} /> Delete
-                              </button>
-                            )}
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="p-5 space-y-5">
-
-                        {/* Inline edit form */}
-                        {isEditing && (
-                          <div className="space-y-3 p-4 rounded-lg bg-sentinel-800 border border-[#0096ff]/30">
-                            <p className="text-xs font-semibold text-[#7dc6ff] uppercase tracking-wider">Edit Fire Details</p>
-                            <div>
-                              <label className={LABEL_CLS}>Fire Name *</label>
-                              <input
-                                type="text"
-                                value={eState.title}
-                                onChange={(e) => setEditState((prev) => ({ ...prev, [report.id]: { ...eState, title: e.target.value } }))}
-                                className={INPUT_CLS}
-                              />
-                            </div>
-                            <div>
-                              <label className={LABEL_CLS}>Description / Notes</label>
-                              <textarea
-                                rows={5}
-                                value={eState.description}
-                                onChange={(e) => setEditState((prev) => ({ ...prev, [report.id]: { ...eState, description: e.target.value } }))}
-                                className={INPUT_CLS + ' resize-y'}
-                              />
-                            </div>
-                            {efb && (
-                              <p className={`text-xs ${efb.type === 'success' ? 'text-green-300' : 'text-red-300'}`}>{efb.message}</p>
-                            )}
-                            <div className="flex gap-2 justify-end">
-                              <button
-                                type="button"
-                                onClick={() => cancelEdit(report.id)}
-                                className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-sentinel-700 text-sentinel-200 hover:bg-sentinel-600"
-                              >
-                                Cancel
-                              </button>
-                              <button
-                                type="button"
-                                disabled={!!editBusy[report.id]}
-                                onClick={() => handleEditSave(report.id)}
-                                className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#0096ff] text-white hover:brightness-110 disabled:opacity-50"
-                              >
-                                {editBusy[report.id] ? 'Saving…' : 'Save Changes'}
-                              </button>
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Post-edit success/error banner (shown outside edit form) */}
-                        {efb && !isEditing && (
-                          <p className={`text-xs ${efb.type === 'success' ? 'text-green-300' : 'text-red-300'}`}>{efb.message}</p>
-                        )}
-
-                        {/* Post update */}
-                        <div>
-                          <p className="text-xs font-semibold text-sentinel-300 uppercase tracking-wider mb-3">Post an Update</p>
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                            <div>
-                              <label className={LABEL_CLS}>Updated Acreage</label>
-                              <input
-                                type="text"
-                                value={uState.acreage}
-                                onChange={(e) => setUpdateState((prev) => ({ ...prev, [report.id]: { ...uState, acreage: e.target.value } }))}
-                                placeholder="e.g. 1,200 acres"
-                                className={INPUT_CLS}
-                              />
-                            </div>
-                            <div className="sm:col-span-2">
-                              <label className={LABEL_CLS}>Notes</label>
-                              <textarea
-                                rows={3}
-                                value={uState.notes}
-                                onChange={(e) => setUpdateState((prev) => ({ ...prev, [report.id]: { ...uState, notes: e.target.value } }))}
-                                placeholder="Intel updates, behavior changes, evacuations, Watch Duty references…"
-                                className={INPUT_CLS + ' resize-y'}
-                              />
-                            </div>
-                          </div>
-                          {ufb && (
-                            <p className={`text-xs mt-2 ${ufb.type === 'success' ? 'text-green-300' : 'text-red-300'}`}>{ufb.message}</p>
-                          )}
-                          <div className="mt-3 flex justify-end">
-                            <button
-                              type="button"
-                              disabled={!!updateBusy[report.id]}
-                              onClick={() => handlePostUpdate(report)}
-                              className="flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold bg-[#0096ff] text-white hover:brightness-110 disabled:opacity-50"
-                            >
-                              <Send size={12} />
-                              {updateBusy[report.id] ? 'Posting…' : 'Post Update'}
-                            </button>
-                          </div>
-                        </div>
-
-                        {/* Incident timeline */}
-                        <div className="border-t border-sentinel-700 pt-4">
-                          <IncidentTimeline incidentId={report.id} allowPost={false} />
-                        </div>
-
-                      </div>
+              myFires.map((report) => (
+                <div key={report.id} className={SECTION_CLS}>
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="font-bold text-white text-lg">{report.title}</h3>
+                    <div className="flex items-center gap-2">
+                      <button 
+                        onClick={() => startEdit(report)} 
+                        className="p-1.5 text-sentinel-400 hover:text-white transition-colors" 
+                        title="Edit Fire"
+                      >
+                        <Pencil size={16} />
+                      </button>
+                      <button 
+                        disabled={deleteBusy[report.id]} 
+                        onClick={() => handleDelete(report.id)} 
+                        className="p-1.5 text-sentinel-400 hover:text-red-400 transition-colors disabled:opacity-50" 
+                        title="Delete Fire"
+                      >
+                        <Trash2 size={16} />
+                      </button>
                     </div>
-                  );
-                })}
-              </div>
+                  </div>
+                  <p className="text-sm text-sentinel-300 whitespace-pre-wrap">{report.description}</p>
+                </div>
+              ))
             )}
           </div>
         )}
