@@ -354,7 +354,7 @@ function FlightDetailPopup({ flight, lngLat, onClose }) {
  * @param {object|null} props.hotspotsGeoJSON
  * @param {object|null} props.perimetersGeoJSON
  * @param {object|null} props.incidentsGeoJSON // Fixed naming mismatch
- * @param {object|null} props.incidentDotsGeoJSON 
+ * @param {object|null} props.incidentDotsGeoJSON
  * @param {object|null} props.aqiGeoJSON
  * @param {object|null} props.alertsGeoJSON
  * @param {object|null} props.spcReportsGeoJSON
@@ -364,6 +364,7 @@ function FlightDetailPopup({ flight, lngLat, onClose }) {
  * @param {object|null} props.evacZonesGeoJSON
  * @param {object|null} props.flightsGeoJSON
  * @param {object|null} props.rawsGeoJSON
+ * @param {Array}       [props.savedLocations]
  * @param {'wildfire'|'weather'} [props.activeMapTab]
  */
 export default function MapView({
@@ -382,6 +383,7 @@ export default function MapView({
   evacZonesGeoJSON,
   flightsGeoJSON,
   rawsGeoJSON,
+  savedLocations = [],
   measureActive = false,
   measureMode = 'distance',
   onMeasureActivate,
@@ -887,6 +889,39 @@ export default function MapView({
             </div>
           </Marker>
         )}
+
+        {/* Saved address markers – visible on wildfire and weather tabs */}
+        {savedLocations.map(loc => (
+          loc.latitude && loc.longitude ? (
+            <Marker
+              key={loc.id}
+              longitude={Number(loc.longitude)}
+              latitude={Number(loc.latitude)}
+              anchor="bottom"
+            >
+              <div
+                className="flex flex-col items-center cursor-default group"
+                title={loc.address || loc.name}
+              >
+                <div className="relative">
+                  <div className="w-7 h-7 rounded-full bg-emerald-600 border-2 border-white flex items-center justify-center shadow-lg group-hover:bg-emerald-500 transition-colors">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="currentColor" className="text-white">
+                      <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/>
+                    </svg>
+                  </div>
+                  <div className="absolute -bottom-0.5 left-1/2 -translate-x-1/2 w-0 h-0 border-l-[5px] border-r-[5px] border-t-[6px] border-l-transparent border-r-transparent border-t-emerald-600" />
+                </div>
+                {/* Label on hover */}
+                <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 hidden group-hover:block pointer-events-none z-10">
+                  <div className="bg-sentinel-800 border border-sentinel-600 rounded-lg px-2.5 py-1.5 shadow-xl whitespace-nowrap max-w-[200px]">
+                    <p className="text-xs font-medium text-white truncate">{loc.address || loc.name}</p>
+                    <p className="text-[10px] text-emerald-400">Saved Address</p>
+                  </div>
+                </div>
+              </div>
+            </Marker>
+          ) : null
+        ))}
 
         {/* Measurement geometry – rendered last so it's always on top */}
         {measureActive && (
