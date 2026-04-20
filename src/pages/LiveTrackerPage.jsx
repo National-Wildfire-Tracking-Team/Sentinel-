@@ -8,6 +8,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { nwsAlertCategory } from '../utils/nwsColors';
 import { useSavedLocations } from '../hooks/useSavedLocations';
+import { useAuth } from '../context/AuthContext';
+import AddressSetupScreen from '../components/Auth/AddressSetupScreen';
 
 // Data hooks
 import { useFireHotspots } from '../hooks/useFireHotspots';
@@ -129,7 +131,22 @@ const RAWS_MIN_ZOOM = 9;
 
 export default function LiveTrackerPage() {
   const { layers, setLayer, setRefreshed, setLoading, feedFilter, viewport } = useApp();
-  const { locations: savedLocations } = useSavedLocations();
+  const { user, isAuthenticated } = useAuth();
+  const { locations: savedLocations, loading: locationsLoading } = useSavedLocations();
+  const [setupDismissed, setSetupDismissed] = useState(false);
+
+  const showAddressSetup =
+    isAuthenticated &&
+    !locationsLoading &&
+    savedLocations.length === 0 &&
+    !setupDismissed &&
+    !!user?.id &&
+    localStorage.getItem(`sentinel_setup_dismissed_${user.id}`) !== '1';
+
+  const handleSetupReturn = useCallback(() => {
+    if (user?.id) localStorage.setItem(`sentinel_setup_dismissed_${user.id}`, '1');
+    setSetupDismissed(true);
+  }, [user?.id]);
   const [activeMapTab, setActiveMapTab] = useState(MAP_TABS.wildfire);
   const [mapType, setMapType] = useState('satellite');
   const [weatherAlertFilter, setWeatherAlertFilter] = useState('all');
@@ -609,6 +626,10 @@ console.log('flights loading:', flightsLoading);
           </a>
         </div>
       </div>
+
+      {showAddressSetup && (
+        <AddressSetupScreen onReturn={handleSetupReturn} />
+      )}
     </div>
   );
 }
