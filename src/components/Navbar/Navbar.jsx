@@ -69,7 +69,7 @@ export default function Navbar() {
             )}
 
             <a
-              href="https://givebutter.com/Or6BK2q5Cpxxn9Xl"
+              href="https://givebutter.com/national-wildfire-tracking-team-dvi6jx"
               target="_blank"
               rel="noopener noreferrer"
               className="ml-2 inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold bg-pink-600 text-white hover:bg-pink-500 transition-colors"
@@ -119,7 +119,7 @@ export default function Navbar() {
             ))}
 
             <a
-              href="https://givebutter.com/Or6BK2q5Cpxxn9Xl"
+              href="https://givebutter.com/national-wildfire-tracking-team-dvi6jx"
               target="_blank"
               rel="noopener noreferrer"
               onClick={() => setMobileOpen(false)}
