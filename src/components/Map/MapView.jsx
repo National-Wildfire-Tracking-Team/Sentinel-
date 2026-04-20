@@ -898,7 +898,7 @@ export default function MapView({
           </Marker>
         )}
 
-        {/* Saved address markers – visible on wildfire and weather tabs */}
+        {/* Saved address markers – black map pins visible on wildfire and weather tabs */}
         {savedLocations.map(loc => (
           loc.latitude && loc.longitude ? (
             <Marker
@@ -912,18 +912,18 @@ export default function MapView({
                 title={loc.address || loc.name}
               >
                 <div className="relative">
-                  <div className="w-7 h-7 rounded-full bg-emerald-600 border-2 border-white flex items-center justify-center shadow-lg group-hover:bg-emerald-500 transition-colors">
+                  <div className="w-7 h-7 rounded-full bg-black border-2 border-white flex items-center justify-center shadow-lg group-hover:bg-gray-900 transition-colors">
                     <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="currentColor" className="text-white">
-                      <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/>
+                      <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
                     </svg>
                   </div>
-                  <div className="absolute -bottom-0.5 left-1/2 -translate-x-1/2 w-0 h-0 border-l-[5px] border-r-[5px] border-t-[6px] border-l-transparent border-r-transparent border-t-emerald-600" />
+                  <div className="absolute -bottom-0.5 left-1/2 -translate-x-1/2 w-0 h-0 border-l-[5px] border-r-[5px] border-t-[6px] border-l-transparent border-r-transparent border-t-black" />
                 </div>
                 {/* Label on hover */}
                 <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 hidden group-hover:block pointer-events-none z-10">
                   <div className="bg-sentinel-800 border border-sentinel-600 rounded-lg px-2.5 py-1.5 shadow-xl whitespace-nowrap max-w-[200px]">
                     <p className="text-xs font-medium text-white truncate">{loc.address || loc.name}</p>
-                    <p className="text-[10px] text-emerald-400">Saved Address</p>
+                    <p className="text-[10px] text-sentinel-400">Saved Address</p>
                   </div>
                 </div>
               </div>
