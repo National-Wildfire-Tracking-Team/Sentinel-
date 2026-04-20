@@ -230,7 +230,7 @@ export default function SubmitReportPage() {
       setShowSuggestions(false);
       return;
     }
-    searchDebounceRef.current = setTimeout(() => fetchSuggestions(val), 300);
+    searchDebounceRef.current = setTimeout(() => fetchSuggestions(val.trim()), 300);
   }
 
   async function fetchSuggestions(q) {
@@ -240,26 +240,40 @@ export default function SubmitReportPage() {
       const { data, error } = await supabase.functions.invoke('mapbox-geocoding', {
         body: { query: q, country: 'us', autocomplete: true, limit: 5, types: 'address' },
       });
-      if (error) return;
-      setSuggestions(data?.features || []);
-      setShowSuggestions((data?.features || []).length > 0);
+      if (error || !data) return;
+      const features = Array.isArray(data.features) ? data.features : [];
+      setSuggestions(features);
+      setShowSuggestions(features.length > 0);
     } catch (err) {
       console.error('Address suggestion error:', err);
+      setSuggestions([]);
+      setShowSuggestions(false);
     }
   }
 
   function applySuggestion(feature) {
     const props = feature.properties || {};
     const ctx = props.context || {};
-    const coords = feature.geometry?.coordinates;
+
+    // Mapbox v6: prefer geometry.coordinates [lng, lat], fall back to properties.coordinates
+    let lng = null;
+    let lat = null;
+    if (Array.isArray(feature.geometry?.coordinates) && feature.geometry.coordinates.length >= 2) {
+      lng = Number(feature.geometry.coordinates[0]);
+      lat = Number(feature.geometry.coordinates[1]);
+    } else if (props.coordinates) {
+      lng = Number(props.coordinates.longitude ?? null);
+      lat = Number(props.coordinates.latitude ?? null);
+    }
+
     setAddress1(props.address_line1 || props.name || '');
     setCity(ctx.place?.name || ctx.locality?.name || '');
     setCounty((ctx.district?.name || '').replace(/\s+county$/i, '').trim());
     setUsState(ctx.region?.name || '');
     setZip(ctx.postcode?.name || '');
     setAddressSearch(props.full_address || props.name || '');
-    setReportLng(Array.isArray(coords) ? Number(coords[0]) : null);
-    setReportLat(Array.isArray(coords) ? Number(coords[1]) : null);
+    setReportLng(Number.isFinite(lng) ? lng : null);
+    setReportLat(Number.isFinite(lat) ? lat : null);
     setSuggestions([]);
     setShowSuggestions(false);
   }
@@ -273,13 +287,22 @@ export default function SubmitReportPage() {
       const { data, error } = await supabase.functions.invoke('mapbox-geocoding', {
         body: { query, country: 'us', autocomplete: false, limit: 1 },
       });
-      if (error) return { latitude: null, longitude: null };
+      if (error || !data) return { latitude: null, longitude: null };
       const first = data?.features?.[0];
-      if (!Array.isArray(first?.geometry?.coordinates)) return { latitude: null, longitude: null };
-      return {
-        latitude: Number(first.geometry.coordinates[1]),
-        longitude: Number(first.geometry.coordinates[0]),
-      };
+      if (!first) return { latitude: null, longitude: null };
+      if (Array.isArray(first.geometry?.coordinates) && first.geometry.coordinates.length >= 2) {
+        return {
+          latitude: Number(first.geometry.coordinates[1]),
+          longitude: Number(first.geometry.coordinates[0]),
+        };
+      }
+      if (first.properties?.coordinates) {
+        return {
+          latitude: Number(first.properties.coordinates.latitude ?? null),
+          longitude: Number(first.properties.coordinates.longitude ?? null),
+        };
+      }
+      return { latitude: null, longitude: null };
     } catch {
       return { latitude: null, longitude: null };
     }
@@ -545,8 +568,8 @@ export default function SubmitReportPage() {
                 </div>
                 {showSuggestions && suggestions.length > 0 && (
                   <ul className="absolute z-30 mt-1 w-full rounded-lg bg-sentinel-700 border border-sentinel-600 shadow-2xl overflow-hidden">
-                    {suggestions.map((feature) => (
-                      <li key={feature.id}>
+                    {suggestions.map((feature, i) => (
+                      <li key={feature.properties?.mapbox_id || feature.id || i}>
                         <button
                           type="button"
                           onMouseDown={() => applySuggestion(feature)}
