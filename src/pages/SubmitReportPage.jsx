@@ -134,7 +134,7 @@ function SectionHeader({ icon: Icon, iconColor = 'text-[#0096ff]', children }) {
 ══════════════════════════════════════════════════════════ */
 
 export default function SubmitReportPage() {
-  const { user, profile, loading, signOut, isSupabaseConfigured } = useAuth();
+  const { user, profile, loading, profileLoading, signOut, isSupabaseConfigured } = useAuth();
   const navigate = useNavigate();
 
   /* Tab navigation: 'add' | 'manage' */
@@ -190,7 +190,7 @@ export default function SubmitReportPage() {
   const [deleteBusy, setDeleteBusy] = useState({});
 
   /* ── Guards ── */
-  if (loading) {
+  if (loading || profileLoading) {
     return (
       <div className="min-h-screen bg-[#0a0c0e] flex items-center justify-center text-sentinel-300 text-sm">
         Loading…
@@ -198,10 +198,13 @@ export default function SubmitReportPage() {
     );
   }
   if (!user) {
-    return <Navigate to="/login" state={{ from: '/submit-report' }} replace />;
+    return <Navigate to="/reporter-login" state={{ from: '/submit-report' }} replace />;
   }
-  if (profile?.role && profile.role !== 'reporter') {
-    return <Navigate to={profile.role === 'admin' ? '/admin' : '/sentinel'} replace />;
+  if (profile?.role === 'admin') {
+    return <Navigate to="/admin" replace />;
+  }
+  if (profile?.role === 'public') {
+    return <Navigate to="/reporter-register" replace />;
   }
 
   /* ── Image helpers ── */

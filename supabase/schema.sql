@@ -5,13 +5,14 @@
 
 -- ─── 1. profiles table (user roles) ────────────────────────────────────────
 -- Every auth.users row gets a matching profiles row via a trigger.
--- Default role: "reporter". Admins must be promoted manually by an existing
--- admin (or via the SQL console).
+-- Default role: "public". Reporters register via /reporter-register and get
+-- role='reporter' set at signup via user metadata. Admins must be promoted
+-- manually by an existing admin (or via the SQL console).
 create table if not exists public.profiles (
   id          uuid primary key references auth.users(id) on delete cascade,
   email       text,
-  role        text not null default 'reporter'
-                check (role in ('reporter','admin')),
+  role        text not null default 'public'
+                check (role in ('public','reporter','admin')),
   created_at  timestamptz not null default now()
 );
 
@@ -29,16 +30,25 @@ as $$
   );
 $$;
 
--- Auto-create a profile row for every new signup
+-- Auto-create a profile row for every new signup.
+-- Reads `intended_role` from signup metadata so the reporter registration page
+-- can request role='reporter' at creation time. Only 'public' and 'reporter'
+-- are accepted via metadata — 'admin' must always be promoted manually.
 create or replace function public.handle_new_user()
 returns trigger
 language plpgsql
 security definer
 set search_path = public
 as $$
+declare
+  v_role text;
 begin
+  v_role := coalesce(new.raw_user_meta_data->>'intended_role', 'public');
+  if v_role not in ('public', 'reporter') then
+    v_role := 'public';
+  end if;
   insert into public.profiles (id, email, role)
-  values (new.id, new.email, 'reporter')
+  values (new.id, new.email, v_role)
   on conflict (id) do nothing;
   return new;
 end;
