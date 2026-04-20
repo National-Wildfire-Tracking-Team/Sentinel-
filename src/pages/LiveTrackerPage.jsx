@@ -4,7 +4,6 @@
  * Refactored from the original App.jsx single-page layout.
  */
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { nwsAlertCategory } from '../utils/nwsColors';
 import { useSavedLocations } from '../hooks/useSavedLocations';
