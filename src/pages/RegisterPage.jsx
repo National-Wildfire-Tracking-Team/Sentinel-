@@ -45,7 +45,7 @@ export default function RegisterPage() {
       const { error: err } = await signUp(email, password);
       if (err) throw err;
 
-      navigate('/submit-report', { replace: true });
+      navigate('/sentinel', { replace: true });
     } catch (err) {
       setError(err?.message || 'Registration failed');
     } finally {

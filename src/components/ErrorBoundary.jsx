@@ -1,9 +1,3 @@
-/**
- * ErrorBoundary.jsx
- * Catches unhandled render errors and shows a recovery screen
- * instead of a blank page.
- */
-
 import { Component } from 'react';
 
 export default class ErrorBoundary extends Component {
@@ -20,6 +14,11 @@ export default class ErrorBoundary extends Component {
     console.error('[Sentinel] Unhandled error:', error, info.componentStack);
   }
 
+  handleReset() {
+    this.setState({ hasError: false });
+    window.location.href = '/sentinel';
+  }
+
   render() {
     if (this.state.hasError) {
       return (
@@ -27,14 +26,22 @@ export default class ErrorBoundary extends Component {
           <div className="text-fire-500 text-5xl font-bold">!</div>
           <h1 className="text-xl font-semibold">Something went wrong</h1>
           <p className="text-sentinel-400 text-sm max-w-sm text-center">
-            An unexpected error occurred. Please reload the page to continue tracking.
+            An unexpected error occurred. Return to the live map to continue tracking.
           </p>
-          <button
-            onClick={() => window.location.reload()}
-            className="px-4 py-2 bg-fire-600 hover:bg-fire-500 rounded-lg text-sm font-medium transition-colors"
-          >
-            Reload
-          </button>
+          <div className="flex gap-3">
+            <button
+              onClick={() => this.handleReset()}
+              className="px-4 py-2 bg-fire-600 hover:bg-fire-500 rounded-lg text-sm font-medium transition-colors"
+            >
+              Go to Live Map
+            </button>
+            <button
+              onClick={() => window.location.reload()}
+              className="px-4 py-2 bg-sentinel-700 hover:bg-sentinel-600 rounded-lg text-sm font-medium transition-colors"
+            >
+              Reload
+            </button>
+          </div>
         </div>
       );
     }

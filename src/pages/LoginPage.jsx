@@ -30,7 +30,7 @@ export default function LoginPage() {
   const [resetEmail,  setResetEmail]  = useState('');
   const [resetSent,   setResetSent]   = useState(false);
 
-  const redirectTo = location.state?.from || '/submit-report';
+  const redirectTo = location.state?.from || '/sentinel';
 
   /* ── Sign-in ── */
   async function handleSignIn(e) {
