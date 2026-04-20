@@ -57,7 +57,7 @@ const WILDFIRE_LAYER_PRESET = {
   radar: false,
   evacZones: false,
   rawsStations: true,
-  flights: true,
+  flights: false,
 };
 
 const WEATHER_LAYER_PRESET = {
@@ -76,7 +76,7 @@ const WEATHER_LAYER_PRESET = {
   radar: true,
   evacZones: false,
   rawsStations: false,
-  flights: true,
+  flights: false,
 };
 
 const THREE_DAYS_MS = 3 * 24 * 60 * 60 * 1000;

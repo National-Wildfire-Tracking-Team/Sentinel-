@@ -877,7 +877,7 @@ export default function MapView({
         {/* Live flight tracking – always on top of all fire/weather layers */}
         <FlightLayer
           geoJSON={flightsGeoJSON}
-          visible={layers.flights}
+          visible={false}
         />
 
         {/* User live location marker */}
