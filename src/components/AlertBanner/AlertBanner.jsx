@@ -42,7 +42,7 @@ const AlertBanner = memo(function AlertBanner({ dismissed, onDismiss }) {
         onClick={() => selectFire({ ...current, type: 'weather-alert', eventType: current.type })}
         className="flex-1 truncate text-xs font-medium text-red-200 text-left hover:text-white transition-colors cursor-pointer"
       >
-        {current.headline}
+        {current.headline || current.affectedArea || 'Active Red Flag Warning in your area'}
       </button>
 
       {/* Pagination if multiple alerts */}

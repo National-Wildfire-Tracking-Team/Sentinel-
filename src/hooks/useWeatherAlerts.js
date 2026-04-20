@@ -36,6 +36,8 @@ async function fetchAllNWSAlerts() {
     const mapped = data.features.map(f => ({
       id: f.id,
       type: f.properties.event,
+      headline: f.properties.headline,
+      description: f.properties.description,
       severity: f.properties.severity,
       urgency: f.properties.urgency,
       affectedArea: f.properties.areaDesc,
