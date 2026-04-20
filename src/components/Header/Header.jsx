@@ -110,7 +110,7 @@ const Header = memo(function Header({ onRefresh }) {
     setShowAddressSetup(false);
   };
 
-  const userInitial = user?.email ? user.email[0].toUpperCase() : '?';
+const userInitial = user?.email ? user.email[0].toUpperCase() : '?';
 
   return (
     <>
