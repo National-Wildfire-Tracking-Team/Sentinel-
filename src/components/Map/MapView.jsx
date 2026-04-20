@@ -502,7 +502,7 @@ export default function MapView({
       ids.push('fire-perimeter-centroids-circle');
     }
     if (isWildfireTab && layers.incidentLocations && incidentsGeoJSON)   ids.push('incident-locations-circle');
-    if (isWildfireTab && layers.userReports && userReportsGeoJSON)       ids.push('user-reports-circle');
+    if (isWildfireTab && layers.incidentLocations && userReportsGeoJSON)  ids.push('user-reports-circle');
     if (isWeatherTab && layers.aqi && aqiGeoJSON)                        ids.push('aqi-stations-circle');
     if (isWeatherTab && layers.weatherAlerts && alertsGeoJSON) ids.push('weather-alerts-fill');
     if (isWeatherTab && layers.spcOutlooks && spcOutlooksGeoJSON)        ids.push('spc-outlook-fill');
@@ -513,7 +513,7 @@ export default function MapView({
     if (layers.rawsStations && rawsGeoJSON)                               ids.push('raws-stations-circle');
     return ids;
   }, [measureActive, isWildfireTab, isWeatherTab, layers.fireHotspots, layers.firePerimeters, layers.incidentLocations, layers.aqi,
-      layers.weatherAlerts, layers.spcOutlooks, layers.spcReports, layers.iemReports, layers.userReports, layers.evacZones, layers.flights,
+      layers.weatherAlerts, layers.spcOutlooks, layers.spcReports, layers.iemReports, layers.evacZones, layers.flights,
       layers.rawsStations,
       hotspotsGeoJSON, perimetersGeoJSON, incidentsGeoJSON, aqiGeoJSON, alertsGeoJSON, spcOutlooksGeoJSON,
       spcReportsGeoJSON, iemReportsGeoJSON, userReportsGeoJSON, evacZonesGeoJSON, flightsGeoJSON, rawsGeoJSON]);
@@ -871,7 +871,7 @@ export default function MapView({
         {/* Community-submitted reports (rendered on top of official data) */}
         <UserReportsLayer
           geoJSON={userReportsGeoJSON}
-          visible={isWildfireTab && layers.userReports}
+          visible={isWildfireTab && layers.incidentLocations}
         />
 
         {/* Live flight tracking – always on top of all fire/weather layers */}

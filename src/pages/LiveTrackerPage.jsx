@@ -47,7 +47,6 @@ const WILDFIRE_LAYER_PRESET = {
   fireHotspots: true,
   firePerimeters: true,
   incidentLocations: true,
-  userReports: true,
   weatherAlerts: false,
   aqi: false,
   smoke: false,
@@ -64,7 +63,6 @@ const WEATHER_LAYER_PRESET = {
   fireHotspots: false,
   firePerimeters: false,
   incidentLocations: false,
-  userReports: false,
   weatherAlerts: true,
   aqi: false,
   smoke: false,
@@ -171,12 +169,6 @@ export default function LiveTrackerPage() {
     }
   }, [activeMapTab, setLayer]);
 
-  // Saved Locations mode should not show community reporter content.
-  useEffect(() => {
-    if (activeMapTab === MAP_TABS.locations) {
-      setLayer('userReports', false);
-    }
-  }, [activeMapTab, setLayer]);
 
   // ── Data feeds ──
   const {
