@@ -52,6 +52,7 @@ const LAYER_GROUPS = [
   },
   {
     label: 'Aviation',
+    hidden: true,
     showAlways: true,
     layers: [
       { key: 'flights', label: 'Live Flight Tracking', sublabel: 'OpenSky Network ADS-B', icon: PlaneTakeoff, color: '#ff5a00' },
