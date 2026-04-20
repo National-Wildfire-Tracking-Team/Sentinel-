@@ -92,23 +92,8 @@ export default function AboutPage() {
                 Born From a Need to Inform and Protect
               </h2>
               <div className="space-y-4 text-sentinel-200 leading-relaxed">
-                <p>
-                  The National Wildfire Tracking Team was founded by a group of concerned
-                  citizens who witnessed firsthand the devastation caused by wildfires and
-                  the critical gap in real-time public information during fire emergencies.
-                </p>
-                <p>
-                  Recognizing that government agencies like NASA, NOAA, and NIFC publish
-                  invaluable wildfire data, our founders set out to build a platform that
-                  consolidates this information into a single, easy-to-understand tracking
-                  system accessible to everyone.
-                </p>
-                <p>
-                  Today, our team of dedicated volunteers monitors wildfire activity 24/7,
-                  combining satellite data, weather intelligence, and ground reports to
-                  provide comprehensive situational awareness during the nation's most
-                  critical fire events.
-                </p>
+                The National Wildfire Tracking Team (NWTT) is a nonpartisan, nonprofit organization dedicated to providing real-time, verified public-safety information on wildfires, severe weather, and other natural disasters. Our mission is to deliver accurate situational awareness so communities can respond safely during emergencies.
+
               </div>
             </div>
 
