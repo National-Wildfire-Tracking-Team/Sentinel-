@@ -47,7 +47,7 @@ function PinIcon({ size = 9 }) {
   );
 }
 
-export default function MapAddressSearchPanel({ onClose }) {
+export default function MapAddressSearchPanel({ onClose, asPage = false }) {
   const { addLocation, removeLocation, locations, atLimit, limit } = useSavedLocations();
   const [addressInput, setAddressInput] = useState('');
   const [geocoding, setGeocoding] = useState(false);
@@ -100,12 +100,18 @@ export default function MapAddressSearchPanel({ onClose }) {
     }
   }, [removeLocation]);
 
+  const canClose = typeof onClose === 'function';
+
   return (
     <div
-      className="fixed inset-0 z-[150] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
-      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+      className={asPage
+        ? 'w-full'
+        : 'fixed inset-0 z-[150] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4'}
+      onClick={(e) => {
+        if (!asPage && canClose && e.target === e.currentTarget) onClose();
+      }}
     >
-      <div className="w-full max-w-lg rounded-2xl border border-sentinel-600 bg-sentinel-900 shadow-2xl overflow-hidden animate-fade-in">
+      <div className={`w-full max-w-lg rounded-2xl border border-sentinel-600 bg-sentinel-900 overflow-hidden animate-fade-in ${asPage ? '' : 'shadow-2xl'}`}>
 
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-sentinel-700">
@@ -113,13 +119,15 @@ export default function MapAddressSearchPanel({ onClose }) {
             <MapPin size={18} className="text-fire-500" />
             <h2 className="text-base font-bold text-white">Manage My Zip Codes</h2>
           </div>
-          <button
-            onClick={onClose}
-            className="p-1.5 rounded-lg text-sentinel-400 hover:text-white hover:bg-sentinel-700 transition-colors"
-            aria-label="Close"
-          >
-            <X size={16} />
-          </button>
+          {canClose && (
+            <button
+              onClick={onClose}
+              className="p-1.5 rounded-lg text-sentinel-400 hover:text-white hover:bg-sentinel-700 transition-colors"
+              aria-label="Close"
+            >
+              <X size={16} />
+            </button>
+          )}
         </div>
 
         {/* Body */}
