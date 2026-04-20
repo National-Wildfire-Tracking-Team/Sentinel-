@@ -11,14 +11,14 @@ import {
 } from 'lucide-react';
 
 // TODO: Replace with your actual Google Form URL
-const GOOGLE_FORM_URL = 'https://forms.gle/your-volunteer-form-link';
+const GOOGLE_FORM_URL = 'https://docs.google.com/forms/d/e/1FAIpQLSfTcBRvksqEWIujHeb1cgqAtisKUjJ4yRmVBVX6H_7FVnLgaA/viewform?usp=header';
 
 const roles = [
   {
     icon: Flame,
-    title: 'Fire Intelligence Analyst',
+    title: 'Reporter',
     description:
-      'Monitor satellite feeds and cross-reference fire detections with weather data, terrain models, and ground reports to provide accurate situational awareness.',
+      'Volunteer Desk Reporters help gather, verify, and synthesize information related to active wildfires and weather events. This includes monitoring multiple sources such as scanner traffic, fire cameras, official agency updates, user-submitted intel, and automated detections within NWTT.',
     badge: 'Core Team',
   },
   {
