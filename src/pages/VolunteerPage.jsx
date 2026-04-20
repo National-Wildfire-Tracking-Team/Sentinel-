@@ -63,6 +63,7 @@ const roles = [
     description:
       'Help build and improve the tools and interfaces that volunteers and the public rely on for real-time wildfire tracking.',
     badge: 'Technical',
+    link: 'https://docs.google.com/forms/d/e/1FAIpQLSfbjW4BisLzInH3eEbDPzDH10pVHGx_ubbVPQGlf5wzRbqaLw/viewform?usp=header',
   },
   {
     icon: Plus,
