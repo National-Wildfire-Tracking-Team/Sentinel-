@@ -3,14 +3,12 @@
  * Unified nationwide alert system:
  * - NOAA/NWS (primary, full coverage)
  * - FEMA IPAWS (supplement)
- * - OpenWeatherMap One Call API (supplement)
  * - Deduplication + merging
  * - GeoJSON output for mapping
  */
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useApp } from "../context/AppContext";
-import { fetchOpenWeatherAlerts } from "../api/openWeatherAlerts";
 
 const REFRESH_MS = 60 * 1000;
 
@@ -107,7 +105,7 @@ function fingerprint(alert) {
   return `${event}|${area}|${time}`;
 }
 
-function mergeAlerts(nws, fema, openWeather) {
+function mergeAlerts(nws, fema) {
   const seenIds  = new Set(nws.map(a => a.id));
   const seenKeys = new Set(nws.map(fingerprint));
 
@@ -122,7 +120,7 @@ function mergeAlerts(nws, fema, openWeather) {
     });
   }
 
-  return [...nws, ...addUnique(fema), ...addUnique(openWeather)];
+  return [...nws, ...addUnique(fema)];
 }
 
 /* =========================
@@ -164,15 +162,14 @@ export function useWeatherAlerts() {
     try {
       setError(null);
 
-      const [nws, fema, openWeather] = await Promise.all([
+      const [nws, fema] = await Promise.all([
         fetchAllNWSAlerts(),
         fetchFemaAlerts(),
-        fetchOpenWeatherAlerts(),
       ]);
 
       if (!mountedRef.current) return;
 
-      const merged = mergeAlerts(nws, fema, openWeather);
+      const merged = mergeAlerts(nws, fema);
 
       setAlertsState(merged);
       setAlerts(merged);
