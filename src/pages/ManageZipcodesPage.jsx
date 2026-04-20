@@ -1,5 +1,5 @@
 import { Navigate, useNavigate } from 'react-router-dom';
-import { ChevronLeft, MapPin } from 'lucide-react';
+import { ChevronLeft, ChevronRight, MapPin } from 'lucide-react';
 
 import { useAuth } from '../context/AuthContext';
 import MapAddressSearchPanel from '../components/Auth/MapAddressSearchPanel';
@@ -21,15 +21,24 @@ export default function ManageZipcodesPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0a0c0e] px-4 sm:px-6 py-8">
-      <div className="max-w-2xl mx-auto space-y-5">
-        <button
-          onClick={() => navigate('/account')}
-          className="inline-flex items-center gap-1.5 text-xs text-sentinel-400 hover:text-white transition-colors"
-        >
-          <ChevronLeft size={13} />
-          Back to Account
-        </button>
+    <div className="min-h-screen bg-[#0a0c0e] flex flex-col items-center justify-center px-4 sm:px-6 py-8">
+      <div className="w-full max-w-2xl space-y-5">
+        <div className="flex items-center justify-between">
+          <button
+            onClick={() => navigate('/account')}
+            className="inline-flex items-center gap-1.5 text-xs text-sentinel-400 hover:text-white transition-colors"
+          >
+            <ChevronLeft size={13} />
+            Back to Account
+          </button>
+          <button
+            onClick={() => navigate('/')}
+            className="inline-flex items-center gap-1.5 text-xs text-sentinel-400 hover:text-white transition-colors"
+          >
+            Back to Sentinel
+            <ChevronRight size={13} />
+          </button>
+        </div>
 
         <div className="flex items-center gap-2">
           <MapPin size={16} className="text-emerald-400" />
