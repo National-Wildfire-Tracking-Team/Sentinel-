@@ -266,10 +266,6 @@ export default function LiveTrackerPage() {
     refresh: refreshFlights,
 } = useFlightData(US_BOUNDS, layers.flights);
 
-console.log('flightsGeoJSON feature count:', flightsGeoJSON?.features?.length);
-console.log('flights error:', flightsError);
-console.log('flights loading:', flightsLoading);
-
   // RAWS weather stations – only fetch when layer is on AND zoomed in enough
   const rawsEnabled = layers.rawsStations && (viewport?.zoom ?? 0) >= RAWS_MIN_ZOOM;
   const {

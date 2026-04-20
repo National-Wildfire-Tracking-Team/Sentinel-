@@ -109,7 +109,7 @@ function normalizeIncidentGeoJSON(geojson) {
         ...f,
         properties: {
           UniqueFireIdentifier:  f.properties.UniqueFireIdentifier || '',
-          IncidentName:          f.properties.IncidentName || getCAMissionLabel(f.properties.LocalIncidentIdentifier) || 'Unknown Fire',
+          IncidentName:          f.properties.IncidentName || 'Unknown Fire',
           GISAcres:              Math.round(f.properties.IncidentSize || 0),
           PercentContained:      f.properties.PercentContained ?? 0,
           FireDiscoveryDateTime: f.properties.FireDiscoveryDateTime,
@@ -132,7 +132,7 @@ function normalizeIncidents(features) {
     const contained = p.PercentContained ?? 0;
     return {
       id:            p.UniqueFireIdentifier || `inc-${i}`,
-      name:          p.IncidentName || getCAMissionLabel(p.LocalIncidentIdentifier) || 'Unknown Fire',
+      name:          p.IncidentName || 'Unknown Fire',
       state:         (p.POOState || '').replace('US-', '') || '?',
       county:        p.POOCounty || '',
       lat,
