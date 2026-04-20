@@ -85,13 +85,13 @@ export default function AccountPage() {
         </div>
 
         <div className="flex items-center gap-3">
-          <Link
-            to="/submit-report"
+          <button
+            onClick={() => navigate(-1)}
             className="flex items-center gap-1.5 text-xs text-sentinel-400 hover:text-white transition-colors"
           >
             <ChevronLeft size={13} />
-            Dashboard
-          </Link>
+            Back
+          </button>
           <button
             onClick={handleSignOut}
             className="flex items-center gap-1.5 text-xs text-sentinel-400 hover:text-white transition-colors"
