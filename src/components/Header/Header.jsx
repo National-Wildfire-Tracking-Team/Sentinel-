@@ -8,7 +8,7 @@ import { useEffect, useMemo, useRef, useState, memo } from 'react';
 import { useApp } from '../../context/AppContext';
 import { useAuth } from '../../context/AuthContext';
 import { formatRelativeTime } from '../../utils/formatUtils';
-import { Flame, Menu, RefreshCw, User, LogOut } from 'lucide-react';
+import { Flame, Menu, RefreshCw, User } from 'lucide-react';
 import LoginModal from '../Auth/LoginModal';
 import AddressSetupScreen from '../Auth/AddressSetupScreen';
 
@@ -17,7 +17,7 @@ const JUST_NOW_VISIBLE_MS = 5_000;
 
 const Header = memo(function Header({ onRefresh }) {
   const { toggleSidebar, lastRefreshed, isLoading } = useApp();
-  const { isAuthenticated, user, signOut } = useAuth();
+  const { isAuthenticated, user } = useAuth();
 
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [showRecentRefreshIndicator, setShowRecentRefreshIndicator] = useState(false);
@@ -110,12 +110,7 @@ const Header = memo(function Header({ onRefresh }) {
     setShowAddressSetup(false);
   };
 
-  const handleSignOut = async () => {
-    setShowUserMenu(false);
-    await signOut();
-  };
-
-  const userInitial = user?.email ? user.email[0].toUpperCase() : '?';
+const userInitial = user?.email ? user.email[0].toUpperCase() : '?';
 
   return (
     <>
@@ -202,13 +197,6 @@ const Header = memo(function Header({ onRefresh }) {
                     >
                       <User size={13} />
                       Manage My Address
-                    </button>
-                    <button
-                      onClick={handleSignOut}
-                      className="w-full text-left px-3 py-2 text-sm text-sentinel-200 hover:bg-sentinel-700 hover:text-white transition-colors flex items-center gap-2"
-                    >
-                      <LogOut size={13} />
-                      Sign Out
                     </button>
                   </div>
                 </div>
