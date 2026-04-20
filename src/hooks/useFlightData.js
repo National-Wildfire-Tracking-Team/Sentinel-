@@ -8,7 +8,6 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase, isSupabaseConfigured } from '../api/supabaseClient';
-import { triggerFlightFetch } from '../api/openSkyApi';
 
 const REFRESH_MS = 30_000;
 const STALE_MS   = 10 * 60 * 1000; // match edge function cleanup window
@@ -111,28 +110,22 @@ export function useFlightData(bounds, enabled = false) {
   }, [enabled]);
 
   const load = useCallback(async () => {
-    if (!enabled) return;
-    try {
-      setLoading(true);
-      setError(null);
+  if (!enabled) return;
+  try {
+    setLoading(true);
+    setError(null);
 
-      if (isSupabaseConfigured) {
-        // Trigger edge function to fetch fresh data from OpenSky and store it.
-        // Rate limiting (client-side + server-side) is handled inside.
-        // Skip edge function — data is already synced via GitHub Action
-        const geo = await readFromTable();
-        if (mountedRef.current) setGeoJSON(geo);
-        // Read the just-stored data from the table.
-        const geo = await readFromTable();
-        if (mountedRef.current) setGeoJSON(geo);
-      }
-    } catch (err) {
-      if (!mountedRef.current) return;
-      setError(err.message);
-    } finally {
-      if (mountedRef.current) setLoading(false);
+    if (isSupabaseConfigured) {
+      const geo = await readFromTable();
+      if (mountedRef.current) setGeoJSON(geo);
     }
-  }, [bounds, enabled]);
+  } catch (err) {
+    if (!mountedRef.current) return;
+    setError(err.message);
+  } finally {
+    if (mountedRef.current) setLoading(false);
+  }
+}, [enabled]);
 
   useEffect(() => {
     mountedRef.current = true;
