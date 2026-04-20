@@ -1,8 +1,6 @@
 import { useState } from 'react';
-import { Link, NavLink, useNavigate } from 'react-router-dom';
-import { Flame, Menu, X, LogOut, Heart } from 'lucide-react';
-
-import { useAuth } from '../../context/AuthContext';
+import { Link, NavLink } from 'react-router-dom';
+import { Flame, Menu, X, Heart } from 'lucide-react';
 
 const navLinks = [
   { to: '/', label: 'Home' },
@@ -12,14 +10,6 @@ const navLinks = [
 
 export default function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false);
-  const { isAuthenticated, signOut } = useAuth();
-  const navigate = useNavigate();
-
-  const handleSignOut = async () => {
-    await signOut();
-    setMobileOpen(false);
-    navigate('/');
-  };
 
   return (
     <nav className="sticky top-0 z-50 bg-sentinel-900/95 backdrop-blur-md border-b border-sentinel-700">
@@ -59,15 +49,6 @@ export default function Navbar() {
                 {link.label}
               </NavLink>
             ))}
-            {isAuthenticated && (
-              <button
-                onClick={handleSignOut}
-                className="inline-flex items-center gap-1 px-3 py-2 rounded-lg text-sm font-medium text-sentinel-300 hover:text-white hover:bg-sentinel-700/60 transition-colors"
-              >
-                <LogOut size={13} /> Sign Out
-              </button>
-            )}
-
             <a
               href="https://givebutter.com/national-wildfire-tracking-team-dvi6jx"
               target="_blank"
@@ -129,14 +110,6 @@ export default function Navbar() {
               Donate
             </a>
 
-            {isAuthenticated && (
-              <button
-                onClick={handleSignOut}
-                className="w-full text-left block px-4 py-2.5 rounded-lg text-sm font-medium text-sentinel-300 hover:text-white hover:bg-sentinel-700/60"
-              >
-                Sign Out
-              </button>
-            )}
           </div>
         </div>
       )}

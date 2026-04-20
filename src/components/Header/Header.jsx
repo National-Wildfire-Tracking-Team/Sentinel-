@@ -8,7 +8,7 @@ import { useEffect, useMemo, useRef, useState, memo } from 'react';
 import { useApp } from '../../context/AppContext';
 import { useAuth } from '../../context/AuthContext';
 import { formatRelativeTime } from '../../utils/formatUtils';
-import { Flame, Menu, RefreshCw, User } from 'lucide-react';
+import { Flame, LogOut, Menu, RefreshCw, User } from 'lucide-react';
 import LoginModal from '../Auth/LoginModal';
 import MapAddressSearchPanel from '../Auth/MapAddressSearchPanel';
 
@@ -17,7 +17,7 @@ const JUST_NOW_VISIBLE_MS = 5_000;
 
 const Header = memo(function Header({ onRefresh }) {
   const { toggleSidebar, lastRefreshed, isLoading } = useApp();
-  const { isAuthenticated, user } = useAuth();
+  const { isAuthenticated, user, signOut } = useAuth();
 
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [showRecentRefreshIndicator, setShowRecentRefreshIndicator] = useState(false);
@@ -197,6 +197,13 @@ const userInitial = user?.email ? user.email[0].toUpperCase() : '?';
                     >
                       <User size={13} />
                       Manage My Address
+                    </button>
+                    <button
+                      onClick={() => { setShowUserMenu(false); signOut(); }}
+                      className="w-full text-left px-3 py-2 text-sm text-sentinel-200 hover:bg-sentinel-700 hover:text-white transition-colors flex items-center gap-2"
+                    >
+                      <LogOut size={13} />
+                      Sign Out
                     </button>
                   </div>
                 </div>
