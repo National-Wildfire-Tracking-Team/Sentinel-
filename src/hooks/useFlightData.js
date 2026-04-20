@@ -119,7 +119,9 @@ export function useFlightData(bounds, enabled = false) {
       if (isSupabaseConfigured) {
         // Trigger edge function to fetch fresh data from OpenSky and store it.
         // Rate limiting (client-side + server-side) is handled inside.
-        await triggerFlightFetch(bounds);
+        // Skip edge function — data is already synced via GitHub Action
+        const geo = await readFromTable();
+        if (mountedRef.current) setGeoJSON(geo);
         // Read the just-stored data from the table.
         const geo = await readFromTable();
         if (mountedRef.current) setGeoJSON(geo);
