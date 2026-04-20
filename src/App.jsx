@@ -5,7 +5,7 @@
  * The Live Tracker page renders full-screen without them.
  */
 
-import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { lazy, Suspense, useEffect } from 'react';
 
 import Navbar from './components/Navbar/Navbar';
@@ -117,6 +117,12 @@ export default function App() {
 
           {/* Full-screen live tracker (no Navbar/Footer) */}
           <Route path="/sentinel" element={<LiveTrackerPage />} />
+
+          {/* Redirect legacy/alternate reporter login URL */}
+          <Route path="/reporter-login" element={<Navigate to="/login" replace />} />
+
+          {/* Catch-all: redirect unknown routes to home instead of black screen */}
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Suspense>
     </BrowserRouter>

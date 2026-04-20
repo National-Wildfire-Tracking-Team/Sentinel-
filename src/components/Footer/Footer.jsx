@@ -38,6 +38,9 @@ export default function Footer() {
                 <a href="https://givebutter.com/Or6BK2q5Cpxxn9Xl" target="_blank" rel="noopener noreferrer" className="text-sentinel-300 hover:text-fire-400 text-sm transition-colors">Donate</a>
               </li>
               <li>
+                <Link to="/login" className="text-sentinel-300 hover:text-fire-400 text-sm transition-colors">Reporter Login</Link>
+              </li>
+              <li>
                 <Link to="/privacy-policy" className="text-sentinel-300 hover:text-fire-400 text-sm transition-colors">Privacy Policy</Link>
               </li>
             </ul>
