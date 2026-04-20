@@ -3,6 +3,7 @@
  * Renders SPC categorical risk polygons (Day 1-3).
  */
 
+import { memo } from 'react';
 import { Source, Layer } from 'react-map-gl';
 
 const EMPTY_GEOJSON = { type: 'FeatureCollection', features: [] };
@@ -26,7 +27,7 @@ const DAY_OPACITY = [
   0.16,
 ];
 
-export default function SPCOutlookLayer({ geoJSON, visible }) {
+const SPCOutlookLayer = memo(function SPCOutlookLayer({ geoJSON, visible }) {
   const vis = visible ? 'visible' : 'none';
 
   return (
@@ -60,4 +61,5 @@ export default function SPCOutlookLayer({ geoJSON, visible }) {
       />
     </Source>
   );
-}
+});
+export default SPCOutlookLayer;

@@ -6,6 +6,7 @@
  * Layer stays mounted; visibility is controlled via layout property.
  */
 
+import { memo } from 'react';
 import { Source, Layer } from 'react-map-gl';
 import { nwsColorMatchExpression } from '../../../utils/nwsColors';
 
@@ -16,7 +17,7 @@ const COLOR_EXPR = nwsColorMatchExpression();
 const IS_WATCH = ['in', 'Watch', ['get', 'type']];
 const IS_NOT_WATCH = ['!', IS_WATCH];
 
-export default function WeatherAlertsLayer({ geoJSON, visible }) {
+const WeatherAlertsLayer = memo(function WeatherAlertsLayer({ geoJSON, visible }) {
   const vis = visible ? 'visible' : 'none';
 
   return (
@@ -62,4 +63,5 @@ export default function WeatherAlertsLayer({ geoJSON, visible }) {
       />
     </Source>
   );
-}
+});
+export default WeatherAlertsLayer;

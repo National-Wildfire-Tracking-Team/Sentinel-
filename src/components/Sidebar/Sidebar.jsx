@@ -3,6 +3,7 @@
  * Collapsible left panel housing the incident feed and summary stats.
  */
 
+import { memo } from 'react';
 import { Link } from 'react-router-dom';
 import { Flame, TrendingUp, Wind, ChevronLeft, CloudSun, ShieldAlert, ArrowLeft } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
@@ -29,7 +30,7 @@ function StatPill({ icon: Icon, label, value, color = 'text-white', onClick, cla
   return <div className={base}>{inner}</div>;
 }
 
-export default function Sidebar({
+const Sidebar = memo(function Sidebar({
   incidents,
   loading,
   error,
@@ -193,4 +194,5 @@ export default function Sidebar({
       </aside>
     </>
   );
-}
+});
+export default Sidebar;

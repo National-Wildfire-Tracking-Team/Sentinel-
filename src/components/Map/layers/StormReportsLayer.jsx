@@ -3,6 +3,7 @@
  * Generic storm reports point layer for SPC/IEM feeds.
  */
 
+import { memo } from 'react';
 import { Source, Layer } from 'react-map-gl';
 
 const EMPTY_GEOJSON = { type: 'FeatureCollection', features: [] };
@@ -15,7 +16,7 @@ const TYPE_COLOR = [
   '#e5e7eb',
 ];
 
-export default function StormReportsLayer({
+const StormReportsLayer = memo(function StormReportsLayer({
   idPrefix,
   geoJSON,
   visible,
@@ -64,4 +65,5 @@ export default function StormReportsLayer({
       />
     </Source>
   );
-}
+});
+export default StormReportsLayer;

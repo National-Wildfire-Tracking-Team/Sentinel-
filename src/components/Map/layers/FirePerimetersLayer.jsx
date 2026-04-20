@@ -5,13 +5,13 @@
  * Layer stays mounted; visibility is controlled via layout property.
  */
 
-import { useMemo } from 'react';
+import { useMemo, memo } from 'react';
 import { Source, Layer } from 'react-map-gl';
 import { polygonCentroid } from '../../../utils/geoUtils';
 
 const EMPTY_GEOJSON = { type: 'FeatureCollection', features: [] };
 
-export default function FirePerimetersLayer({ geoJSON, visible }) {
+const FirePerimetersLayer = memo(function FirePerimetersLayer({ geoJSON, visible }) {
   const vis = visible ? 'visible' : 'none';
 
   // Derive a Point FeatureCollection of perimeter centroids for the center dots.
@@ -133,4 +133,5 @@ export default function FirePerimetersLayer({ geoJSON, visible }) {
       </Source>
     </>
   );
-}
+});
+export default FirePerimetersLayer;

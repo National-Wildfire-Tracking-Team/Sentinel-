@@ -4,12 +4,12 @@
  * Auto-hides when there are no active alerts.
  */
 
-import { useState } from 'react';
+import { useState, memo } from 'react';
 import { AlertTriangle, X, ChevronRight } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { alertTypeToColor } from '../../utils/colorUtils';
 
-export default function AlertBanner({ dismissed, onDismiss }) {
+const AlertBanner = memo(function AlertBanner({ dismissed, onDismiss }) {
   const { alerts, selectFire } = useApp();
   const [activeIndex, setActiveIndex] = useState(0);
 
@@ -66,4 +66,5 @@ export default function AlertBanner({ dismissed, onDismiss }) {
       </button>
     </div>
   );
-}
+});
+export default AlertBanner;

@@ -4,7 +4,7 @@
  * Layer stays mounted; visibility is controlled via layout property.
  */
 
-import { useMemo } from 'react';
+import { useMemo, memo } from 'react';
 import { Source, Layer } from 'react-map-gl';
 
 const pad = (value) => String(value).padStart(2, '0');
@@ -33,7 +33,7 @@ function buildNomadsWmsUrl(runHour) {
   return `https://nomads.ncep.noaa.gov/dods/hrrr/hrrr${ymd}/hrrr_sfc.t${pad(runHour)}z/wms`;
 }
 
-export default function SmokeLayer({ visible }) {
+const SmokeLayer = memo(function SmokeLayer({ visible }) {
   const vis = visible ? 'visible' : 'none';
 
   const tileUrl = useMemo(() => {
@@ -77,4 +77,5 @@ export default function SmokeLayer({ visible }) {
       />
     </Source>
   );
-}
+});
+export default SmokeLayer;

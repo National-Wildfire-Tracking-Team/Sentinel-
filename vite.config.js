@@ -3,14 +3,24 @@ import react from '@vitejs/plugin-react';
 
 export default defineConfig({
   plugins: [react()],
-  // Allow environment variables with VITE_ prefix
-  // Copy .env.example to .env and fill in your API keys
   define: {
     global: 'globalThis',
   },
+  build: {
+    target: 'esnext',
+    chunkSizeWarningLimit: 1000,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'vendor-react': ['react', 'react-dom', 'react-router-dom'],
+          'vendor-mapbox': ['mapbox-gl', 'react-map-gl'],
+          'vendor-supabase': ['@supabase/supabase-js'],
+          'vendor-utils': ['date-fns', 'lucide-react'],
+        },
+      },
+    },
+  },
   server: {
     port: 3000,
-    // NOTE: NASA FIRMS, AirNow, and Mapbox geocoding are now proxied through
-    // Supabase edge functions – no local proxy rules needed for those APIs.
   },
 });

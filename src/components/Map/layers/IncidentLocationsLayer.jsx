@@ -5,6 +5,7 @@
  * Layer stays mounted; visibility is controlled via layout property.
  */
 
+import { memo } from 'react';
 import { Source, Layer } from 'react-map-gl';
 
 const EMPTY_GEOJSON = { type: 'FeatureCollection', features: [] };
@@ -28,7 +29,7 @@ const CONTAINMENT_COLOR = [
 const DOT_RADIUS = 7;
 const DOT_GLOW_RADIUS = 14;
 
-export default function IncidentLocationsLayer({ geoJSON, visible }) {
+const IncidentLocationsLayer = memo(function IncidentLocationsLayer({ geoJSON, visible }) {
   const vis = visible ? 'visible' : 'none';
 
   // Hide fire dots below 0.4 acres
@@ -90,4 +91,5 @@ export default function IncidentLocationsLayer({ geoJSON, visible }) {
       />
     </Source>
   );
-}
+});
+export default IncidentLocationsLayer;

@@ -14,7 +14,7 @@ import Footer from './components/Footer/Footer';
 const HomePage = lazy(() => import('./pages/HomePage'));
 const AboutPage = lazy(() => import('./pages/AboutPage'));
 const VolunteerPage = lazy(() => import('./pages/VolunteerPage'));
-const LiveTrackerPage = lazy(() => import('./pages/LiveTrackerPage'));
+const LiveTrackerPage = lazy(() => import(/* @vite-prefetch */ './pages/LiveTrackerPage'));
 const PrivacyPolicyPage = lazy(() => import('./pages/PrivacyPolicyPage'));
 const TermsPage = lazy(() => import('./pages/TermsPage'));
 const LoginPage = lazy(() => import('./pages/LoginPage'));
@@ -45,8 +45,8 @@ function SiteLayout({ children }) {
 
 function RouteLoader() {
   return (
-    <div className="min-h-[40vh] flex items-center justify-center text-sentinel-200">
-      Loading page...
+    <div className="min-h-[40vh] flex items-center justify-center">
+      <div className="w-8 h-8 rounded-full border-2 border-orange-500 border-t-transparent animate-spin" aria-label="Loading" />
     </div>
   );
 }
