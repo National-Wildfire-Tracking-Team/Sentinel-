@@ -8,6 +8,9 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { nwsAlertCategory } from '../utils/nwsColors';
 import { useSavedLocations } from '../hooks/useSavedLocations';
+import { useAuth } from '../context/AuthContext';
+import AddressSetupScreen from '../components/Auth/AddressSetupScreen';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 // Data hooks
 import { useFireHotspots } from '../hooks/useFireHotspots';
@@ -241,13 +244,35 @@ export default function LiveTrackerPage() {
     refresh: refreshEvacZones,
   } = useEvacZones();
 
+const flightBounds = useMemo(() => {
+  if (!viewport) return null;
+
+  const lng = Number(viewport.longitude);
+  const lat = Number(viewport.latitude);
+  const zoom = Number(viewport.zoom ?? 0);
+
+  if (!Number.isFinite(lng) || !Number.isFinite(lat)) return null;
+
+  // Rough bbox from zoom (good enough)
+  const lonSpan = 360 / Math.pow(2, zoom - 1);
+  const latSpan = 170 / Math.pow(2, zoom - 1);
+
+  return {
+    west: lng - lonSpan / 2,
+    east: lng + lonSpan / 2,
+    south: lat - latSpan / 2,
+    north: lat + latSpan / 2,
+    zoom,
+  };
+}, [viewport]);
+
   // Live flight tracking (OpenSky Network ADS-B)
   const {
     geoJSON: flightsGeoJSON,
     loading: flightsLoading,
     error: flightsError,
     refresh: refreshFlights,
-} = useFlightData(US_BOUNDS, layers.flights);
+} = useFlightData(flightBounds, layers.flights);
 
   // RAWS weather stations – only fetch when layer is on AND zoomed in enough
   const rawsEnabled = layers.rawsStations && (viewport?.zoom ?? 0) >= RAWS_MIN_ZOOM;
