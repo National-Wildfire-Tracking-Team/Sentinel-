@@ -19,6 +19,9 @@ export default function IncidentFeed({ incidents, loading, error }) {
   const [search, setSearch] = useState('');
   const [sort,   setSort]   = useState('acres');
 
+  const THREE_DAYS_MS = 3 * 24 * 60 * 60 * 1000;
+  const now = Date.now();
+
   // Filter by search term and feed mode
   const filtered = incidents.filter(inc => {
     const matchesSearch =
@@ -27,10 +30,12 @@ export default function IncidentFeed({ incidents, loading, error }) {
       inc.county.toLowerCase().includes(search.toLowerCase());
 
     if (!matchesSearch) return false;
-    if (feedFilter === 'all') return true;
 
-    // Active fires: only fires less than 95% contained
-    return (inc.contained ?? 0) < 95;
+    // Always remove fires that are 95%+ contained or haven't been updated in 3 days
+    if ((inc.contained ?? 0) >= 95) return false;
+    if (inc.updated && (now - new Date(inc.updated).getTime()) > THREE_DAYS_MS) return false;
+
+    return true;
   });
 
   // Sort
