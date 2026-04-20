@@ -1,6 +1,7 @@
-import { useState } from 'react';
-import { Link, NavLink } from 'react-router-dom';
-import { Flame, Menu, X, Heart } from 'lucide-react';
+import { useRef, useState, useEffect } from 'react';
+import { Link, NavLink, useNavigate } from 'react-router-dom';
+import { Flame, Menu, X, Heart, User, Settings, LogOut } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
 
 const navLinks = [
   { to: '/', label: 'Home' },
@@ -10,6 +11,29 @@ const navLinks = [
 
 export default function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const { isAuthenticated, user, signOut } = useAuth();
+  const navigate = useNavigate();
+  const userMenuRef = useRef(null);
+
+  useEffect(() => {
+    if (!userMenuOpen) return;
+    const handler = (e) => {
+      if (userMenuRef.current && !userMenuRef.current.contains(e.target)) {
+        setUserMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [userMenuOpen]);
+
+  async function handleSignOut() {
+    setUserMenuOpen(false);
+    await signOut();
+    navigate('/');
+  }
+
+  const userInitial = user?.email ? user.email[0].toUpperCase() : '?';
 
   return (
     <nav className="sticky top-0 z-50 bg-sentinel-900/95 backdrop-blur-md border-b border-sentinel-700">
@@ -64,6 +88,45 @@ export default function Navbar() {
             >
               Sentinel<sup className="ml-0.5 text-[0.6em] font-bold tracking-wider align-super">BETA</sup>
             </NavLink>
+
+            {/* User menu (logged-in only) */}
+            {isAuthenticated && (
+              <div className="relative ml-2" ref={userMenuRef}>
+                <button
+                  onClick={() => setUserMenuOpen(v => !v)}
+                  className="flex items-center justify-center w-8 h-8 rounded-full bg-fire-600 hover:bg-fire-500 text-white text-xs font-bold transition-colors"
+                  aria-label="User menu"
+                  title={user?.email}
+                >
+                  {userInitial}
+                </button>
+                {userMenuOpen && (
+                  <div className="absolute right-0 top-full mt-1.5 w-52 rounded-xl border border-sentinel-600 bg-sentinel-800 shadow-2xl z-50 overflow-hidden">
+                    <div className="px-3 py-2.5 border-b border-sentinel-700">
+                      <p className="text-xs font-medium text-white truncate">{user?.email}</p>
+                      <p className="text-[10px] text-sentinel-400 mt-0.5">Signed in</p>
+                    </div>
+                    <div className="py-1">
+                      <Link
+                        to="/account"
+                        onClick={() => setUserMenuOpen(false)}
+                        className="w-full text-left px-3 py-2 text-sm text-sentinel-200 hover:bg-sentinel-700 hover:text-white transition-colors flex items-center gap-2"
+                      >
+                        <Settings size={13} />
+                        Account Settings
+                      </Link>
+                      <button
+                        onClick={handleSignOut}
+                        className="w-full text-left px-3 py-2 text-sm text-sentinel-200 hover:bg-sentinel-700 hover:text-white transition-colors flex items-center gap-2"
+                      >
+                        <LogOut size={13} />
+                        Sign Out
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Mobile toggle */}
@@ -109,6 +172,30 @@ export default function Navbar() {
               <Heart size={15} />
               Donate
             </a>
+
+            {isAuthenticated && (
+              <>
+                <div className="border-t border-sentinel-700 my-1" />
+                <div className="px-1 py-0.5">
+                  <p className="text-[10px] text-sentinel-500 px-3 pb-1 uppercase tracking-wider">{user?.email}</p>
+                  <Link
+                    to="/account"
+                    onClick={() => setMobileOpen(false)}
+                    className="flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium text-sentinel-200 hover:text-white hover:bg-sentinel-700/60 transition-colors"
+                  >
+                    <Settings size={15} />
+                    Account Settings
+                  </Link>
+                  <button
+                    onClick={() => { setMobileOpen(false); handleSignOut(); }}
+                    className="w-full flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium text-sentinel-200 hover:text-white hover:bg-sentinel-700/60 transition-colors"
+                  >
+                    <LogOut size={15} />
+                    Sign Out
+                  </button>
+                </div>
+              </>
+            )}
 
           </div>
         </div>

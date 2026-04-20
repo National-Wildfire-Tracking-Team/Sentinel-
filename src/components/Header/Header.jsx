@@ -5,10 +5,11 @@
  */
 
 import { useEffect, useMemo, useRef, useState, memo } from 'react';
+import { Link } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
 import { useAuth } from '../../context/AuthContext';
 import { formatRelativeTime } from '../../utils/formatUtils';
-import { Flame, LogOut, Menu, RefreshCw, User } from 'lucide-react';
+import { Flame, LogOut, MapPin, Menu, RefreshCw, Settings, User } from 'lucide-react';
 import LoginModal from '../Auth/LoginModal';
 import MapAddressSearchPanel from '../Auth/MapAddressSearchPanel';
 
@@ -195,9 +196,17 @@ const userInitial = user?.email ? user.email[0].toUpperCase() : '?';
                       onClick={() => { setShowUserMenu(false); setShowAddressSetup(true); }}
                       className="w-full text-left px-3 py-2 text-sm text-sentinel-200 hover:bg-sentinel-700 hover:text-white transition-colors flex items-center gap-2"
                     >
-                      <User size={13} />
+                      <MapPin size={13} />
                       Manage My Zip Codes
                     </button>
+                    <Link
+                      to="/account"
+                      onClick={() => setShowUserMenu(false)}
+                      className="w-full text-left px-3 py-2 text-sm text-sentinel-200 hover:bg-sentinel-700 hover:text-white transition-colors flex items-center gap-2"
+                    >
+                      <Settings size={13} />
+                      Account Settings
+                    </Link>
                     <button
                       onClick={() => { setShowUserMenu(false); signOut(); }}
                       className="w-full text-left px-3 py-2 text-sm text-sentinel-200 hover:bg-sentinel-700 hover:text-white transition-colors flex items-center gap-2"
