@@ -90,7 +90,7 @@ export default function MapAddressSearchPanel({ onClose }) {
         <div className="flex items-center justify-between px-4 py-3 border-b border-sentinel-700">
           <div className="flex items-center gap-2">
             <MapPin size={15} className="text-white" />
-            <span className="text-sm font-semibold text-white">Save Your Address</span>
+            <span className="text-sm font-semibold text-white">Manage My Addresses</span>
           </div>
           <button
             onClick={onClose}
