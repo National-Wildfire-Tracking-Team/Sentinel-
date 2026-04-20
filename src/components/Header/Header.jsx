@@ -196,7 +196,7 @@ const userInitial = user?.email ? user.email[0].toUpperCase() : '?';
                       className="w-full text-left px-3 py-2 text-sm text-sentinel-200 hover:bg-sentinel-700 hover:text-white transition-colors flex items-center gap-2"
                     >
                       <User size={13} />
-                      Manage My Addresses
+                      Manage My Zip Codes
                     </button>
                     <button
                       onClick={() => { setShowUserMenu(false); signOut(); }}

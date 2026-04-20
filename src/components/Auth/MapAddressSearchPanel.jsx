@@ -12,7 +12,7 @@ async function geocodeViaDirect(address) {
     access_token: MAPBOX_TOKEN,
     country: 'us',
     limit: '1',
-    types: 'address,place,postcode,neighborhood,locality',
+    types: 'postcode',
   });
   const encoded = encodeURIComponent(address.trim());
   const resp = await fetch(
@@ -29,7 +29,7 @@ async function geocodeAddress(address) {
   if (!isSupabaseConfigured) return geocodeViaDirect(address);
   await acquireSlot();
   const { data, error } = await supabase.functions.invoke('mapbox-geocoding', {
-    body: { query: address, country: 'us', limit: 1, types: 'address,place,postcode,neighborhood,locality' },
+    body: { query: address, country: 'us', limit: 1, types: 'postcode' },
   });
   if (error) return geocodeViaDirect(address);
   if (!data?.features?.length) throw new Error('Address not found');
@@ -90,7 +90,7 @@ export default function MapAddressSearchPanel({ onClose }) {
         <div className="flex items-center justify-between px-4 py-3 border-b border-sentinel-700">
           <div className="flex items-center gap-2">
             <MapPin size={15} className="text-white" />
-            <span className="text-sm font-semibold text-white">Manage My Addresses</span>
+            <span className="text-sm font-semibold text-white">Manage My Zip Codes</span>
           </div>
           <button
             onClick={onClose}
@@ -104,7 +104,7 @@ export default function MapAddressSearchPanel({ onClose }) {
         {/* Body */}
         <div className="px-4 py-4">
           <p className="text-xs text-sentinel-400 mb-3">
-            Search your address to mark it on the map and receive nearby alerts.
+            Search a zip code to mark it on the map and receive nearby alerts.
           </p>
 
           {/* Address search form */}
@@ -115,7 +115,7 @@ export default function MapAddressSearchPanel({ onClose }) {
                 type="text"
                 value={addressInput}
                 onChange={e => setAddressInput(e.target.value)}
-                placeholder="123 Main St, City, State..."
+                placeholder="Enter zip code (e.g. 90210)..."
                 autoFocus
                 className="w-full rounded-lg border border-sentinel-600 bg-sentinel-800 pl-9 pr-3 py-2 text-sm text-white placeholder-sentinel-500 focus:outline-none focus:border-white/60 focus:ring-1 focus:ring-white/20 transition-colors"
               />
@@ -162,7 +162,7 @@ export default function MapAddressSearchPanel({ onClose }) {
               ) : (
                 <div className="flex items-center gap-2 text-green-400 text-xs font-medium">
                   <CheckCircle size={13} />
-                  Saved! Address is now marked on the map.
+                  Saved! Zip code is now marked on the map.
                 </div>
               )}
             </div>
@@ -170,7 +170,7 @@ export default function MapAddressSearchPanel({ onClose }) {
 
           {locations.length > 0 && (
             <p className="text-xs text-sentinel-500">
-              {locations.length} address{locations.length !== 1 ? 'es' : ''} already saved on your map.
+              {locations.length} zip code{locations.length !== 1 ? 's' : ''} already saved on your map.
             </p>
           )}
         </div>
