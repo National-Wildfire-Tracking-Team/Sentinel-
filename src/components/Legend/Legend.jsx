@@ -4,7 +4,7 @@
  * Positioned bottom-left, collapsible.
  */
 
-import { useState } from 'react';
+import { useState, memo } from 'react';
 import { Info, ChevronDown, ChevronUp } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { AQI_CATEGORIES } from '../../utils/colorUtils';
@@ -65,7 +65,7 @@ function Section({ title, children }) {
   );
 }
 
-export default function Legend() {
+const Legend = memo(function Legend() {
   const { layers, legendOpen, toggleLegend } = useApp();
   const [collapsed, setCollapsed] = useState(true);
 
@@ -162,4 +162,5 @@ export default function Legend() {
       </div>
     </div>
   );
-}
+});
+export default Legend;

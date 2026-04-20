@@ -5,13 +5,14 @@
  * separated from official NASA FIRMS / NIFC sources.
  */
 
+import { memo } from 'react';
 import { Source, Layer } from 'react-map-gl';
 
 const EMPTY_GEOJSON = { type: 'FeatureCollection', features: [] };
 
 const USER_REPORT_COLOR = '#22d3ee'; // cyan-400 – distinct from fire orange/red
 
-export default function UserReportsLayer({ geoJSON, visible }) {
+const UserReportsLayer = memo(function UserReportsLayer({ geoJSON, visible }) {
   const vis = visible ? 'visible' : 'none';
 
   return (
@@ -67,4 +68,5 @@ export default function UserReportsLayer({ geoJSON, visible }) {
       />
     </Source>
   );
-}
+});
+export default UserReportsLayer;

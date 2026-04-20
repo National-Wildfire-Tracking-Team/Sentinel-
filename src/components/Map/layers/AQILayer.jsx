@@ -5,6 +5,7 @@
  * Layer stays mounted; visibility is controlled via layout property.
  */
 
+import { memo } from 'react';
 import { Source, Layer } from 'react-map-gl';
 import {
   AQI_COLOR_EXPRESSION,
@@ -14,7 +15,7 @@ import {
 
 const EMPTY_GEOJSON = { type: 'FeatureCollection', features: [] };
 
-export default function AQILayer({ geoJSON, visible }) {
+const AQILayer = memo(function AQILayer({ geoJSON, visible }) {
   const vis = visible ? 'visible' : 'none';
 
   return (
@@ -84,4 +85,5 @@ export default function AQILayer({ geoJSON, visible }) {
       />
     </Source>
   );
-}
+});
+export default AQILayer;

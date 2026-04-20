@@ -4,6 +4,7 @@
  * fire perimeter, AQI station, or NOAA weather alert.
  */
 
+import { memo } from 'react';
 import {
   X, Flame, MapPin, Users, Home, Calendar, Thermometer,
   AlertTriangle, Wind, ExternalLink, TrendingUp, ShieldAlert,
@@ -480,7 +481,7 @@ function AQIDetail({ fire }) {
 
 // ─── Main Panel ───────────────────────────────────────────────────────────────
 
-export default function FireDetailPanel() {
+const FireDetailPanel = memo(function FireDetailPanel() {
   const { selectedFire, clearSelected, alerts } = useApp();
 
   if (!selectedFire) return null;
@@ -529,4 +530,5 @@ export default function FireDetailPanel() {
       </div>
     </>
   );
-}
+});
+export default FireDetailPanel;

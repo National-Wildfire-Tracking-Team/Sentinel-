@@ -6,6 +6,7 @@
  * Layer stays mounted; visibility is controlled via layout property.
  */
 
+import { memo } from 'react';
 import { Source, Layer } from 'react-map-gl';
 
 // IEM NEXRAD composite reflectivity (N0Q) — all CONUS WSR-88D stations
@@ -15,7 +16,7 @@ const IEM_NEXRAD_WMS =
   '&FORMAT=image/png&TRANSPARENT=true&SRS=EPSG:3857' +
   '&WIDTH=256&HEIGHT=256&BBOX={bbox-epsg-3857}';
 
-export default function RadarLayer({ visible }) {
+const RadarLayer = memo(function RadarLayer({ visible }) {
   const vis = visible ? 'visible' : 'none';
 
   return (
@@ -39,4 +40,5 @@ export default function RadarLayer({ visible }) {
       />
     </Source>
   );
-}
+});
+export default RadarLayer;

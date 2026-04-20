@@ -5,6 +5,7 @@
  * composites (sourced from s3://noaa-goes16 and s3://noaa-goes18) for wildfire tab.
  */
 
+import { memo } from 'react';
 import { Source, Layer } from 'react-map-gl';
 
 // ── Weather-tab visible-band layers (Channel 02, 0.64µm) ─────────────────────
@@ -36,7 +37,7 @@ const IEM_FIRE_RGB_GOES18 =
   '&FORMAT=image/png&TRANSPARENT=true&SRS=EPSG:3857' +
   '&WIDTH=256&HEIGHT=256&BBOX={bbox-epsg-3857}';
 
-export default function GOESLayer({
+const GOESLayer = memo(function GOESLayer({
   eastVisible,
   westVisible,
   fire16Visible,
@@ -132,4 +133,5 @@ export default function GOESLayer({
       </Source>
     </>
   );
-}
+});
+export default GOESLayer;

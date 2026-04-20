@@ -7,12 +7,13 @@
  * which is useful for monitoring wind patterns around a fire complex.
  */
 
+import { memo } from 'react';
 import { Source, Layer } from 'react-map-gl';
 
 const EMPTY_GEOJSON = { type: 'FeatureCollection', features: [] };
 const MIN_ZOOM = 9;
 
-export default function RAWSLayer({ geoJSON, visible }) {
+const RAWSLayer = memo(function RAWSLayer({ geoJSON, visible }) {
   const vis = visible ? 'visible' : 'none';
 
   return (
@@ -125,4 +126,5 @@ export default function RAWSLayer({ geoJSON, visible }) {
 
     </Source>
   );
-}
+});
+export default RAWSLayer;

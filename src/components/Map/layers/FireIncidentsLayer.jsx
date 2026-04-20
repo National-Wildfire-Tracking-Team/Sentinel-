@@ -4,6 +4,7 @@
  * a matching NIFC perimeter polygon. Styled as amber circle markers.
  */
 
+import { memo } from 'react';
 import { Source, Layer } from 'react-map-gl';
 
 const MIN_ACRES_FILTER = ['>=', ['get', 'GISAcres'], 0.4];
@@ -40,7 +41,7 @@ const incidentGlowLayer = {
  * @param {object}       props.geoJSON   GeoJSON FeatureCollection from useMergedFireData
  * @param {boolean}      props.visible
  */
-export default function FireIncidentsLayer({ geoJSON, visible }) {
+const FireIncidentsLayer = memo(function FireIncidentsLayer({ geoJSON, visible }) {
   if (!visible || !geoJSON || geoJSON.features.length === 0) return null;
 
   return (
@@ -49,4 +50,5 @@ export default function FireIncidentsLayer({ geoJSON, visible }) {
       <Layer {...incidentCircleLayer} />
     </Source>
   );
-}
+});
+export default FireIncidentsLayer;

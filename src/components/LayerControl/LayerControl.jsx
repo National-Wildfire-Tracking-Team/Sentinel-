@@ -4,7 +4,7 @@
  * Collapsible on mobile.
  */
 
-import { useState } from 'react';
+import { useState, memo } from 'react';
 import {
   Layers, Flame, MapPin, Wind, CloudRain, Eye, ChevronDown, ChevronRight, Radar, AlertTriangle, Ruler, Hexagon, PlaneTakeoff, Satellite, Map as MapIcon, Thermometer, Crosshair,
 } from 'lucide-react';
@@ -104,7 +104,7 @@ function LayerToggle({ layerKey, label, sublabel, icon: Icon, color }) {
   );
 }
 
-export default function LayerControl({
+const LayerControl = memo(function LayerControl({
   activeMapTab = 'wildfire',
   mapType = 'satellite',
   onMapTypeChange,
@@ -248,4 +248,5 @@ export default function LayerControl({
       )}
     </div>
   );
-}
+});
+export default LayerControl;

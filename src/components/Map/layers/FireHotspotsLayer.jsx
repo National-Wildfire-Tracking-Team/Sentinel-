@@ -5,11 +5,12 @@
  * Layer stays mounted; visibility is controlled via layout property.
  */
 
+import { memo } from 'react';
 import { Source, Layer } from 'react-map-gl';
 
 const EMPTY_GEOJSON = { type: 'FeatureCollection', features: [] };
 
-export default function FireHotspotsLayer({ geoJSON, visible }) {
+const FireHotspotsLayer = memo(function FireHotspotsLayer({ geoJSON, visible }) {
   const vis = visible ? 'visible' : 'none';
 
   return (
@@ -39,4 +40,5 @@ export default function FireHotspotsLayer({ geoJSON, visible }) {
       />
     </Source>
   );
-}
+});
+export default FireHotspotsLayer;

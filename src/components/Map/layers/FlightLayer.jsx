@@ -5,7 +5,7 @@
  * Uses a custom SVG icon loaded into the Mapbox image registry on first render.
  */
 
-import { useEffect } from 'react';
+import { useEffect, memo } from 'react';
 import { Source, Layer, useMap } from 'react-map-gl';
 
 const EMPTY_GEOJSON = { type: 'FeatureCollection', features: [] };
@@ -33,7 +33,7 @@ function loadAirplaneIcon(map) {
   img.src = `data:image/svg+xml;base64,${btoa(AIRPLANE_SVG)}`;
 }
 
-export default function FlightLayer({ geoJSON, visible }) {
+const FlightLayer = memo(function FlightLayer({ geoJSON, visible }) {
   const { current: map } = useMap();
 
   useEffect(() => {
@@ -90,4 +90,5 @@ export default function FlightLayer({ geoJSON, visible }) {
       />
     </Source>
   );
-}
+});
+export default FlightLayer;

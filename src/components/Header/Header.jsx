@@ -3,7 +3,7 @@
  * Top navigation bar with logo, title, status, and last-updated indicator.
  */
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, memo } from 'react';
 import { useApp } from '../../context/AppContext';
 import { formatRelativeTime } from '../../utils/formatUtils';
 import { Flame, Menu, RefreshCw } from 'lucide-react';
@@ -11,7 +11,7 @@ import { Flame, Menu, RefreshCw } from 'lucide-react';
 const ONE_MINUTE_MS = 60_000;
 const JUST_NOW_VISIBLE_MS = 5_000;
 
-export default function Header({ onRefresh }) {
+const Header = memo(function Header({ onRefresh }) {
   const { toggleSidebar, lastRefreshed, isLoading } = useApp();
 
   const [nowMs, setNowMs] = useState(() => Date.now());
@@ -139,4 +139,5 @@ export default function Header({ onRefresh }) {
       </div>
     </header>
   );
-}
+});
+export default Header;

@@ -8,6 +8,7 @@
  *   Evacuation Advisory→ Yellow (#ca8a04) – be prepared to evacuate
  */
 
+import { memo } from 'react';
 import { Source, Layer } from 'react-map-gl';
 
 const EMPTY_GEOJSON = { type: 'FeatureCollection', features: [] };
@@ -31,7 +32,7 @@ const STATUS_OPACITY = [
   /* default */         0.15,
 ];
 
-export default function CaEvacuationsLayer({ geoJSON, visible }) {
+const CaEvacuationsLayer = memo(function CaEvacuationsLayer({ geoJSON, visible }) {
   const vis = visible ? 'visible' : 'none';
 
   return (
@@ -89,4 +90,5 @@ export default function CaEvacuationsLayer({ geoJSON, visible }) {
       />
     </Source>
   );
-}
+});
+export default CaEvacuationsLayer;

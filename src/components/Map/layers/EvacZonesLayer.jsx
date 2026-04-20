@@ -9,6 +9,7 @@
  *   Watch   (preparedness)         → yellow
  */
 
+import { memo } from 'react';
 import { Source, Layer } from 'react-map-gl';
 
 const EMPTY_GEOJSON = { type: 'FeatureCollection', features: [] };
@@ -23,7 +24,7 @@ const COLOR_MATCH = [
   /* default */         '#f97316',
 ];
 
-export default function EvacZonesLayer({ geoJSON, visible }) {
+const EvacZonesLayer = memo(function EvacZonesLayer({ geoJSON, visible }) {
   const vis = visible ? 'visible' : 'none';
 
   return (
@@ -54,4 +55,5 @@ export default function EvacZonesLayer({ geoJSON, visible }) {
       />
     </Source>
   );
-}
+});
+export default EvacZonesLayer;
