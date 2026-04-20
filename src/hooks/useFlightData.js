@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 
 const REFRESH_MS = 30_000;
-const MIN_FLIGHT_ZOOM = 5.5;
+const MIN_FLIGHT_ZOOM = 4.5;
 const EMPTY_GEOJSON = { type: 'FeatureCollection', features: [] };
 
 function shouldShowFlights(bounds) {
