@@ -7,6 +7,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { nwsAlertCategory } from '../utils/nwsColors';
+import { useSavedLocations } from '../hooks/useSavedLocations';
 
 // Data hooks
 import { useFireHotspots } from '../hooks/useFireHotspots';
@@ -126,6 +127,7 @@ const RAWS_MIN_ZOOM = 9;
 
 export default function LiveTrackerPage() {
   const { layers, setLayer, setRefreshed, setLoading, feedFilter, viewport } = useApp();
+  const { locations: savedLocations } = useSavedLocations();
   const [activeMapTab, setActiveMapTab] = useState(MAP_TABS.wildfire);
   const [mapType, setMapType] = useState('satellite');
   const [weatherAlertFilter, setWeatherAlertFilter] = useState('all');
@@ -557,6 +559,7 @@ export default function LiveTrackerPage() {
             evacZonesGeoJSON={evacZonesGeoJSON}
             flightsGeoJSON={flightsGeoJSON}
             rawsGeoJSON={rawsGeoJSON}
+            savedLocations={savedLocations}
             measureActive={measureActive}
             measureMode={measureMode}
             onMeasureActivate={onMeasureActivate}
