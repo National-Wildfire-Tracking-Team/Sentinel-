@@ -169,7 +169,10 @@ async function fetchWithRetry(url, options, maxAttempts = 4) {
     }
   }
 
-  throw lastErr;
+  throw new OpenSkyTransientError(
+    `OpenSky request failed after ${maxAttempts} attempts`,
+    lastErr
+  );
 }
 
 function sleep(ms) {
@@ -186,7 +189,21 @@ function toNullableInteger(value) {
   return Number.isInteger(n) ? n : null;
 }
 
+class OpenSkyTransientError extends Error {
+  constructor(message, cause) {
+    super(message);
+    this.name = 'OpenSkyTransientError';
+    this.cause = cause;
+  }
+}
+
 main().catch((err) => {
+  if (err instanceof OpenSkyTransientError) {
+    const code = err?.cause?.code ? ` (${err.cause.code})` : '';
+    console.warn(`[opensky-sync] skipping this run due to transient OpenSky outage${code}`);
+    process.exit(0);
+  }
+
   console.error('[opensky-sync] fatal:', err);
   process.exit(1);
 });
