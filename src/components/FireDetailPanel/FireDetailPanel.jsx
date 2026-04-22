@@ -205,7 +205,7 @@ function PerimeterDetail({ fire }) {
       </div>
 
       {/* Live incident timeline */}
-      <IncidentTimeline incidentId={fire.id || fire.name} />
+      <IncidentTimeline incidentId={fire.id || fire.name} dataSource="NIFC / IRWIN" />
     </>
   );
 }
@@ -316,7 +316,7 @@ function IncidentDetail({ fire }) {
         ))}
       </div>
 
-      {tab === 'updates' && <IncidentTimeline incidentId={fire.id} />}
+      {tab === 'updates' && <IncidentTimeline incidentId={fire.id} dataSource="NIFC / IRWIN" />}
 
       {tab === 'info' && (
         <div className="space-y-2 text-xs text-sentinel-400">

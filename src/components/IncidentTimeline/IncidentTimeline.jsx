@@ -190,7 +190,13 @@ function EditBox({ update, onSave, onCancel }) {
 
 // ─── Main component ──────────────────────────────────────────────────────────
 
-export default function IncidentTimeline({ incidentId, allowPost = false }) {
+/**
+ * @param {string}  incidentId   Incident identifier used to query updates.
+ * @param {boolean} allowPost    Show the compose box (reporter portal only).
+ * @param {string}  dataSource   Fallback source label shown in the automated-only
+ *                               notice when there are no updates at all (e.g. "NIFC / IRWIN").
+ */
+export default function IncidentTimeline({ incidentId, allowPost = false, dataSource = 'NIFC / IRWIN' }) {
   const { updates, loading, error, addUpdate, editUpdate, deleteUpdate } = useIncidentUpdates(incidentId);
   const { user, profile, isAuthenticated } = useAuth();
   const [editing, setEditing] = useState(null);
@@ -211,6 +217,19 @@ export default function IncidentTimeline({ incidentId, allowPost = false }) {
   };
 
   if (!incidentId) return null;
+
+  // Determine whether any human reporter has posted to this incident.
+  const hasReporterUpdates = updates.some((u) => u.source_type === 'reporter');
+  const automatedOnly = !loading && !error && !hasReporterUpdates;
+
+  // Build a readable source label from the automated update records themselves,
+  // falling back to the dataSource prop when there are no updates yet.
+  const automatedSourceLabel = (() => {
+    const names = [...new Set(
+      updates.filter((u) => u.source_type === 'automated').map((u) => u.source_name).filter(Boolean)
+    )];
+    return names.length > 0 ? names.join(', ') : dataSource;
+  })();
 
   return (
     <div className="mt-4">
@@ -240,10 +259,22 @@ export default function IncidentTimeline({ incidentId, allowPost = false }) {
         </div>
       )}
 
-      {/* Empty state */}
+      {/* Automated-only notice — shown whenever there are no reporter updates */}
+      {automatedOnly && (
+        <div className="mb-4 p-3 rounded-lg bg-blue-950/30 border border-blue-800/40 flex items-start gap-2.5">
+          <Bot size={14} className="text-blue-400 shrink-0 mt-0.5" />
+          <p className="text-[11px] text-blue-200/80 leading-relaxed">
+            All updates for this incident are automated and provided by:{' '}
+            <span className="font-semibold text-blue-300">{automatedSourceLabel}</span>.
+            NWTT reporters are not monitoring this incident at this time.
+          </p>
+        </div>
+      )}
+
+      {/* Empty state (no updates at all) */}
       {!loading && !error && updates.length === 0 && (
-        <div className="text-center py-6">
-          <MessageSquare size={20} className="mx-auto text-sentinel-600 mb-2" />
+        <div className="text-center py-4">
+          <MessageSquare size={18} className="mx-auto text-sentinel-600 mb-2" />
           <p className="text-xs text-sentinel-500">No updates yet.</p>
           {canPost && (
             <p className="text-[10px] text-sentinel-600 mt-1">
