@@ -15,6 +15,7 @@ import MapAddressSearchPanel from '../Auth/MapAddressSearchPanel';
 
 const ONE_MINUTE_MS = 60_000;
 const JUST_NOW_VISIBLE_MS = 5_000;
+const GIVEBUTTER_WIDGET_SRC = 'https://widgets.givebutter.com/latest.umd.cjs?acct=Or6BK2q5Cpxxn9Xl&p=other';
 
 const Header = memo(function Header({ onRefresh }) {
   const { toggleSidebar, lastRefreshed, isLoading } = useApp();
@@ -33,6 +34,17 @@ const Header = memo(function Header({ onRefresh }) {
   useEffect(() => {
     const intervalId = window.setInterval(() => setNowMs(Date.now()), 1000);
     return () => window.clearInterval(intervalId);
+  }, []);
+
+  useEffect(() => {
+    const existingScript = document.querySelector(`script[src="${GIVEBUTTER_WIDGET_SRC}"]`);
+    if (existingScript) return;
+
+    const script = document.createElement('script');
+    script.src = GIVEBUTTER_WIDGET_SRC;
+    script.async = true;
+    script.defer = true;
+    document.body.appendChild(script);
   }, []);
 
   useEffect(() => {
