@@ -24,3 +24,8 @@
   from = "/*"
   to = "/index.html"
   status = 200
+[[redirects]]
+  from = "/"
+  to = "https://app.nationalwildfiretrackingteam.org"
+  status = 301
+  force = true
