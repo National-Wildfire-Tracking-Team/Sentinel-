@@ -22,7 +22,7 @@ const LoginPage = lazy(() => import('./pages/LoginPage'));
 const RegisterPage = lazy(() => import('./pages/RegisterPage'));
 const ReporterLoginPage = lazy(() => import('./pages/ReporterLoginPage'));
 const ReporterRegisterPage = lazy(() => import('./pages/ReporterRegisterPage'));
-const SubmitReportPage = lazy(() => import('./pages/SubmitReportPage'));
+const ReporterDashboardPage = lazy(() => import('./pages/ReporterDashboardPage'));
 const AccountPage = lazy(() => import('./pages/AccountPage'));
 const ManageZipcodesPage = lazy(() => import('./pages/ManageZipcodesPage'));
 const AdminDashboardPage = lazy(() => import('./pages/AdminDashboardPage'));
@@ -108,9 +108,11 @@ export default function App() {
           {/* Auth pages — full-screen, no Navbar/Footer */}
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
+
+          {/* Reporter portal — hidden (not linked in public nav), direct URL only */}
           <Route path="/reporter-login" element={<ReporterLoginPage />} />
           <Route path="/reporter-register" element={<ReporterRegisterPage />} />
-          <Route path="/submit-report" element={<SubmitReportPage />} />
+          <Route path="/reporter-dashboard" element={<ReporterDashboardPage />} />
           {/* Account settings — protected, not linked in public nav */}
           <Route path="/account" element={<AccountPage />} />
           <Route path="/manage-zipcodes" element={<ManageZipcodesPage />} />
