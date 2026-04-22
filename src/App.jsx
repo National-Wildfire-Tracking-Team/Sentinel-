@@ -10,11 +10,12 @@ import { lazy, Suspense, useEffect } from 'react';
 
 import Navbar from './components/Navbar/Navbar';
 import Footer from './components/Footer/Footer';
+import DeferredAnalytics from './components/DeferredScripts/DeferredAnalytics';
 
 const HomePage = lazy(() => import('./pages/HomePage'));
 const AboutPage = lazy(() => import('./pages/AboutPage'));
 const VolunteerPage = lazy(() => import('./pages/VolunteerPage'));
-const LiveTrackerPage = lazy(() => import(/* @vite-prefetch */ './pages/LiveTrackerPage'));
+const LiveTrackerPage = lazy(() => import('./pages/LiveTrackerPage'));
 const PrivacyPolicyPage = lazy(() => import('./pages/PrivacyPolicyPage'));
 const TermsPage = lazy(() => import('./pages/TermsPage'));
 const LoginPage = lazy(() => import('./pages/LoginPage'));
@@ -57,6 +58,7 @@ function RouteLoader() {
 export default function App() {
   return (
     <BrowserRouter>
+      <DeferredAnalytics />
       <ScrollToTop />
       <Suspense fallback={<RouteLoader />}>
         <Routes>
