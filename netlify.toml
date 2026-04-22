@@ -26,6 +26,6 @@
   status = 200
 [[redirects]]
   from = "/"
-  to = "https://app.nationalwildfiretrackingteam.org"
-  status = 301
+  to = "/sentinel"
+  status = 302
   force = true
