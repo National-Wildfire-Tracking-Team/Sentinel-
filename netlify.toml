@@ -2,30 +2,31 @@
   command = "npm run build"
   publish = "dist"
 
-# Proxy Mapbox API requests to avoid CORS issues on deploy previews
+# Proxy Mapbox API requests
 [[redirects]]
   from = "/api/mapbox/*"
   to = "https://api.mapbox.com/:splat"
   status = 200
   force = true
 
-# Proxy NASA FIRMS API via edge function to avoid CORS issues on deploy previews
+# Edge functions
 [[edge_functions]]
   function = "firms-proxy"
   path = "/api/firms/*"
 
-# Proxy FEMA IPAWS API via edge function to avoid CORS issues on deploy previews
 [[edge_functions]]
   function = "fema-proxy"
   path = "/api/fema"
+
+# ✅ HOME REDIRECT (MUST be above fallback)
+[[redirects]]
+  from = "/"
+  to = "/sentinel"
+  status = 302
+  force = true
 
 # SPA fallback – must be last
 [[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200
-[[redirects]]
-  from = "/"
-  to = "/sentinel"
-  status = 302
-  force = true
