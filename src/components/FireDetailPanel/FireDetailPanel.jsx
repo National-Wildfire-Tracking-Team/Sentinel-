@@ -511,18 +511,40 @@ const FireDetailPanel = memo(function FireDetailPanel() {
       url: shareUrl,
     };
 
-    try {
-      if (navigator.share) {
+    // Use the Web Share API only when the browser supports it AND can handle
+    // this specific payload. canShare() is a prerequisite check that prevents
+    // hard failures on browsers that expose share() but reject certain payloads.
+    const canUseNativeShare =
+      typeof navigator.share === 'function' &&
+      (typeof navigator.canShare !== 'function' || navigator.canShare(payload));
+
+    if (canUseNativeShare) {
+      try {
         await navigator.share(payload);
         setShareStatus('Shared');
-      } else if (navigator.clipboard?.writeText) {
+        window.setTimeout(() => setShareStatus(''), 2500);
+        return;
+      } catch (err) {
+        // AbortError means the user dismissed the native share sheet – don't
+        // treat this as a failure or attempt the clipboard fallback.
+        if (err?.name === 'AbortError') {
+          return;
+        }
+        // Any other error (NotAllowedError, TypeError, etc.) falls through to
+        // the clipboard fallback below.
+      }
+    }
+
+    // Clipboard fallback – works in all modern desktop browsers.
+    try {
+      if (navigator.clipboard?.writeText) {
         await navigator.clipboard.writeText(`${payload.text}\n${shareUrl}`);
         setShareStatus('Link copied');
       } else {
         setShareStatus('Sharing unavailable');
       }
     } catch {
-      setShareStatus('Share canceled');
+      setShareStatus('Copy failed');
     }
 
     window.setTimeout(() => setShareStatus(''), 2500);
