@@ -4,7 +4,7 @@
  * fire perimeter, AQI station, or NOAA weather alert.
  */
 
-import { memo, useCallback, useState } from 'react';
+import { memo, useState } from 'react';
 import {
   X, Flame, MapPin, Users, Home, Calendar, Thermometer,
   AlertTriangle, Wind, ExternalLink, TrendingUp, ShieldAlert,
@@ -484,12 +484,9 @@ function AQIDetail({ fire }) {
 const FireDetailPanel = memo(function FireDetailPanel() {
   const { selectedFire, clearSelected, alerts } = useApp();
   const [shareStatus, setShareStatus] = useState('');
+  const isShareableFireType = ['hotspot', 'perimeter', 'incident', 'user-report'].includes(selectedFire?.type);
 
-  if (!selectedFire) return null;
-
-  const isShareableFireType = ['hotspot', 'perimeter', 'incident', 'user-report'].includes(selectedFire.type);
-
-  const buildShareText = useCallback((fire) => {
+  const buildShareText = (fire) => {
     const title =
       fire.name ||
       fire.title ||
@@ -501,9 +498,9 @@ const FireDetailPanel = memo(function FireDetailPanel() {
     const coords = hasCoords ? `${fire.lat.toFixed(4)}, ${fire.lng.toFixed(4)}` : null;
     const location = locationParts.length > 0 ? locationParts.join(', ') : coords;
     return location ? `${title} (${location})` : title;
-  }, []);
+  };
 
-  const handleShare = useCallback(async () => {
+  const handleShare = async () => {
     if (!selectedFire || !isShareableFireType) return;
 
     const shareText = buildShareText(selectedFire);
@@ -529,7 +526,9 @@ const FireDetailPanel = memo(function FireDetailPanel() {
     }
 
     window.setTimeout(() => setShareStatus(''), 2500);
-  }, [buildShareText, isShareableFireType, selectedFire]);
+  };
+
+  if (!selectedFire) return null;
 
   return (
     <>
