@@ -4,11 +4,11 @@
  * fire perimeter, AQI station, or NOAA weather alert.
  */
 
-import { memo } from 'react';
+import { memo, useState } from 'react';
 import {
   X, Flame, MapPin, Users, Home, Calendar, Thermometer,
   AlertTriangle, Wind, ExternalLink, TrendingUp, ShieldAlert,
-  CloudRain, Clock, Info,
+  CloudRain, Clock, Info, Share2,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import {
@@ -483,6 +483,50 @@ function AQIDetail({ fire }) {
 
 const FireDetailPanel = memo(function FireDetailPanel() {
   const { selectedFire, clearSelected, alerts } = useApp();
+  const [shareStatus, setShareStatus] = useState('');
+  const isShareableFireType = ['hotspot', 'perimeter', 'incident', 'user-report'].includes(selectedFire?.type);
+
+  const buildShareText = (fire) => {
+    const title =
+      fire.name ||
+      fire.title ||
+      (fire.type === 'hotspot' ? 'Fire hotspot' : 'Fire incident');
+    const locationParts = [];
+    if (fire.county) locationParts.push(`${fire.county} County`);
+    if (fire.state) locationParts.push(fire.state);
+    const hasCoords = Number.isFinite(fire.lat) && Number.isFinite(fire.lng);
+    const coords = hasCoords ? `${fire.lat.toFixed(4)}, ${fire.lng.toFixed(4)}` : null;
+    const location = locationParts.length > 0 ? locationParts.join(', ') : coords;
+    return location ? `${title} (${location})` : title;
+  };
+
+  const handleShare = async () => {
+    if (!selectedFire || !isShareableFireType) return;
+
+    const shareText = buildShareText(selectedFire);
+    const shareUrl = window.location.href;
+    const payload = {
+      title: 'Sentinel Fire Tracker',
+      text: `Track this fire on Sentinel: ${shareText}`,
+      url: shareUrl,
+    };
+
+    try {
+      if (navigator.share) {
+        await navigator.share(payload);
+        setShareStatus('Shared');
+      } else if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(`${payload.text}\n${shareUrl}`);
+        setShareStatus('Link copied');
+      } else {
+        setShareStatus('Sharing unavailable');
+      }
+    } catch {
+      setShareStatus('Share canceled');
+    }
+
+    window.setTimeout(() => setShareStatus(''), 2500);
+  };
 
   if (!selectedFire) return null;
 
@@ -509,13 +553,28 @@ const FireDetailPanel = memo(function FireDetailPanel() {
              selectedFire.type === 'user-report' ? 'Community Report' :
              'Fire Detail'}
           </span>
-          <button
-            onClick={clearSelected}
-            className="p-1 text-sentinel-400 hover:text-white hover:bg-sentinel-700 rounded transition-colors"
-            aria-label="Close detail panel"
-          >
-            <X size={15} />
-          </button>
+          <div className="flex items-center gap-1">
+            {shareStatus && (
+              <span className="text-[10px] text-sentinel-400 pr-1">{shareStatus}</span>
+            )}
+            {isShareableFireType && (
+              <button
+                onClick={handleShare}
+                className="p-1 text-sentinel-400 hover:text-white hover:bg-sentinel-700 rounded transition-colors"
+                aria-label="Share fire details"
+                title="Share fire"
+              >
+                <Share2 size={14} />
+              </button>
+            )}
+            <button
+              onClick={clearSelected}
+              className="p-1 text-sentinel-400 hover:text-white hover:bg-sentinel-700 rounded transition-colors"
+              aria-label="Close detail panel"
+            >
+              <X size={15} />
+            </button>
+          </div>
         </div>
 
         {/* Scrollable content */}
