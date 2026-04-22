@@ -5,7 +5,6 @@
  * no moderation step is required.
  */
 
-import { useState } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 import { Flame, ShieldCheck, MapPin } from 'lucide-react';
 
@@ -16,6 +15,10 @@ export default function AdminDashboardPage() {
   const { isAdmin, loading, user } = useAuth();
 
   const { reports, loading: reportsLoading } = useFireReports('all');
+  const formatCoordinate = (value) => {
+    const numericValue = Number(value);
+    return Number.isFinite(numericValue) ? numericValue.toFixed(4) : '—';
+  };
 
   if (loading) {
     return <div className="max-w-5xl mx-auto px-4 py-16 text-sentinel-300">Loading…</div>;
@@ -72,7 +75,7 @@ export default function AdminDashboardPage() {
               <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-sentinel-400">
                 <span className="inline-flex items-center gap-1">
                   <MapPin size={11} />
-                  {Number(r.latitude).toFixed(4)}°, {Number(r.longitude).toFixed(4)}°
+                  {formatCoordinate(r.latitude)}°, {formatCoordinate(r.longitude)}°
                 </span>
                 <span>
                   Submitted {new Date(r.created_at).toLocaleString()}

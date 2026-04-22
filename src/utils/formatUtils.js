@@ -32,7 +32,9 @@ export function formatAcres(acres) {
  */
 export function formatFRP(frp) {
   if (!frp && frp !== 0) return 'Unknown';
-  return `${frp.toFixed(1)} MW`;
+  const numericFrp = Number(frp);
+  if (!Number.isFinite(numericFrp)) return 'Unknown';
+  return `${numericFrp.toFixed(1)} MW`;
 }
 
 /**
