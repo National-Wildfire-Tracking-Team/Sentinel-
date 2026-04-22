@@ -25,6 +25,7 @@ export default function ReporterRegisterPage() {
   const [showConfirm,     setShowConfirm]     = useState(false);
   const [error,           setError]           = useState(null);
   const [busy,            setBusy]            = useState(false);
+  const [confirmationSent, setConfirmationSent] = useState(false);
 
   const passwordStrength = (() => {
     if (password.length === 0) return null;
@@ -56,14 +57,69 @@ export default function ReporterRegisterPage() {
       const metadata = { intended_role: 'reporter' };
       if (fullName.trim()) metadata.full_name = fullName.trim();
 
-      const { error: err } = await signUp(email, password, metadata);
+      const { data, error: err } = await signUp(email, password, metadata);
       if (err) throw err;
-      navigate('/reporter-dashboard', { replace: true });
+
+      // When Supabase has email confirmation enabled, signUp returns a user but
+      // no active session. Detect this and show a confirmation prompt instead of
+      // navigating to the dashboard (which would just redirect back to login).
+      if (data?.session) {
+        navigate('/reporter-dashboard', { replace: true });
+      } else {
+        setConfirmationSent(true);
+      }
     } catch (err) {
       setError(err?.message || 'Registration failed. Please try again.');
     } finally {
       setBusy(false);
     }
+  }
+
+  if (confirmationSent) {
+    return (
+      <div className="min-h-screen bg-[#010409] flex items-center justify-center p-4">
+        <div className="w-full max-w-md">
+          <div className="flex flex-col items-center mb-10">
+            <div className="w-14 h-14 rounded-2xl bg-[#0096ff]/10 border border-[#0096ff]/30 flex items-center justify-center mb-4 shadow-lg shadow-[#0096ff]/10">
+              <Flame size={28} className="text-[#0096ff]" />
+            </div>
+            <h1 className="text-white text-2xl font-bold tracking-tight">Check Your Email</h1>
+            <p className="text-[#8b949e] text-sm mt-1">One more step to activate your account</p>
+          </div>
+
+          <div className="bg-[#0d1117] border border-[#30363d] rounded-2xl p-8 shadow-2xl">
+            <div className="flex flex-col items-center gap-4 text-center">
+              <div className="w-12 h-12 rounded-full bg-green-950/40 border border-green-800/60 flex items-center justify-center">
+                <Mail size={22} className="text-green-400" />
+              </div>
+              <div>
+                <p className="text-white font-semibold mb-1">Confirmation email sent</p>
+                <p className="text-[#8b949e] text-sm">
+                  We sent a confirmation link to{' '}
+                  <span className="text-white font-medium">{email}</span>.
+                  Click the link in that email to verify your address and activate your reporter account.
+                </p>
+              </div>
+              <div className="w-full mt-2 p-3 rounded-lg bg-amber-950/30 border border-amber-800/50 text-amber-200 text-xs text-left">
+                <strong>Important:</strong> You must confirm your email before you can sign in.
+                If you don&apos;t see the email, check your spam or junk folder.
+              </div>
+              <Link
+                to="/reporter-login"
+                className="mt-2 w-full py-3 rounded-lg font-semibold text-sm text-white bg-[#0096ff] hover:bg-[#0080db] transition-all text-center block"
+              >
+                Go to Sign In
+              </Link>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-center gap-2 mt-6 text-[#484f58] text-xs">
+            <ShieldCheck size={13} />
+            <span>Authorized personnel only</span>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (

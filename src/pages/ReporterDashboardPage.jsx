@@ -14,7 +14,7 @@ import {
   Flame, Search, MapPin, ChevronDown, FileText, ImageIcon,
   Upload, X, LogOut, AlertCircle, CheckCircle2, Send, User,
   PlusCircle, Pencil, Trash2, RefreshCw, ChevronUp, Clock,
-  Activity, Settings, ArrowLeft, Shield,
+  Activity, Settings, ArrowLeft, Shield, Loader2,
 } from 'lucide-react';
 
 import { useAuth } from '../context/AuthContext';
@@ -28,6 +28,56 @@ import {
   useFireReports,
 } from '../hooks/useFireReports';
 import { insertReporterUpdate } from '../hooks/useIncidentUpdates';
+
+const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN || '';
+
+/**
+ * Direct Mapbox v5 geocoding — used as a fallback when the Supabase edge
+ * function is unavailable or returns an error.  Requires VITE_MAPBOX_TOKEN.
+ */
+async function geocodeViaDirect(query, { limit = 5, types = '', autocomplete = true } = {}) {
+  if (!MAPBOX_TOKEN) throw new Error('Mapbox token not configured');
+  const params = new URLSearchParams({
+    access_token: MAPBOX_TOKEN,
+    country: 'us',
+    limit: String(limit),
+    autocomplete: String(autocomplete),
+  });
+  if (types) params.set('types', types);
+  const encoded = encodeURIComponent(query.trim());
+  const resp = await fetch(
+    `https://api.mapbox.com/geocoding/v5/mapbox.places/${encoded}.json?${params}`
+  );
+  if (!resp.ok) throw new Error(`Geocoding failed (${resp.status})`);
+  const json = await resp.json();
+  // Normalise v5 features to look like v6 so the rest of the code is unchanged.
+  return (json?.features || []).map((f) => ({
+    id: f.id,
+    place_name: f.place_name,
+    geometry: f.geometry,
+    properties: {
+      mapbox_id: f.id,
+      full_address: f.place_name,
+      address_line1: f.address
+        ? `${f.address} ${f.text || ''}`.trim()
+        : (f.text || ''),
+      name: f.text || '',
+      context: buildV5Context(f.context || []),
+    },
+  }));
+}
+
+function buildV5Context(contextArr) {
+  const ctx = {};
+  for (const item of contextArr) {
+    if (item.id?.startsWith('place'))     ctx.place      = { name: item.text };
+    if (item.id?.startsWith('locality'))  ctx.locality   = { name: item.text };
+    if (item.id?.startsWith('district'))  ctx.district   = { name: item.text };
+    if (item.id?.startsWith('region'))    ctx.region     = { name: item.text };
+    if (item.id?.startsWith('postcode'))  ctx.postcode   = { name: item.text };
+  }
+  return ctx;
+}
 
 /* ── Static data ── */
 
@@ -532,6 +582,8 @@ export default function ReporterDashboardPage() {
   const [reportLng, setReportLng] = useState(null);
   const [suggestions, setSuggestions] = useState([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [searchError, setSearchError] = useState(null);
   const searchDebounceRef = useRef(null);
 
   const [incidentName, setIncidentName] = useState('');
@@ -590,6 +642,7 @@ export default function ReporterDashboardPage() {
   function handleAddressSearchChange(e) {
     const val = e.target.value;
     setAddressSearch(val);
+    setSearchError(null);
     clearTimeout(searchDebounceRef.current);
     if (!val.trim() || val.trim().length < 3) {
       setSuggestions([]);
@@ -600,18 +653,46 @@ export default function ReporterDashboardPage() {
   }
 
   async function fetchSuggestions(q) {
-    if (!isSupabaseConfigured) return;
-    try {
-      await acquireSlot();
-      const { data, error: err } = await supabase.functions.invoke('mapbox-geocoding', {
-        body: { query: q, country: 'us', autocomplete: true, limit: 5, types: 'address' },
-      });
-      if (err) return;
-      setSuggestions(data?.features || []);
-      setShowSuggestions((data?.features || []).length > 0);
-    } catch (err) {
-      console.error('Address suggestion error:', err);
+    setSearchLoading(true);
+    setSearchError(null);
+    let features = null;
+
+    // Primary: Supabase edge function (keeps Mapbox token server-side)
+    if (isSupabaseConfigured) {
+      try {
+        await acquireSlot();
+        const { data, error: err } = await supabase.functions.invoke('mapbox-geocoding', {
+          body: { query: q, country: 'us', autocomplete: true, limit: 5, types: 'address' },
+        });
+        if (!err && Array.isArray(data?.features)) {
+          features = data.features;
+        }
+      } catch {
+        // fall through to direct fallback below
+      }
     }
+
+    // Fallback: direct Mapbox v5 REST call using VITE_MAPBOX_TOKEN
+    if (features === null && MAPBOX_TOKEN) {
+      try {
+        features = await geocodeViaDirect(q, { limit: 5, types: 'address', autocomplete: true });
+      } catch (err) {
+        console.error('Address suggestion fallback error:', err);
+      }
+    }
+
+    setSearchLoading(false);
+
+    if (features === null) {
+      // Both paths failed — show a user-visible hint
+      setSearchError('Address search unavailable. Check your connection or enter the address manually.');
+      setSuggestions([]);
+      setShowSuggestions(false);
+      return;
+    }
+
+    setSuggestions(features);
+    setShowSuggestions(features.length > 0);
   }
 
   function applySuggestion(feature) {
@@ -628,27 +709,51 @@ export default function ReporterDashboardPage() {
     setReportLat(Array.isArray(coords) ? Number(coords[1]) : null);
     setSuggestions([]);
     setShowSuggestions(false);
+    setSearchError(null);
   }
 
   async function geocodeAddressForReport() {
-    if (!isSupabaseConfigured) return { latitude: null, longitude: null };
     const query = [address1, city, usState, zip].filter(Boolean).join(', ');
     if (!query) return { latitude: null, longitude: null };
-    try {
-      await acquireSlot();
-      const { data, error: err } = await supabase.functions.invoke('mapbox-geocoding', {
-        body: { query, country: 'us', autocomplete: false, limit: 1 },
-      });
-      if (err) return { latitude: null, longitude: null };
-      const first = data?.features?.[0];
-      if (!Array.isArray(first?.geometry?.coordinates)) return { latitude: null, longitude: null };
-      return {
-        latitude: Number(first.geometry.coordinates[1]),
-        longitude: Number(first.geometry.coordinates[0]),
-      };
-    } catch {
-      return { latitude: null, longitude: null };
+
+    // Primary: edge function
+    if (isSupabaseConfigured) {
+      try {
+        await acquireSlot();
+        const { data, error: err } = await supabase.functions.invoke('mapbox-geocoding', {
+          body: { query, country: 'us', autocomplete: false, limit: 1 },
+        });
+        if (!err) {
+          const first = data?.features?.[0];
+          if (Array.isArray(first?.geometry?.coordinates)) {
+            return {
+              latitude: Number(first.geometry.coordinates[1]),
+              longitude: Number(first.geometry.coordinates[0]),
+            };
+          }
+        }
+      } catch {
+        // fall through
+      }
     }
+
+    // Fallback: direct v5
+    if (MAPBOX_TOKEN) {
+      try {
+        const features = await geocodeViaDirect(query, { limit: 1, autocomplete: false });
+        const first = features?.[0];
+        if (Array.isArray(first?.geometry?.coordinates)) {
+          return {
+            latitude: Number(first.geometry.coordinates[1]),
+            longitude: Number(first.geometry.coordinates[0]),
+          };
+        }
+      } catch {
+        // both paths failed
+      }
+    }
+
+    return { latitude: null, longitude: null };
   }
 
   /* ── Submit new incident ── */
@@ -827,7 +932,10 @@ export default function ReporterDashboardPage() {
               {/* Address search */}
               <div className="relative mb-4">
                 <div className="relative">
-                  <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#484f58] pointer-events-none" />
+                  {searchLoading
+                    ? <Loader2 size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#0096ff] pointer-events-none animate-spin" />
+                    : <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#484f58] pointer-events-none" />
+                  }
                   <input
                     type="text"
                     value={addressSearch}
@@ -841,10 +949,16 @@ export default function ReporterDashboardPage() {
                                focus:ring-1 focus:ring-[#0096ff]/20 transition-colors text-sm"
                   />
                 </div>
+                {searchError && (
+                  <p className="mt-1.5 text-xs text-amber-400 flex items-center gap-1">
+                    <AlertCircle size={12} className="shrink-0" />
+                    {searchError}
+                  </p>
+                )}
                 {showSuggestions && suggestions.length > 0 && (
                   <ul className="absolute z-30 mt-1 w-full rounded-lg bg-[#161b22] border border-[#30363d] shadow-2xl overflow-hidden">
-                    {suggestions.map((feature) => (
-                      <li key={feature.id}>
+                    {suggestions.map((feature, idx) => (
+                      <li key={feature.properties?.mapbox_id || feature.id || idx}>
                         <button
                           type="button"
                           onMouseDown={() => applySuggestion(feature)}

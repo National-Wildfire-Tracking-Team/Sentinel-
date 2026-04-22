@@ -6,7 +6,7 @@
 
 import { useState } from 'react';
 import {
-  MessageSquare, Bot, Send, Pencil, Trash2, Check, X, Loader2,
+  MessageSquare, Bot, Send, Pencil, Trash2, Check, X, Loader2, ShieldCheck,
 } from 'lucide-react';
 import { useIncidentUpdates } from '../../hooks/useIncidentUpdates';
 import { useAuth } from '../../context/AuthContext';
@@ -18,67 +18,72 @@ function UpdateCard({ update, currentUserId, onEdit, onDelete }) {
   const isOwn = currentUserId && update.user_id === currentUserId;
   const isAutomated = update.source_type === 'automated';
 
+  // Build a human-readable absolute timestamp matching the reference image style:
+  // "Apr 22 at 9:02 AM"
+  const absTime = (() => {
+    try {
+      const d = new Date(update.created_at);
+      return d.toLocaleString('en-US', {
+        month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit',
+      });
+    } catch { return ''; }
+  })();
+
   return (
-    <div className="relative pl-6 pb-4 group">
-      {/* Timeline connector line */}
-      <div className="absolute left-[9px] top-5 bottom-0 w-px bg-sentinel-700 group-last:hidden" />
-
-      {/* Timeline dot */}
-      <div
-        className={`absolute left-0 top-1.5 w-[18px] h-[18px] rounded-full border-2 flex items-center justify-center
-          ${isAutomated
-            ? 'border-blue-500/60 bg-blue-500/20'
-            : 'border-fire-500/60 bg-fire-500/20'
-          }`}
-      >
-        {isAutomated
-          ? <Bot size={9} className="text-blue-400" />
-          : <MessageSquare size={9} className="text-fire-400" />
-        }
-      </div>
-
-      {/* Card body */}
-      <div className="bg-sentinel-800/60 border border-sentinel-700 rounded-lg p-3">
-        {/* Header row */}
-        <div className="flex items-start justify-between gap-2">
-          <div className="min-w-0">
-            <span className="text-[11px] font-semibold text-sentinel-200 truncate block">
-              {update.source_name}
-            </span>
-            <span className={`text-[10px] font-medium ${isAutomated ? 'text-blue-400' : 'text-fire-400'}`}>
-              {isAutomated ? 'Automated' : 'Reporter'}
-            </span>
-          </div>
-          <div className="flex items-center gap-1 shrink-0">
-            <span className="text-[10px] text-sentinel-500" title={formatDateTime(update.created_at)}>
-              {formatRelativeTime(update.created_at)}
-            </span>
-            {isOwn && (
-              <div className="flex items-center gap-0.5 ml-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                <button
-                  onClick={() => onEdit(update)}
-                  className="p-0.5 text-sentinel-500 hover:text-sentinel-200 transition-colors"
-                  title="Edit update"
-                >
-                  <Pencil size={10} />
-                </button>
-                <button
-                  onClick={() => onDelete(update.id)}
-                  className="p-0.5 text-sentinel-500 hover:text-red-400 transition-colors"
-                  title="Delete update"
-                >
-                  <Trash2 size={10} />
-                </button>
-              </div>
+    <div className="pb-5 border-b border-sentinel-800 last:border-0 last:pb-0 group">
+      {/* Header: name • role badge | edit controls */}
+      <div className="flex items-start justify-between gap-2 mb-1">
+        <div className="min-w-0 flex items-start gap-1.5 flex-wrap">
+          <span className="text-[12px] font-bold text-white leading-tight">
+            {update.source_name}
+          </span>
+          <span className="text-sentinel-500 text-[12px] leading-tight">•</span>
+          <span className={`text-[11px] font-medium leading-tight flex items-center gap-0.5
+            ${isAutomated ? 'text-blue-400' : 'text-amber-400'}`}>
+            {isAutomated ? 'Automated Feed' : 'Field Reporter'}
+            {!isAutomated && (
+              <svg viewBox="0 0 16 16" className="w-3 h-3 fill-amber-400 shrink-0" aria-label="Verified">
+                <path d="M8 0l1.9 2.5L13 1.5l.5 3.2L16 6.4l-1.5 2.6 1.5 2.6-2.5 1.7-.5 3.2-3.1-1-1.9 2.5L6.1 16l-1.9-2.5-3.1 1-.5-3.2L0 9.6l1.5-2.6L0 4.4l2.5-1.7.5-3.2 3.1 1z"/>
+              </svg>
             )}
-          </div>
+            {isAutomated && <Bot size={10} className="shrink-0" />}
+          </span>
         </div>
-
-        {/* Content */}
-        <p className="text-xs text-sentinel-300 leading-relaxed mt-1.5 whitespace-pre-wrap">
-          {update.content}
-        </p>
+        {isOwn && (
+          <div className="flex items-center gap-0.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+            <button
+              onClick={() => onEdit(update)}
+              className="p-0.5 text-sentinel-500 hover:text-sentinel-200 transition-colors"
+              title="Edit update"
+            >
+              <Pencil size={10} />
+            </button>
+            <button
+              onClick={() => onDelete(update.id)}
+              className="p-0.5 text-sentinel-500 hover:text-red-400 transition-colors"
+              title="Delete update"
+            >
+              <Trash2 size={10} />
+            </button>
+          </div>
+        )}
       </div>
+
+      {/* Timestamp row: relative • absolute */}
+      <div className="flex items-center gap-1 mb-2">
+        <span className="text-[10px] text-sentinel-500">{formatRelativeTime(update.created_at)}</span>
+        {absTime && (
+          <>
+            <span className="text-sentinel-700 text-[10px]">•</span>
+            <span className="text-[10px] text-sentinel-500">{absTime}</span>
+          </>
+        )}
+      </div>
+
+      {/* Content */}
+      <p className="text-xs text-sentinel-300 leading-relaxed whitespace-pre-wrap">
+        {update.content}
+      </p>
     </div>
   );
 }
@@ -185,7 +190,13 @@ function EditBox({ update, onSave, onCancel }) {
 
 // ─── Main component ──────────────────────────────────────────────────────────
 
-export default function IncidentTimeline({ incidentId, allowPost = false }) {
+/**
+ * @param {string}  incidentId   Incident identifier used to query updates.
+ * @param {boolean} allowPost    Show the compose box (reporter portal only).
+ * @param {string}  dataSource   Fallback source label shown in the automated-only
+ *                               notice when there are no updates at all (e.g. "NIFC / IRWIN").
+ */
+export default function IncidentTimeline({ incidentId, allowPost = false, dataSource = 'NIFC / IRWIN' }) {
   const { updates, loading, error, addUpdate, editUpdate, deleteUpdate } = useIncidentUpdates(incidentId);
   const { user, profile, isAuthenticated } = useAuth();
   const [editing, setEditing] = useState(null);
@@ -206,6 +217,19 @@ export default function IncidentTimeline({ incidentId, allowPost = false }) {
   };
 
   if (!incidentId) return null;
+
+  // Determine whether any human reporter has posted to this incident.
+  const hasReporterUpdates = updates.some((u) => u.source_type === 'reporter');
+  const automatedOnly = !loading && !error && !hasReporterUpdates;
+
+  // Build a readable source label from the automated update records themselves,
+  // falling back to the dataSource prop when there are no updates yet.
+  const automatedSourceLabel = (() => {
+    const names = [...new Set(
+      updates.filter((u) => u.source_type === 'automated').map((u) => u.source_name).filter(Boolean)
+    )];
+    return names.length > 0 ? names.join(', ') : dataSource;
+  })();
 
   return (
     <div className="mt-4">
@@ -235,10 +259,22 @@ export default function IncidentTimeline({ incidentId, allowPost = false }) {
         </div>
       )}
 
-      {/* Empty state */}
+      {/* Automated-only notice — shown whenever there are no reporter updates */}
+      {automatedOnly && (
+        <div className="mb-4 p-3 rounded-lg bg-blue-950/30 border border-blue-800/40 flex items-start gap-2.5">
+          <Bot size={14} className="text-blue-400 shrink-0 mt-0.5" />
+          <p className="text-[11px] text-blue-200/80 leading-relaxed">
+            All updates for this incident are automated and provided by:{' '}
+            <span className="font-semibold text-blue-300">{automatedSourceLabel}</span>.
+            NWTT reporters are not monitoring this incident at this time.
+          </p>
+        </div>
+      )}
+
+      {/* Empty state (no updates at all) */}
       {!loading && !error && updates.length === 0 && (
-        <div className="text-center py-6">
-          <MessageSquare size={20} className="mx-auto text-sentinel-600 mb-2" />
+        <div className="text-center py-4">
+          <MessageSquare size={18} className="mx-auto text-sentinel-600 mb-2" />
           <p className="text-xs text-sentinel-500">No updates yet.</p>
           {canPost && (
             <p className="text-[10px] text-sentinel-600 mt-1">

@@ -8,7 +8,7 @@ import { memo, useState } from 'react';
 import {
   X, Flame, MapPin, Users, Home, Calendar, Thermometer,
   AlertTriangle, Wind, ExternalLink, TrendingUp, ShieldAlert,
-  CloudRain, Clock, Info, Share2,
+  CloudRain, Clock, Info, Share2, ShieldCheck,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import {
@@ -205,56 +205,75 @@ function PerimeterDetail({ fire }) {
       </div>
 
       {/* Live incident timeline */}
-      <IncidentTimeline incidentId={fire.id || fire.name} />
+      <IncidentTimeline incidentId={fire.id || fire.name} dataSource="NIFC / IRWIN" />
     </>
   );
 }
 
 function IncidentDetail({ fire }) {
+  const [tab, setTab] = useState('updates');
   const containment = Number(fire.contained) || 0;
   const containColor = containmentToColor(containment);
   const statusLabel = fire.status ? String(fire.status) : (containment >= 100 ? 'Controlled' : 'Active');
   const createdAt = fire.started || fire.createdAt;
   const evacuationOrderLines = Array.isArray(fire.evacuation_order_lines) ? fire.evacuation_order_lines : [];
   const locationLine = fire.location_description || `${fire.county || 'Unknown County'} County, ${fire.state || ''}`.trim();
+  const isActive = statusLabel.toLowerCase() === 'active';
 
   return (
     <>
+      {/* Title block */}
       <div className="mb-4">
         <h3 className="font-bold text-white text-lg leading-tight">{fire.name}</h3>
         <p className="text-sentinel-300 text-xs mt-1 leading-relaxed">{locationLine}</p>
-        <p className="text-sentinel-400 text-xs mt-0.5">{fire.county} County, {fire.state}</p>
+        <p className="text-sentinel-400 text-[11px] mt-0.5">{fire.county} County, {fire.state}</p>
       </div>
 
-      <div className="grid grid-cols-3 gap-2 mb-4">
-        <StatBlock label="Acres" value={formatAcres(fire.acres)} icon={TrendingUp} color="text-orange-300" />
-        <StatBlock label="Containment" value={formatContainment(containment)} icon={ShieldAlert} color="text-emerald-300" />
-        <StatBlock label="Status" value={statusLabel} icon={Flame} color={statusLabel.toLowerCase() === 'active' ? 'text-red-300' : 'text-sentinel-200'} />
-      </div>
-
-      <div className="mb-4 p-3 bg-sentinel-800/50 rounded-lg border border-sentinel-700">
-        <div className="flex items-center justify-between mb-2">
-          <span className="text-xs font-semibold text-sentinel-300">Containment</span>
-          <span className="font-bold text-sm" style={{ color: containColor }}>
+      {/* Acres | Containment stat row */}
+      <div className="flex items-stretch mb-4 bg-sentinel-800/50 border border-sentinel-700 rounded-xl overflow-hidden">
+        <div className="flex-1 flex flex-col items-center justify-center py-4 px-2">
+          <span className="text-[10px] font-bold text-sentinel-400 uppercase tracking-widest mb-1">Acres</span>
+          <span className="text-2xl font-black text-white leading-none">
+            {fire.acres != null ? Number(fire.acres).toLocaleString('en-US', { maximumFractionDigits: 1 }) : '—'}
+          </span>
+        </div>
+        <div className="w-px bg-sentinel-700 my-3" />
+        <div className="flex-1 flex flex-col items-center justify-center py-4 px-2">
+          <span className="text-[10px] font-bold text-sentinel-400 uppercase tracking-widest mb-1">Containment</span>
+          <span className="text-2xl font-black leading-none" style={{ color: containColor }}>
             {formatContainment(containment)}
           </span>
         </div>
-        <div className="h-2 w-full bg-sentinel-700 rounded-full overflow-hidden">
-          <div
-            className="h-full rounded-full transition-all duration-700"
-            style={{ width: `${containment}%`, backgroundColor: containColor }}
-          />
-        </div>
       </div>
 
-      {fire.updated && (
-        <p className="text-xs text-sentinel-400 mb-1">Updated {formatRelativeTime(fire.updated)}</p>
-      )}
+      {/* Containment bar */}
+      <div className="mb-4 h-1.5 w-full bg-sentinel-700 rounded-full overflow-hidden">
+        <div
+          className="h-full rounded-full transition-all duration-700"
+          style={{ width: `${containment}%`, backgroundColor: containColor }}
+        />
+      </div>
+
+      {/* Status + updated line */}
+      <div className="flex items-center gap-1.5 mb-0.5">
+        <span className={`text-xs font-semibold ${isActive ? 'text-red-400' : 'text-emerald-400'}`}>
+          {statusLabel}
+        </span>
+        {fire.updated && (
+          <>
+            <span className="text-sentinel-600 text-xs">•</span>
+            <span className="text-xs text-sentinel-400">
+              Updated <span className="font-semibold text-sentinel-300">{formatRelativeTime(fire.updated)}</span>
+            </span>
+          </>
+        )}
+      </div>
       <p className="text-[11px] text-sentinel-500 mb-4">
-        Created by {fire.created_by || 'National Wildfire Tracking Team'}
-        {createdAt ? ` • ${formatDateTime(createdAt)}` : ''}
+        Created by <span className="font-semibold text-sentinel-400">National Wildfire Tracking Team</span>
+        {createdAt ? <> • {formatDateTime(createdAt)}</> : ''}
       </p>
 
+      {/* Evacuation notice */}
       {(fire.evacuation_orders > 0 || fire.evacuation_warnings > 0 || evacuationOrderLines.length > 0) && (
         <div className="mb-4 p-3 bg-red-950/40 border border-red-800/60 rounded-lg">
           <div className="flex items-start gap-2 mb-2">
@@ -280,21 +299,87 @@ function IncidentDetail({ fire }) {
         </div>
       )}
 
-      {/* Live incident timeline */}
-      <IncidentTimeline incidentId={fire.id} />
+      {/* UPDATES / INFO tabs */}
+      <div className="border-b border-sentinel-700 mb-4 flex gap-0">
+        {['updates', 'info'].map((t) => (
+          <button
+            key={t}
+            type="button"
+            onClick={() => setTab(t)}
+            className={`px-4 py-2 text-[11px] font-bold uppercase tracking-widest border-b-2 transition-colors
+              ${tab === t
+                ? 'border-fire-500 text-white'
+                : 'border-transparent text-sentinel-500 hover:text-sentinel-300'}`}
+          >
+            {t}
+          </button>
+        ))}
+      </div>
 
-      {fire.url && (
-        <a
-          href={fire.url}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex items-center justify-center gap-2 w-full py-2 bg-fire-600/20
-                     border border-fire-700/50 rounded-lg text-fire-400 text-sm font-medium
-                     hover:bg-fire-600/30 hover:text-fire-300 transition-colors"
-        >
-          <ExternalLink size={13} />
-          View on InciWeb
-        </a>
+      {tab === 'updates' && <IncidentTimeline incidentId={fire.id} dataSource="NIFC / IRWIN" />}
+
+      {tab === 'info' && (
+        <div className="space-y-2 text-xs text-sentinel-400">
+          {fire.acres != null && (
+            <div className="flex justify-between">
+              <span>Size</span>
+              <span className="text-white font-semibold">{formatAcres(fire.acres)}</span>
+            </div>
+          )}
+          {fire.personnel && (
+            <div className="flex justify-between">
+              <span>Personnel</span>
+              <span className="text-white font-semibold">{formatPersonnel(fire.personnel)}</span>
+            </div>
+          )}
+          {fire.cause && (
+            <div className="flex justify-between">
+              <span>Cause</span>
+              <span className="text-white font-semibold">{fire.cause}</span>
+            </div>
+          )}
+          {fire.destroyed > 0 && (
+            <div className="flex justify-between">
+              <span>Structures Destroyed</span>
+              <span className="text-red-400 font-semibold">{fire.destroyed}</span>
+            </div>
+          )}
+          {fire.damaged > 0 && (
+            <div className="flex justify-between">
+              <span>Structures Damaged</span>
+              <span className="text-orange-400 font-semibold">{fire.damaged}</span>
+            </div>
+          )}
+          {fire.discovered && (
+            <div className="flex justify-between">
+              <span>Discovered</span>
+              <span className="text-white font-semibold">{formatDate(fire.discovered)}</span>
+            </div>
+          )}
+          {fire.orgType && (
+            <div className="flex justify-between">
+              <span>Management</span>
+              <span className="text-white font-semibold">{fire.orgType}</span>
+            </div>
+          )}
+          <div className="flex justify-between">
+            <span>Coordinates</span>
+            <span className="text-white font-semibold">{fire.lat?.toFixed(4)}°, {fire.lng?.toFixed(4)}°</span>
+          </div>
+          {fire.url && (
+            <a
+              href={fire.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center justify-center gap-2 w-full mt-3 py-2 bg-fire-600/20
+                         border border-fire-700/50 rounded-lg text-fire-400 text-sm font-medium
+                         hover:bg-fire-600/30 hover:text-fire-300 transition-colors"
+            >
+              <ExternalLink size={13} />
+              View on InciWeb
+            </a>
+          )}
+        </div>
       )}
     </>
   );
@@ -381,59 +466,152 @@ function AlertDetail({ fire, alerts }) {
   );
 }
 
+/**
+ * Parse the latest acreage value from a reporter description block.
+ * Looks for lines like "Acreage: 129.7" or "SIZE: 2450 acres" written
+ * by the reporter update system.
+ */
+function parseLatestAcreage(description) {
+  if (!description) return null;
+  const lines = description.split('\n').reverse();
+  for (const line of lines) {
+    const m = line.match(/acreage[:\s]+([0-9,.]+)/i) || line.match(/size[:\s]+([0-9,.]+)\s*acres?/i);
+    if (m) {
+      const val = parseFloat(m[1].replace(/,/g, ''));
+      if (Number.isFinite(val)) return val;
+    }
+  }
+  return null;
+}
+
+/**
+ * Parse the latest containment percentage from a reporter description.
+ * Looks for lines like "Containment: 20%" or "20% contained".
+ */
+function parseLatestContainment(description) {
+  if (!description) return null;
+  const lines = description.split('\n').reverse();
+  for (const line of lines) {
+    const m = line.match(/containment[:\s]+([0-9]+)\s*%/i) || line.match(/([0-9]+)\s*%\s*contained/i);
+    if (m) {
+      const val = parseInt(m[1], 10);
+      if (Number.isFinite(val)) return Math.min(100, Math.max(0, val));
+    }
+  }
+  return null;
+}
+
 function UserReportDetail({ fire }) {
+  const [tab, setTab] = useState('updates');
+
+  const acres = parseLatestAcreage(fire.description);
+  const containment = parseLatestContainment(fire.description) ?? 0;
+  const containColor = containmentToColor(containment);
+
+  // Extract a clean location from the structured description if present
+  const locationMatch = fire.description?.match(/^ADDRESS:\s*(.+)$/m);
+  const locationLine = locationMatch ? locationMatch[1].trim() : null;
+
   return (
     <>
-      <div className="flex items-center gap-2 mb-4">
-        <div className="p-2 bg-cyan-900/40 rounded-lg">
-          <Flame size={18} className="text-cyan-300" />
+      {/* Title block */}
+      <div className="mb-4">
+        <h3 className="font-bold text-white text-lg leading-tight">{fire.title}</h3>
+        {locationLine && (
+          <p className="text-sentinel-300 text-xs mt-1 leading-relaxed">{locationLine}</p>
+        )}
+        <p className="text-sentinel-400 text-[11px] mt-0.5">Community Report • NWTT</p>
+      </div>
+
+      {/* Acres | Containment stat row */}
+      <div className="flex items-stretch mb-4 bg-sentinel-800/50 border border-sentinel-700 rounded-xl overflow-hidden">
+        <div className="flex-1 flex flex-col items-center justify-center py-4 px-2">
+          <span className="text-[10px] font-bold text-sentinel-400 uppercase tracking-widest mb-1">Acres</span>
+          <span className="text-2xl font-black text-white leading-none">
+            {acres != null ? acres.toLocaleString('en-US', { maximumFractionDigits: 1 }) : '—'}
+          </span>
         </div>
-        <div>
-          <h3 className="font-bold text-white text-base">{fire.title}</h3>
-          <p className="text-sentinel-400 text-xs">Community-submitted report</p>
+        <div className="w-px bg-sentinel-700 my-3" />
+        <div className="flex-1 flex flex-col items-center justify-center py-4 px-2">
+          <span className="text-[10px] font-bold text-sentinel-400 uppercase tracking-widest mb-1">Containment</span>
+          <span className="text-2xl font-black leading-none" style={{ color: containColor }}>
+            {containment > 0 ? `${containment}%` : '—'}
+          </span>
         </div>
       </div>
 
-      {fire.description && (
-        <div className="mb-4 p-3 bg-sentinel-800/60 border border-sentinel-700 rounded-lg">
-          <div className="text-[10px] font-bold text-sentinel-500 uppercase tracking-widest mb-1.5">
-            Description
-          </div>
-          <p className="text-xs text-sentinel-200 leading-relaxed whitespace-pre-wrap">
-            {fire.description}
-          </p>
+      {/* Containment bar (only when we have data) */}
+      {containment > 0 && (
+        <div className="mb-4 h-1.5 w-full bg-sentinel-700 rounded-full overflow-hidden">
+          <div
+            className="h-full rounded-full transition-all duration-700"
+            style={{ width: `${containment}%`, backgroundColor: containColor }}
+          />
         </div>
       )}
 
-      <div className="space-y-1.5 text-xs text-sentinel-400 mb-4">
-        <div className="flex items-center gap-2">
-          <MapPin size={12} />
-          <span>{fire.lat?.toFixed(4)}°, {fire.lng?.toFixed(4)}°</span>
-        </div>
+      {/* Status + submitted line */}
+      <div className="flex items-center gap-1.5 mb-0.5">
+        <span className="text-xs font-semibold text-red-400">Active</span>
         {fire.created_at && (
-          <div className="flex items-center gap-2">
-            <Calendar size={12} />
-            <span>Submitted: {formatDateTime(fire.created_at)}</span>
-          </div>
-        )}
-        {fire.user_id && (
-          <div className="flex items-center gap-2">
-            <Users size={12} />
-            <span>Reporter: {String(fire.user_id).slice(0, 8)}…</span>
-          </div>
+          <>
+            <span className="text-sentinel-600 text-xs">•</span>
+            <span className="text-xs text-sentinel-400">
+              Updated <span className="font-semibold text-sentinel-300">{formatRelativeTime(fire.created_at)}</span>
+            </span>
+          </>
         )}
       </div>
+      <p className="text-[11px] text-sentinel-500 mb-4">
+        Submitted by <span className="font-semibold text-sentinel-400">NWTT Reporter</span>
+        {fire.created_at ? <> • {formatDateTime(fire.created_at)}</> : ''}
+      </p>
 
-      <div className="p-3 bg-cyan-950/30 border border-cyan-900/50 rounded-lg">
-        <p className="text-xs text-cyan-200/80 leading-relaxed">
-          This report was submitted by a community reporter and reviewed by
-          NWTT moderators before appearing on the map. Verify with official
-          sources before taking action.
-        </p>
+      {/* UPDATES / INFO tabs */}
+      <div className="border-b border-sentinel-700 mb-4 flex gap-0">
+        {['updates', 'info'].map((t) => (
+          <button
+            key={t}
+            type="button"
+            onClick={() => setTab(t)}
+            className={`px-4 py-2 text-[11px] font-bold uppercase tracking-widest border-b-2 transition-colors
+              ${tab === t
+                ? 'border-fire-500 text-white'
+                : 'border-transparent text-sentinel-500 hover:text-sentinel-300'}`}
+          >
+            {t}
+          </button>
+        ))}
       </div>
 
-      {/* Live incident timeline */}
-      <IncidentTimeline incidentId={fire.id} />
+      {tab === 'updates' && <IncidentTimeline incidentId={fire.id} />}
+
+      {tab === 'info' && (
+        <div className="space-y-2 text-xs text-sentinel-400">
+          {locationLine && (
+            <div className="flex justify-between gap-2">
+              <span className="shrink-0">Address</span>
+              <span className="text-white font-semibold text-right">{locationLine}</span>
+            </div>
+          )}
+          <div className="flex justify-between">
+            <span>Coordinates</span>
+            <span className="text-white font-semibold">{fire.lat?.toFixed(4)}°, {fire.lng?.toFixed(4)}°</span>
+          </div>
+          {fire.created_at && (
+            <div className="flex justify-between">
+              <span>Submitted</span>
+              <span className="text-white font-semibold">{formatDateTime(fire.created_at)}</span>
+            </div>
+          )}
+          <div className="mt-4 p-3 bg-cyan-950/30 border border-cyan-900/50 rounded-lg">
+            <p className="text-xs text-cyan-200/80 leading-relaxed">
+              This report was submitted by a community reporter and approved by
+              NWTT moderators. Verify with official sources before taking action.
+            </p>
+          </div>
+        </div>
+      )}
     </>
   );
 }
