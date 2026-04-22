@@ -46,9 +46,39 @@ function initAnalytics() {
 
 function scheduleDeferredAnalyticsLoad() {
   if (typeof window === 'undefined') return;
+  if (window.__nwttAnalyticsLoaded || window.__nwttAnalyticsScheduled) return () => {};
+  window.__nwttAnalyticsScheduled = true;
+
+  let timeoutId = null;
+  let idleCallbackId = null;
+
+  const clearScheduledTasks = () => {
+    if (timeoutId !== null) {
+      window.clearTimeout(timeoutId);
+      timeoutId = null;
+    }
+    if (idleCallbackId !== null && 'cancelIdleCallback' in window) {
+      window.cancelIdleCallback(idleCallbackId);
+      idleCallbackId = null;
+    }
+  };
+
+  const removeInteractionListeners = () => {
+    window.removeEventListener('pointerdown', onUserInteraction);
+    window.removeEventListener('keydown', onUserInteraction);
+    window.removeEventListener('scroll', onUserInteraction);
+  };
+
+  const teardown = () => {
+    removeInteractionListeners();
+    clearScheduledTasks();
+    if (!window.__nwttAnalyticsLoaded) {
+      window.__nwttAnalyticsScheduled = false;
+    }
+  };
 
   const onUserInteraction = () => {
-    removeInteractionListeners();
+    teardown();
     initAnalytics();
   };
 
@@ -58,31 +88,29 @@ function scheduleDeferredAnalyticsLoad() {
     window.addEventListener('scroll', onUserInteraction, { once: true, passive: true });
   };
 
-  const removeInteractionListeners = () => {
-    window.removeEventListener('pointerdown', onUserInteraction);
-    window.removeEventListener('keydown', onUserInteraction);
-    window.removeEventListener('scroll', onUserInteraction);
-  };
-
   addInteractionListeners();
 
-  const timeoutId = window.setTimeout(() => {
-    removeInteractionListeners();
+  timeoutId = window.setTimeout(() => {
+    teardown();
     initAnalytics();
   }, 5000);
 
   if ('requestIdleCallback' in window) {
-    window.requestIdleCallback(() => {
-      window.clearTimeout(timeoutId);
-      removeInteractionListeners();
+    idleCallbackId = window.requestIdleCallback(() => {
+      teardown();
       initAnalytics();
     }, { timeout: 7000 });
   }
+
+  return teardown;
 }
 
 export default function DeferredAnalytics() {
   useEffect(() => {
-    scheduleDeferredAnalyticsLoad();
+    const cleanup = scheduleDeferredAnalyticsLoad();
+    return () => {
+      cleanup?.();
+    };
   }, []);
 
   return null;
