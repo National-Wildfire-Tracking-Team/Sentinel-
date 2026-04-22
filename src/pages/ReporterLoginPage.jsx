@@ -41,7 +41,19 @@ export default function ReporterLoginPage() {
       if (err) throw err;
       navigate(redirectTo, { replace: true });
     } catch (err) {
-      setError(err?.message || 'Authentication failed');
+      const msg = err?.message || '';
+      // Supabase returns "Invalid login credentials" for both wrong password
+      // AND unconfirmed email. Provide a more helpful hint in either case.
+      if (
+        msg.toLowerCase().includes('invalid login credentials') ||
+        msg.toLowerCase().includes('email not confirmed')
+      ) {
+        setError(
+          'Invalid credentials. If you just registered, please confirm your email address first — check your inbox (and spam folder) for the confirmation link.'
+        );
+      } else {
+        setError(msg || 'Authentication failed');
+      }
     } finally {
       setBusy(false);
     }

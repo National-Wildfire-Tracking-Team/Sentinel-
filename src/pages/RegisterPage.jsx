@@ -6,7 +6,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
-  Mail, Lock, Eye, EyeOff, Flame, AlertCircle, UserPlus,
+  Mail, Lock, Eye, EyeOff, Flame, AlertCircle, UserPlus, CheckCircle2,
 } from 'lucide-react';
 
 import { useAuth } from '../context/AuthContext';
@@ -22,6 +22,7 @@ export default function RegisterPage() {
   const [showConfirm,     setShowConfirm]     = useState(false);
   const [error,           setError]           = useState(null);
   const [busy,            setBusy]            = useState(false);
+  const [confirmationSent, setConfirmationSent] = useState(false);
 
   const inputBase =
     'w-full rounded-lg bg-sentinel-800 border border-sentinel-700 text-white placeholder-sentinel-500 ' +
@@ -42,15 +43,64 @@ export default function RegisterPage() {
 
     setBusy(true);
     try {
-      const { error: err } = await signUp(email, password);
+      const { data, error: err } = await signUp(email, password);
       if (err) throw err;
 
-      navigate('/sentinel', { replace: true });
+      // When email confirmation is enabled, signUp returns no session.
+      // Show a confirmation prompt instead of navigating blindly.
+      if (data?.session) {
+        navigate('/sentinel', { replace: true });
+      } else {
+        setConfirmationSent(true);
+      }
     } catch (err) {
       setError(err?.message || 'Registration failed');
     } finally {
       setBusy(false);
     }
+  }
+
+  if (confirmationSent) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#0d1117] p-8">
+        <div className="w-full max-w-md text-center">
+          <div className="flex items-center justify-center gap-2 mb-8">
+            <Flame size={20} className="text-fire-400" />
+            <span className="text-white font-bold text-sm">Sentinel NWTT</span>
+          </div>
+          <div className="bg-[#161b22] border border-[#30363d] rounded-2xl p-8 shadow-2xl">
+            <div className="flex flex-col items-center gap-4">
+              <div className="w-12 h-12 rounded-full bg-green-950/40 border border-green-800/60 flex items-center justify-center">
+                <Mail size={22} className="text-green-400" />
+              </div>
+              <div>
+                <p className="text-white font-semibold mb-1">Check your email</p>
+                <p className="text-sentinel-400 text-sm">
+                  We sent a confirmation link to{' '}
+                  <span className="text-white font-medium">{email}</span>.
+                  Click the link to verify your address and activate your account.
+                </p>
+              </div>
+              <div className="w-full mt-2 p-3 rounded-lg bg-amber-950/30 border border-amber-800/50 text-amber-200 text-xs text-left">
+                <strong>Important:</strong> You must confirm your email before signing in.
+                If you don&apos;t see the email, check your spam or junk folder.
+              </div>
+              <Link
+                to="/login"
+                className="mt-2 w-full py-3 rounded-lg font-bold text-sm tracking-widest uppercase text-white bg-[#0096ff] hover:brightness-110 transition-all block"
+              >
+                Go to Sign In
+              </Link>
+            </div>
+          </div>
+          <div className="mt-6">
+            <Link to="/" className="text-xs text-sentinel-500 hover:text-sentinel-300 transition-colors">
+              ← Back to home
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (
