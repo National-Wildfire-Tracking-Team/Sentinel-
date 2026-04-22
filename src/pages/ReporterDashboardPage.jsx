@@ -14,7 +14,7 @@ import {
   Flame, Search, MapPin, ChevronDown, FileText, ImageIcon,
   Upload, X, LogOut, AlertCircle, CheckCircle2, Send, User,
   PlusCircle, Pencil, Trash2, RefreshCw, ChevronUp, Clock,
-  Activity, Settings, ArrowLeft, Shield, Loader2,
+  Activity, Settings, ArrowLeft, Shield, Loader2, Globe,
 } from 'lucide-react';
 
 import { useAuth } from '../context/AuthContext';
@@ -28,6 +28,7 @@ import {
   useFireReports,
 } from '../hooks/useFireReports';
 import { insertReporterUpdate } from '../hooks/useIncidentUpdates';
+import { fetchIncidents } from '../api/inciweb';
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN || '';
 
@@ -558,6 +559,166 @@ function IncidentCard({
   );
 }
 
+/* ── External incident update panel ── */
+
+/**
+ * Lets a reporter post an update (acreage / notes) to an external incident
+ * sourced from IRWIN / WFIGS. The update lands in `incident_updates` keyed
+ * by the IRWIN UniqueFireIdentifier so the IncidentTimeline on the live map
+ * picks it up immediately.
+ */
+function ExternalIncidentUpdatePanel({ incident, profile, userId, onDone }) {
+  const [acreage, setAcreage] = useState('');
+  const [notes, setNotes]     = useState('');
+  const [busy, setBusy]       = useState(false);
+  const [feedback, setFeedback] = useState(null);
+
+  async function handlePost() {
+    if (!acreage.toString().trim() && !notes.trim()) {
+      setFeedback({ type: 'error', message: 'Enter acreage or notes before posting.' });
+      return;
+    }
+    setBusy(true);
+    setFeedback(null);
+    try {
+      const parts = [];
+      if (acreage.toString().trim()) parts.push(`Acreage: ${acreage.toString().trim()}`);
+      if (notes.trim()) parts.push(notes.trim());
+
+      await insertReporterUpdate({
+        incidentId: incident.id,
+        content: parts.join('\n'),
+        sourceName: profile?.email?.split('@')[0] || 'Reporter',
+        userId,
+      });
+
+      setAcreage('');
+      setNotes('');
+      setFeedback({ type: 'success', message: 'Update posted to live timeline.' });
+      setTimeout(() => { setFeedback(null); onDone?.(); }, 1800);
+    } catch (err) {
+      setFeedback({ type: 'error', message: err?.message || 'Failed to post update.' });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="mt-4 border-t border-[#21262d] pt-4 space-y-3">
+      <div>
+        <label className={LABEL_CLS}>Acreage</label>
+        <input
+          type="number"
+          min="0"
+          step="0.1"
+          value={acreage}
+          onChange={(e) => setAcreage(e.target.value)}
+          placeholder="e.g. 2450"
+          className={INPUT_CLS}
+        />
+      </div>
+      <div>
+        <label className={LABEL_CLS}>Update Notes</label>
+        <textarea
+          rows={3}
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+          maxLength={2000}
+          placeholder="Containment progress, evacuations, road closures, weather changes…"
+          className={INPUT_CLS + ' resize-y min-h-[80px]'}
+        />
+        <div className="text-right text-xs text-[#484f58] mt-0.5">{notes.length} / 2000</div>
+      </div>
+
+      {feedback && (
+        <div className={`flex items-start gap-2 p-3 rounded-lg text-xs border ${
+          feedback.type === 'error'
+            ? 'bg-red-950/40 border-red-800/60 text-red-300'
+            : 'bg-green-950/40 border-green-800/60 text-green-300'
+        }`}>
+          {feedback.type === 'error'
+            ? <AlertCircle size={13} className="shrink-0 mt-0.5" />
+            : <CheckCircle2 size={13} className="shrink-0 mt-0.5" />}
+          <span>{feedback.message}</span>
+        </div>
+      )}
+
+      <div className="flex gap-2">
+        <button
+          type="button"
+          onClick={onDone}
+          className="flex-1 py-2 rounded-lg text-sm font-medium text-[#8b949e] border border-[#30363d] hover:text-white hover:border-[#484f58] transition-colors"
+        >
+          Cancel
+        </button>
+        <button
+          type="button"
+          onClick={handlePost}
+          disabled={busy}
+          className="flex-1 py-2 rounded-lg text-sm font-medium text-white bg-[#0096ff] hover:bg-[#0080db] disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+        >
+          {busy ? <><RefreshCw size={13} className="animate-spin" /> Posting…</> : <><Send size={13} /> Post Update</>}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function ExternalIncidentCard({ incident, profile, userId }) {
+  const [expanded, setExpanded] = useState(false);
+
+  const acres = incident.acres != null
+    ? Number(incident.acres).toLocaleString('en-US', { maximumFractionDigits: 1 })
+    : '—';
+  const containment = Number(incident.contained) || 0;
+  const stateLabel = incident.state ? incident.state.replace('US-', '') : '';
+
+  return (
+    <div className={`${SECTION_CLS} transition-all`}>
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap mb-1">
+            <h3 className="font-bold text-white text-base truncate">{incident.name}</h3>
+            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold border bg-red-500/15 border-red-500/30 text-red-400 uppercase tracking-wider">
+              Active
+            </span>
+          </div>
+          <div className="flex items-center gap-3 text-[#8b949e] text-xs flex-wrap">
+            {(incident.county || stateLabel) && (
+              <span className="flex items-center gap-1">
+                <MapPin size={11} />
+                {[incident.county && `${incident.county} County`, stateLabel].filter(Boolean).join(', ')}
+              </span>
+            )}
+            <span>{acres} ac · {containment}% contained</span>
+            <span className="text-[#484f58] text-[10px] uppercase tracking-wider">IRWIN / WFIGS</span>
+          </div>
+        </div>
+
+        <button
+          onClick={() => setExpanded((v) => !v)}
+          className={`p-2 rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5 shrink-0
+            ${expanded
+              ? 'bg-[#0096ff]/20 text-[#0096ff] border border-[#0096ff]/30'
+              : 'text-[#8b949e] hover:text-white hover:bg-[#21262d]'}`}
+        >
+          <Activity size={14} />
+          <span className="hidden sm:inline">Post Update</span>
+        </button>
+      </div>
+
+      {expanded && (
+        <ExternalIncidentUpdatePanel
+          incident={incident}
+          profile={profile}
+          userId={userId}
+          onDone={() => setExpanded(false)}
+        />
+      )}
+    </div>
+  );
+}
+
 /* ══════════════════════════════════════════════════════════
    Main page
 ══════════════════════════════════════════════════════════ */
@@ -604,6 +765,36 @@ export default function ReporterDashboardPage() {
     () => allReports.filter((r) => r.user_id === user?.id && r.status !== 'rejected'),
     [allReports, user?.id],
   );
+
+  /* ── External Incidents tab state ── */
+  const [externalIncidents, setExternalIncidents] = useState([]);
+  const [externalLoading, setExternalLoading]     = useState(false);
+  const [externalError, setExternalError]         = useState(null);
+  const [externalSearch, setExternalSearch]       = useState('');
+
+  const filteredExternal = useMemo(() => {
+    const q = externalSearch.trim().toLowerCase();
+    if (!q) return externalIncidents;
+    return externalIncidents.filter(
+      (inc) =>
+        inc.name.toLowerCase().includes(q) ||
+        (inc.state || '').toLowerCase().includes(q) ||
+        (inc.county || '').toLowerCase().includes(q),
+    );
+  }, [externalIncidents, externalSearch]);
+
+  async function loadExternalIncidents() {
+    setExternalLoading(true);
+    setExternalError(null);
+    try {
+      const data = await fetchIncidents({ minAcres: 0.1 });
+      setExternalIncidents(data.sort((a, b) => (b.acres || 0) - (a.acres || 0)));
+    } catch (err) {
+      setExternalError(err?.message || 'Failed to load incidents.');
+    } finally {
+      setExternalLoading(false);
+    }
+  }
 
   /* ── Auth guards ── */
   if (loading) {
@@ -873,12 +1064,14 @@ export default function ReporterDashboardPage() {
         {/* Page title */}
         <div className="mb-6">
           <h1 className="text-2xl font-bold text-white">
-            {activeTab === 'add' ? 'Add New Incident' : 'My Incidents'}
+            {activeTab === 'add' ? 'Add New Incident' : activeTab === 'manage' ? 'My Incidents' : 'External Incidents'}
           </h1>
           <p className="text-[#8b949e] text-sm mt-1">
             {activeTab === 'add'
               ? 'Submit a new wildfire incident. Complete all required (*) fields and click Submit.'
-              : 'View, edit, post updates, or delete your submitted incidents.'}
+              : activeTab === 'manage'
+              ? 'View, edit, post updates, or delete your submitted incidents.'
+              : 'Post reporter updates to active IRWIN / WFIGS incidents from other sources.'}
           </p>
         </div>
 
@@ -918,6 +1111,23 @@ export default function ReporterDashboardPage() {
                 {myIncidents.length}
               </span>
             )}
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === 'external'}
+            onClick={() => {
+              setActiveTab('external');
+              if (externalIncidents.length === 0) loadExternalIncidents();
+            }}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold uppercase tracking-wider transition-colors
+              ${activeTab === 'external'
+                ? 'bg-[#0096ff] text-white shadow'
+                : 'text-[#8b949e] hover:text-white hover:bg-[#21262d]'}`}
+          >
+            <Globe size={13} />
+            <span className="hidden sm:inline">External Incidents</span>
+            <span className="sm:hidden">External</span>
           </button>
         </div>
 
@@ -1153,6 +1363,96 @@ export default function ReporterDashboardPage() {
               </button>
             </div>
           </form>
+        )}
+
+        {/* ════════════════ TAB 3: EXTERNAL INCIDENTS ════════════════ */}
+        {activeTab === 'external' && (
+          <div className="space-y-4">
+            {/* Search + refresh bar */}
+            <div className="flex items-center gap-3">
+              <div className="relative flex-1">
+                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#484f58] pointer-events-none" />
+                <input
+                  type="text"
+                  value={externalSearch}
+                  onChange={(e) => setExternalSearch(e.target.value)}
+                  placeholder="Filter by fire name, state, or county…"
+                  className={INPUT_CLS + ' pl-9'}
+                />
+              </div>
+              <button
+                type="button"
+                onClick={loadExternalIncidents}
+                disabled={externalLoading}
+                className="flex items-center gap-1.5 text-xs text-[#8b949e] hover:text-white transition-colors disabled:opacity-50 shrink-0"
+              >
+                <RefreshCw size={13} className={externalLoading ? 'animate-spin' : ''} />
+                <span className="hidden sm:inline">Refresh</span>
+              </button>
+            </div>
+
+            {/* Info banner */}
+            <div className="flex items-start gap-2.5 p-3 rounded-lg bg-[#0096ff]/8 border border-[#0096ff]/20">
+              <Globe size={14} className="text-[#0096ff] shrink-0 mt-0.5" />
+              <p className="text-[11px] text-[#8b949e] leading-relaxed">
+                These incidents are sourced from the IRWIN / WFIGS national wildfire database.
+                Use <strong className="text-[#c9d1d9]">Post Update</strong> to attach reporter
+                intelligence to any incident — updates appear immediately on the live map timeline.
+              </p>
+            </div>
+
+            {/* Loading */}
+            {externalLoading && (
+              <div className="flex items-center justify-center py-20">
+                <div className="w-8 h-8 rounded-full border-2 border-[#0096ff] border-t-transparent animate-spin" />
+              </div>
+            )}
+
+            {/* Error */}
+            {externalError && !externalLoading && (
+              <div className="flex items-start gap-2 p-4 rounded-lg bg-red-950/40 border border-red-800/60 text-red-300 text-sm">
+                <AlertCircle size={15} className="shrink-0 mt-0.5" />
+                <span>{externalError}</span>
+              </div>
+            )}
+
+            {/* Empty */}
+            {!externalLoading && !externalError && filteredExternal.length === 0 && (
+              <div className="text-center py-20 bg-[#0d1117] border border-[#21262d] rounded-xl">
+                <Globe size={36} className="mx-auto text-[#30363d] mb-3" />
+                <p className="text-[#8b949e] text-sm font-medium">
+                  {externalSearch ? 'No incidents match your search.' : 'No active incidents found.'}
+                </p>
+                {!externalSearch && (
+                  <button
+                    type="button"
+                    onClick={loadExternalIncidents}
+                    className="mt-5 px-5 py-2 rounded-lg text-sm font-medium text-white bg-[#0096ff] hover:bg-[#0080db] transition-colors"
+                  >
+                    Load Incidents
+                  </button>
+                )}
+              </div>
+            )}
+
+            {/* Incident list */}
+            {!externalLoading && filteredExternal.length > 0 && (
+              <>
+                <p className="text-[#8b949e] text-xs">
+                  {filteredExternal.length} incident{filteredExternal.length !== 1 ? 's' : ''}
+                  {externalSearch ? ' matching filter' : ''}
+                </p>
+                {filteredExternal.map((inc) => (
+                  <ExternalIncidentCard
+                    key={inc.id}
+                    incident={inc}
+                    profile={profile}
+                    userId={user.id}
+                  />
+                ))}
+              </>
+            )}
+          </div>
         )}
 
         {/* ════════════════ TAB 2: MY INCIDENTS ════════════════ */}
