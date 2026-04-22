@@ -141,7 +141,7 @@ export function useIncidentUpdates(incidentId) {
 }
 
 /**
- * Insert a reporter update from outside the hook (e.g. SubmitReportPage).
+ * Insert a reporter update from outside the hook (e.g. ReporterDashboardPage).
  * Mirrors the addUpdate callback but as a standalone async function.
  */
 export async function insertReporterUpdate({ incidentId, content, sourceName, userId }) {

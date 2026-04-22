@@ -1,13 +1,14 @@
 /**
  * ReporterLoginPage.jsx
- * Dedicated login portal for NWTT reporters.
- * Mirrors the general LoginPage style but targets the reporter workflow.
+ * Hidden login portal for NWTT reporters.
+ * Not linked anywhere in the public navigation — access by direct URL only.
+ * Route: /reporter-login
  */
 
 import { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
-  Mail, Lock, Eye, EyeOff, Flame, AlertCircle, CheckCircle2, Radio,
+  Mail, Lock, Eye, EyeOff, Flame, AlertCircle, CheckCircle2, ShieldCheck,
 } from 'lucide-react';
 
 import { useAuth } from '../context/AuthContext';
@@ -15,8 +16,8 @@ import { supabase } from '../api/supabaseClient';
 
 export default function ReporterLoginPage() {
   const { signIn, isSupabaseConfigured } = useAuth();
-  const navigate  = useNavigate();
-  const location  = useLocation();
+  const navigate = useNavigate();
+  const location = useLocation();
 
   const [email,        setEmail]        = useState('');
   const [password,     setPassword]     = useState('');
@@ -29,7 +30,7 @@ export default function ReporterLoginPage() {
   const [resetEmail, setResetEmail] = useState('');
   const [resetSent,  setResetSent]  = useState(false);
 
-  const redirectTo = location.state?.from || '/submit-report';
+  const redirectTo = location.state?.from || '/reporter-dashboard';
 
   async function handleSignIn(e) {
     e.preventDefault();
@@ -63,86 +64,26 @@ export default function ReporterLoginPage() {
   }
 
   const inputBase =
-    'w-full rounded-lg bg-sentinel-800 border border-sentinel-700 text-white placeholder-sentinel-500 ' +
-    'focus:outline-none focus:border-fire-500 focus:ring-1 focus:ring-fire-500/20 transition-colors text-sm';
+    'w-full rounded-lg bg-[#0d1117] border border-[#30363d] text-white placeholder-[#484f58] ' +
+    'focus:outline-none focus:border-[#0096ff] focus:ring-1 focus:ring-[#0096ff]/20 transition-colors text-sm';
 
   return (
-    <div className="min-h-screen flex">
+    <div className="min-h-screen bg-[#010409] flex items-center justify-center p-4">
+      <div className="w-full max-w-md">
 
-      {/* ══════════════════ LEFT PANEL — Branding ══════════════════ */}
-      <div className="hidden lg:flex lg:w-1/2 relative flex-col items-center justify-center overflow-hidden">
-
-        <div className="absolute inset-0 bg-gradient-to-br from-[#0d0500] via-[#1a0800] to-[#0d0500]" />
-        <div
-          className="absolute inset-0 opacity-[0.04]"
-          style={{
-            backgroundImage:
-              'linear-gradient(rgba(255,255,255,.15) 1px, transparent 1px),' +
-              'linear-gradient(90deg, rgba(255,255,255,.15) 1px, transparent 1px)',
-            backgroundSize: '48px 48px',
-          }}
-        />
-        <div className="absolute bottom-0 left-0 right-0 h-72 bg-gradient-to-t from-orange-900/40 to-transparent" />
-
-        <div className="relative z-10 text-center px-12 max-w-lg">
-          <div className="flex items-center justify-center mb-8">
-            <div className="w-20 h-20 rounded-2xl border border-fire-500/40 bg-fire-600/15
-                            flex items-center justify-center shadow-lg shadow-fire-900/50">
-              <Flame size={44} className="text-fire-400" />
-            </div>
+        {/* Logo mark */}
+        <div className="flex flex-col items-center mb-10">
+          <div className="w-14 h-14 rounded-2xl bg-[#0096ff]/10 border border-[#0096ff]/30 flex items-center justify-center mb-4 shadow-lg shadow-[#0096ff]/10">
+            <Flame size={28} className="text-[#0096ff]" />
           </div>
-
-          <h1 className="text-5xl font-black text-white tracking-tight mb-2">Sentinel</h1>
-          <p className="text-fire-400 font-semibold tracking-wide uppercase text-sm mb-2">
-            National Wildfire Tracking Team
-          </p>
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-fire-600/15 border border-fire-500/30 mb-6">
-            <Radio size={12} className="text-fire-400" />
-            <span className="text-fire-300 text-xs font-semibold uppercase tracking-wider">Reporter Portal</span>
-          </div>
-          <p className="text-sentinel-200/70 leading-relaxed text-sm">
-            Secure login for verified NWTT field reporters. Submit real-time wildfire
-            incident data directly to the intelligence platform.
-          </p>
-
-          <div className="mt-14 grid grid-cols-3 gap-3">
-            {[
-              { value: '24/7',  label: 'Monitoring' },
-              { value: 'Live',  label: 'Reporting'  },
-              { value: 'Rapid', label: 'Response'   },
-            ].map(({ value, label }) => (
-              <div
-                key={label}
-                className="py-4 rounded-xl bg-white/5 border border-white/10 backdrop-blur-sm"
-              >
-                <div className="text-xl font-bold text-white">{value}</div>
-                <div className="text-xs text-sentinel-300 mt-1">{label}</div>
-              </div>
-            ))}
-          </div>
+          <h1 className="text-white text-2xl font-bold tracking-tight">Reporter Portal</h1>
+          <p className="text-[#8b949e] text-sm mt-1">Sign in to access the incident dashboard</p>
         </div>
-      </div>
 
-      {/* ══════════════════ RIGHT PANEL — Login form ══════════════════ */}
-      <div className="w-full lg:w-1/2 flex items-center justify-center bg-[#0d1117] p-8">
-        <div className="w-full max-w-md">
-
-          {/* Mobile logo */}
-          <div className="flex items-center gap-2 mb-8 lg:hidden">
-            <Flame size={20} className="text-fire-400" />
-            <span className="text-white font-bold text-sm">Sentinel NWTT</span>
-          </div>
+        <div className="bg-[#0d1117] border border-[#30363d] rounded-2xl p-8 shadow-2xl">
 
           {!forgotMode ? (
             <>
-              <div className="flex items-center gap-2 mb-1">
-                <Radio size={18} className="text-fire-400" />
-                <h2 className="text-3xl font-bold text-white">Reporter Login</h2>
-              </div>
-              <p className="text-sentinel-400 text-sm mb-8">
-                Sign in to access the NWTT reporter dashboard
-              </p>
-
               {!isSupabaseConfigured && (
                 <div className="mb-5 p-3 rounded-lg bg-amber-950/40 border border-amber-800/60 text-amber-200 text-xs">
                   Supabase is not configured — add{' '}
@@ -153,19 +94,18 @@ export default function ReporterLoginPage() {
               )}
 
               <form onSubmit={handleSignIn} className="space-y-5">
-
                 <div>
-                  <label className="block text-xs font-semibold text-sentinel-300 uppercase tracking-wider mb-2">
+                  <label className="block text-xs font-semibold text-[#8b949e] uppercase tracking-wider mb-2">
                     Email Address
                   </label>
                   <div className="relative">
-                    <Mail size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sentinel-400 pointer-events-none" />
+                    <Mail size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#484f58] pointer-events-none" />
                     <input
                       type="email"
                       required
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
-                      placeholder="you@example.com"
+                      placeholder="reporter@example.com"
                       autoComplete="email"
                       className={`${inputBase} pl-10 pr-4 py-3`}
                     />
@@ -173,11 +113,11 @@ export default function ReporterLoginPage() {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-sentinel-300 uppercase tracking-wider mb-2">
+                  <label className="block text-xs font-semibold text-[#8b949e] uppercase tracking-wider mb-2">
                     Password
                   </label>
                   <div className="relative">
-                    <Lock size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sentinel-400 pointer-events-none" />
+                    <Lock size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#484f58] pointer-events-none" />
                     <input
                       type={showPassword ? 'text' : 'password'}
                       required
@@ -191,8 +131,9 @@ export default function ReporterLoginPage() {
                     <button
                       type="button"
                       onClick={() => setShowPassword((v) => !v)}
-                      className="absolute right-3.5 top-1/2 -translate-y-1/2 text-sentinel-400 hover:text-white transition-colors"
+                      className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[#484f58] hover:text-[#8b949e] transition-colors"
                       tabIndex={-1}
+                      aria-label={showPassword ? 'Hide password' : 'Show password'}
                     >
                       {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
                     </button>
@@ -205,16 +146,16 @@ export default function ReporterLoginPage() {
                       type="checkbox"
                       checked={rememberMe}
                       onChange={(e) => setRememberMe(e.target.checked)}
-                      className="w-4 h-4 rounded border-sentinel-600 bg-sentinel-800 accent-fire-500 cursor-pointer"
+                      className="w-4 h-4 rounded border-[#30363d] bg-[#0d1117] accent-[#0096ff] cursor-pointer"
                     />
-                    <span className="text-sm text-sentinel-300">Remember me</span>
+                    <span className="text-sm text-[#8b949e]">Remember me</span>
                   </label>
                   <button
                     type="button"
                     onClick={() => { setForgotMode(true); setError(null); setResetEmail(email); }}
-                    className="text-sm font-medium text-fire-400 hover:text-fire-300 transition-colors"
+                    className="text-sm font-medium text-[#0096ff] hover:text-[#58a6ff] transition-colors"
                   >
-                    Forgot Password?
+                    Forgot password?
                   </button>
                 </div>
 
@@ -228,39 +169,47 @@ export default function ReporterLoginPage() {
                 <button
                   type="submit"
                   disabled={busy || !isSupabaseConfigured}
-                  className="w-full py-3 rounded-lg font-bold text-sm tracking-widest uppercase text-white
-                             bg-fire-600 hover:bg-fire-500 disabled:opacity-50 disabled:cursor-not-allowed
-                             transition-all"
+                  className="w-full py-3 rounded-lg font-semibold text-sm text-white bg-[#0096ff] hover:bg-[#0080db] 
+                             disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                 >
-                  {busy ? 'Signing in…' : 'Reporter Sign In'}
+                  {busy ? 'Signing in…' : 'Sign In'}
                 </button>
               </form>
+
+              <div className="mt-6 pt-5 border-t border-[#21262d] text-center">
+                <p className="text-sm text-[#8b949e]">
+                  Don&apos;t have an account?{' '}
+                  <Link to="/reporter-register" className="text-[#0096ff] hover:text-[#58a6ff] font-medium transition-colors">
+                    Create reporter account
+                  </Link>
+                </p>
+              </div>
             </>
           ) : (
             <>
               <button
                 type="button"
                 onClick={() => { setForgotMode(false); setResetSent(false); setError(null); }}
-                className="text-xs text-sentinel-400 hover:text-white mb-6 flex items-center gap-1 transition-colors"
+                className="text-xs text-[#8b949e] hover:text-white mb-6 flex items-center gap-1 transition-colors"
               >
-                ← Back to login
+                ← Back to sign in
               </button>
 
-              <h2 className="text-2xl font-bold text-white mb-1">Reset Password</h2>
-              <p className="text-sentinel-400 text-sm mb-8">
-                Enter your email and we&apos;ll send you a password reset link.
+              <h2 className="text-xl font-bold text-white mb-1">Reset Password</h2>
+              <p className="text-[#8b949e] text-sm mb-6">
+                Enter your email and we&apos;ll send you a reset link.
               </p>
 
               {!resetSent ? (
                 <form onSubmit={handleForgotPassword} className="space-y-4">
                   <div className="relative">
-                    <Mail size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sentinel-400 pointer-events-none" />
+                    <Mail size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#484f58] pointer-events-none" />
                     <input
                       type="email"
                       required
                       value={resetEmail}
                       onChange={(e) => setResetEmail(e.target.value)}
-                      placeholder="you@example.com"
+                      placeholder="reporter@example.com"
                       autoComplete="email"
                       className={`${inputBase} pl-10 pr-4 py-3`}
                     />
@@ -276,9 +225,8 @@ export default function ReporterLoginPage() {
                   <button
                     type="submit"
                     disabled={busy}
-                    className="w-full py-3 rounded-lg font-bold text-sm tracking-widest uppercase text-white
-                               bg-fire-600 hover:bg-fire-500 disabled:opacity-50 disabled:cursor-not-allowed
-                               transition-all"
+                    className="w-full py-3 rounded-lg font-semibold text-sm text-white bg-[#0096ff] hover:bg-[#0080db]
+                               disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                   >
                     {busy ? 'Sending…' : 'Send Reset Link'}
                   </button>
@@ -291,28 +239,14 @@ export default function ReporterLoginPage() {
               )}
             </>
           )}
-
-          <p className="mt-6 text-center text-sm text-sentinel-400">
-            New reporter?{' '}
-            <Link to="/reporter-register" className="text-fire-400 hover:text-fire-300 font-medium transition-colors">
-              Create a reporter account
-            </Link>
-          </p>
-
-          <div className="mt-4 text-center space-y-2">
-            <div>
-              <Link to="/login" className="text-xs text-sentinel-500 hover:text-sentinel-300 transition-colors">
-                Not a reporter? Sign in here
-              </Link>
-            </div>
-            <div>
-              <Link to="/" className="text-xs text-sentinel-500 hover:text-sentinel-300 transition-colors">
-                ← Back to home
-              </Link>
-            </div>
-          </div>
-
         </div>
+
+        {/* Security note — subtle indicator this is a protected area */}
+        <div className="flex items-center justify-center gap-2 mt-6 text-[#484f58] text-xs">
+          <ShieldCheck size={13} />
+          <span>Authorized personnel only</span>
+        </div>
+
       </div>
     </div>
   );
