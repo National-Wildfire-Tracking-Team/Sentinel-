@@ -124,9 +124,6 @@ export default function App() {
           {/* Full-screen live tracker (no Navbar/Footer) */}
           <Route path="/sentinel" element={<LiveTrackerPage />} />
 
-          {/* Redirect legacy/alternate reporter login URL */}
-          <Route path="/reporter-login" element={<Navigate to="/login" replace />} />
-
           {/* Catch-all: redirect unknown routes to home instead of black screen */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

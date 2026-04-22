@@ -42,7 +42,7 @@ const incidentGlowLayer = {
  * @param {boolean}      props.visible
  */
 const FireIncidentsLayer = memo(function FireIncidentsLayer({ geoJSON, visible }) {
-  if (!visible || !geoJSON || geoJSON.features.length === 0) return null;
+  if (!visible || !geoJSON?.features?.length) return null;
 
   return (
     <Source id="fire-incidents" type="geojson" data={geoJSON}>

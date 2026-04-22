@@ -127,10 +127,13 @@ export function AppProvider({ children }) {
 
   /** Fly the map to a specific fire incident */
   const flyToFire = useCallback((incident) => {
-    if (!incident?.lat || !incident?.lng) return;
+    const latitude = Number(incident?.lat);
+    const longitude = Number(incident?.lng);
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return;
+
     dispatch({
       type: A.SET_VIEWPORT,
-      viewport: { longitude: incident.lng, latitude: incident.lat, zoom: 10 },
+      viewport: { longitude, latitude, zoom: 10 },
     });
   }, []);
 
