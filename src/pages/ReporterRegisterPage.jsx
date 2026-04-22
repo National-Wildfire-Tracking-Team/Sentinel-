@@ -1,14 +1,14 @@
 /**
  * ReporterRegisterPage.jsx
- * Dedicated sign-up page for NWTT field reporters.
- * Passes intended_role='reporter' in signup metadata so the Supabase trigger
- * creates the profile with role='reporter' instead of the default 'public'.
+ * Hidden account creation page for NWTT reporters.
+ * Not linked anywhere in the public navigation — access by direct URL only.
+ * Route: /reporter-register
  */
 
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
-  Mail, Lock, Eye, EyeOff, Flame, AlertCircle, Radio,
+  Mail, Lock, Eye, EyeOff, Flame, AlertCircle, CheckCircle2, ShieldCheck, User,
 } from 'lucide-react';
 
 import { useAuth } from '../context/AuthContext';
@@ -17,6 +17,7 @@ export default function ReporterRegisterPage() {
   const { signUp, isSupabaseConfigured } = useAuth();
   const navigate = useNavigate();
 
+  const [fullName,        setFullName]        = useState('');
   const [email,           setEmail]           = useState('');
   const [password,        setPassword]        = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -25,235 +26,220 @@ export default function ReporterRegisterPage() {
   const [error,           setError]           = useState(null);
   const [busy,            setBusy]            = useState(false);
 
+  const passwordStrength = (() => {
+    if (password.length === 0) return null;
+    if (password.length < 6) return { level: 'weak', label: 'Too short', color: 'bg-red-500' };
+    if (password.length < 10) return { level: 'fair', label: 'Fair', color: 'bg-yellow-500' };
+    if (/[A-Z]/.test(password) && /[0-9]/.test(password)) return { level: 'strong', label: 'Strong', color: 'bg-green-500' };
+    return { level: 'good', label: 'Good', color: 'bg-blue-500' };
+  })();
+
   const inputBase =
-    'w-full rounded-lg bg-sentinel-800 border border-sentinel-700 text-white placeholder-sentinel-500 ' +
-    'focus:outline-none focus:border-fire-500 focus:ring-1 focus:ring-fire-500/20 transition-colors text-sm';
+    'w-full rounded-lg bg-[#0d1117] border border-[#30363d] text-white placeholder-[#484f58] ' +
+    'focus:outline-none focus:border-[#0096ff] focus:ring-1 focus:ring-[#0096ff]/20 transition-colors text-sm';
 
   async function handleRegister(e) {
     e.preventDefault();
     setError(null);
 
     if (password !== confirmPassword) {
-      setError('Passwords do not match');
+      setError('Passwords do not match.');
       return;
     }
     if (password.length < 6) {
-      setError('Password must be at least 6 characters');
+      setError('Password must be at least 6 characters.');
       return;
     }
 
     setBusy(true);
     try {
-      const { error: err } = await signUp(email, password, { intended_role: 'reporter' });
-      if (err) throw err;
+      const metadata = { intended_role: 'reporter' };
+      if (fullName.trim()) metadata.full_name = fullName.trim();
 
-      navigate('/submit-report', { replace: true });
+      const { error: err } = await signUp(email, password, metadata);
+      if (err) throw err;
+      navigate('/reporter-dashboard', { replace: true });
     } catch (err) {
-      setError(err?.message || 'Registration failed');
+      setError(err?.message || 'Registration failed. Please try again.');
     } finally {
       setBusy(false);
     }
   }
 
   return (
-    <div className="min-h-screen flex">
+    <div className="min-h-screen bg-[#010409] flex items-center justify-center p-4">
+      <div className="w-full max-w-md">
 
-      {/* ══════════════════ LEFT PANEL — Branding ══════════════════ */}
-      <div className="hidden lg:flex lg:w-1/2 relative flex-col items-center justify-center overflow-hidden">
-
-        <div className="absolute inset-0 bg-gradient-to-br from-[#0d0500] via-[#1a0800] to-[#0d0500]" />
-        <div
-          className="absolute inset-0 opacity-[0.04]"
-          style={{
-            backgroundImage:
-              'linear-gradient(rgba(255,255,255,.15) 1px, transparent 1px),' +
-              'linear-gradient(90deg, rgba(255,255,255,.15) 1px, transparent 1px)',
-            backgroundSize: '48px 48px',
-          }}
-        />
-        <div className="absolute bottom-0 left-0 right-0 h-72 bg-gradient-to-t from-orange-900/40 to-transparent" />
-
-        <div className="relative z-10 text-center px-12 max-w-lg">
-          <div className="flex items-center justify-center mb-8">
-            <div className="w-20 h-20 rounded-2xl border border-fire-500/40 bg-fire-600/15
-                            flex items-center justify-center shadow-lg shadow-fire-900/50">
-              <Flame size={44} className="text-fire-400" />
-            </div>
+        {/* Logo mark */}
+        <div className="flex flex-col items-center mb-10">
+          <div className="w-14 h-14 rounded-2xl bg-[#0096ff]/10 border border-[#0096ff]/30 flex items-center justify-center mb-4 shadow-lg shadow-[#0096ff]/10">
+            <Flame size={28} className="text-[#0096ff]" />
           </div>
-
-          <h1 className="text-5xl font-black text-white tracking-tight mb-2">Sentinel</h1>
-          <p className="text-fire-400 font-semibold tracking-wide uppercase text-sm mb-2">
-            National Wildfire Tracking Team
-          </p>
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-fire-600/15 border border-fire-500/30 mb-6">
-            <Radio size={12} className="text-fire-400" />
-            <span className="text-fire-300 text-xs font-semibold uppercase tracking-wider">Reporter Registration</span>
-          </div>
-          <p className="text-sentinel-200/70 leading-relaxed text-sm">
-            Join the NWTT field reporter network. Submit real-time wildfire incident
-            data directly to the national intelligence platform.
-          </p>
-
-          <div className="mt-14 grid grid-cols-3 gap-3">
-            {[
-              { value: 'Free',  label: 'Account'   },
-              { value: 'Live',  label: 'Reporting'  },
-              { value: 'Team',  label: 'Network'    },
-            ].map(({ value, label }) => (
-              <div
-                key={label}
-                className="py-4 rounded-xl bg-white/5 border border-white/10 backdrop-blur-sm"
-              >
-                <div className="text-xl font-bold text-white">{value}</div>
-                <div className="text-xs text-sentinel-300 mt-1">{label}</div>
-              </div>
-            ))}
-          </div>
+          <h1 className="text-white text-2xl font-bold tracking-tight">Create Reporter Account</h1>
+          <p className="text-[#8b949e] text-sm mt-1">Join the NWTT incident reporting network</p>
         </div>
-      </div>
 
-      {/* ══════════════════ RIGHT PANEL — Register form ══════════════════ */}
-      <div className="w-full lg:w-1/2 flex items-center justify-center bg-[#0d1117] p-8">
-        <div className="w-full max-w-md">
+        <div className="bg-[#0d1117] border border-[#30363d] rounded-2xl p-8 shadow-2xl">
 
-          {/* Mobile logo */}
-          <div className="flex items-center gap-2 mb-8 lg:hidden">
-            <Flame size={20} className="text-fire-400" />
-            <span className="text-white font-bold text-sm">Sentinel NWTT</span>
-          </div>
+          {!isSupabaseConfigured && (
+            <div className="mb-5 p-3 rounded-lg bg-amber-950/40 border border-amber-800/60 text-amber-200 text-xs">
+              Supabase is not configured — add{' '}
+              <code>VITE_SUPABASE_URL</code> and{' '}
+              <code>VITE_SUPABASE_ANON_KEY</code> to your{' '}
+              <code>.env</code> file.
+            </div>
+          )}
 
-          <>
-              <div className="flex items-center gap-3 mb-1">
-                <Radio size={22} className="text-fire-400" />
-                <h2 className="text-3xl font-bold text-white">Reporter Sign Up</h2>
+          <form onSubmit={handleRegister} className="space-y-5">
+
+            <div>
+              <label className="block text-xs font-semibold text-[#8b949e] uppercase tracking-wider mb-2">
+                Full Name <span className="text-[#484f58] font-normal normal-case">(optional)</span>
+              </label>
+              <div className="relative">
+                <User size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#484f58] pointer-events-none" />
+                <input
+                  type="text"
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  placeholder="Your full name"
+                  autoComplete="name"
+                  className={`${inputBase} pl-10 pr-4 py-3`}
+                />
               </div>
-              <p className="text-sentinel-400 text-sm mb-8">
-                Create a reporter account to submit wildfire incidents to the NWTT platform.
-              </p>
+            </div>
 
-              {!isSupabaseConfigured && (
-                <div className="mb-5 p-3 rounded-lg bg-amber-950/40 border border-amber-800/60 text-amber-200 text-xs">
-                  Supabase is not configured — add{' '}
-                  <code>VITE_SUPABASE_URL</code> and{' '}
-                  <code>VITE_SUPABASE_ANON_KEY</code> to your{' '}
-                  <code>.env</code> file.
+            <div>
+              <label className="block text-xs font-semibold text-[#8b949e] uppercase tracking-wider mb-2">
+                Email Address <span className="text-red-400">*</span>
+              </label>
+              <div className="relative">
+                <Mail size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#484f58] pointer-events-none" />
+                <input
+                  type="email"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="reporter@example.com"
+                  autoComplete="email"
+                  className={`${inputBase} pl-10 pr-4 py-3`}
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-[#8b949e] uppercase tracking-wider mb-2">
+                Password <span className="text-red-400">*</span>
+              </label>
+              <div className="relative">
+                <Lock size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#484f58] pointer-events-none" />
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  required
+                  minLength={6}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Min. 6 characters"
+                  autoComplete="new-password"
+                  className={`${inputBase} pl-10 pr-11 py-3`}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((v) => !v)}
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[#484f58] hover:text-[#8b949e] transition-colors"
+                  tabIndex={-1}
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                >
+                  {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
+                </button>
+              </div>
+              {passwordStrength && (
+                <div className="mt-2 flex items-center gap-2">
+                  <div className="flex-1 h-1 rounded-full bg-[#21262d] overflow-hidden">
+                    <div
+                      className={`h-full rounded-full transition-all ${passwordStrength.color}`}
+                      style={{
+                        width: passwordStrength.level === 'weak' ? '25%'
+                          : passwordStrength.level === 'fair' ? '50%'
+                          : passwordStrength.level === 'good' ? '75%'
+                          : '100%',
+                      }}
+                    />
+                  </div>
+                  <span className="text-[10px] text-[#8b949e]">{passwordStrength.label}</span>
                 </div>
               )}
+            </div>
 
-              <form onSubmit={handleRegister} className="space-y-5">
-
-                <div>
-                  <label className="block text-xs font-semibold text-sentinel-300 uppercase tracking-wider mb-2">
-                    Email Address
-                  </label>
-                  <div className="relative">
-                    <Mail size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sentinel-400 pointer-events-none" />
-                    <input
-                      type="email"
-                      required
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      placeholder="you@example.com"
-                      autoComplete="email"
-                      className={`${inputBase} pl-10 pr-4 py-3`}
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-sentinel-300 uppercase tracking-wider mb-2">
-                    Password
-                  </label>
-                  <div className="relative">
-                    <Lock size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sentinel-400 pointer-events-none" />
-                    <input
-                      type={showPassword ? 'text' : 'password'}
-                      required
-                      minLength={6}
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      placeholder="Min. 6 characters"
-                      autoComplete="new-password"
-                      className={`${inputBase} pl-10 pr-11 py-3`}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword((v) => !v)}
-                      className="absolute right-3.5 top-1/2 -translate-y-1/2 text-sentinel-400 hover:text-white transition-colors"
-                      tabIndex={-1}
-                    >
-                      {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
-                    </button>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-sentinel-300 uppercase tracking-wider mb-2">
-                    Confirm Password
-                  </label>
-                  <div className="relative">
-                    <Lock size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sentinel-400 pointer-events-none" />
-                    <input
-                      type={showConfirm ? 'text' : 'password'}
-                      required
-                      minLength={6}
-                      value={confirmPassword}
-                      onChange={(e) => setConfirmPassword(e.target.value)}
-                      placeholder="Re-enter your password"
-                      autoComplete="new-password"
-                      className={`${inputBase} pl-10 pr-11 py-3`}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowConfirm((v) => !v)}
-                      className="absolute right-3.5 top-1/2 -translate-y-1/2 text-sentinel-400 hover:text-white transition-colors"
-                      tabIndex={-1}
-                    >
-                      {showConfirm ? <EyeOff size={15} /> : <Eye size={15} />}
-                    </button>
-                  </div>
-                </div>
-
-                {error && (
-                  <div className="flex items-start gap-2 p-3 rounded-lg bg-red-950/40 border border-red-800/60 text-red-300 text-xs">
-                    <AlertCircle size={14} className="shrink-0 mt-0.5" />
-                    <span>{error}</span>
-                  </div>
-                )}
-
+            <div>
+              <label className="block text-xs font-semibold text-[#8b949e] uppercase tracking-wider mb-2">
+                Confirm Password <span className="text-red-400">*</span>
+              </label>
+              <div className="relative">
+                <Lock size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#484f58] pointer-events-none" />
+                <input
+                  type={showConfirm ? 'text' : 'password'}
+                  required
+                  minLength={6}
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="Re-enter your password"
+                  autoComplete="new-password"
+                  className={`${inputBase} pl-10 pr-11 py-3`}
+                />
                 <button
-                  type="submit"
-                  disabled={busy || !isSupabaseConfigured}
-                  className="w-full py-3 rounded-lg font-bold text-sm tracking-widest uppercase text-white
-                             bg-fire-600 hover:bg-fire-500 disabled:opacity-50 disabled:cursor-not-allowed
-                             transition-all"
+                  type="button"
+                  onClick={() => setShowConfirm((v) => !v)}
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[#484f58] hover:text-[#8b949e] transition-colors"
+                  tabIndex={-1}
+                  aria-label={showConfirm ? 'Hide password' : 'Show password'}
                 >
-                  {busy ? 'Creating account…' : 'Create Reporter Account'}
+                  {showConfirm ? <EyeOff size={15} /> : <Eye size={15} />}
                 </button>
-              </form>
-
-              <p className="mt-6 text-center text-sm text-sentinel-400">
-                Already have a reporter account?{' '}
-                <Link to="/reporter-login" className="text-fire-400 hover:text-fire-300 font-medium transition-colors">
-                  Sign in
-                </Link>
-              </p>
-            </>
-
-          <div className="mt-8 text-center space-y-2">
-            <div>
-              <Link to="/register" className="text-xs text-sentinel-500 hover:text-sentinel-300 transition-colors">
-                Looking for a public account instead?
-              </Link>
+              </div>
+              {confirmPassword.length > 0 && password !== confirmPassword && (
+                <p className="mt-1.5 text-xs text-red-400">Passwords do not match</p>
+              )}
+              {confirmPassword.length > 0 && password === confirmPassword && (
+                <p className="mt-1.5 text-xs text-green-400 flex items-center gap-1">
+                  <CheckCircle2 size={11} /> Passwords match
+                </p>
+              )}
             </div>
-            <div>
-              <Link to="/" className="text-xs text-sentinel-500 hover:text-sentinel-300 transition-colors">
-                ← Back to home
+
+            {error && (
+              <div className="flex items-start gap-2 p-3 rounded-lg bg-red-950/40 border border-red-800/60 text-red-300 text-xs">
+                <AlertCircle size={14} className="shrink-0 mt-0.5" />
+                <span>{error}</span>
+              </div>
+            )}
+
+            <button
+              type="submit"
+              disabled={busy || !isSupabaseConfigured}
+              className="w-full py-3 rounded-lg font-semibold text-sm text-white bg-[#0096ff] hover:bg-[#0080db]
+                         disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+            >
+              {busy ? 'Creating account…' : 'Create Account'}
+            </button>
+          </form>
+
+          <div className="mt-6 pt-5 border-t border-[#21262d] text-center">
+            <p className="text-sm text-[#8b949e]">
+              Already have an account?{' '}
+              <Link to="/reporter-login" className="text-[#0096ff] hover:text-[#58a6ff] font-medium transition-colors">
+                Sign in
               </Link>
-            </div>
+            </p>
           </div>
-
         </div>
+
+        {/* Security note */}
+        <div className="flex items-center justify-center gap-2 mt-6 text-[#484f58] text-xs">
+          <ShieldCheck size={13} />
+          <span>Authorized personnel only</span>
+        </div>
+
       </div>
     </div>
   );
