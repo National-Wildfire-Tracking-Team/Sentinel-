@@ -657,104 +657,64 @@ function AQIDetail({ fire }) {
   );
 }
 
-function EvacZoneDetail({ fire }) {
-  const statusMap = {
-    'Evacuation Order':   { color: '#ef4444', label: 'Evacuation Order',   bg: 'bg-red-900/30',    border: 'border-red-800/50' },
-    'Evacuation Warning': { color: '#f97316', label: 'Evacuation Warning', bg: 'bg-orange-900/30', border: 'border-orange-800/50' },
-    'Evacuation Watch':   { color: '#eab308', label: 'Evacuation Watch',   bg: 'bg-yellow-900/30', border: 'border-yellow-800/50' },
+// ─── Reporter Evacuation Zone Detail ─────────────────────────────────────────
+
+function ReporterEvacZoneDetail({ fire }) {
+  const ZONE_TYPE_COLOR = {
+    'Evacuation Order':   '#ef4444',
+    'Evacuation Warning': '#f97316',
+    'Evacuation Watch':   '#eab308',
   };
-  const s = statusMap[fire.warningType] || statusMap['Evacuation Warning'];
+  const color = ZONE_TYPE_COLOR[fire.zone_type] || '#ef4444';
 
   return (
     <>
-      <div className="flex items-center gap-2 mb-4">
-        <div className="p-2 rounded-lg" style={{ backgroundColor: s.color + '30' }}>
-          <AlertTriangle size={18} style={{ color: s.color }} />
+      <div className="mb-4">
+        <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+          <h3 className="font-bold text-white text-lg leading-tight">{fire.title || fire.name}</h3>
         </div>
-        <div>
-          <h3 className="font-bold text-white text-base">{fire.zoneName || 'Evacuation Zone'}</h3>
-          <p className="text-sentinel-400 text-xs">{fire.county ? `${fire.county} County` : 'Evacuation Zone'}</p>
-        </div>
-      </div>
-
-      {/* Status badge */}
-      <div className={`flex items-center gap-2 p-3 rounded-xl mb-4 ${s.bg} border ${s.border}`}>
-        <AlertTriangle size={14} style={{ color: s.color }} />
-        <span className="font-bold text-sm" style={{ color: s.color }}>{s.label}</span>
-      </div>
-
-      {/* Metadata grid */}
-      <div className="space-y-2 text-xs mb-4">
-        {fire.agency && (
-          <div className="flex justify-between gap-3">
-            <span className="text-sentinel-400">Agency</span>
-            <span className="text-white font-semibold text-right">{fire.agency}</span>
-          </div>
-        )}
-        {fire.jurisdiction && fire.jurisdiction !== fire.county && (
-          <div className="flex justify-between gap-3">
-            <span className="text-sentinel-400">Jurisdiction</span>
-            <span className="text-white font-semibold text-right">{fire.jurisdiction}</span>
-          </div>
-        )}
-        {fire.effectiveDate && (
-          <div className="flex justify-between gap-3">
-            <span className="text-sentinel-400">Effective</span>
-            <span className="text-white font-semibold">{formatDateTime(fire.effectiveDate)}</span>
-          </div>
-        )}
-        {fire.expirationDate && (
-          <div className="flex justify-between gap-3">
-            <span className="text-sentinel-400">Updated</span>
-            <span className="text-white font-semibold">{formatDateTime(fire.expirationDate)}</span>
-          </div>
-        )}
-        {fire.source && (
-          <div className="flex justify-between gap-3">
-            <span className="text-sentinel-400">Data source</span>
-            <span className="text-sentinel-300">{fire.source === 'prod' ? 'Cal OES PROD' : 'Cal OES Hosted'}</span>
-          </div>
-        )}
-      </div>
-
-      {/* Instructions */}
-      {fire.instructions && (
-        <div className={`p-3 rounded-lg mb-3 ${s.bg} border ${s.border}`}>
-          <p className="text-xs font-semibold mb-1" style={{ color: s.color }}>Instructions</p>
-          <p className="text-xs text-sentinel-200 leading-relaxed">{fire.instructions}</p>
-        </div>
-      )}
-
-      {/* Comments */}
-      {fire.comments && (
-        <div className="p-3 rounded-lg mb-3 bg-sentinel-800/60 border border-sentinel-700">
-          <p className="text-xs font-semibold text-sentinel-400 mb-1">Additional Information</p>
-          <p className="text-xs text-sentinel-300 leading-relaxed">{fire.comments}</p>
-        </div>
-      )}
-
-      {/* External link */}
-      {fire.externalURL && (
-        <a
-          href={fire.externalURL}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex items-center gap-1.5 text-xs text-blue-400 hover:text-blue-300 transition-colors mt-2"
+        <div
+          className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold border"
+          style={{ backgroundColor: color + '22', borderColor: color + '66', color }}
         >
-          <ExternalLink size={11} />
-          Official Information
-        </a>
-      )}
-
-      <div className={`mt-4 p-3 rounded-lg text-xs leading-relaxed ${s.bg} border ${s.border}`}>
-        <p style={{ color: s.color }}>
-          {fire.warningType === 'Evacuation Order'
-            ? 'Mandatory evacuation in effect. Leave the area immediately.'
-            : fire.warningType === 'Evacuation Warning'
-            ? 'Voluntary evacuation recommended. Be prepared to leave at short notice.'
-            : 'Monitor conditions closely. Be ready to evacuate if ordered.'}
+          {fire.zone_type || 'Evacuation Zone'}
+        </div>
+        <p className="text-sentinel-400 text-[11px] mt-1.5 uppercase tracking-wider">
+          Reporter-Drawn Zone
         </p>
       </div>
+
+      {fire.incident_name && (
+        <div className="mb-3 p-3 bg-orange-500/10 border border-orange-500/20 rounded-xl">
+          <p className="text-[10px] font-bold text-orange-400 uppercase tracking-widest mb-0.5">Linked Incident</p>
+          <p className="text-white text-sm font-semibold">{fire.incident_name}</p>
+        </div>
+      )}
+
+      {(fire.county || fire.state) && (
+        <div className="mb-3 flex items-center gap-1.5 text-sentinel-300 text-sm">
+          <span>{[fire.county && `${fire.county} County`, fire.state].filter(Boolean).join(', ')}</span>
+        </div>
+      )}
+
+      {fire.effective_at && (
+        <div className="mb-2 text-xs text-sentinel-400">
+          Effective: <span className="text-sentinel-200">{new Date(fire.effective_at).toLocaleString()}</span>
+        </div>
+      )}
+
+      {fire.expires_at && (
+        <div className="mb-3 text-xs text-sentinel-400">
+          Expires: <span className="text-sentinel-200">{new Date(fire.expires_at).toLocaleString()}</span>
+        </div>
+      )}
+
+      {fire.description && (
+        <div className="mt-4">
+          <p className="text-[10px] font-bold text-sentinel-400 uppercase tracking-widest mb-2">Details</p>
+          <p className="text-sentinel-200 text-sm leading-relaxed whitespace-pre-wrap">{fire.description}</p>
+        </div>
+      )}
     </>
   );
 }

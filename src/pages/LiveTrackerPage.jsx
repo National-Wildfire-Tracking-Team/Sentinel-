@@ -56,6 +56,7 @@ const WILDFIRE_LAYER_PRESET = {
   spcOutlooks: false,
   radar: false,
   evacZones: false,
+  reporterEvacZones: true,
   rawsStations: false,
   flights: false,
   airNowMonitors: false,
@@ -237,6 +238,16 @@ export default function LiveTrackerPage() {
     geoJSON: evacZonesGeoJSON,
     refresh: refreshEvacZones,
   } = useCombinedEvacZones();
+
+  // Reporter-drawn evacuation zones (Supabase, active only)
+  const {
+    zones: reporterEvacZoneRows,
+    refresh: refreshReporterEvacZones,
+  } = useReporterEvacZones('active');
+  const reporterEvacZonesGeoJSON = useMemo(
+    () => reporterEvacZonesToGeoJSON(reporterEvacZoneRows),
+    [reporterEvacZoneRows]
+  );
 
 const flightBounds = useMemo(() => {
   if (!viewport) return null;
@@ -541,11 +552,12 @@ const flightBounds = useMemo(() => {
     refreshSpcOutlooks();
     refreshUserReports();
     refreshEvacZones();
+    refreshReporterEvacZones();
     if (layers.aqi) refreshAQI();
     if (layers.flights) refreshFlights();
     if (rawsEnabled) refreshRAWS();
     if (layers.airNowMonitors) refreshAirNowMonitors();
-  }, [refreshHotspots, refreshPerimeters, refreshAlerts, refreshIncidents, refreshStormReports, refreshSpcOutlooks, refreshUserReports, refreshEvacZones, refreshAQI, refreshFlights, refreshRAWS, refreshAirNowMonitors, layers.aqi, layers.flights, rawsEnabled, layers.airNowMonitors]);
+  }, [refreshHotspots, refreshPerimeters, refreshAlerts, refreshIncidents, refreshStormReports, refreshSpcOutlooks, refreshUserReports, refreshEvacZones, refreshReporterEvacZones, refreshAQI, refreshFlights, refreshRAWS, refreshAirNowMonitors, layers.aqi, layers.flights, rawsEnabled, layers.airNowMonitors]);
 
   return (
     <div className="h-screen w-screen flex flex-col bg-sentinel-900 text-white overflow-hidden select-none">
@@ -587,6 +599,7 @@ const flightBounds = useMemo(() => {
             spcOutlooksGeoJSON={spcOutlooksGeoJSON}
             userReportsGeoJSON={userReportsGeoJSON}
             evacZonesGeoJSON={evacZonesGeoJSON}
+            reporterEvacZonesGeoJSON={reporterEvacZonesGeoJSON}
             flightsGeoJSON={flightsGeoJSON}
             rawsGeoJSON={rawsGeoJSON}
             airNowMonitorsGeoJSON={airNowMonitorsGeoJSON}

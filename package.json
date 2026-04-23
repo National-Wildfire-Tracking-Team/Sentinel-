@@ -12,6 +12,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@mapbox/mapbox-gl-draw": "^1.5.1",
     "@supabase/supabase-js": "^2.103.0",
     "date-fns": "^3.6.0",
     "lucide-react": "^0.344.0",
