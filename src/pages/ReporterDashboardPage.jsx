@@ -15,6 +15,7 @@ import {
   Upload, X, LogOut, AlertCircle, CheckCircle2, Send, User,
   PlusCircle, Pencil, Trash2, RefreshCw, ChevronUp, Clock,
   Activity, Settings, ArrowLeft, Shield, Loader2, Globe,
+  AlertTriangle as TriangleAlert, Eye, EyeOff,
 } from 'lucide-react';
 
 import { useAuth } from '../context/AuthContext';
@@ -29,6 +30,14 @@ import {
 } from '../hooks/useFireReports';
 import { insertReporterUpdate } from '../hooks/useIncidentUpdates';
 import { fetchIncidents } from '../api/inciweb';
+import {
+  useReporterEvacZones,
+  createReporterEvacZone,
+  updateReporterEvacZone,
+  liftReporterEvacZone,
+  deleteReporterEvacZone,
+} from '../hooks/useReporterEvacZones';
+import EvacZoneDrawer from '../components/Map/EvacZoneDrawer';
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN || '';
 
@@ -719,6 +728,153 @@ function ExternalIncidentCard({ incident, profile, userId }) {
   );
 }
 
+/* ── Evac zone card ── */
+const ZONE_TYPE_COLORS = {
+  'Evacuation Order':   { bg: 'bg-red-500/15',    border: 'border-red-500/30',    text: 'text-red-400' },
+  'Evacuation Warning': { bg: 'bg-orange-500/15', border: 'border-orange-500/30', text: 'text-orange-400' },
+  'Evacuation Watch':   { bg: 'bg-yellow-500/15', border: 'border-yellow-500/30', text: 'text-yellow-400' },
+};
+
+function EvacZoneCard({ zone, onRefresh }) {
+  const [busy, setBusy]         = useState(false);
+  const [feedback, setFeedback] = useState(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+
+  const colors = ZONE_TYPE_COLORS[zone.zone_type] || ZONE_TYPE_COLORS['Evacuation Order'];
+
+  async function handleLift() {
+    setBusy(true);
+    setFeedback(null);
+    try {
+      await liftReporterEvacZone(zone.id);
+      setFeedback({ type: 'success', message: 'Zone lifted. It will no longer appear on the map.' });
+      onRefresh();
+    } catch (err) {
+      setFeedback({ type: 'error', message: err?.message || 'Failed to lift zone.' });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleDelete() {
+    setBusy(true);
+    setFeedback(null);
+    try {
+      await deleteReporterEvacZone(zone.id);
+      onRefresh();
+    } catch (err) {
+      setFeedback({ type: 'error', message: err?.message || 'Failed to delete zone.' });
+      setBusy(false);
+    }
+  }
+
+  const polygonCount = (() => {
+    const g = zone.geometry;
+    if (!g) return 0;
+    if (g.type === 'Polygon') return 1;
+    if (g.type === 'MultiPolygon') return g.coordinates?.length ?? 1;
+    return 1;
+  })();
+
+  return (
+    <div className={`bg-[#0d1117] border ${colors.border} rounded-xl p-4`}>
+      <div className="flex items-start justify-between gap-3 mb-2">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap mb-1">
+            <h3 className="font-bold text-white text-sm truncate">{zone.title}</h3>
+            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold border ${colors.bg} ${colors.border} ${colors.text} uppercase tracking-wider`}>
+              {zone.zone_type}
+            </span>
+            {zone.status !== 'active' && (
+              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold border bg-[#21262d] border-[#30363d] text-[#8b949e] uppercase tracking-wider">
+                {zone.status}
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-3 text-[#8b949e] text-xs flex-wrap">
+            {zone.incident_name && (
+              <span className="flex items-center gap-1">
+                <Flame size={10} className="text-orange-400" />
+                {zone.incident_name}
+              </span>
+            )}
+            {(zone.county || zone.state) && (
+              <span className="flex items-center gap-1">
+                <MapPin size={10} />
+                {[zone.county && `${zone.county} County`, zone.state].filter(Boolean).join(', ')}
+              </span>
+            )}
+            <span>{polygonCount} polygon{polygonCount !== 1 ? 's' : ''}</span>
+            <span className="text-[#484f58]">{new Date(zone.created_at).toLocaleDateString()}</span>
+          </div>
+          {zone.description && (
+            <p className="text-[#8b949e] text-xs mt-1.5 line-clamp-2">{zone.description}</p>
+          )}
+        </div>
+
+        <div className="flex items-center gap-1.5 shrink-0">
+          {zone.status === 'active' && (
+            <button
+              type="button"
+              onClick={handleLift}
+              disabled={busy}
+              title="Lift zone (deactivate)"
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium text-[#8b949e] border border-[#30363d] hover:text-orange-400 hover:border-orange-800 transition-colors disabled:opacity-50"
+            >
+              <EyeOff size={12} />
+              <span className="hidden sm:inline">Lift</span>
+            </button>
+          )}
+          {!confirmDelete ? (
+            <button
+              type="button"
+              onClick={() => setConfirmDelete(true)}
+              disabled={busy}
+              title="Delete zone"
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium text-[#8b949e] border border-[#30363d] hover:text-red-400 hover:border-red-800 transition-colors disabled:opacity-50"
+            >
+              <Trash2 size={12} />
+              <span className="hidden sm:inline">Delete</span>
+            </button>
+          ) : (
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs text-red-400">Sure?</span>
+              <button
+                type="button"
+                onClick={handleDelete}
+                disabled={busy}
+                className="px-2.5 py-1.5 rounded-lg text-xs font-semibold text-white bg-red-600 hover:bg-red-500 disabled:opacity-50 transition-colors"
+              >
+                {busy ? <RefreshCw size={11} className="animate-spin" /> : 'Yes'}
+              </button>
+              <button
+                type="button"
+                onClick={() => setConfirmDelete(false)}
+                className="px-2.5 py-1.5 rounded-lg text-xs font-medium text-[#8b949e] border border-[#30363d] hover:text-white transition-colors"
+              >
+                No
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {feedback && (
+        <div className={`flex items-start gap-2 mt-2 p-2.5 rounded-lg text-xs border ${
+          feedback.type === 'error'
+            ? 'bg-red-950/40 border-red-800/60 text-red-300'
+            : 'bg-green-950/40 border-green-800/60 text-green-300'
+        }`}>
+          {feedback.type === 'error'
+            ? <AlertCircle size={12} className="shrink-0 mt-0.5" />
+            : <CheckCircle2 size={12} className="shrink-0 mt-0.5" />}
+          <span>{feedback.message}</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ══════════════════════════════════════════════════════════
    Main page
 ══════════════════════════════════════════════════════════ */
@@ -728,6 +884,17 @@ export default function ReporterDashboardPage() {
   const navigate = useNavigate();
 
   const [activeTab, setActiveTab] = useState('add');
+
+  /* ── Evac Zones tab state ── */
+  const { zones: myEvacZones, loading: evacZonesLoading, refresh: refreshEvacZones } = useReporterEvacZones('all');
+  const myOwnEvacZones = useMemo(
+    () => (myEvacZones || []).filter((z) => z.user_id === user?.id),
+    [myEvacZones, user?.id],
+  );
+  const [showDrawer, setShowDrawer]         = useState(false);
+  const [evacSaving, setEvacSaving]         = useState(false);
+  const [evacSaveError, setEvacSaveError]   = useState(null);
+  const [evacSuccess, setEvacSuccess]       = useState(null);
 
   /* ── Add Incident form state ── */
   const [addressSearch, setAddressSearch] = useState('');
@@ -1064,13 +1231,18 @@ export default function ReporterDashboardPage() {
         {/* Page title */}
         <div className="mb-6">
           <h1 className="text-2xl font-bold text-white">
-            {activeTab === 'add' ? 'Add New Incident' : activeTab === 'manage' ? 'My Incidents' : 'External Incidents'}
+            {activeTab === 'add' ? 'Add New Incident'
+              : activeTab === 'manage' ? 'My Incidents'
+              : activeTab === 'evaczones' ? 'Evacuation Zones'
+              : 'External Incidents'}
           </h1>
           <p className="text-[#8b949e] text-sm mt-1">
             {activeTab === 'add'
               ? 'Submit a new wildfire incident. Complete all required (*) fields and click Submit.'
               : activeTab === 'manage'
               ? 'View, edit, post updates, or delete your submitted incidents.'
+              : activeTab === 'evaczones'
+              ? 'Draw and publish evacuation zone polygons directly on the live map.'
               : 'Post reporter updates to active IRWIN / WFIGS incidents from other sources.'}
           </p>
         </div>
@@ -1128,6 +1300,25 @@ export default function ReporterDashboardPage() {
             <Globe size={13} />
             <span className="hidden sm:inline">External Incidents</span>
             <span className="sm:hidden">External</span>
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === 'evaczones'}
+            onClick={() => { setActiveTab('evaczones'); refreshEvacZones(); }}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold uppercase tracking-wider transition-colors
+              ${activeTab === 'evaczones'
+                ? 'bg-red-600 text-white shadow'
+                : 'text-[#8b949e] hover:text-white hover:bg-[#21262d]'}`}
+          >
+            <TriangleAlert size={13} />
+            <span className="hidden sm:inline">Evac Zones</span>
+            <span className="sm:hidden">Evac</span>
+            {myOwnEvacZones.filter((z) => z.status === 'active').length > 0 && (
+              <span className="ml-0.5 px-1.5 py-0.5 rounded-full bg-white/20 text-[10px] font-bold">
+                {myOwnEvacZones.filter((z) => z.status === 'active').length}
+              </span>
+            )}
           </button>
         </div>
 
@@ -1452,6 +1643,117 @@ export default function ReporterDashboardPage() {
                 ))}
               </>
             )}
+          </div>
+        )}
+
+        {/* ════════════════ TAB 4: EVAC ZONES ════════════════ */}
+        {activeTab === 'evaczones' && (
+          <div className="space-y-5">
+
+            {/* Info banner */}
+            <div className="flex items-start gap-2.5 p-3 rounded-lg bg-red-950/30 border border-red-800/40">
+              <TriangleAlert size={14} className="text-red-400 shrink-0 mt-0.5" />
+              <p className="text-[11px] text-[#8b949e] leading-relaxed">
+                Draw evacuation zone polygons that appear instantly on the public Sentinel map.
+                Choose the zone type (Order / Warning / Watch), draw one or more polygons,
+                fill in the details, and click <strong className="text-[#c9d1d9]">Publish Zone</strong>.
+                You can lift or delete zones at any time from the list below.
+              </p>
+            </div>
+
+            {/* Draw new zone button / drawer */}
+            {!showDrawer ? (
+              <button
+                type="button"
+                onClick={() => { setEvacSuccess(null); setEvacSaveError(null); setShowDrawer(true); }}
+                className="w-full flex items-center justify-center gap-2 px-5 py-3 rounded-xl text-sm font-semibold text-white bg-red-600 hover:bg-red-500 transition-colors border border-red-500/40"
+              >
+                <TriangleAlert size={15} />
+                Draw New Evacuation Zone
+              </button>
+            ) : (
+              <div className="bg-[#0d1117] border border-[#21262d] rounded-xl p-5">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-white font-semibold text-sm">New Evacuation Zone</h3>
+                  <button
+                    type="button"
+                    onClick={() => setShowDrawer(false)}
+                    className="p-1.5 rounded-lg text-[#8b949e] hover:text-white hover:bg-[#21262d] transition-colors"
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+                <EvacZoneDrawer
+                  saving={evacSaving}
+                  saveError={evacSaveError}
+                  onCancel={() => setShowDrawer(false)}
+                  onSave={async (zoneData) => {
+                    setEvacSaving(true);
+                    setEvacSaveError(null);
+                    try {
+                      await createReporterEvacZone({ userId: user.id, ...zoneData });
+                      setShowDrawer(false);
+                      setEvacSuccess('Evacuation zone published and live on the map.');
+                      refreshEvacZones();
+                    } catch (err) {
+                      setEvacSaveError(err?.message || 'Failed to publish zone.');
+                    } finally {
+                      setEvacSaving(false);
+                    }
+                  }}
+                />
+              </div>
+            )}
+
+            {/* Success feedback */}
+            {evacSuccess && (
+              <div className="flex items-start gap-2 p-3 rounded-lg text-xs border bg-green-950/40 border-green-800/60 text-green-300">
+                <CheckCircle2 size={13} className="shrink-0 mt-0.5" />
+                <span>{evacSuccess}</span>
+              </div>
+            )}
+
+            {/* My zones list */}
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-[#8b949e] text-sm">
+                  {evacZonesLoading
+                    ? 'Loading zones…'
+                    : `${myOwnEvacZones.length} zone${myOwnEvacZones.length !== 1 ? 's' : ''}`}
+                </p>
+                <button
+                  type="button"
+                  onClick={refreshEvacZones}
+                  disabled={evacZonesLoading}
+                  className="flex items-center gap-1.5 text-xs text-[#8b949e] hover:text-white transition-colors disabled:opacity-50"
+                >
+                  <RefreshCw size={13} className={evacZonesLoading ? 'animate-spin' : ''} />
+                  Refresh
+                </button>
+              </div>
+
+              {evacZonesLoading ? (
+                <div className="flex items-center justify-center py-16">
+                  <div className="w-7 h-7 rounded-full border-2 border-red-500 border-t-transparent animate-spin" />
+                </div>
+              ) : myOwnEvacZones.length === 0 ? (
+                <div className="text-center py-16 bg-[#0d1117] border border-[#21262d] rounded-xl">
+                  <TriangleAlert size={32} className="mx-auto text-[#30363d] mb-3" />
+                  <p className="text-[#8b949e] text-sm font-medium">No evacuation zones yet</p>
+                  <p className="text-[#484f58] text-xs mt-1">Click the button above to draw your first evacuation zone.</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {myOwnEvacZones.map((zone) => (
+                    <EvacZoneCard
+                      key={zone.id}
+                      zone={zone}
+                      onRefresh={refreshEvacZones}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         )}
 

@@ -18,6 +18,7 @@ const LAYER_GROUPS = [
       { key: 'firePerimeters',    label: 'Fire Perimeters',     sublabel: 'NIFC WFIGS',             icon: MapPin,       color: '#ff6600' },
       { key: 'incidentLocations', label: 'Incident Locations',  sublabel: 'WFIGS · NWTT verified',  icon: Flame,        color: '#f59e0b' },
       { key: 'evacZones',         label: 'Evacuation Zones',    sublabel: 'Cal OES Hosted',         icon: AlertTriangle, color: '#ef4444' },
+      { key: 'reporterEvacZones', label: 'Reporter Evac Zones', sublabel: 'Field reporter polygons', icon: AlertTriangle, color: '#f97316' },
       { key: 'rawsStations',      label: 'RAWS Stations',       sublabel: 'Fire weather stations',  icon: Thermometer,  color: '#f97316' },
       { key: 'airNowMonitors',    label: 'Air Quality Monitors', sublabel: 'EPA AirNow sensor network', icon: Activity,  color: '#38bdf8' },
     ],
