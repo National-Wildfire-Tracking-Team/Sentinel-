@@ -257,16 +257,20 @@ function HoverTooltip({ feature, lngLat }) {
         'evacuation watch':   'text-yellow-400',
       };
       const statusKey = (p.warningType || '').toLowerCase();
-      const statusClass = statusColors[statusKey] || 'text-red-400';
+      const statusClass = statusColors[statusKey] || 'text-orange-400';
       content = (
         <>
           <div className={`font-semibold ${statusClass}`}>{p.warningType || 'Evacuation Zone'}</div>
           {p.zoneName && <div className="text-white text-xs mt-0.5 font-medium">{p.zoneName}</div>}
           {p.county && <div className="text-gray-300 text-xs">{p.county} County</div>}
+          {p.agency && <div className="text-gray-400 text-xs">{p.agency}</div>}
           {p.effectiveDate && (
             <div className="text-gray-400 text-xs">
               Effective: {new Date(p.effectiveDate).toLocaleString()}
             </div>
+          )}
+          {p.instructions && (
+            <div className="text-gray-400 text-xs mt-1 max-w-[220px] line-clamp-2">{p.instructions}</div>
           )}
         </>
       );
@@ -732,9 +736,14 @@ export default function MapView({
         warningType:    p.warningType,
         zoneName:       p.zoneName,
         county:         p.county,
+        agency:         p.agency         || null,
+        jurisdiction:   p.jurisdiction   || null,
+        instructions:   p.instructions   || null,
+        comments:       p.comments       || null,
         externalURL:    p.externalURL,
         effectiveDate:  p.effectiveDate,
         expirationDate: p.expirationDate,
+        source:         p.source         || null,
         lat:            evt.lngLat.lat,
         lng:            evt.lngLat.lng,
       });

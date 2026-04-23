@@ -657,6 +657,108 @@ function AQIDetail({ fire }) {
   );
 }
 
+function EvacZoneDetail({ fire }) {
+  const statusMap = {
+    'Evacuation Order':   { color: '#ef4444', label: 'Evacuation Order',   bg: 'bg-red-900/30',    border: 'border-red-800/50' },
+    'Evacuation Warning': { color: '#f97316', label: 'Evacuation Warning', bg: 'bg-orange-900/30', border: 'border-orange-800/50' },
+    'Evacuation Watch':   { color: '#eab308', label: 'Evacuation Watch',   bg: 'bg-yellow-900/30', border: 'border-yellow-800/50' },
+  };
+  const s = statusMap[fire.warningType] || statusMap['Evacuation Warning'];
+
+  return (
+    <>
+      <div className="flex items-center gap-2 mb-4">
+        <div className="p-2 rounded-lg" style={{ backgroundColor: s.color + '30' }}>
+          <AlertTriangle size={18} style={{ color: s.color }} />
+        </div>
+        <div>
+          <h3 className="font-bold text-white text-base">{fire.zoneName || 'Evacuation Zone'}</h3>
+          <p className="text-sentinel-400 text-xs">{fire.county ? `${fire.county} County` : 'Evacuation Zone'}</p>
+        </div>
+      </div>
+
+      {/* Status badge */}
+      <div className={`flex items-center gap-2 p-3 rounded-xl mb-4 ${s.bg} border ${s.border}`}>
+        <AlertTriangle size={14} style={{ color: s.color }} />
+        <span className="font-bold text-sm" style={{ color: s.color }}>{s.label}</span>
+      </div>
+
+      {/* Metadata grid */}
+      <div className="space-y-2 text-xs mb-4">
+        {fire.agency && (
+          <div className="flex justify-between gap-3">
+            <span className="text-sentinel-400">Agency</span>
+            <span className="text-white font-semibold text-right">{fire.agency}</span>
+          </div>
+        )}
+        {fire.jurisdiction && fire.jurisdiction !== fire.county && (
+          <div className="flex justify-between gap-3">
+            <span className="text-sentinel-400">Jurisdiction</span>
+            <span className="text-white font-semibold text-right">{fire.jurisdiction}</span>
+          </div>
+        )}
+        {fire.effectiveDate && (
+          <div className="flex justify-between gap-3">
+            <span className="text-sentinel-400">Effective</span>
+            <span className="text-white font-semibold">{formatDateTime(fire.effectiveDate)}</span>
+          </div>
+        )}
+        {fire.expirationDate && (
+          <div className="flex justify-between gap-3">
+            <span className="text-sentinel-400">Updated</span>
+            <span className="text-white font-semibold">{formatDateTime(fire.expirationDate)}</span>
+          </div>
+        )}
+        {fire.source && (
+          <div className="flex justify-between gap-3">
+            <span className="text-sentinel-400">Data source</span>
+            <span className="text-sentinel-300">{fire.source === 'prod' ? 'Cal OES PROD' : 'Cal OES Hosted'}</span>
+          </div>
+        )}
+      </div>
+
+      {/* Instructions */}
+      {fire.instructions && (
+        <div className={`p-3 rounded-lg mb-3 ${s.bg} border ${s.border}`}>
+          <p className="text-xs font-semibold mb-1" style={{ color: s.color }}>Instructions</p>
+          <p className="text-xs text-sentinel-200 leading-relaxed">{fire.instructions}</p>
+        </div>
+      )}
+
+      {/* Comments */}
+      {fire.comments && (
+        <div className="p-3 rounded-lg mb-3 bg-sentinel-800/60 border border-sentinel-700">
+          <p className="text-xs font-semibold text-sentinel-400 mb-1">Additional Information</p>
+          <p className="text-xs text-sentinel-300 leading-relaxed">{fire.comments}</p>
+        </div>
+      )}
+
+      {/* External link */}
+      {fire.externalURL && (
+        <a
+          href={fire.externalURL}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-1.5 text-xs text-blue-400 hover:text-blue-300 transition-colors mt-2"
+        >
+          <ExternalLink size={11} />
+          Official Information
+        </a>
+      )}
+
+      <div className={`mt-4 p-3 rounded-lg text-xs leading-relaxed ${s.bg} border ${s.border}`}>
+        <p style={{ color: s.color }}>
+          {fire.warningType === 'Evacuation Order'
+            ? 'Mandatory evacuation in effect. Leave the area immediately.'
+            : fire.warningType === 'Evacuation Warning'
+            ? 'Voluntary evacuation recommended. Be prepared to leave at short notice.'
+            : 'Monitor conditions closely. Be ready to evacuate if ordered.'}
+        </p>
+      </div>
+    </>
+  );
+}
+
 // ─── Main Panel ───────────────────────────────────────────────────────────────
 
 const FireDetailPanel = memo(function FireDetailPanel() {
@@ -746,11 +848,12 @@ const FireDetailPanel = memo(function FireDetailPanel() {
         {/* Panel header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-sentinel-700 shrink-0">
           <span className="text-xs font-bold text-sentinel-400 uppercase tracking-widest">
-            {selectedFire.type === 'hotspot'  ? 'Hotspot Detail' :
-             selectedFire.type === 'incident' ? 'Incident Detail' :
-             selectedFire.type === 'aqi'      ? 'Air Quality' :
-             selectedFire.type === 'weather-alert' ? 'Weather Alert' :
-             selectedFire.type === 'user-report' ? 'Community Report' :
+            {selectedFire.type === 'hotspot'         ? 'Hotspot Detail' :
+             selectedFire.type === 'incident'        ? 'Incident Detail' :
+             selectedFire.type === 'aqi'             ? 'Air Quality' :
+             selectedFire.type === 'weather-alert'   ? 'Weather Alert' :
+             selectedFire.type === 'user-report'     ? 'Community Report' :
+             selectedFire.type === 'evacuation-zone' ? 'Evacuation Zone' :
              'Fire Detail'}
           </span>
           <div className="flex items-center gap-1">
@@ -779,12 +882,13 @@ const FireDetailPanel = memo(function FireDetailPanel() {
 
         {/* Scrollable content */}
         <div className="flex-1 overflow-y-auto p-4">
-          {selectedFire.type === 'hotspot'  && <HotspotDetail  fire={selectedFire} />}
-          {selectedFire.type === 'perimeter' && <PerimeterDetail fire={selectedFire} />}
-          {selectedFire.type === 'incident' && <IncidentDetail  fire={selectedFire} />}
-          {selectedFire.type === 'aqi'      && <AQIDetail       fire={selectedFire} />}
-          {selectedFire.type === 'weather-alert' && <AlertDetail fire={selectedFire} alerts={alerts} />}
-          {selectedFire.type === 'user-report' && <UserReportDetail fire={selectedFire} />}
+          {selectedFire.type === 'hotspot'         && <HotspotDetail   fire={selectedFire} />}
+          {selectedFire.type === 'perimeter'       && <PerimeterDetail  fire={selectedFire} />}
+          {selectedFire.type === 'incident'        && <IncidentDetail   fire={selectedFire} />}
+          {selectedFire.type === 'aqi'             && <AQIDetail        fire={selectedFire} />}
+          {selectedFire.type === 'weather-alert'   && <AlertDetail      fire={selectedFire} alerts={alerts} />}
+          {selectedFire.type === 'user-report'     && <UserReportDetail fire={selectedFire} />}
+          {selectedFire.type === 'evacuation-zone' && <EvacZoneDetail   fire={selectedFire} />}
         </div>
       </div>
     </>

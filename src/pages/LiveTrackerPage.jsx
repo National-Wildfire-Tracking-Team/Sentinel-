@@ -20,7 +20,7 @@ import { useIncidents } from '../hooks/useIncidents';
 import { useStormReports } from '../hooks/useStormReports';
 import { useSpcOutlooks } from '../hooks/useSpcOutlooks';
 import { useFireReports, reportsToGeoJSON } from '../hooks/useFireReports';
-import { useEvacZones } from '../hooks/useEvacZones';
+import { useCombinedEvacZones } from '../hooks/useCombinedEvacZones';
 import { useFlightData } from '../hooks/useFlightData';
 import { useRAWSData } from '../hooks/useRAWSData';
 import { useAirNowMonitors } from '../hooks/useAirNowMonitors';
@@ -232,11 +232,11 @@ export default function LiveTrackerPage() {
     refresh: refreshSpcOutlooks,
   } = useSpcOutlooks(activeMapTab === MAP_TABS.weather);
 
-  // California evacuation zones (Cal OES NRT)
+  // California evacuation zones – combined CalOES hosted-view + PROD feed
   const {
     geoJSON: evacZonesGeoJSON,
     refresh: refreshEvacZones,
-  } = useEvacZones();
+  } = useCombinedEvacZones();
 
 const flightBounds = useMemo(() => {
   if (!viewport) return null;
