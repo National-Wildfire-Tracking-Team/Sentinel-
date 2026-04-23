@@ -233,7 +233,7 @@ export default function AccountPage() {
             <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border ${planColors[planId]}`}>
               {planId === 'pro' && <Zap size={11} />}
               {planId === 'team' && <Star size={11} />}
-              {plan.label} Plan
+              {plan.label}
             </span>
             {subscription?.status && subscription.status !== 'active' && (
               <span className="text-xs text-yellow-400 capitalize">{subscription.status}</span>
@@ -286,7 +286,7 @@ export default function AccountPage() {
                            hover:bg-fire-600/25 hover:text-fire-300 transition-colors"
               >
                 <Zap size={12} />
-                Upgrade to Pro
+                Upgrade to Pro — $9.99/mo
               </Link>
             )}
           </div>

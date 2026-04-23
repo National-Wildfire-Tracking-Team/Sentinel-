@@ -3,31 +3,43 @@
  * Exposes the current user's subscription plan and per-plan feature limits.
  *
  * Plans:
- *   free  – default; limited saved locations, no advanced features
- *   pro   – individual paid; extended limits + priority alerts
- *   team  – org/team paid; max limits + all features
+ *   free  – permanent free tier; core situational awareness
+ *   pro   – Sentinel Pro ($9.99/mo); field intelligence + infrastructure layers
+ *   team  – org/team tier; max limits + API + multi-seat
  */
 
 import { useAuth } from '../context/AuthContext';
 
-/** Per-plan feature definitions */
+/** Per-plan feature capability flags */
 export const PLANS = {
   free: {
     id: 'free',
     label: 'Free',
+    price: 0,
     savedLocationsLimit: 4,
     alertsEnabled: true,
+    basicAlerts: true,
     advancedLayers: false,
+    infrastructureLayers: false,
+    evacuationRoutes: false,
+    federalLandLayers: false,
+    camerasAircraft: true,
     apiAccess: false,
     priorityAlerts: false,
     teamMembers: 1,
   },
   pro: {
     id: 'pro',
-    label: 'Pro',
+    label: 'Sentinel Pro',
+    price: 9.99,
     savedLocationsLimit: 25,
     alertsEnabled: true,
+    basicAlerts: true,
     advancedLayers: true,
+    infrastructureLayers: true,   // highways, railroads, powerlines, pipelines (live)
+    evacuationRoutes: true,
+    federalLandLayers: false,     // coming soon
+    camerasAircraft: true,
     apiAccess: false,
     priorityAlerts: true,
     teamMembers: 1,
@@ -35,9 +47,15 @@ export const PLANS = {
   team: {
     id: 'team',
     label: 'Team',
+    price: 29,
     savedLocationsLimit: 100,
     alertsEnabled: true,
+    basicAlerts: true,
     advancedLayers: true,
+    infrastructureLayers: true,
+    evacuationRoutes: true,
+    federalLandLayers: true,
+    camerasAircraft: true,
     apiAccess: true,
     priorityAlerts: true,
     teamMembers: 10,
