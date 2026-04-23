@@ -14,6 +14,16 @@ import {
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../api/supabaseClient';
 
+/** Fetch the profile role for a user id immediately after sign-in. */
+async function fetchRole(userId) {
+  const { data } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', userId)
+    .maybeSingle();
+  return data?.role ?? 'public';
+}
+
 export default function ReporterLoginPage() {
   const { signIn, isSupabaseConfigured } = useAuth();
   const navigate = useNavigate();
@@ -37,8 +47,22 @@ export default function ReporterLoginPage() {
     setError(null);
     setBusy(true);
     try {
-      const { error: err } = await signIn(email, password, rememberMe);
+      const { data, error: err } = await signIn(email, password, rememberMe);
       if (err) throw err;
+
+      // Verify the signed-in user has a reporter (or admin) role.
+      // Regular users (role='public') are not permitted to access this portal.
+      const role = await fetchRole(data?.user?.id);
+      if (role !== 'reporter' && role !== 'admin') {
+        // Sign them back out immediately to keep the session clean.
+        await supabase.auth.signOut();
+        setError(
+          'This portal is for authorized reporters only. ' +
+          'If you are a member, please use the regular sign-in page.'
+        );
+        return;
+      }
+
       navigate(redirectTo, { replace: true });
     } catch (err) {
       const msg = err?.message || '';

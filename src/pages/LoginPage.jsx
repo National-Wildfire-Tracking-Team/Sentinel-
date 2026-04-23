@@ -1,7 +1,8 @@
 /**
  * LoginPage.jsx
- * Split-screen reporter login with email/password via Supabase Auth.
+ * Member login with email/password via Supabase Auth.
  * Left panel: Sentinel branding. Right panel: Member Login form.
+ * This page is for regular users (role: 'public'). Reporters use /reporter-login.
  */
 
 import { useState } from 'react';
@@ -12,6 +13,16 @@ import {
 
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../api/supabaseClient';
+
+/** Fetch the profile role for a user id immediately after sign-in. */
+async function fetchRole(userId) {
+  const { data } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', userId)
+    .maybeSingle();
+  return data?.role ?? 'public';
+}
 
 export default function LoginPage() {
   const { signIn, isSupabaseConfigured } = useAuth();
@@ -38,9 +49,17 @@ export default function LoginPage() {
     setError(null);
     setBusy(true);
     try {
-      const { error: err } = await signIn(email, password, rememberMe);
+      const { data, error: err } = await signIn(email, password, rememberMe);
       if (err) throw err;
-      navigate(redirectTo, { replace: true });
+
+      // Reporters who accidentally use the member login are redirected to their
+      // dashboard; admins also go there. Regular users go to the live tracker.
+      const role = await fetchRole(data?.user?.id);
+      if (role === 'reporter' || role === 'admin') {
+        navigate('/reporter-dashboard', { replace: true });
+      } else {
+        navigate(redirectTo, { replace: true });
+      }
     } catch (err) {
       const msg = err?.message || '';
       if (
@@ -114,8 +133,8 @@ export default function LoginPage() {
             National Wildfire Tracking Team
           </p>
           <p className="text-sentinel-200/70 leading-relaxed text-sm">
-            Secure reporter portal for submitting real-time wildfire incident
-            reports to the NWTT intelligence platform.
+            Access the real-time wildfire intelligence platform with live tracking,
+            alerts, and incident data powered by the NWTT network.
           </p>
 
           {/* Stats row */}
@@ -152,7 +171,7 @@ export default function LoginPage() {
             <>
               <h2 className="text-3xl font-bold text-white mb-1">Member Login</h2>
               <p className="text-sentinel-400 text-sm mb-8">
-                Sign in to access the reporter dashboard
+                Sign in to access the live wildfire tracker
               </p>
 
               {!isSupabaseConfigured && (

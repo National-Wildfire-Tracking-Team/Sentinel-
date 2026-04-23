@@ -1,6 +1,7 @@
 /**
  * RegisterPage.jsx
- * Public sign-up page — anyone can create a reporter account.
+ * Public sign-up page — anyone can create a member (user) account.
+ * Users get role='public' and access the live tracker. Reporters use /reporter-register.
  */
 
 import { useState } from 'react';
@@ -134,15 +135,15 @@ export default function RegisterPage() {
             National Wildfire Tracking Team
           </p>
           <p className="text-sentinel-200/70 leading-relaxed text-sm">
-            Join the NWTT reporter network and help track real-time wildfire
-            incidents across the country.
+            Join thousands of members monitoring real-time wildfire incidents,
+            alerts, and evacuation data across the country.
           </p>
 
           <div className="mt-14 grid grid-cols-3 gap-3">
             {[
               { value: 'Free',  label: 'Account'  },
-              { value: 'Live',  label: 'Reporting' },
-              { value: 'Team',  label: 'Network'  },
+              { value: 'Live',  label: 'Tracking' },
+              { value: 'Alerts', label: 'Enabled'  },
             ].map(({ value, label }) => (
               <div
                 key={label}
@@ -172,7 +173,7 @@ export default function RegisterPage() {
                 <h2 className="text-3xl font-bold text-white">Create Account</h2>
               </div>
               <p className="text-sentinel-400 text-sm mb-8">
-                Sign up to submit wildfire reports and join the NWTT network.
+                Sign up to track wildfires, receive alerts, and save locations.
               </p>
 
               {!isSupabaseConfigured && (
