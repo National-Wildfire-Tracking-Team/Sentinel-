@@ -21,6 +21,7 @@ import { useStormReports } from '../hooks/useStormReports';
 import { useSpcOutlooks } from '../hooks/useSpcOutlooks';
 import { useFireReports, reportsToGeoJSON } from '../hooks/useFireReports';
 import { useCombinedEvacZones } from '../hooks/useCombinedEvacZones';
+import { useReporterEvacZones, reporterEvacZonesToGeoJSON } from '../hooks/useReporterEvacZones';
 import { useFlightData } from '../hooks/useFlightData';
 import { useRAWSData } from '../hooks/useRAWSData';
 import { useAirNowMonitors } from '../hooks/useAirNowMonitors';
