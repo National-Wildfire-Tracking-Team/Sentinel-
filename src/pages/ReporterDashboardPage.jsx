@@ -880,7 +880,7 @@ function EvacZoneCard({ zone, onRefresh }) {
 ══════════════════════════════════════════════════════════ */
 
 export default function ReporterDashboardPage() {
-  const { user, profile, loading, signOut } = useAuth();
+  const { user, profile, loading, profileLoading, signOut } = useAuth();
   const navigate = useNavigate();
 
   const [activeTab, setActiveTab] = useState('add');
@@ -964,7 +964,7 @@ export default function ReporterDashboardPage() {
   }
 
   /* ── Auth guards ── */
-  if (loading) {
+  if (loading || profileLoading) {
     return (
       <div className="min-h-screen bg-[#010409] flex items-center justify-center">
         <div className="w-8 h-8 rounded-full border-2 border-[#0096ff] border-t-transparent animate-spin" aria-label="Loading" />
@@ -976,8 +976,47 @@ export default function ReporterDashboardPage() {
     return <Navigate to="/reporter-login" state={{ from: '/reporter-dashboard' }} replace />;
   }
 
-  if (profile?.role && profile.role !== 'reporter' && profile.role !== 'admin') {
-    return <Navigate to="/" replace />;
+  if (!profile || (profile.role !== 'reporter' && profile.role !== 'admin')) {
+    return (
+      <div className="min-h-screen bg-[#010409] flex items-center justify-center p-6">
+        <div className="w-full max-w-md text-center">
+          <div className="flex flex-col items-center mb-8">
+            <div className="w-16 h-16 rounded-2xl bg-red-900/30 border border-red-700/50 flex items-center justify-center mb-4">
+              <Shield size={32} className="text-red-400" />
+            </div>
+            <h1 className="text-white text-2xl font-bold tracking-tight">Access Denied</h1>
+            <p className="text-[#8b949e] text-sm mt-2">
+              The Reporter Dashboard is only available to authorized reporters.
+            </p>
+          </div>
+          <div className="bg-[#0d1117] border border-[#30363d] rounded-2xl p-6 shadow-2xl text-left">
+            <p className="text-[#8b949e] text-sm mb-4">
+              Your account (<span className="text-white font-medium">{profile.email ?? user.email}</span>)
+              does not have reporter access. This area is restricted to users with the{' '}
+              <span className="text-[#0096ff] font-medium">reporter</span> role.
+            </p>
+            <p className="text-[#8b949e] text-sm mb-6">
+              If you believe this is an error or would like to become a reporter,
+              please contact the NWTT team.
+            </p>
+            <div className="flex flex-col gap-3">
+              <Link
+                to="/sentinel"
+                className="w-full py-2.5 rounded-lg font-semibold text-sm text-white bg-[#0096ff] hover:bg-[#0080db] transition-all text-center"
+              >
+                Go to Live Tracker
+              </Link>
+              <Link
+                to="/"
+                className="w-full py-2.5 rounded-lg font-semibold text-sm text-[#8b949e] border border-[#30363d] hover:border-[#8b949e] hover:text-white transition-all text-center"
+              >
+                Back to Home
+              </Link>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   /* ── Image helpers ── */

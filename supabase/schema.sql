@@ -117,11 +117,18 @@ create policy "reports admin read all"
   on public.fire_reports for select
   using (public.is_admin());
 
--- Logged-in users can insert their OWN reports
+-- Only reporters and admins can insert their OWN reports
 drop policy if exists "reports insert own" on public.fire_reports;
 create policy "reports insert own"
   on public.fire_reports for insert
-  with check (auth.uid() = user_id and status in ('approved','pending'));
+  with check (
+    auth.uid() = user_id
+    and status in ('approved','pending')
+    and exists (
+      select 1 from public.profiles
+      where id = auth.uid() and role in ('reporter', 'admin')
+    )
+  );
 
 -- Only admins can change status (approve / reject)
 drop policy if exists "reports admin update" on public.fire_reports;
@@ -130,19 +137,37 @@ create policy "reports admin update"
   using (public.is_admin())
   with check (public.is_admin());
 
--- Reporters can update details for their own fires (description/title/location),
--- but cannot reassign ownership.
+-- Reporters and admins can update details for their own fires (description/title/location),
+-- but cannot reassign ownership. Users with role='public' have no write access.
 drop policy if exists "reports update own details" on public.fire_reports;
 create policy "reports update own details"
   on public.fire_reports for update
-  using (auth.uid() = user_id)
-  with check (auth.uid() = user_id);
+  using (
+    auth.uid() = user_id
+    and exists (
+      select 1 from public.profiles
+      where id = auth.uid() and role in ('reporter', 'admin')
+    )
+  )
+  with check (
+    auth.uid() = user_id
+    and exists (
+      select 1 from public.profiles
+      where id = auth.uid() and role in ('reporter', 'admin')
+    )
+  );
 
--- Reporters can delete their own fire report entries.
+-- Reporters and admins can delete their own fire report entries.
 drop policy if exists "reports delete own" on public.fire_reports;
 create policy "reports delete own"
   on public.fire_reports for delete
-  using (auth.uid() = user_id);
+  using (
+    auth.uid() = user_id
+    and exists (
+      select 1 from public.profiles
+      where id = auth.uid() and role in ('reporter', 'admin')
+    )
+  );
 
 
 -- ─── 4. incident_updates table (timeline feed) ────────────────────────────
@@ -172,24 +197,48 @@ create policy "updates public read"
   on public.incident_updates for select
   using (true);
 
--- Authenticated users can insert their own updates
+-- Only reporters and admins can insert their own updates
 drop policy if exists "updates insert own" on public.incident_updates;
 create policy "updates insert own"
   on public.incident_updates for insert
-  with check (auth.uid() = user_id);
+  with check (
+    auth.uid() = user_id
+    and exists (
+      select 1 from public.profiles
+      where id = auth.uid() and role in ('reporter', 'admin')
+    )
+  );
 
--- Reporters can update their own updates
+-- Reporters and admins can update their own updates
 drop policy if exists "updates update own" on public.incident_updates;
 create policy "updates update own"
   on public.incident_updates for update
-  using (auth.uid() = user_id)
-  with check (auth.uid() = user_id);
+  using (
+    auth.uid() = user_id
+    and exists (
+      select 1 from public.profiles
+      where id = auth.uid() and role in ('reporter', 'admin')
+    )
+  )
+  with check (
+    auth.uid() = user_id
+    and exists (
+      select 1 from public.profiles
+      where id = auth.uid() and role in ('reporter', 'admin')
+    )
+  );
 
--- Reporters can delete their own updates
+-- Reporters and admins can delete their own updates
 drop policy if exists "updates delete own" on public.incident_updates;
 create policy "updates delete own"
   on public.incident_updates for delete
-  using (auth.uid() = user_id);
+  using (
+    auth.uid() = user_id
+    and exists (
+      select 1 from public.profiles
+      where id = auth.uid() and role in ('reporter', 'admin')
+    )
+  );
 
 -- Admins can manage all updates
 drop policy if exists "updates admin all" on public.incident_updates;

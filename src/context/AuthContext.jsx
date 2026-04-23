@@ -73,7 +73,7 @@ export function AuthProvider({ children }) {
         console.warn('[Auth] Failed to load profile:', profileRes.error.message);
         setProfile({ id: session.user.id, email: session.user.email, role: 'public' });
       } else {
-        setProfile(profileRes.data ?? { id: session.user.id, email: session.user.email, role: 'reporter' });
+        setProfile(profileRes.data ?? { id: session.user.id, email: session.user.email, role: 'public' });
       }
 
       // Default to free plan if no subscription row exists yet
