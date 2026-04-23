@@ -1,7 +1,7 @@
 /**
  * AuthContext.jsx
- * Supabase Auth provider. Tracks the current session, user, and their
- * profile role ("public" | "reporter" | "admin").
+ * Supabase Auth provider. Tracks the current session, user, profile role,
+ * and subscription plan ("free" | "pro" | "team").
  */
 
 import { createContext, useContext, useEffect, useState, useCallback } from 'react';
@@ -12,6 +12,7 @@ const AuthContext = createContext(null);
 export function AuthProvider({ children }) {
   const [session, setSession] = useState(null);
   const [profile, setProfile] = useState(null);
+  const [subscription, setSubscription] = useState(null);
   const [loading, setLoading] = useState(true);
   const [profileLoading, setProfileLoading] = useState(false);
 
@@ -40,10 +41,11 @@ export function AuthProvider({ children }) {
     };
   }, []);
 
-  // Whenever the signed-in user changes, fetch their profile (for role)
+  // Whenever the signed-in user changes, fetch their profile and subscription
   useEffect(() => {
     if (!isSupabaseConfigured || !session?.user) {
       setProfile(null);
+      setSubscription(null);
       setProfileLoading(false);
       return;
     }
@@ -51,22 +53,32 @@ export function AuthProvider({ children }) {
     setProfileLoading(true);
     let cancelled = false;
     (async () => {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('id, email, role')
-        .eq('id', session.user.id)
-        .maybeSingle();
+      const [profileRes, subRes] = await Promise.all([
+        supabase
+          .from('profiles')
+          .select('id, email, role')
+          .eq('id', session.user.id)
+          .maybeSingle(),
+        supabase
+          .from('subscriptions')
+          .select('plan, status, current_period_end, cancel_at_period_end, stripe_customer_id')
+          .eq('user_id', session.user.id)
+          .maybeSingle(),
+      ]);
 
       if (cancelled) return;
-      if (error) {
+
+      if (profileRes.error) {
         // eslint-disable-next-line no-console
-        console.warn('[Auth] Failed to load profile:', error.message);
+        console.warn('[Auth] Failed to load profile:', profileRes.error.message);
         setProfile({ id: session.user.id, email: session.user.email, role: 'public' });
       } else {
-        // If no profile row exists yet (trigger delay on new signup), fall back
-        // to 'reporter' so a new reporter isn't bounced to the register page.
-        setProfile(data ?? { id: session.user.id, email: session.user.email, role: 'reporter' });
+        setProfile(profileRes.data ?? { id: session.user.id, email: session.user.email, role: 'reporter' });
       }
+
+      // Default to free plan if no subscription row exists yet
+      setSubscription(subRes.data ?? { plan: 'free', status: 'active', cancel_at_period_end: false });
+
       setProfileLoading(false);
     })();
 
@@ -101,6 +113,7 @@ export function AuthProvider({ children }) {
     session,
     user: session?.user ?? null,
     profile,
+    subscription,
     role: profile?.role ?? null,
     isAdmin: profile?.role === 'admin',
     isReporter: profile?.role === 'reporter',

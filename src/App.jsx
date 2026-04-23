@@ -18,6 +18,7 @@ const VolunteerPage = lazy(() => import('./pages/VolunteerPage'));
 const LiveTrackerPage = lazy(() => import('./pages/LiveTrackerPage'));
 const PrivacyPolicyPage = lazy(() => import('./pages/PrivacyPolicyPage'));
 const TermsPage = lazy(() => import('./pages/TermsPage'));
+const PricingPage = lazy(() => import('./pages/PricingPage'));
 const LoginPage = lazy(() => import('./pages/LoginPage'));
 const RegisterPage = lazy(() => import('./pages/RegisterPage'));
 const ReporterLoginPage = lazy(() => import('./pages/ReporterLoginPage'));
@@ -84,6 +85,14 @@ export default function App() {
             element={
               <SiteLayout>
                 <VolunteerPage />
+              </SiteLayout>
+            }
+          />
+          <Route
+            path="/pricing"
+            element={
+              <SiteLayout>
+                <PricingPage />
               </SiteLayout>
             }
           />
