@@ -808,12 +808,12 @@ const FireDetailPanel = memo(function FireDetailPanel() {
         {/* Panel header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-sentinel-700 shrink-0">
           <span className="text-xs font-bold text-sentinel-400 uppercase tracking-widest">
-            {selectedFire.type === 'hotspot'  ? 'Hotspot Detail' :
-             selectedFire.type === 'incident' ? 'Incident Detail' :
-             selectedFire.type === 'aqi'      ? 'Air Quality' :
-             selectedFire.type === 'weather-alert' ? 'Weather Alert' :
-             selectedFire.type === 'user-report' ? 'Community Report' :
-             selectedFire.type === 'reporter-evacuation-zone' ? 'Reporter Evac Zone' :
+            {selectedFire.type === 'hotspot'         ? 'Hotspot Detail' :
+             selectedFire.type === 'incident'        ? 'Incident Detail' :
+             selectedFire.type === 'aqi'             ? 'Air Quality' :
+             selectedFire.type === 'weather-alert'   ? 'Weather Alert' :
+             selectedFire.type === 'user-report'     ? 'Community Report' :
+             selectedFire.type === 'evacuation-zone' ? 'Evacuation Zone' :
              'Fire Detail'}
           </span>
           <div className="flex items-center gap-1">
@@ -842,13 +842,13 @@ const FireDetailPanel = memo(function FireDetailPanel() {
 
         {/* Scrollable content */}
         <div className="flex-1 overflow-y-auto p-4">
-          {selectedFire.type === 'hotspot'  && <HotspotDetail  fire={selectedFire} />}
-          {selectedFire.type === 'perimeter' && <PerimeterDetail fire={selectedFire} />}
-          {selectedFire.type === 'incident' && <IncidentDetail  fire={selectedFire} />}
-          {selectedFire.type === 'aqi'      && <AQIDetail       fire={selectedFire} />}
-          {selectedFire.type === 'weather-alert' && <AlertDetail fire={selectedFire} alerts={alerts} />}
-          {selectedFire.type === 'user-report' && <UserReportDetail fire={selectedFire} />}
-          {selectedFire.type === 'reporter-evacuation-zone' && <ReporterEvacZoneDetail fire={selectedFire} />}
+          {selectedFire.type === 'hotspot'         && <HotspotDetail   fire={selectedFire} />}
+          {selectedFire.type === 'perimeter'       && <PerimeterDetail  fire={selectedFire} />}
+          {selectedFire.type === 'incident'        && <IncidentDetail   fire={selectedFire} />}
+          {selectedFire.type === 'aqi'             && <AQIDetail        fire={selectedFire} />}
+          {selectedFire.type === 'weather-alert'   && <AlertDetail      fire={selectedFire} alerts={alerts} />}
+          {selectedFire.type === 'user-report'     && <UserReportDetail fire={selectedFire} />}
+          {selectedFire.type === 'evacuation-zone' && <EvacZoneDetail   fire={selectedFire} />}
         </div>
       </div>
     </>
