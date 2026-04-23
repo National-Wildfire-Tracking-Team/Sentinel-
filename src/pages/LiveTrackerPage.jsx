@@ -23,6 +23,7 @@ import { useFireReports, reportsToGeoJSON } from '../hooks/useFireReports';
 import { useEvacZones } from '../hooks/useEvacZones';
 import { useFlightData } from '../hooks/useFlightData';
 import { useRAWSData } from '../hooks/useRAWSData';
+import { useAirNowMonitors } from '../hooks/useAirNowMonitors';
 import { polygonCentroid } from '../utils/geoUtils';
 
 // Components
@@ -57,6 +58,7 @@ const WILDFIRE_LAYER_PRESET = {
   evacZones: false,
   rawsStations: false,
   flights: false,
+  airNowMonitors: false,
 };
 
 const WEATHER_LAYER_PRESET = {
@@ -75,6 +77,7 @@ const WEATHER_LAYER_PRESET = {
   evacZones: false,
   rawsStations: false,
   flights: false,
+  airNowMonitors: false,
 };
 
 const THREE_DAYS_MS = 3 * 24 * 60 * 60 * 1000;
@@ -273,6 +276,12 @@ const flightBounds = useMemo(() => {
     geoJSON: rawsGeoJSON,
     refresh: refreshRAWS,
   } = useRAWSData(rawsEnabled);
+
+  // AirNow monitor stations – only fetch when the layer is toggled on
+  const {
+    geoJSON: airNowMonitorsGeoJSON,
+    refresh: refreshAirNowMonitors,
+  } = useAirNowMonitors(layers.airNowMonitors);
 
   useEffect(() => {
     if (flightsError) console.error('[FlightTracking] Error:', flightsError);
@@ -535,7 +544,8 @@ const flightBounds = useMemo(() => {
     if (layers.aqi) refreshAQI();
     if (layers.flights) refreshFlights();
     if (rawsEnabled) refreshRAWS();
-  }, [refreshHotspots, refreshPerimeters, refreshAlerts, refreshIncidents, refreshStormReports, refreshSpcOutlooks, refreshUserReports, refreshEvacZones, refreshAQI, refreshFlights, refreshRAWS, layers.aqi, layers.flights, rawsEnabled]);
+    if (layers.airNowMonitors) refreshAirNowMonitors();
+  }, [refreshHotspots, refreshPerimeters, refreshAlerts, refreshIncidents, refreshStormReports, refreshSpcOutlooks, refreshUserReports, refreshEvacZones, refreshAQI, refreshFlights, refreshRAWS, refreshAirNowMonitors, layers.aqi, layers.flights, rawsEnabled, layers.airNowMonitors]);
 
   return (
     <div className="h-screen w-screen flex flex-col bg-sentinel-900 text-white overflow-hidden select-none">
@@ -579,6 +589,7 @@ const flightBounds = useMemo(() => {
             evacZonesGeoJSON={evacZonesGeoJSON}
             flightsGeoJSON={flightsGeoJSON}
             rawsGeoJSON={rawsGeoJSON}
+            airNowMonitorsGeoJSON={airNowMonitorsGeoJSON}
             savedLocations={savedLocations}
             measureActive={measureActive}
             measureMode={measureMode}

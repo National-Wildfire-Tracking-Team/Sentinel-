@@ -6,7 +6,7 @@
 
 import { useState, memo } from 'react';
 import {
-  Layers, Flame, MapPin, Wind, CloudRain, Eye, ChevronDown, ChevronRight, Radar, AlertTriangle, Ruler, Hexagon, PlaneTakeoff, Satellite, Map as MapIcon, Thermometer, Crosshair,
+  Layers, Flame, MapPin, Wind, CloudRain, Eye, ChevronDown, ChevronRight, Radar, AlertTriangle, Ruler, Hexagon, PlaneTakeoff, Satellite, Map as MapIcon, Thermometer, Crosshair, Activity,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 
@@ -19,6 +19,7 @@ const LAYER_GROUPS = [
       { key: 'incidentLocations', label: 'Incident Locations',  sublabel: 'WFIGS · NWTT verified',  icon: Flame,        color: '#f59e0b' },
       { key: 'evacZones',         label: 'Evacuation Zones',    sublabel: 'Cal OES Hosted',         icon: AlertTriangle, color: '#ef4444' },
       { key: 'rawsStations',      label: 'RAWS Stations',       sublabel: 'Fire weather stations',  icon: Thermometer,  color: '#f97316' },
+      { key: 'airNowMonitors',    label: 'Air Quality Monitors', sublabel: 'EPA AirNow sensor network', icon: Activity,  color: '#38bdf8' },
     ],
   },
   {
