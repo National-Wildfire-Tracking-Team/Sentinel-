@@ -198,10 +198,12 @@ function EditBox({ update, onSave, onCancel }) {
  */
 export default function IncidentTimeline({ incidentId, allowPost = false, dataSource = 'NIFC / IRWIN' }) {
   const { updates, loading, error, addUpdate, editUpdate, deleteUpdate } = useIncidentUpdates(incidentId);
-  const { user, profile, isAuthenticated } = useAuth();
+  const { user, profile, isAuthenticated, isReporter, isAdmin } = useAuth();
   const [editing, setEditing] = useState(null);
 
-  const canPost = allowPost && isAuthenticated;
+  // Reporters and admins can post to any incident timeline they can view.
+  // Explicit allowPost prop also enables posting (e.g. from reporter dashboard).
+  const canPost = isAuthenticated && (allowPost || isReporter || isAdmin);
 
   const handleAdd = async (content) => {
     const sourceName = profile?.email?.split('@')[0] || 'Reporter';
