@@ -657,6 +657,68 @@ function AQIDetail({ fire }) {
   );
 }
 
+// ─── Reporter Evacuation Zone Detail ─────────────────────────────────────────
+
+function ReporterEvacZoneDetail({ fire }) {
+  const ZONE_TYPE_COLOR = {
+    'Evacuation Order':   '#ef4444',
+    'Evacuation Warning': '#f97316',
+    'Evacuation Watch':   '#eab308',
+  };
+  const color = ZONE_TYPE_COLOR[fire.zone_type] || '#ef4444';
+
+  return (
+    <>
+      <div className="mb-4">
+        <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+          <h3 className="font-bold text-white text-lg leading-tight">{fire.title || fire.name}</h3>
+        </div>
+        <div
+          className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold border"
+          style={{ backgroundColor: color + '22', borderColor: color + '66', color }}
+        >
+          {fire.zone_type || 'Evacuation Zone'}
+        </div>
+        <p className="text-sentinel-400 text-[11px] mt-1.5 uppercase tracking-wider">
+          Reporter-Drawn Zone
+        </p>
+      </div>
+
+      {fire.incident_name && (
+        <div className="mb-3 p-3 bg-orange-500/10 border border-orange-500/20 rounded-xl">
+          <p className="text-[10px] font-bold text-orange-400 uppercase tracking-widest mb-0.5">Linked Incident</p>
+          <p className="text-white text-sm font-semibold">{fire.incident_name}</p>
+        </div>
+      )}
+
+      {(fire.county || fire.state) && (
+        <div className="mb-3 flex items-center gap-1.5 text-sentinel-300 text-sm">
+          <span>{[fire.county && `${fire.county} County`, fire.state].filter(Boolean).join(', ')}</span>
+        </div>
+      )}
+
+      {fire.effective_at && (
+        <div className="mb-2 text-xs text-sentinel-400">
+          Effective: <span className="text-sentinel-200">{new Date(fire.effective_at).toLocaleString()}</span>
+        </div>
+      )}
+
+      {fire.expires_at && (
+        <div className="mb-3 text-xs text-sentinel-400">
+          Expires: <span className="text-sentinel-200">{new Date(fire.expires_at).toLocaleString()}</span>
+        </div>
+      )}
+
+      {fire.description && (
+        <div className="mt-4">
+          <p className="text-[10px] font-bold text-sentinel-400 uppercase tracking-widest mb-2">Details</p>
+          <p className="text-sentinel-200 text-sm leading-relaxed whitespace-pre-wrap">{fire.description}</p>
+        </div>
+      )}
+    </>
+  );
+}
+
 // ─── Main Panel ───────────────────────────────────────────────────────────────
 
 const FireDetailPanel = memo(function FireDetailPanel() {
@@ -751,6 +813,7 @@ const FireDetailPanel = memo(function FireDetailPanel() {
              selectedFire.type === 'aqi'      ? 'Air Quality' :
              selectedFire.type === 'weather-alert' ? 'Weather Alert' :
              selectedFire.type === 'user-report' ? 'Community Report' :
+             selectedFire.type === 'reporter-evacuation-zone' ? 'Reporter Evac Zone' :
              'Fire Detail'}
           </span>
           <div className="flex items-center gap-1">
@@ -785,6 +848,7 @@ const FireDetailPanel = memo(function FireDetailPanel() {
           {selectedFire.type === 'aqi'      && <AQIDetail       fire={selectedFire} />}
           {selectedFire.type === 'weather-alert' && <AlertDetail fire={selectedFire} alerts={alerts} />}
           {selectedFire.type === 'user-report' && <UserReportDetail fire={selectedFire} />}
+          {selectedFire.type === 'reporter-evacuation-zone' && <ReporterEvacZoneDetail fire={selectedFire} />}
         </div>
       </div>
     </>
