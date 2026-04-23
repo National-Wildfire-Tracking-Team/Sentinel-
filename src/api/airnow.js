@@ -83,6 +83,79 @@ function normalizeAQIStations(features) {
   }));
 }
 
+// ─── AirNow Monitor Data (individual sensor readings) ─────────────────────────
+
+const AIRNOW_MONITOR_URL =
+  'https://services.arcgis.com/cJ9YHowT8TU7DUyn/arcgis/rest/services' +
+  '/Air_Now_Monitor_Data_Public/FeatureServer/0/query';
+
+/**
+ * Fetch AirNow monitor point data (individual sensor stations with PM2.5,
+ * PM10, Ozone AQI readings) from the public ArcGIS FeatureServer.
+ * Returns a GeoJSON FeatureCollection ready for Mapbox.
+ */
+export async function fetchAirNowMonitors() {
+  const params = new URLSearchParams({
+    where: "CountryCode='US' OR CountryCode='CA'",
+    outFields: 'AQSID,SiteName,StateName,Status,PM25_AQI,PM25_AQI_LABEL,PM10_AQI,PM10_AQI_LABEL,OZONE_AQI,OZONE_AQI_LABEL,OZONEPM_AQI,OZONEPM_AQI_LABEL,PM_AQI,PM_AQI_LABEL,Latitude,Longitude,LocalTimeString,MonitorType',
+    outSR: '4326',
+    f: 'json',
+    resultRecordCount: '5000',
+  });
+
+  const cacheKey = 'airnow:monitors';
+  const url = `${AIRNOW_MONITOR_URL}?${params}`;
+
+  const data = await fetchWithCache(url, cacheKey, {}, 15 * 60 * 1000);
+
+  if (!data?.features?.length) {
+    throw new Error('Empty monitor response');
+  }
+
+  return esriToMonitorGeoJSON(data.features);
+}
+
+function esriToMonitorGeoJSON(features) {
+  const geojsonFeatures = features
+    .filter(f => f.geometry && f.geometry.x != null && f.geometry.y != null)
+    .map(f => {
+      const a = f.attributes;
+      // Primary AQI: combined Ozone+PM if available, otherwise whichever is present
+      const primaryAqi = a.OZONEPM_AQI ?? a.PM_AQI ?? a.PM25_AQI ?? a.OZONE_AQI ?? null;
+      const primaryLabel = a.OZONEPM_AQI_LABEL ?? a.PM_AQI_LABEL ?? a.PM25_AQI_LABEL ?? a.OZONE_AQI_LABEL ?? 'ND';
+
+      return {
+        type: 'Feature',
+        geometry: {
+          type: 'Point',
+          coordinates: [f.geometry.x, f.geometry.y],
+        },
+        properties: {
+          aqsid:       a.AQSID ?? '',
+          siteName:    a.SiteName ?? '',
+          stateName:   a.StateName ?? '',
+          status:      a.Status ?? '',
+          aqi:         primaryAqi,
+          aqiLabel:    primaryLabel,
+          pm25Aqi:     a.PM25_AQI ?? null,
+          pm25Label:   a.PM25_AQI_LABEL ?? 'ND',
+          pm10Aqi:     a.PM10_AQI ?? null,
+          pm10Label:   a.PM10_AQI_LABEL ?? 'ND',
+          ozoneAqi:    a.OZONE_AQI ?? null,
+          ozoneLabel:  a.OZONE_AQI_LABEL ?? 'ND',
+          pmAqi:       a.PM_AQI ?? null,
+          pmLabel:     a.PM_AQI_LABEL ?? 'ND',
+          localTime:   a.LocalTimeString ?? '',
+          monitorType: a.MonitorType ?? '',
+        },
+      };
+    });
+
+  return { type: 'FeatureCollection', features: geojsonFeatures };
+}
+
+// ─── AQI GeoJSON helper ────────────────────────────────────────────────────────
+
 /**
  * Convert array of AQI stations to GeoJSON FeatureCollection.
  */

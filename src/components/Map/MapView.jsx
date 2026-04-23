@@ -32,6 +32,7 @@ import { MeasurementLayer, MeasurementPanel } from './MeasurementTool';
 import { PrecipitationRing } from './PrecipitationRing';
 import FlightLayer from './layers/FlightLayer';
 import RAWSLayer from './layers/RAWSLayer';
+import AirNowMonitorsLayer from './layers/AirNowMonitorsLayer';
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN || '';
 const HAS_MAPBOX_TOKEN = Boolean(MAPBOX_TOKEN.trim());
@@ -271,6 +272,66 @@ function HoverTooltip({ feature, lngLat }) {
       );
       break;
     }
+    case 'airnow-monitors-circle': {
+      const aqiColor = (aqi) => {
+        if (aqi == null) return '#94a3b8';
+        if (aqi <= 50)  return '#00e400';
+        if (aqi <= 100) return '#ffff00';
+        if (aqi <= 150) return '#ff7e00';
+        if (aqi <= 200) return '#ff0000';
+        if (aqi <= 300) return '#8f3f97';
+        return '#7e0023';
+      };
+      const aqiCategory = (aqi) => {
+        if (aqi == null) return 'No Data';
+        if (aqi <= 50)  return 'Good';
+        if (aqi <= 100) return 'Moderate';
+        if (aqi <= 150) return 'Unhealthy for Sensitive Groups';
+        if (aqi <= 200) return 'Unhealthy';
+        if (aqi <= 300) return 'Very Unhealthy';
+        return 'Hazardous';
+      };
+      const primaryAqi = p.aqi != null ? num(p.aqi) : null;
+      content = (
+        <>
+          <div className="font-semibold text-sky-300">{p.siteName || 'AirNow Monitor'}</div>
+          {p.stateName && <div className="text-gray-400 text-[10px]">{p.stateName}</div>}
+          <div className="mt-1.5 space-y-0.5">
+            <div className="flex items-center gap-1.5">
+              <span
+                className="inline-block w-2 h-2 rounded-full shrink-0"
+                style={{ backgroundColor: aqiColor(primaryAqi) }}
+              />
+              <span className="text-gray-300 text-xs">
+                AQI: <span className="text-white font-medium">{primaryAqi ?? 'ND'}</span>
+                {primaryAqi != null && (
+                  <span className="text-gray-400"> · {aqiCategory(primaryAqi)}</span>
+                )}
+              </span>
+            </div>
+            {p.pm25Aqi != null && (
+              <div className="text-gray-300 text-xs">
+                PM2.5 AQI: <span className="text-white font-medium">{num(p.pm25Aqi)}</span>
+              </div>
+            )}
+            {p.pm10Aqi != null && (
+              <div className="text-gray-300 text-xs">
+                PM10 AQI: <span className="text-white font-medium">{num(p.pm10Aqi)}</span>
+              </div>
+            )}
+            {p.ozoneAqi != null && (
+              <div className="text-gray-300 text-xs">
+                Ozone AQI: <span className="text-white font-medium">{num(p.ozoneAqi)}</span>
+              </div>
+            )}
+          </div>
+          {p.localTime && (
+            <div className="text-gray-500 text-[10px] mt-1">{p.localTime}</div>
+          )}
+        </>
+      );
+      break;
+    }
     default:
       return null;
   }
@@ -364,6 +425,7 @@ function FlightDetailPopup({ flight, lngLat, onClose }) {
  * @param {object|null} props.evacZonesGeoJSON
  * @param {object|null} props.flightsGeoJSON
  * @param {object|null} props.rawsGeoJSON
+ * @param {object|null} props.airNowMonitorsGeoJSON
  * @param {Array}       [props.savedLocations]
  * @param {'wildfire'|'weather'} [props.activeMapTab]
  */
@@ -383,6 +445,7 @@ export default function MapView({
   evacZonesGeoJSON,
   flightsGeoJSON,
   rawsGeoJSON,
+  airNowMonitorsGeoJSON,
   savedLocations = [],
   measureActive = false,
   measureMode = 'distance',
@@ -511,12 +574,13 @@ export default function MapView({
     if (isWildfireTab && layers.evacZones && evacZonesGeoJSON)            ids.push('evac-zones-fill');
     if (layers.flights && flightsGeoJSON)                                 ids.push('flights-symbol');
     if (layers.rawsStations && rawsGeoJSON)                               ids.push('raws-stations-circle');
+    if (isWildfireTab && layers.airNowMonitors && airNowMonitorsGeoJSON)  ids.push('airnow-monitors-circle');
     return ids;
   }, [measureActive, isWildfireTab, isWeatherTab, layers.fireHotspots, layers.firePerimeters, layers.incidentLocations, layers.aqi,
       layers.weatherAlerts, layers.spcOutlooks, layers.spcReports, layers.iemReports, layers.evacZones, layers.flights,
-      layers.rawsStations,
+      layers.rawsStations, layers.airNowMonitors,
       hotspotsGeoJSON, perimetersGeoJSON, incidentsGeoJSON, aqiGeoJSON, alertsGeoJSON, spcOutlooksGeoJSON,
-      spcReportsGeoJSON, iemReportsGeoJSON, userReportsGeoJSON, evacZonesGeoJSON, flightsGeoJSON, rawsGeoJSON]);
+      spcReportsGeoJSON, iemReportsGeoJSON, userReportsGeoJSON, evacZonesGeoJSON, flightsGeoJSON, rawsGeoJSON, airNowMonitorsGeoJSON]);
 
   // Clear stale hover when layers change
   useEffect(() => {
@@ -860,6 +924,12 @@ export default function MapView({
         <RAWSLayer
           geoJSON={rawsGeoJSON}
           visible={layers.rawsStations}
+        />
+
+        {/* AirNow monitor stations – individual sensor readings (wildfire tab) */}
+        <AirNowMonitorsLayer
+          geoJSON={airNowMonitorsGeoJSON}
+          visible={isWildfireTab && layers.airNowMonitors}
         />
 
         {/* Fire hotspot points – rendered last (top) */}
