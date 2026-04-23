@@ -1,7 +1,7 @@
 /**
  * SavedLocationsPanel.jsx
  * Sidebar panel for managing saved locations with live alert checks.
- * Free accounts: up to 4 locations (FREE_LOCATION_LIMIT).
+ * Location limit is determined by the user's active plan (free / pro / team).
  */
 
 import { useState, useEffect, useCallback } from 'react';
@@ -12,7 +12,7 @@ import {
   Bell, CheckCircle2,
 } from 'lucide-react';
 
-import { useSavedLocations, fetchLocationAlerts, FREE_LOCATION_LIMIT } from '../../hooks/useSavedLocations';
+import { useSavedLocations, fetchLocationAlerts } from '../../hooks/useSavedLocations';
 import { useAuth } from '../../context/AuthContext';
 import { useApp } from '../../context/AppContext';
 import { supabase, isSupabaseConfigured } from '../../api/supabaseClient';
@@ -425,11 +425,14 @@ export default function SavedLocationsPanel() {
         )}
       </div>
 
-      {/* ── Free-tier limit notice ── */}
+      {/* ── Plan limit notice ── */}
       {atLimit && !showAddForm && (
         <div className="text-[11px] text-amber-300 bg-amber-950/30 border border-amber-800/40
                         rounded-lg px-2.5 py-2">
-          Free accounts support up to {FREE_LOCATION_LIMIT} saved locations.
+          You've reached your plan's limit of {limit} saved locations.{' '}
+          <Link to="/pricing" className="underline underline-offset-2 hover:text-amber-200">
+            Upgrade to add more.
+          </Link>
         </div>
       )}
 

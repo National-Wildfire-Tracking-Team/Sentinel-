@@ -8,11 +8,16 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase, isSupabaseConfigured } from '../api/supabaseClient';
 import { useAuth } from '../context/AuthContext';
 import { fetchAlertsByPoint } from '../api/noaaWeather';
+import { usePlan } from './usePlan';
 
+/** Kept for backwards-compat — components that import this constant still work */
 export const FREE_LOCATION_LIMIT = 4;
 
 export function useSavedLocations() {
   const { user, isAuthenticated } = useAuth();
+  const { plan } = usePlan();
+  const locationLimit = plan?.savedLocationsLimit ?? FREE_LOCATION_LIMIT;
+
   const [locations, setLocations] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -27,7 +32,7 @@ export function useSavedLocations() {
         .from('saved_locations')
         .select('*')
         .order('created_at', { ascending: true })
-        .limit(FREE_LOCATION_LIMIT);
+        .limit(locationLimit);
       if (err) throw err;
       setLocations(data || []);
     } catch (err) {
@@ -35,7 +40,7 @@ export function useSavedLocations() {
     } finally {
       setLoading(false);
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, locationLimit]);
 
   useEffect(() => {
     if (!isAuthenticated || !isSupabaseConfigured) {
@@ -65,8 +70,8 @@ export function useSavedLocations() {
 
   const addLocation = useCallback(async ({ name, address, latitude, longitude }) => {
     if (!isAuthenticated || !isSupabaseConfigured) throw new Error('Sign in to save locations');
-    if (locations.length >= FREE_LOCATION_LIMIT) {
-      throw new Error(`Free accounts are limited to ${FREE_LOCATION_LIMIT} saved locations`);
+    if (locations.length >= locationLimit) {
+      throw new Error(`Your plan allows up to ${locationLimit} saved locations. Upgrade to add more.`);
     }
 
     const { data, error: err } = await supabase
@@ -78,7 +83,7 @@ export function useSavedLocations() {
     if (err) throw err;
     setLocations(prev => [...prev, data]);
     return data;
-  }, [isAuthenticated, user?.id, locations.length]);
+  }, [isAuthenticated, user?.id, locations.length, locationLimit]);
 
   const removeLocation = useCallback(async (id) => {
     const { error: err } = await supabase
@@ -102,15 +107,15 @@ export function useSavedLocations() {
   }, []);
 
   return {
-    locations: locations.slice(0, FREE_LOCATION_LIMIT),
+    locations: locations.slice(0, locationLimit),
     loading,
     error,
     refresh: load,
     addLocation,
     removeLocation,
     updateLocation,
-    atLimit: locations.length >= FREE_LOCATION_LIMIT,
-    limit: FREE_LOCATION_LIMIT,
+    atLimit: locations.length >= locationLimit,
+    limit: locationLimit,
   };
 }
 

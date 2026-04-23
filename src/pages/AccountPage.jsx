@@ -6,24 +6,33 @@
  */
 
 import { useState } from 'react';
-import { Navigate, useNavigate } from 'react-router-dom';
+import { Navigate, useNavigate, useSearchParams, Link } from 'react-router-dom';
 import {
   Flame, User, Mail, Shield, Calendar, Lock,
   CheckCircle2, AlertCircle, LogOut, ChevronLeft, MapPin,
+  CreditCard, Zap, ExternalLink, Star,
 } from 'lucide-react';
 
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../api/supabaseClient';
-import { useSavedLocations, FREE_LOCATION_LIMIT } from '../hooks/useSavedLocations';
+import { useSavedLocations } from '../hooks/useSavedLocations';
+import { usePlan, PLANS } from '../hooks/usePlan';
 
 export default function AccountPage() {
   const { user, profile, isAuthenticated, loading, signOut } = useAuth();
+  const { planId, plan, subscription, isPaid, cancelAtPeriodEnd, currentPeriodEnd } = usePlan();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { locations } = useSavedLocations();
 
   const [resetSent, setResetSent] = useState(false);
   const [resetBusy, setResetBusy] = useState(false);
   const [resetError, setResetError] = useState(null);
+
+  const [portalBusy, setPortalBusy] = useState(false);
+  const [portalError, setPortalError] = useState(null);
+
+  const checkoutResult = searchParams.get('checkout');
 
   if (loading) {
     return (
@@ -64,9 +73,36 @@ export default function AccountPage() {
     navigate('/');
   }
 
+  async function handleManageBilling() {
+    setPortalError(null);
+    setPortalBusy(true);
+    try {
+      const { data: { session: authSession } } = await supabase.auth.getSession();
+      const res = await supabase.functions.invoke('stripe-portal', {
+        headers: authSession?.access_token
+          ? { Authorization: `Bearer ${authSession.access_token}` }
+          : undefined,
+      });
+      if (res.error || !res.data?.url) {
+        throw new Error(res.data?.error ?? res.error?.message ?? 'Failed to open billing portal.');
+      }
+      window.location.href = res.data.url;
+    } catch (err) {
+      setPortalError(err.message);
+    } finally {
+      setPortalBusy(false);
+    }
+  }
+
   /* ── Shared input/label styles ── */
   const fieldLabel = 'block text-xs font-semibold text-sentinel-400 uppercase tracking-wider mb-1';
   const fieldValue = 'text-sm text-white';
+
+  const planColors = {
+    free: 'bg-sentinel-700/50 border-sentinel-600 text-sentinel-200',
+    pro: 'bg-fire-600/20 border-fire-600/40 text-fire-300',
+    team: 'bg-emerald-700/20 border-emerald-600/40 text-emerald-300',
+  };
 
   return (
     <div className="min-h-screen bg-[#0a0c0e] flex flex-col">
@@ -114,9 +150,23 @@ export default function AccountPage() {
         <div>
           <h1 className="text-2xl font-bold text-white">Account Settings</h1>
           <p className="text-sentinel-400 text-sm mt-1">
-            Manage your reporter profile and security settings.
+            Manage your profile, billing, and security settings.
           </p>
         </div>
+
+        {/* ── Checkout result banners ── */}
+        {checkoutResult === 'success' && (
+          <div className="flex items-start gap-2 p-3 rounded-lg bg-green-950/40 border border-green-800/60 text-green-300 text-sm">
+            <CheckCircle2 size={15} className="shrink-0 mt-0.5" />
+            <span>Subscription activated! Your plan has been upgraded.</span>
+          </div>
+        )}
+        {checkoutResult === 'canceled' && (
+          <div className="flex items-start gap-2 p-3 rounded-lg bg-sentinel-800 border border-sentinel-600 text-sentinel-300 text-sm">
+            <AlertCircle size={15} className="shrink-0 mt-0.5" />
+            <span>Checkout was canceled. No charges were made.</span>
+          </div>
+        )}
 
         {/* ── Profile card ── */}
         <section className="rounded-xl bg-sentinel-900 border border-sentinel-700 p-6 space-y-5">
@@ -163,6 +213,85 @@ export default function AccountPage() {
           )}
         </section>
 
+        {/* ── Billing / Plan card ── */}
+        <section className="rounded-xl bg-sentinel-900 border border-sentinel-700 p-6 space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
+              <CreditCard size={14} className="text-fire-400" />
+              Plan &amp; Billing
+            </h2>
+            <Link
+              to="/pricing"
+              className="text-xs text-fire-400 hover:text-fire-300 transition-colors"
+            >
+              View plans →
+            </Link>
+          </div>
+
+          {/* Current plan badge */}
+          <div className="flex items-center gap-3">
+            <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border ${planColors[planId]}`}>
+              {planId === 'pro' && <Zap size={11} />}
+              {planId === 'team' && <Star size={11} />}
+              {plan.label}
+            </span>
+            {subscription?.status && subscription.status !== 'active' && (
+              <span className="text-xs text-yellow-400 capitalize">{subscription.status}</span>
+            )}
+          </div>
+
+          {/* Period info */}
+          {isPaid && currentPeriodEnd && (
+            <p className="text-xs text-sentinel-400">
+              {cancelAtPeriodEnd
+                ? `Access until ${new Date(currentPeriodEnd).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}`
+                : `Renews ${new Date(currentPeriodEnd).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}`}
+            </p>
+          )}
+
+          {/* Plan features summary */}
+          <ul className="text-xs text-sentinel-300 space-y-1">
+            <li>• {plan.savedLocationsLimit} saved locations</li>
+            {plan.priorityAlerts && <li>• Priority alert delivery</li>}
+            {plan.advancedLayers && <li>• Advanced radar &amp; satellite layers</li>}
+            {plan.apiAccess && <li>• API access</li>}
+            {plan.teamMembers > 1 && <li>• Up to {plan.teamMembers} team members</li>}
+          </ul>
+
+          {/* Billing portal or upgrade CTA */}
+          {portalError && (
+            <div className="flex items-start gap-2 p-2.5 rounded-lg bg-red-950/40 border border-red-800/60 text-red-300 text-xs">
+              <AlertCircle size={13} className="shrink-0 mt-0.5" />
+              <span>{portalError}</span>
+            </div>
+          )}
+          <div className="flex gap-2 flex-wrap pt-1">
+            {isPaid ? (
+              <button
+                onClick={handleManageBilling}
+                disabled={portalBusy}
+                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold
+                           bg-sentinel-700 border border-sentinel-600 text-sentinel-200
+                           hover:bg-sentinel-600 hover:text-white transition-colors
+                           disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <ExternalLink size={12} />
+                {portalBusy ? 'Opening…' : 'Manage Billing'}
+              </button>
+            ) : (
+              <Link
+                to="/pricing"
+                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold
+                           bg-fire-600/15 border border-fire-500/30 text-fire-400
+                           hover:bg-fire-600/25 hover:text-fire-300 transition-colors"
+              >
+                <Zap size={12} />
+                Upgrade to Pro — $9.99/mo
+              </Link>
+            )}
+          </div>
+        </section>
+
         {/* ── Saved Zip Codes card ── */}
         <section className="rounded-xl bg-sentinel-900 border border-sentinel-700 p-6 space-y-4">
           <div className="flex items-center justify-between">
@@ -182,11 +311,11 @@ export default function AccountPage() {
             <div className="flex-1 h-2 rounded-full bg-sentinel-700 overflow-hidden">
               <div
                 className="h-full rounded-full bg-emerald-500 transition-all"
-                style={{ width: `${((locations?.length || 0) / FREE_LOCATION_LIMIT) * 100}%` }}
+                style={{ width: `${Math.min(((locations?.length || 0) / plan.savedLocationsLimit) * 100, 100)}%` }}
               />
             </div>
             <span className="text-xs text-sentinel-300 shrink-0">
-              {locations?.length || 0} / {FREE_LOCATION_LIMIT} used
+              {locations?.length || 0} / {plan.savedLocationsLimit} used
             </span>
           </div>
 
