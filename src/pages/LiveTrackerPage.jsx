@@ -229,10 +229,13 @@ export default function LiveTrackerPage() {
     refresh: refreshStormReports,
   } = useStormReports(activeMapTab === MAP_TABS.weather);
 
+  const [spcOutlookType, setSpcOutlookType] = useState('categorical');
+  const [spcActiveDays, setSpcActiveDays] = useState(['day1', 'day2', 'day3']);
+
   const {
     geoJSON: spcOutlooksGeoJSON,
     refresh: refreshSpcOutlooks,
-  } = useSpcOutlooks(activeMapTab === MAP_TABS.weather);
+  } = useSpcOutlooks(activeMapTab === MAP_TABS.weather, spcActiveDays, spcOutlookType);
 
   // California evacuation zones – combined CalOES hosted-view + PROD feed
   const {
@@ -598,6 +601,10 @@ const flightBounds = useMemo(() => {
             spcReportsGeoJSON={spcGeoJSON}
             iemReportsGeoJSON={iemGeoJSON}
             spcOutlooksGeoJSON={spcOutlooksGeoJSON}
+            spcOutlookType={spcOutlookType}
+            spcActiveDays={spcActiveDays}
+            onSpcOutlookTypeChange={setSpcOutlookType}
+            onSpcActiveDaysChange={setSpcActiveDays}
             userReportsGeoJSON={userReportsGeoJSON}
             evacZonesGeoJSON={evacZonesGeoJSON}
             reporterEvacZonesGeoJSON={reporterEvacZonesGeoJSON}

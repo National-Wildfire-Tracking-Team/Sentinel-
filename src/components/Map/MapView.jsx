@@ -31,6 +31,7 @@ import EvacZonesLayer from './layers/EvacZonesLayer';
 import ReporterEvacZonesLayer from './layers/ReporterEvacZonesLayer';
 import { MeasurementLayer, MeasurementPanel } from './MeasurementTool';
 import { PrecipitationRing } from './PrecipitationRing';
+import SPCOutlookSelector from './SPCOutlookSelector';
 import FlightLayer from './layers/FlightLayer';
 import RAWSLayer from './layers/RAWSLayer';
 import AirNowMonitorsLayer from './layers/AirNowMonitorsLayer';
@@ -154,6 +155,11 @@ function HoverTooltip({ feature, lngLat }) {
       break;
     case 'spc-outlook-fill': {
       const dayNum = String(p.day || '').replace('day', '');
+      const typeLabel = (() => {
+        const t = p.outlookType || 'categorical';
+        const map = { categorical: 'Categorical', tornado: 'Tornado Prob.', hail: 'Hail Prob.', wind: 'Wind Prob.', severe: 'Severe Prob.' };
+        return map[t] || t;
+      })();
       const validStr = p.validTime
         ? (() => {
             const s = String(p.validTime);
@@ -168,10 +174,10 @@ function HoverTooltip({ feature, lngLat }) {
       content = (
         <>
           <div className="font-semibold text-yellow-300">
-            SPC Day {dayNum} Convective Outlook
+            SPC Day {dayNum} · {typeLabel}
           </div>
           <div className="text-gray-300 text-xs mt-0.5">
-            {p.outlookLabel || p.riskCategory || 'General Thunderstorms'}
+            {p.outlookLabel || p.riskCategory || (p.probPct != null ? `${p.probPct}% probability` : 'Outlook')}
           </div>
           {validStr && (
             <div className="text-gray-400 text-xs mt-0.5">Valid: {validStr}</div>
@@ -466,6 +472,10 @@ function FlightDetailPopup({ flight, lngLat, onClose }) {
  * @param {object|null} props.spcReportsGeoJSON
  * @param {object|null} props.iemReportsGeoJSON
  * @param {object|null} props.spcOutlooksGeoJSON
+ * @param {string}      [props.spcOutlookType]    - active outlook type key
+ * @param {string[]}    [props.spcActiveDays]     - active day keys e.g. ['day1','day2']
+ * @param {Function}    [props.onSpcOutlookTypeChange]
+ * @param {Function}    [props.onSpcActiveDaysChange]
  * @param {object|null} props.userReportsGeoJSON
  * @param {object|null} props.evacZonesGeoJSON
  * @param {object|null} props.reporterEvacZonesGeoJSON
@@ -487,6 +497,10 @@ export default function MapView({
   spcReportsGeoJSON,
   iemReportsGeoJSON,
   spcOutlooksGeoJSON,
+  spcOutlookType = 'categorical',
+  spcActiveDays = ['day1', 'day2', 'day3'],
+  onSpcOutlookTypeChange,
+  onSpcActiveDaysChange,
   userReportsGeoJSON,
   evacZonesGeoJSON,
   reporterEvacZonesGeoJSON,
@@ -893,6 +907,16 @@ export default function MapView({
 
   return (
     <div className="absolute inset-0 bg-sentinel-900">
+      {/* SPC outlook day/type selector – shown when the SPC layer is active on weather tab */}
+      {isWeatherTab && layers.spcOutlooks && (
+        <SPCOutlookSelector
+          outlookType={spcOutlookType}
+          onOutlookTypeChange={onSpcOutlookTypeChange}
+          activeDays={spcActiveDays}
+          onActiveDaysChange={onSpcActiveDaysChange}
+        />
+      )}
+
       <Map
         ref={mapRef}
         {...viewport}
