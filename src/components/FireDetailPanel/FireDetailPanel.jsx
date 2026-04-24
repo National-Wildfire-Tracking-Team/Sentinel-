@@ -657,6 +657,85 @@ function AQIDetail({ fire }) {
   );
 }
 
+// ─── Official Evacuation Zone Detail ─────────────────────────────────────────
+
+function EvacZoneDetail({ fire }) {
+  const WARNING_TYPE_COLOR = {
+    'Evacuation Order':   '#ef4444',
+    'Evacuation Warning': '#f97316',
+    'Evacuation Watch':   '#eab308',
+  };
+  const color = WARNING_TYPE_COLOR[fire.warningType] || '#ef4444';
+
+  return (
+    <>
+      <div className="mb-4">
+        <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+          <h3 className="font-bold text-white text-lg leading-tight">{fire.zoneName || fire.name}</h3>
+        </div>
+        {fire.warningType && (
+          <div
+            className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold border"
+            style={{ backgroundColor: color + '22', borderColor: color + '66', color }}
+          >
+            {fire.warningType}
+          </div>
+        )}
+      </div>
+
+      {(fire.county || fire.jurisdiction) && (
+        <div className="mb-3 flex items-center gap-1.5 text-sentinel-300 text-sm">
+          <span>{[fire.county && `${fire.county} County`, fire.jurisdiction].filter(Boolean).join(' • ')}</span>
+        </div>
+      )}
+
+      {fire.agency && (
+        <div className="mb-3 text-xs text-sentinel-400">
+          Agency: <span className="text-sentinel-200">{fire.agency}</span>
+        </div>
+      )}
+
+      {fire.effectiveDate && (
+        <div className="mb-2 text-xs text-sentinel-400">
+          Effective: <span className="text-sentinel-200">{new Date(fire.effectiveDate).toLocaleString()}</span>
+        </div>
+      )}
+
+      {fire.expirationDate && (
+        <div className="mb-3 text-xs text-sentinel-400">
+          Expires: <span className="text-sentinel-200">{new Date(fire.expirationDate).toLocaleString()}</span>
+        </div>
+      )}
+
+      {fire.instructions && (
+        <div className="mt-4">
+          <p className="text-[10px] font-bold text-sentinel-400 uppercase tracking-widest mb-2">Instructions</p>
+          <p className="text-sentinel-200 text-sm leading-relaxed whitespace-pre-wrap">{fire.instructions}</p>
+        </div>
+      )}
+
+      {fire.comments && (
+        <div className="mt-4">
+          <p className="text-[10px] font-bold text-sentinel-400 uppercase tracking-widest mb-2">Comments</p>
+          <p className="text-sentinel-200 text-sm leading-relaxed whitespace-pre-wrap">{fire.comments}</p>
+        </div>
+      )}
+
+      {fire.externalURL && (
+        <a
+          href={fire.externalURL}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mt-4 flex items-center gap-1.5 text-xs text-fire-400 hover:text-fire-300 transition-colors"
+        >
+          <ExternalLink size={12} />
+          More information
+        </a>
+      )}
+    </>
+  );
+}
+
 // ─── Reporter Evacuation Zone Detail ─────────────────────────────────────────
 
 function ReporterEvacZoneDetail({ fire }) {
@@ -813,7 +892,8 @@ const FireDetailPanel = memo(function FireDetailPanel() {
              selectedFire.type === 'aqi'             ? 'Air Quality' :
              selectedFire.type === 'weather-alert'   ? 'Weather Alert' :
              selectedFire.type === 'user-report'     ? 'Community Report' :
-             selectedFire.type === 'evacuation-zone' ? 'Evacuation Zone' :
+             selectedFire.type === 'evacuation-zone'          ? 'Evacuation Zone' :
+             selectedFire.type === 'reporter-evacuation-zone' ? 'Reporter Evac Zone' :
              'Fire Detail'}
           </span>
           <div className="flex items-center gap-1">
@@ -848,7 +928,8 @@ const FireDetailPanel = memo(function FireDetailPanel() {
           {selectedFire.type === 'aqi'             && <AQIDetail        fire={selectedFire} />}
           {selectedFire.type === 'weather-alert'   && <AlertDetail      fire={selectedFire} alerts={alerts} />}
           {selectedFire.type === 'user-report'     && <UserReportDetail fire={selectedFire} />}
-          {selectedFire.type === 'evacuation-zone' && <EvacZoneDetail   fire={selectedFire} />}
+          {selectedFire.type === 'evacuation-zone'          && <EvacZoneDetail         fire={selectedFire} />}
+          {selectedFire.type === 'reporter-evacuation-zone' && <ReporterEvacZoneDetail  fire={selectedFire} />}
         </div>
       </div>
     </>
