@@ -152,24 +152,34 @@ function HoverTooltip({ feature, lngLat }) {
         </>
       );
       break;
-    case 'spc-outlook-fill':
+    case 'spc-outlook-fill': {
+      const dayNum = String(p.day || '').replace('day', '');
+      const validStr = p.validTime
+        ? (() => {
+            const s = String(p.validTime);
+            if (s.length === 12) {
+              const yr = s.slice(0, 4), mo = s.slice(4, 6), dy = s.slice(6, 8), hr = s.slice(8, 10), mn = s.slice(10, 12);
+              const d = new Date(`${yr}-${mo}-${dy}T${hr}:${mn}Z`);
+              return isNaN(d.getTime()) ? null : d.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', timeZoneName: 'short' });
+            }
+            return null;
+          })()
+        : null;
       content = (
         <>
-          <div className="font-semibold text-fuchsia-300">
-            SPC {String(p.day || '').toUpperCase()} Outlook
+          <div className="font-semibold text-yellow-300">
+            SPC Day {dayNum} Convective Outlook
           </div>
           <div className="text-gray-300 text-xs mt-0.5">
-            Risk: <span className="text-white font-medium">{p.riskCategory || 'TSTM'}</span>
+            {p.outlookLabel || p.riskCategory || 'General Thunderstorms'}
           </div>
-          {p.outlookLabel && (
-            <div className="text-gray-400 text-xs">{p.outlookLabel}</div>
-          )}
-          {p.DESC && (
-            <div className="text-gray-400 text-xs mt-1 max-w-[220px] line-clamp-3">{p.DESC}</div>
+          {validStr && (
+            <div className="text-gray-400 text-xs mt-0.5">Valid: {validStr}</div>
           )}
         </>
       );
       break;
+    }
     case 'user-reports-circle':
       content = (
         <>

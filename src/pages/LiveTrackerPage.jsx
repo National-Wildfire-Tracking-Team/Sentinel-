@@ -72,7 +72,7 @@ const WEATHER_LAYER_PRESET = {
   smoke: false,
   goesEast: false,
   goesWest: false,
-  spcOutlooks: false,
+  spcOutlooks: true,
   spcReports: true,
   iemReports: true,
   radar: true,
