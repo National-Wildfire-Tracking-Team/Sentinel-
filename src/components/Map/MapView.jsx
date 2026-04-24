@@ -34,6 +34,7 @@ import { PrecipitationRing } from './PrecipitationRing';
 import FlightLayer from './layers/FlightLayer';
 import RAWSLayer from './layers/RAWSLayer';
 import AirNowMonitorsLayer from './layers/AirNowMonitorsLayer';
+import DroughtOutlookLayer from './layers/DroughtOutlookLayer';
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN || '';
 const HAS_MAPBOX_TOKEN = Boolean(MAPBOX_TOKEN.trim());
@@ -307,6 +308,24 @@ function HoverTooltip({ feature, lngLat }) {
       );
       break;
     }
+    case 'drought-outlook-fill': {
+      const outlookLabel = {
+        Drought_Develops: 'Drought Likely to Develop',
+        Drought_Persists: 'Drought Likely to Persist',
+        Drought_Improves: 'Drought Likely to Improve',
+        Drought_Removes:  'Drought Likely to End',
+        No_Drought:       'No Drought Expected',
+      }[p.outlook] || p.outlook || 'Drought Outlook';
+      content = (
+        <>
+          <div className="font-semibold text-amber-400">CPC Drought Outlook</div>
+          <div className="text-white text-xs mt-0.5 font-medium">{outlookLabel}</div>
+          {p.target && <div className="text-gray-300 text-xs">Forecast: {p.target}</div>}
+          {p.fcst_date && <div className="text-gray-400 text-xs">Issued: {p.fcst_date}</div>}
+        </>
+      );
+      break;
+    }
     case 'airnow-monitors-circle': {
       const aqiColor = (aqi) => {
         if (aqi == null) return '#94a3b8';
@@ -462,6 +481,7 @@ function FlightDetailPopup({ flight, lngLat, onClose }) {
  * @param {object|null} props.flightsGeoJSON
  * @param {object|null} props.rawsGeoJSON
  * @param {object|null} props.airNowMonitorsGeoJSON
+ * @param {object|null} props.droughtOutlookGeoJSON
  * @param {Array}       [props.savedLocations]
  * @param {'wildfire'|'weather'} [props.activeMapTab]
  */
@@ -483,6 +503,7 @@ export default function MapView({
   flightsGeoJSON,
   rawsGeoJSON,
   airNowMonitorsGeoJSON,
+  droughtOutlookGeoJSON,
   savedLocations = [],
   measureActive = false,
   measureMode = 'distance',
@@ -613,13 +634,14 @@ export default function MapView({
     if (layers.flights && flightsGeoJSON)                                             ids.push('flights-symbol');
     if (layers.rawsStations && rawsGeoJSON)                                           ids.push('raws-stations-circle');
     if (isWildfireTab && layers.airNowMonitors && airNowMonitorsGeoJSON)              ids.push('airnow-monitors-circle');
+    if (isWildfireTab && layers.droughtOutlook && droughtOutlookGeoJSON)              ids.push('drought-outlook-fill');
     return ids;
   }, [measureActive, isWildfireTab, isWeatherTab, layers.fireHotspots, layers.firePerimeters, layers.incidentLocations, layers.aqi,
       layers.weatherAlerts, layers.spcOutlooks, layers.spcReports, layers.iemReports, layers.evacZones, layers.reporterEvacZones,
-      layers.flights, layers.rawsStations, layers.airNowMonitors,
+      layers.flights, layers.rawsStations, layers.airNowMonitors, layers.droughtOutlook,
       hotspotsGeoJSON, perimetersGeoJSON, incidentsGeoJSON, aqiGeoJSON, alertsGeoJSON, spcOutlooksGeoJSON,
       spcReportsGeoJSON, iemReportsGeoJSON, userReportsGeoJSON, evacZonesGeoJSON, reporterEvacZonesGeoJSON,
-      flightsGeoJSON, rawsGeoJSON, airNowMonitorsGeoJSON]);
+      flightsGeoJSON, rawsGeoJSON, airNowMonitorsGeoJSON, droughtOutlookGeoJSON]);
 
   // Clear stale hover when layers change
   useEffect(() => {
@@ -997,6 +1019,12 @@ export default function MapView({
         <AirNowMonitorsLayer
           geoJSON={airNowMonitorsGeoJSON}
           visible={isWildfireTab && layers.airNowMonitors}
+        />
+
+        {/* NOAA CPC Monthly Drought Outlook polygons */}
+        <DroughtOutlookLayer
+          geoJSON={droughtOutlookGeoJSON}
+          visible={isWildfireTab && layers.droughtOutlook}
         />
 
         {/* Fire hotspot points – rendered last (top) */}
