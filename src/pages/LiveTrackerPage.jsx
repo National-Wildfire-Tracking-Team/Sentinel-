@@ -230,12 +230,14 @@ export default function LiveTrackerPage() {
   } = useStormReports(activeMapTab === MAP_TABS.weather);
 
   const [spcOutlookType, setSpcOutlookType] = useState('categorical');
-  const [spcActiveDays, setSpcActiveDays] = useState(['day1', 'day2', 'day3']);
+  const [spcActiveDay,   setSpcActiveDay]   = useState('day1');
 
   const {
-    geoJSON: spcOutlooksGeoJSON,
-    refresh: refreshSpcOutlooks,
-  } = useSpcOutlooks(activeMapTab === MAP_TABS.weather, spcActiveDays, spcOutlookType);
+    geoJSON:   spcOutlooksGeoJSON,
+    loading:   spcOutlooksLoading,
+    validTime: spcValidTime,
+    refresh:   refreshSpcOutlooks,
+  } = useSpcOutlooks(activeMapTab === MAP_TABS.weather, spcActiveDay, spcOutlookType);
 
   // California evacuation zones – combined CalOES hosted-view + PROD feed
   const {
@@ -602,9 +604,11 @@ const flightBounds = useMemo(() => {
             iemReportsGeoJSON={iemGeoJSON}
             spcOutlooksGeoJSON={spcOutlooksGeoJSON}
             spcOutlookType={spcOutlookType}
-            spcActiveDays={spcActiveDays}
+            spcActiveDay={spcActiveDay}
+            spcOutlooksLoading={spcOutlooksLoading}
+            spcValidTime={spcValidTime}
             onSpcOutlookTypeChange={setSpcOutlookType}
-            onSpcActiveDaysChange={setSpcActiveDays}
+            onSpcActiveDayChange={setSpcActiveDay}
             userReportsGeoJSON={userReportsGeoJSON}
             evacZonesGeoJSON={evacZonesGeoJSON}
             reporterEvacZonesGeoJSON={reporterEvacZonesGeoJSON}
@@ -631,7 +635,7 @@ const flightBounds = useMemo(() => {
             onPrecipRingToggle={onPrecipRingToggle}
           />
 
-          <Legend />
+          <Legend spcOutlookType={spcOutlookType} spcActiveDay={spcActiveDay} />
           <FireDetailPanel />
 
           {/* Bug report button – fixed to bottom-right of map area */}

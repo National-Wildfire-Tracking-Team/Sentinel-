@@ -472,10 +472,12 @@ function FlightDetailPopup({ flight, lngLat, onClose }) {
  * @param {object|null} props.spcReportsGeoJSON
  * @param {object|null} props.iemReportsGeoJSON
  * @param {object|null} props.spcOutlooksGeoJSON
- * @param {string}      [props.spcOutlookType]    - active outlook type key
- * @param {string[]}    [props.spcActiveDays]     - active day keys e.g. ['day1','day2']
+ * @param {string}      [props.spcOutlookType]       - active outlook type key
+ * @param {string}      [props.spcActiveDay]         - active day key e.g. 'day1'
+ * @param {boolean}     [props.spcOutlooksLoading]
+ * @param {string|null} [props.spcValidTime]
  * @param {Function}    [props.onSpcOutlookTypeChange]
- * @param {Function}    [props.onSpcActiveDaysChange]
+ * @param {Function}    [props.onSpcActiveDayChange]
  * @param {object|null} props.userReportsGeoJSON
  * @param {object|null} props.evacZonesGeoJSON
  * @param {object|null} props.reporterEvacZonesGeoJSON
@@ -498,9 +500,11 @@ export default function MapView({
   iemReportsGeoJSON,
   spcOutlooksGeoJSON,
   spcOutlookType = 'categorical',
-  spcActiveDays = ['day1', 'day2', 'day3'],
+  spcActiveDay = 'day1',
+  spcOutlooksLoading = false,
+  spcValidTime = null,
   onSpcOutlookTypeChange,
-  onSpcActiveDaysChange,
+  onSpcActiveDayChange,
   userReportsGeoJSON,
   evacZonesGeoJSON,
   reporterEvacZonesGeoJSON,
@@ -912,8 +916,10 @@ export default function MapView({
         <SPCOutlookSelector
           outlookType={spcOutlookType}
           onOutlookTypeChange={onSpcOutlookTypeChange}
-          activeDays={spcActiveDays}
-          onActiveDaysChange={onSpcActiveDaysChange}
+          activeDay={spcActiveDay}
+          onActiveDayChange={onSpcActiveDayChange}
+          loading={spcOutlooksLoading}
+          validTime={spcValidTime}
         />
       )}
 
