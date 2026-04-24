@@ -19,6 +19,7 @@ import { useWeatherAlerts } from '../hooks/useWeatherAlerts';
 import { useIncidents } from '../hooks/useIncidents';
 import { useStormReports } from '../hooks/useStormReports';
 import { useSpcOutlooks } from '../hooks/useSpcOutlooks';
+import { useSpcMesoscaleDiscussion } from '../hooks/useSpcMesoscaleDiscussion';
 import { useFireReports, reportsToGeoJSON } from '../hooks/useFireReports';
 import { useCombinedEvacZones } from '../hooks/useCombinedEvacZones';
 import { useReporterEvacZones, reporterEvacZonesToGeoJSON } from '../hooks/useReporterEvacZones';
@@ -55,6 +56,7 @@ const WILDFIRE_LAYER_PRESET = {
   goesEast: false,
   goesWest: false,
   spcOutlooks: false,
+  spcMd: false,
   radar: false,
   evacZones: false,
   reporterEvacZones: true,
@@ -73,6 +75,7 @@ const WEATHER_LAYER_PRESET = {
   goesEast: false,
   goesWest: false,
   spcOutlooks: true,
+  spcMd: true,
   spcReports: true,
   iemReports: true,
   radar: true,
@@ -238,6 +241,11 @@ export default function LiveTrackerPage() {
     validTime: spcValidTime,
     refresh:   refreshSpcOutlooks,
   } = useSpcOutlooks(activeMapTab === MAP_TABS.weather, spcActiveDay, spcOutlookType);
+
+  const {
+    geoJSON:  spcMdGeoJSON,
+    refresh:  refreshSpcMd,
+  } = useSpcMesoscaleDiscussion(activeMapTab === MAP_TABS.weather && layers.spcMd);
 
   // California evacuation zones – combined CalOES hosted-view + PROD feed
   const {
@@ -556,6 +564,7 @@ const flightBounds = useMemo(() => {
     refreshIncidents();
     refreshStormReports();
     refreshSpcOutlooks();
+    refreshSpcMd();
     refreshUserReports();
     refreshEvacZones();
     refreshReporterEvacZones();
@@ -563,7 +572,7 @@ const flightBounds = useMemo(() => {
     if (layers.flights) refreshFlights();
     if (rawsEnabled) refreshRAWS();
     if (layers.airNowMonitors) refreshAirNowMonitors();
-  }, [refreshHotspots, refreshPerimeters, refreshAlerts, refreshIncidents, refreshStormReports, refreshSpcOutlooks, refreshUserReports, refreshEvacZones, refreshReporterEvacZones, refreshAQI, refreshFlights, refreshRAWS, refreshAirNowMonitors, layers.aqi, layers.flights, rawsEnabled, layers.airNowMonitors]);
+  }, [refreshHotspots, refreshPerimeters, refreshAlerts, refreshIncidents, refreshStormReports, refreshSpcOutlooks, refreshSpcMd, refreshUserReports, refreshEvacZones, refreshReporterEvacZones, refreshAQI, refreshFlights, refreshRAWS, refreshAirNowMonitors, layers.aqi, layers.flights, rawsEnabled, layers.airNowMonitors]);
 
   return (
     <div className="h-screen w-screen flex flex-col bg-sentinel-900 text-white overflow-hidden select-none">
@@ -609,6 +618,7 @@ const flightBounds = useMemo(() => {
             spcValidTime={spcValidTime}
             onSpcOutlookTypeChange={setSpcOutlookType}
             onSpcActiveDayChange={setSpcActiveDay}
+            spcMdGeoJSON={spcMdGeoJSON}
             userReportsGeoJSON={userReportsGeoJSON}
             evacZonesGeoJSON={evacZonesGeoJSON}
             reporterEvacZonesGeoJSON={reporterEvacZonesGeoJSON}

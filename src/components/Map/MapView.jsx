@@ -26,6 +26,7 @@ import GOESLayer          from './layers/GOESLayer';
 import StormReportsLayer  from './layers/StormReportsLayer';
 import UserReportsLayer   from './layers/UserReportsLayer';
 import SPCOutlookLayer from './layers/SPCOutlookLayer';
+import SPCMesoscaleDiscussionLayer from './layers/SPCMesoscaleDiscussionLayer';
 import RadarLayer from './layers/RadarLayer';
 import EvacZonesLayer from './layers/EvacZonesLayer';
 import ReporterEvacZonesLayer from './layers/ReporterEvacZonesLayer';
@@ -153,6 +154,24 @@ function HoverTooltip({ feature, lngLat }) {
         </>
       );
       break;
+    case 'spc-md-fill': {
+      const tillStr = p.activeTill ? `Active till ${p.activeTill}` : null;
+      content = (
+        <>
+          <div className="font-semibold text-red-400">
+            {p.name || 'Mesoscale Discussion'}
+          </div>
+          {tillStr && (
+            <div className="text-gray-300 text-xs mt-0.5">{tillStr}</div>
+          )}
+          <div className="text-gray-400 text-xs mt-0.5">SPC Mesoscale Discussion</div>
+          {p.url && (
+            <div className="text-sky-400 text-xs mt-1">Click for full discussion ↗</div>
+          )}
+        </>
+      );
+      break;
+    }
     case 'spc-outlook-fill': {
       const dayNum = String(p.day || '').replace('day', '');
       const typeLabel = (() => {
@@ -478,6 +497,7 @@ function FlightDetailPopup({ flight, lngLat, onClose }) {
  * @param {string|null} [props.spcValidTime]
  * @param {Function}    [props.onSpcOutlookTypeChange]
  * @param {Function}    [props.onSpcActiveDayChange]
+ * @param {object|null} props.spcMdGeoJSON
  * @param {object|null} props.userReportsGeoJSON
  * @param {object|null} props.evacZonesGeoJSON
  * @param {object|null} props.reporterEvacZonesGeoJSON
@@ -505,6 +525,7 @@ export default function MapView({
   spcValidTime = null,
   onSpcOutlookTypeChange,
   onSpcActiveDayChange,
+  spcMdGeoJSON,
   userReportsGeoJSON,
   evacZonesGeoJSON,
   reporterEvacZonesGeoJSON,
@@ -634,6 +655,7 @@ export default function MapView({
     if (isWeatherTab && layers.aqi && aqiGeoJSON)                        ids.push('aqi-stations-circle');
     if (isWeatherTab && layers.weatherAlerts && alertsGeoJSON) ids.push('weather-alerts-fill');
     if (isWeatherTab && layers.spcOutlooks && spcOutlooksGeoJSON)        ids.push('spc-outlook-fill');
+    if (isWeatherTab && layers.spcMd && spcMdGeoJSON)                   ids.push('spc-md-fill');
     if (isWeatherTab && layers.spcReports && spcReportsGeoJSON)          ids.push('spc-reports-circle');
     if (isWeatherTab && layers.iemReports && iemReportsGeoJSON)          ids.push('iem-reports-circle');
     if (isWildfireTab && layers.evacZones && evacZonesGeoJSON)                        ids.push('evac-zones-fill');
@@ -643,9 +665,9 @@ export default function MapView({
     if (isWildfireTab && layers.airNowMonitors && airNowMonitorsGeoJSON)              ids.push('airnow-monitors-circle');
     return ids;
   }, [measureActive, isWildfireTab, isWeatherTab, layers.fireHotspots, layers.firePerimeters, layers.incidentLocations, layers.aqi,
-      layers.weatherAlerts, layers.spcOutlooks, layers.spcReports, layers.iemReports, layers.evacZones, layers.reporterEvacZones,
+      layers.weatherAlerts, layers.spcOutlooks, layers.spcMd, layers.spcReports, layers.iemReports, layers.evacZones, layers.reporterEvacZones,
       layers.flights, layers.rawsStations, layers.airNowMonitors,
-      hotspotsGeoJSON, perimetersGeoJSON, incidentsGeoJSON, aqiGeoJSON, alertsGeoJSON, spcOutlooksGeoJSON,
+      hotspotsGeoJSON, perimetersGeoJSON, incidentsGeoJSON, aqiGeoJSON, alertsGeoJSON, spcOutlooksGeoJSON, spcMdGeoJSON,
       spcReportsGeoJSON, iemReportsGeoJSON, userReportsGeoJSON, evacZonesGeoJSON, reporterEvacZonesGeoJSON,
       flightsGeoJSON, rawsGeoJSON, airNowMonitorsGeoJSON]);
 
@@ -855,6 +877,11 @@ export default function MapView({
           expires:   p.expires,
         });
       }
+    } else if (feature.layer.id === 'spc-md-fill') {
+      // Open the SPC MD page in a new tab when the user clicks a polygon
+      if (p.url) {
+        window.open(p.url, '_blank', 'noopener,noreferrer');
+      }
     }
   }, [measureActive, alerts, selectFire]);
 
@@ -973,6 +1000,12 @@ export default function MapView({
         <SPCOutlookLayer
           geoJSON={spcOutlooksGeoJSON}
           visible={isWeatherTab && layers.spcOutlooks}
+        />
+
+        {/* SPC Mesoscale Discussions – red-dash outlined polygons */}
+        <SPCMesoscaleDiscussionLayer
+          geoJSON={spcMdGeoJSON}
+          visible={isWeatherTab && layers.spcMd}
         />
 
         {/* Fire perimeter polygons */}
