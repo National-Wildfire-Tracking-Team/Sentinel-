@@ -28,9 +28,10 @@ const initialState = {
     evacZones:         false,
     reporterEvacZones: true,
     flights:           false,
-    rawsStations:      false,
-    airNowMonitors:    false,
-    droughtOutlook:    false,
+    rawsStations:          false,
+    airNowMonitors:        false,
+    droughtOutlook:        false,
+    fireWeatherOutlooks:   false,
   },
   // Currently clicked/selected fire feature (hotspot or perimeter)
   selectedFire: null,
