@@ -33,7 +33,7 @@ const LAYER_GROUPS = [
   {
     label: 'Weather',
     layers: [
-      { key: 'weatherAlerts',  label: 'Fire Weather Alerts',  sublabel: 'NOAA NWS',                  icon: Wind,          color: '#ef4444' },
+      { key: 'weatherAlerts',  label: 'NOAA/NWS Alerts',      sublabel: 'NOAA NWS',                  icon: Wind,          color: '#ef4444' },
       { key: 'rawsStations',   label: 'RAWS Stations',        sublabel: 'Fire weather stations',      icon: Thermometer,   color: '#f97316' },
     ],
   },
