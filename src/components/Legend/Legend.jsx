@@ -123,10 +123,10 @@ const Legend = memo(function Legend() {
               </Section>
             )}
 
-            {/* Weather alerts – official NWS palette (sample of most
+            {/* NOAA/NWS alerts – official NWS palette (sample of most
                 fire-relevant types; full palette in utils/nwsColors.js) */}
             {layers.weatherAlerts && (
-              <Section title="Weather Alerts">
+              <Section title="NOAA/NWS Alerts">
                 <ColorRow color="#ED368D" label="Red Flag Warning" />
                 <ColorRow color="#F8DCB1" label="Fire Weather Watch" />
                 <ColorRow color="#E43831" label="Tornado Warning" />
