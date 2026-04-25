@@ -6,7 +6,7 @@
 
 import { useState, memo } from 'react';
 import {
-  Layers, Flame, MapPin, Wind, CloudRain, Eye, ChevronDown, ChevronRight, Radar, AlertTriangle, Ruler, Hexagon, PlaneTakeoff, Satellite, Map as MapIcon, Thermometer, Crosshair, Activity, Droplets,
+  Layers, Flame, MapPin, Wind, CloudRain, Eye, ChevronDown, ChevronRight, Radar, AlertTriangle, Ruler, Hexagon, PlaneTakeoff, Satellite, Map as MapIcon, Thermometer, Crosshair, Activity, Droplets, Zap,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 
@@ -20,7 +20,8 @@ const LAYER_GROUPS = [
       { key: 'evacZones',         label: 'Evacuation Zones',    sublabel: 'Cal OES Hosted + PROD',  icon: AlertTriangle, color: '#ef4444' },
       { key: 'rawsStations',      label: 'RAWS Stations',       sublabel: 'Fire weather stations',  icon: Thermometer,  color: '#f97316' },
       { key: 'airNowMonitors',    label: 'Air Quality Monitors', sublabel: 'EPA AirNow sensor network', icon: Activity,  color: '#38bdf8' },
-      { key: 'droughtOutlook',    label: 'Drought Outlook',      sublabel: 'NOAA CPC Monthly Outlook',  icon: Droplets,  color: '#f59e0b' },
+      { key: 'droughtOutlook',      label: 'Drought Outlook',         sublabel: 'NOAA CPC Monthly Outlook',      icon: Droplets,  color: '#f59e0b' },
+      { key: 'fireWeatherOutlooks', label: 'Fire Weather Outlooks',    sublabel: 'SPC Day 1-8 fire weather',      icon: Zap,       color: '#ff6b35' },
     ],
   },
   {
@@ -34,10 +35,11 @@ const LAYER_GROUPS = [
   {
     label: 'Weather',
     layers: [
-      { key: 'weatherAlerts',  label: 'Fire Weather Alerts',  sublabel: 'NOAA NWS',                  icon: Wind,          color: '#ef4444' },
-      { key: 'spcOutlooks',    label: 'SPC Outlooks',         sublabel: 'NOAA SPC Day 1-3 convective', icon: AlertTriangle, color: '#facc15' },
-      { key: 'spcMd',          label: 'Mesoscale Discussions', sublabel: 'NOAA SPC active MDs',         icon: AlertTriangle, color: '#e3000f' },
-      { key: 'rawsStations',   label: 'RAWS Stations',        sublabel: 'Fire weather stations',      icon: Thermometer,   color: '#f97316' },
+      { key: 'weatherAlerts',      label: 'Fire Weather Alerts',     sublabel: 'NOAA NWS',                       icon: Wind,          color: '#ef4444' },
+      { key: 'spcOutlooks',        label: 'SPC Outlooks',            sublabel: 'NOAA SPC Day 1-3 convective',    icon: AlertTriangle, color: '#facc15' },
+      { key: 'fireWeatherOutlooks', label: 'Fire Weather Outlooks',  sublabel: 'SPC Day 1-8 fire weather',       icon: Zap,           color: '#ff6b35' },
+      { key: 'spcMd',              label: 'Mesoscale Discussions',   sublabel: 'NOAA SPC active MDs',            icon: AlertTriangle, color: '#e3000f' },
+      { key: 'rawsStations',       label: 'RAWS Stations',           sublabel: 'Fire weather stations',         icon: Thermometer,   color: '#f97316' },
     ],
   },
   {

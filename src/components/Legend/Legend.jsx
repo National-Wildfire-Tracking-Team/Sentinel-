@@ -97,7 +97,19 @@ function Section({ title, children }) {
   );
 }
 
-const Legend = memo(function Legend({ spcOutlookType = 'categorical', spcActiveDay = 'day1' }) {
+// SPC Fire Weather Outlook palettes
+const FIRE_WX_WIND_SCALE = [
+  { color: '#FFE066', label: 'ELEVATED – Wind/RH Risk' },
+  { color: '#FF6666', label: 'CRITICAL – Wind/RH Risk' },
+  { color: '#FF00FF', label: 'EXTREME – Wind/RH Risk' },
+];
+
+const FIRE_WX_LIGHTNING_SCALE = [
+  { color: '#8BD8F5', label: 'ELEVATED – Dry Lightning (Isolated)' },
+  { color: '#3C6FCD', label: 'CRITICAL – Dry Lightning (Scattered)' },
+];
+
+const Legend = memo(function Legend({ spcOutlookType = 'categorical', spcActiveDay = 'day1', fireWxOutlookType = 'winds_low_humidity' }) {
   const { layers, legendOpen, toggleLegend } = useApp();
   const [collapsed, setCollapsed] = useState(true);
 
@@ -105,7 +117,7 @@ const Legend = memo(function Legend({ spcOutlookType = 'categorical', spcActiveD
 
   const anyActive = layers.fireHotspots || layers.aqi || layers.firePerimeters || layers.spcOutlooks
     || layers.weatherAlerts || layers.radar || layers.incidentLocations
-    || layers.spcReports || layers.iemReports;
+    || layers.spcReports || layers.iemReports || layers.fireWeatherOutlooks;
   if (!anyActive) return null;
 
   const spcScale = SPC_SCALES[spcOutlookType] || SPC_SCALES.categorical;
@@ -185,6 +197,18 @@ const Legend = memo(function Legend({ spcOutlookType = 'categorical', spcActiveD
             {layers.radar && (
               <Section title="Radar Reflectivity (dBZ)">
                 {RADAR_DBZ_SCALE.map(row => <ColorRow key={row.label} {...row} />)}
+              </Section>
+            )}
+
+            {layers.fireWeatherOutlooks && fireWxOutlookType === 'winds_low_humidity' && (
+              <Section title="Fire Weather – Wind &amp; RH">
+                {FIRE_WX_WIND_SCALE.map(row => <ColorRow key={row.label} {...row} />)}
+              </Section>
+            )}
+
+            {layers.fireWeatherOutlooks && fireWxOutlookType === 'dry_thunderstorm' && (
+              <Section title="Fire Weather – Dry Lightning">
+                {FIRE_WX_LIGHTNING_SCALE.map(row => <ColorRow key={row.label} {...row} />)}
               </Section>
             )}
           </div>

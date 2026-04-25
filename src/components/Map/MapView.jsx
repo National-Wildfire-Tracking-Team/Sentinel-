@@ -37,6 +37,8 @@ import FlightLayer from './layers/FlightLayer';
 import RAWSLayer from './layers/RAWSLayer';
 import AirNowMonitorsLayer from './layers/AirNowMonitorsLayer';
 import DroughtOutlookLayer from './layers/DroughtOutlookLayer';
+import FireWeatherOutlookLayer from './layers/FireWeatherOutlookLayer';
+import FireWeatherOutlookSelector from './FireWeatherOutlookSelector';
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN || '';
 const HAS_MAPBOX_TOKEN = Boolean(MAPBOX_TOKEN.trim());
@@ -421,6 +423,27 @@ function HoverTooltip({ feature, lngLat }) {
       );
       break;
     }
+    case 'fire-weather-outlook-fill': {
+      const dayNum = String(p.day || '').replace('day', '');
+      const typeLabel = p.outlookType === 'dry_thunderstorm' ? 'Dry Lightning' : 'Wind & Low RH';
+      const riskColors = {
+        ELEVATED: 'text-yellow-300',
+        CRITICAL: 'text-red-400',
+        EXTREME:  'text-fuchsia-400',
+      };
+      const riskClass = riskColors[p.riskCategory] || 'text-orange-300';
+      content = (
+        <>
+          <div className="font-semibold text-orange-300">
+            SPC Fire Wx Day {dayNum} · {typeLabel}
+          </div>
+          <div className={`text-xs mt-0.5 font-medium ${riskClass}`}>
+            {p.outlookLabel || p.riskCategory || 'Fire Weather Outlook'}
+          </div>
+        </>
+      );
+      break;
+    }
     default:
       return null;
   }
@@ -524,6 +547,13 @@ function FlightDetailPopup({ flight, lngLat, onClose }) {
  * @param {object|null} props.rawsGeoJSON
  * @param {object|null} props.airNowMonitorsGeoJSON
  * @param {object|null} props.droughtOutlookGeoJSON
+ * @param {object|null} props.fireWeatherOutlooksGeoJSON
+ * @param {string}      [props.fireWxOutlookType]
+ * @param {string}      [props.fireWxActiveDay]
+ * @param {boolean}     [props.fireWeatherOutlooksLoading]
+ * @param {string|null} [props.fireWxValidTime]
+ * @param {Function}    [props.onFireWxOutlookTypeChange]
+ * @param {Function}    [props.onFireWxActiveDayChange]
  * @param {Array}       [props.savedLocations]
  * @param {'wildfire'|'weather'} [props.activeMapTab]
  */
@@ -553,6 +583,13 @@ export default function MapView({
   rawsGeoJSON,
   airNowMonitorsGeoJSON,
   droughtOutlookGeoJSON,
+  fireWeatherOutlooksGeoJSON,
+  fireWxOutlookType = 'winds_low_humidity',
+  fireWxActiveDay = 'day1',
+  fireWeatherOutlooksLoading = false,
+  fireWxValidTime = null,
+  onFireWxOutlookTypeChange,
+  onFireWxActiveDayChange,
   savedLocations = [],
   measureActive = false,
   measureMode = 'distance',
@@ -685,13 +722,14 @@ export default function MapView({
     if (layers.rawsStations && rawsGeoJSON)                                           ids.push('raws-stations-circle');
     if (isWildfireTab && layers.airNowMonitors && airNowMonitorsGeoJSON)              ids.push('airnow-monitors-circle');
     if (isWildfireTab && layers.droughtOutlook && droughtOutlookGeoJSON)              ids.push('drought-outlook-fill');
+    if (layers.fireWeatherOutlooks && fireWeatherOutlooksGeoJSON)                     ids.push('fire-weather-outlook-fill');
     return ids;
   }, [measureActive, isWildfireTab, isWeatherTab, layers.fireHotspots, layers.firePerimeters, layers.incidentLocations, layers.aqi,
       layers.weatherAlerts, layers.spcOutlooks, layers.spcReports, layers.iemReports, layers.evacZones, layers.reporterEvacZones,
-      layers.flights, layers.rawsStations, layers.airNowMonitors, layers.droughtOutlook,
+      layers.flights, layers.rawsStations, layers.airNowMonitors, layers.droughtOutlook, layers.fireWeatherOutlooks,
       hotspotsGeoJSON, perimetersGeoJSON, incidentsGeoJSON, aqiGeoJSON, alertsGeoJSON, spcOutlooksGeoJSON,
       spcReportsGeoJSON, iemReportsGeoJSON, userReportsGeoJSON, evacZonesGeoJSON, reporterEvacZonesGeoJSON,
-      flightsGeoJSON, rawsGeoJSON, airNowMonitorsGeoJSON, droughtOutlookGeoJSON]);
+      flightsGeoJSON, rawsGeoJSON, airNowMonitorsGeoJSON, droughtOutlookGeoJSON, fireWeatherOutlooksGeoJSON]);
 
   // Clear stale hover when layers change
   useEffect(() => {
@@ -972,6 +1010,18 @@ export default function MapView({
         />
       )}
 
+      {/* Fire Weather Outlook selector – shown when fire weather layer is active */}
+      {layers.fireWeatherOutlooks && !layers.spcOutlooks && (
+        <FireWeatherOutlookSelector
+          outlookType={fireWxOutlookType}
+          onOutlookTypeChange={onFireWxOutlookTypeChange}
+          activeDay={fireWxActiveDay}
+          onActiveDayChange={onFireWxActiveDayChange}
+          loading={fireWeatherOutlooksLoading}
+          validTime={fireWxValidTime}
+        />
+      )}
+
       <Map
         ref={mapRef}
         {...viewport}
@@ -1098,6 +1148,13 @@ export default function MapView({
         <DroughtOutlookLayer
           geoJSON={droughtOutlookGeoJSON}
           visible={isWildfireTab && layers.droughtOutlook}
+        />
+
+        {/* SPC Fire Weather Outlook polygons – visible on wildfire tab */}
+        <FireWeatherOutlookLayer
+          geoJSON={fireWeatherOutlooksGeoJSON}
+          visible={layers.fireWeatherOutlooks}
+          outlookType={fireWxOutlookType}
         />
 
         {/* Fire hotspot points – rendered last (top) */}

@@ -27,6 +27,7 @@ import { useFlightData } from '../hooks/useFlightData';
 import { useRAWSData } from '../hooks/useRAWSData';
 import { useAirNowMonitors } from '../hooks/useAirNowMonitors';
 import { useDroughtOutlook } from '../hooks/useDroughtOutlook';
+import { useFireWeatherOutlooks } from '../hooks/useFireWeatherOutlooks';
 import { polygonCentroid } from '../utils/geoUtils';
 
 // Components
@@ -64,6 +65,7 @@ const WILDFIRE_LAYER_PRESET = {
   rawsStations: false,
   flights: false,
   airNowMonitors: false,
+  fireWeatherOutlooks: true,
 };
 
 const WEATHER_LAYER_PRESET = {
@@ -84,6 +86,7 @@ const WEATHER_LAYER_PRESET = {
   rawsStations: false,
   flights: false,
   airNowMonitors: false,
+  fireWeatherOutlooks: false,
 };
 
 const THREE_DAYS_MS = 3 * 24 * 60 * 60 * 1000;
@@ -314,6 +317,21 @@ const flightBounds = useMemo(() => {
     geoJSON: droughtOutlookGeoJSON,
     refresh: refreshDroughtOutlook,
   } = useDroughtOutlook(layers.droughtOutlook);
+
+  // SPC Fire Weather Outlooks – day/type selector state
+  const [fireWxOutlookType, setFireWxOutlookType] = useState('winds_low_humidity');
+  const [fireWxActiveDay,   setFireWxActiveDay]   = useState('day1');
+
+  const {
+    geoJSON:   fireWeatherOutlooksGeoJSON,
+    loading:   fireWeatherOutlooksLoading,
+    validTime: fireWxValidTime,
+    refresh:   refreshFireWeatherOutlooks,
+  } = useFireWeatherOutlooks(
+    layers.fireWeatherOutlooks,
+    fireWxActiveDay,
+    fireWxOutlookType
+  );
 
   useEffect(() => {
     if (flightsError) console.error('[FlightTracking] Error:', flightsError);
@@ -580,7 +598,8 @@ const flightBounds = useMemo(() => {
     if (rawsEnabled) refreshRAWS();
     if (layers.airNowMonitors) refreshAirNowMonitors();
     if (layers.droughtOutlook) refreshDroughtOutlook();
-  }, [refreshHotspots, refreshPerimeters, refreshAlerts, refreshIncidents, refreshStormReports, refreshSpcOutlooks, refreshUserReports, refreshEvacZones, refreshReporterEvacZones, refreshAQI, refreshFlights, refreshRAWS, refreshAirNowMonitors, refreshDroughtOutlook, layers.aqi, layers.flights, rawsEnabled, layers.airNowMonitors, layers.droughtOutlook]);
+    if (layers.fireWeatherOutlooks) refreshFireWeatherOutlooks();
+  }, [refreshHotspots, refreshPerimeters, refreshAlerts, refreshIncidents, refreshStormReports, refreshSpcOutlooks, refreshUserReports, refreshEvacZones, refreshReporterEvacZones, refreshAQI, refreshFlights, refreshRAWS, refreshAirNowMonitors, refreshDroughtOutlook, refreshFireWeatherOutlooks, layers.aqi, layers.flights, rawsEnabled, layers.airNowMonitors, layers.droughtOutlook, layers.fireWeatherOutlooks]);
 
   return (
     <div className="h-screen w-screen flex flex-col bg-sentinel-900 text-white overflow-hidden select-none">
@@ -634,6 +653,13 @@ const flightBounds = useMemo(() => {
             rawsGeoJSON={rawsGeoJSON}
             airNowMonitorsGeoJSON={airNowMonitorsGeoJSON}
             droughtOutlookGeoJSON={droughtOutlookGeoJSON}
+            fireWeatherOutlooksGeoJSON={fireWeatherOutlooksGeoJSON}
+            fireWxOutlookType={fireWxOutlookType}
+            fireWxActiveDay={fireWxActiveDay}
+            fireWeatherOutlooksLoading={fireWeatherOutlooksLoading}
+            fireWxValidTime={fireWxValidTime}
+            onFireWxOutlookTypeChange={setFireWxOutlookType}
+            onFireWxActiveDayChange={setFireWxActiveDay}
             savedLocations={savedLocations}
             measureActive={measureActive}
             measureMode={measureMode}
@@ -654,7 +680,7 @@ const flightBounds = useMemo(() => {
             onPrecipRingToggle={onPrecipRingToggle}
           />
 
-          <Legend spcOutlookType={spcOutlookType} spcActiveDay={spcActiveDay} />
+          <Legend spcOutlookType={spcOutlookType} spcActiveDay={spcActiveDay} fireWxOutlookType={fireWxOutlookType} />
           <FireDetailPanel />
 
           {/* Bug report button – fixed to bottom-right of map area */}
