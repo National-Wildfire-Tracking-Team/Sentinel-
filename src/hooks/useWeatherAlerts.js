@@ -1,7 +1,8 @@
 /**
  * useWeatherAlerts.js
  * Unified nationwide alert system:
- * - NOAA/NWS (primary, full coverage)
+ * - NOAA/NWS API (primary, full coverage)
+ * - NOAA MapServer (secondary, guaranteed polygon geometry, 5-min refresh)
  * - FEMA IPAWS (supplement)
  * - Deduplication + merging
  * - GeoJSON output for mapping
@@ -11,6 +12,15 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useApp } from "../context/AppContext";
 
 const REFRESH_MS = 60 * 1000;
+
+// ArcGIS MapServer base URL — NOAA event-driven WWA service
+const MAPSERVER_BASE =
+  "https://mapservices.weather.noaa.gov/eventdriven/rest/services/WWA/watch_warn_adv/MapServer";
+// Layer 1 (WatchesWarnings) covers all active watches, warnings, and advisories.
+// Layer 0 (CurrentWarnings) holds only the highest-priority immediate-danger
+// warnings (Tornado, Severe Thunderstorm, Flash Flood, Snow Squall, Special Marine).
+// Both are queried so we get complete coverage with guaranteed polygon geometry.
+const MAPSERVER_LAYERS = [0, 1];
 
 /* =========================
    NWS FETCH (FULL NATIONWIDE)
@@ -52,6 +62,81 @@ async function fetchAllNWSAlerts() {
   }
 
   return alerts;
+}
+
+/* =========================
+   NOAA MAPSERVER FETCH
+========================= */
+/**
+ * Fetch active warnings/watches/advisories from the NOAA NWS ArcGIS MapServer.
+ * The service is updated every 5 minutes and always includes polygon geometry,
+ * making it a reliable supplement when the NWS JSON API has alerts without shapes.
+ * Both layer 0 (immediate-danger warnings) and layer 1 (all watches/warnings/
+ * advisories) are queried; the deduplication step below collapses any overlap.
+ */
+async function fetchNOAAMapServerAlerts() {
+  const allFeatures = [];
+
+  await Promise.all(
+    MAPSERVER_LAYERS.map(async (layerId) => {
+      // Request GeoJSON with coordinates reprojected to WGS-84 (outSR=4326) so
+      // the geometry is directly usable by Mapbox without further transformation.
+      const url =
+        `${MAPSERVER_BASE}/${layerId}/query` +
+        `?where=1%3D1&outFields=prod_type,msg_type,phenom,sig,url,expiration,onset,issuance,wfo,cap_id` +
+        `&outSR=4326&f=geojson`;
+
+      try {
+        const res = await fetch(url);
+        if (!res.ok) throw new Error(`MapServer layer ${layerId} HTTP ${res.status}`);
+        const data = await res.json();
+        allFeatures.push(...(data.features || []));
+      } catch (err) {
+        console.warn(`[NOAA MapServer] Layer ${layerId} failed:`, err.message);
+      }
+    })
+  );
+
+  return allFeatures.map(f => {
+    const p = f.properties || {};
+    // cap_id is a URN that matches the NWS JSON API alert id, enabling cross-source
+    // deduplication via the existing id-based Set check in mergeAlerts().
+    return {
+      id: p.cap_id || null,
+      type: p.prod_type || null,
+      headline: p.prod_type || null,
+      description: null,
+      severity: sigToSeverity(p.sig),
+      urgency: sigToUrgency(p.sig),
+      affectedArea: p.wfo || null,
+      effective: p.issuance || null,
+      onset: p.onset || null,
+      sent: p.issuance || null,
+      expires: p.expiration || null,
+      geometry: f.geometry || null,
+      // Use the same source label as the NWS JSON API so all NWS-origin alerts
+      // are treated identically by the map layer, sidebar, and color utilities.
+      source: "NWS"
+    };
+  });
+}
+
+/** Map NWS significance code (sig field) to a human-readable severity string. */
+function sigToSeverity(sig) {
+  if (sig === "W") return "Extreme";
+  if (sig === "A") return "Severe";
+  if (sig === "Y") return "Moderate";
+  if (sig === "S") return "Minor";
+  return "Unknown";
+}
+
+/** Map NWS significance code (sig field) to a human-readable urgency string. */
+function sigToUrgency(sig) {
+  if (sig === "W") return "Immediate";
+  if (sig === "A") return "Expected";
+  if (sig === "Y") return "Expected";
+  if (sig === "S") return "Future";
+  return "Unknown";
 }
 
 /* =========================
@@ -105,22 +190,28 @@ function fingerprint(alert) {
   return `${event}|${area}|${time}`;
 }
 
-function mergeAlerts(nws, fema) {
-  const seenIds  = new Set(nws.map(a => a.id));
-  const seenKeys = new Set(nws.map(fingerprint));
+/**
+ * Merge alerts from multiple sources into a single deduplicated array.
+ * The first argument is treated as the primary (highest-fidelity) source;
+ * subsequent arrays are added only when no duplicate id or fingerprint exists.
+ * Accepts any number of source arrays.
+ */
+function mergeAlerts(primary, ...rest) {
+  const seenIds  = new Set(primary.map(a => a.id).filter(Boolean));
+  const seenKeys = new Set(primary.map(fingerprint));
 
   function addUnique(candidates) {
     return candidates.filter(a => {
       if (a.id && seenIds.has(a.id)) return false;
       const key = fingerprint(a);
       if (seenKeys.has(key)) return false;
-      seenIds.add(a.id);
+      if (a.id) seenIds.add(a.id);
       seenKeys.add(key);
       return true;
     });
   }
 
-  return [...nws, ...addUnique(fema)];
+  return [...primary, ...rest.flatMap(addUnique)];
 }
 
 /* =========================
@@ -162,14 +253,17 @@ export function useWeatherAlerts() {
     try {
       setError(null);
 
-      const [nws, fema] = await Promise.all([
+      const [nws, mapserver, fema] = await Promise.all([
         fetchAllNWSAlerts(),
+        fetchNOAAMapServerAlerts(),
         fetchFemaAlerts(),
       ]);
 
       if (!mountedRef.current) return;
 
-      const merged = mergeAlerts(nws, fema);
+      // Merge order: NWS API first (richest metadata), then MapServer (fills
+      // geometry gaps), then FEMA (broadest supplemental coverage).
+      const merged = mergeAlerts(nws, mapserver, fema);
 
       setAlertsState(merged);
       setAlerts(merged);
