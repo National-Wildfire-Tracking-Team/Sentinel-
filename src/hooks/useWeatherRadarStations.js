@@ -7,7 +7,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { fetchWeatherRadarStations } from '../api/weatherRadarStations';
 
-const REFRESH_MS  = 24 * 60 * 60 * 1000;
+const REFRESH_MS    = 5 * 60 * 1000; // refresh every 5 min (live status included)
 const EMPTY_GEOJSON = { type: 'FeatureCollection', features: [] };
 
 export function useWeatherRadarStations(enabled = true) {

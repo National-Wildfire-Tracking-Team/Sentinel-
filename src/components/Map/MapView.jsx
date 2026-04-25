@@ -346,24 +346,25 @@ function HoverTooltip({ feature, lngLat }) {
     }
     case 'radar-stations-circle': {
       const typeColor = p.radarType === 'TDWR' ? 'text-violet-400' : 'text-cyan-400';
+      const statusStr = p.status || '';
+      const isOnline  = /on.?line/i.test(statusStr);
+      const isMaint   = /maint/i.test(statusStr);
+      const statusColor = isOnline && !isMaint ? 'text-green-400'
+        : isMaint ? 'text-yellow-400'
+        : statusStr ? 'text-red-400'
+        : 'text-sentinel-400';
       content = (
         <>
           <div className={`font-semibold ${typeColor}`}>
             {p.siteId} — {p.siteName}
           </div>
           <div className="text-gray-300 text-xs mt-0.5">
-            Type: <span className="text-white font-medium">{p.radarType}</span>
+            {p.radarType} · {p.radarType === 'TDWR' ? 'FAA' : 'NOAA'}
           </div>
-          {p.antennaElevation != null && (
-            <div className="text-gray-400 text-xs">
-              Elevation: {Math.round(p.antennaElevation).toLocaleString()} ft
-            </div>
+          {statusStr && (
+            <div className={`text-xs mt-0.5 ${statusColor}`}>{statusStr}</div>
           )}
-          <div className="text-gray-500 text-[10px] mt-1">
-            {p.radarType === 'TDWR'
-              ? 'FAA Terminal Doppler Weather Radar'
-              : 'NOAA Next-Generation Radar'}
-          </div>
+          <div className="text-cyan-400 text-[10px] mt-1">Click for details &amp; AWS data ↗</div>
         </>
       );
       break;
@@ -524,6 +525,130 @@ function FlightDetailPopup({ flight, lngLat, onClose }) {
   );
 }
 
+// Build today's S3 browse URL for a NEXRAD site
+function nexradS3TodayUrl(siteId) {
+  const now = new Date();
+  const y = now.getUTCFullYear();
+  const m = String(now.getUTCMonth() + 1).padStart(2, '0');
+  const d = String(now.getUTCDate()).padStart(2, '0');
+  return `https://unidata-nexrad-level2.s3.amazonaws.com/index.html#${y}/${m}/${d}/${siteId}/`;
+}
+
+function RadarStationDetailPopup({ station, lngLat, onClose }) {
+  const isTDWR      = station.radarType === 'TDWR';
+  const headerColor = isTDWR ? '#a78bfa' : '#06b6d4';
+  const s3TodayUrl  = !isTDWR ? nexradS3TodayUrl(station.siteId) : null;
+
+  // Operational status colour
+  const statusStr = station.status || '';
+  const isOnline  = /on.?line/i.test(statusStr);
+  const isMaint   = /maint/i.test(statusStr);
+  const statusColor = isOnline && !isMaint ? 'text-green-400'
+    : isMaint ? 'text-yellow-400'
+    : statusStr ? 'text-red-400'
+    : 'text-sentinel-400';
+
+  const lastScanStr = station.lastScan
+    ? new Date(station.lastScan).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', timeZoneName: 'short' })
+    : null;
+
+  return (
+    <Popup
+      longitude={lngLat.lng}
+      latitude={lngLat.lat}
+      closeButton={false}
+      closeOnClick={false}
+      anchor="top"
+      offset={[0, 10]}
+      className="sentinel-popup"
+    >
+      <div className="bg-sentinel-800 border border-sentinel-600 rounded-lg shadow-2xl text-sm min-w-[230px] overflow-hidden">
+        {/* Header */}
+        <div className="flex items-center justify-between px-3 py-2 border-b border-sentinel-600 bg-sentinel-700/50">
+          <div className="flex items-center gap-2">
+            <span className="text-base leading-none" style={{ color: headerColor }}>◉</span>
+            <span className="font-semibold" style={{ color: headerColor }}>
+              {station.siteId} — {station.siteName}
+            </span>
+          </div>
+          <button
+            onClick={onClose}
+            className="text-sentinel-300 hover:text-white transition-colors text-xs leading-none ml-3"
+            aria-label="Close"
+          >
+            ✕
+          </button>
+        </div>
+
+        {/* Fields */}
+        <div className="px-3 py-2 space-y-1">
+          {[
+            { label: 'Type',     value: station.radarType },
+            { label: 'Operator', value: isTDWR ? 'FAA' : 'NOAA' },
+            { label: 'Range',    value: isTDWR ? '90 km velocity' : '460 km reflectivity' },
+            station.antennaElevation != null && {
+              label: 'Elevation',
+              value: `${Math.round(station.antennaElevation).toLocaleString()} ft`,
+            },
+            station.vcp && { label: 'VCP', value: station.vcp },
+            lastScanStr && { label: 'Last scan', value: lastScanStr },
+          ].filter(Boolean).map(({ label, value }) => (
+            <div key={label} className="flex items-baseline justify-between gap-4">
+              <span className="text-sentinel-300 text-[10px] uppercase tracking-wide shrink-0">{label}</span>
+              <span className="text-white text-xs font-mono text-right">{value}</span>
+            </div>
+          ))}
+          {statusStr && (
+            <div className="flex items-baseline justify-between gap-4">
+              <span className="text-sentinel-300 text-[10px] uppercase tracking-wide shrink-0">Status</span>
+              <span className={`text-xs font-mono text-right ${statusColor}`}>{statusStr}</span>
+            </div>
+          )}
+        </div>
+
+        {/* AWS Open Data rider – NEXRAD only */}
+        {!isTDWR && (
+          <div className="px-3 pb-2.5 pt-1.5 border-t border-sentinel-700 space-y-1">
+            <div className="text-[10px] text-sentinel-300 uppercase tracking-wide font-semibold mb-1">
+              NOAA NEXRAD on AWS — Open Data
+            </div>
+            <a
+              href={s3TodayUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 px-2 py-1.5 rounded-md bg-cyan-900/40 border border-cyan-700/50
+                         text-cyan-300 text-[11px] font-medium hover:bg-cyan-800/50 transition-colors"
+            >
+              Browse today's Level II data ↗
+            </a>
+            <a
+              href="https://registry.opendata.aws/noaa-nexrad/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="block px-2 py-0.5 text-sentinel-400 text-[10px] hover:text-sentinel-200 transition-colors"
+            >
+              AWS Open Data Registry — noaa-nexrad ↗
+            </a>
+            <p className="text-[9px] text-sentinel-500 leading-tight px-1">
+              Real-time &amp; archival Level II data on Amazon S3
+              (<code className="text-sentinel-400">unidata-nexrad-level2</code>).
+              NOAA/Unidata open data license.
+            </p>
+          </div>
+        )}
+        {isTDWR && (
+          <div className="px-3 pb-2.5 pt-1.5 border-t border-sentinel-700">
+            <p className="text-[10px] text-sentinel-400 leading-tight">
+              FAA Terminal Doppler Weather Radar — optimised for airport wind-shear detection.
+              TDWR data is not included in the NEXRAD AWS open data set.
+            </p>
+          </div>
+        )}
+      </div>
+    </Popup>
+  );
+}
+
 /**
  * @param {object} props
  * @param {object|null} props.hotspotsGeoJSON
@@ -607,6 +732,10 @@ export default function MapView({
   // Selected aircraft popup state
   const [selectedFlight,       setSelectedFlight]       = useState(null);
   const [selectedFlightLngLat, setSelectedFlightLngLat] = useState(null);
+
+  // Selected radar station popup state
+  const [selectedRadarStation,       setSelectedRadarStation]       = useState(null);
+  const [selectedRadarStationLngLat, setSelectedRadarStationLngLat] = useState(null);
   const [showLocationPrompt, setShowLocationPrompt] = useState(false);
   const [userLocation, setUserLocation] = useState(null);
 
@@ -740,6 +869,8 @@ export default function MapView({
       selectFire(null);
       setSelectedFlight(null);
       setSelectedFlightLngLat(null);
+      setSelectedRadarStation(null);
+      setSelectedRadarStationLngLat(null);
       return;
     }
 
@@ -749,12 +880,24 @@ export default function MapView({
     if (feature.layer.id === 'flights-symbol') {
       setSelectedFlight(feature.properties);
       setSelectedFlightLngLat(evt.lngLat);
+      setSelectedRadarStation(null);
+      setSelectedRadarStationLngLat(null);
       return;
     }
 
-    // Clicking any non-flight feature closes the flight popup
+    if (feature.layer.id === 'radar-stations-circle') {
+      setSelectedRadarStation(feature.properties);
+      setSelectedRadarStationLngLat(evt.lngLat);
+      setSelectedFlight(null);
+      setSelectedFlightLngLat(null);
+      return;
+    }
+
+    // Clicking any other feature closes both popups
     setSelectedFlight(null);
     setSelectedFlightLngLat(null);
+    setSelectedRadarStation(null);
+    setSelectedRadarStationLngLat(null);
 
     if (feature.layer.id === 'fire-hotspots-circle') {
       selectFire({
@@ -1217,6 +1360,15 @@ export default function MapView({
             flight={selectedFlight}
             lngLat={selectedFlightLngLat}
             onClose={() => { setSelectedFlight(null); setSelectedFlightLngLat(null); }}
+          />
+        )}
+
+        {/* Radar station detail popup – shown on station click */}
+        {selectedRadarStation && selectedRadarStationLngLat && (
+          <RadarStationDetailPopup
+            station={selectedRadarStation}
+            lngLat={selectedRadarStationLngLat}
+            onClose={() => { setSelectedRadarStation(null); setSelectedRadarStationLngLat(null); }}
           />
         )}
       </Map>
