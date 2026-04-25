@@ -1,6 +1,6 @@
 /**
  * WeatherAlertsLayer.jsx
- * Renders NOAA weather alert zones as semi-transparent polygon overlays
+ * Renders NOAA/NWS alert zones as semi-transparent polygon overlays
  * using the official NWS color palette (see utils/nwsColors).
  * Watches use a more transparent fill to distinguish them from warnings.
  * Layer stays mounted; visibility is controlled via layout property.

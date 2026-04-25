@@ -19,6 +19,7 @@ import { useWeatherAlerts } from '../hooks/useWeatherAlerts';
 import { useIncidents } from '../hooks/useIncidents';
 import { useStormReports } from '../hooks/useStormReports';
 import { useSpcOutlooks } from '../hooks/useSpcOutlooks';
+import { useSpcMesoscaleDiscussion } from '../hooks/useSpcMesoscaleDiscussion';
 import { useFireReports, reportsToGeoJSON } from '../hooks/useFireReports';
 import { useCombinedEvacZones } from '../hooks/useCombinedEvacZones';
 import { useReporterEvacZones, reporterEvacZonesToGeoJSON } from '../hooks/useReporterEvacZones';
@@ -56,6 +57,7 @@ const WILDFIRE_LAYER_PRESET = {
   goesEast: false,
   goesWest: false,
   spcOutlooks: false,
+  spcMd: false,
   radar: false,
   evacZones: false,
   reporterEvacZones: true,
@@ -73,7 +75,8 @@ const WEATHER_LAYER_PRESET = {
   smoke: false,
   goesEast: false,
   goesWest: false,
-  spcOutlooks: false,
+  spcOutlooks: true,
+  spcMd: true,
   spcReports: true,
   iemReports: true,
   radar: true,
@@ -230,10 +233,20 @@ export default function LiveTrackerPage() {
     refresh: refreshStormReports,
   } = useStormReports(activeMapTab === MAP_TABS.weather);
 
+  const [spcOutlookType, setSpcOutlookType] = useState('categorical');
+  const [spcActiveDay,   setSpcActiveDay]   = useState('day1');
+
   const {
-    geoJSON: spcOutlooksGeoJSON,
-    refresh: refreshSpcOutlooks,
-  } = useSpcOutlooks(activeMapTab === MAP_TABS.weather);
+    geoJSON:   spcOutlooksGeoJSON,
+    loading:   spcOutlooksLoading,
+    validTime: spcValidTime,
+    refresh:   refreshSpcOutlooks,
+  } = useSpcOutlooks(activeMapTab === MAP_TABS.weather, spcActiveDay, spcOutlookType);
+
+  const {
+    geoJSON:  spcMdGeoJSON,
+    refresh:  refreshSpcMd,
+  } = useSpcMesoscaleDiscussion(activeMapTab === MAP_TABS.weather && layers.spcMd);
 
   // California evacuation zones – combined CalOES hosted-view + PROD feed
   const {
@@ -558,6 +571,7 @@ const flightBounds = useMemo(() => {
     refreshIncidents();
     refreshStormReports();
     refreshSpcOutlooks();
+    refreshSpcMd();
     refreshUserReports();
     refreshEvacZones();
     refreshReporterEvacZones();
@@ -606,6 +620,13 @@ const flightBounds = useMemo(() => {
             spcReportsGeoJSON={spcGeoJSON}
             iemReportsGeoJSON={iemGeoJSON}
             spcOutlooksGeoJSON={spcOutlooksGeoJSON}
+            spcOutlookType={spcOutlookType}
+            spcActiveDay={spcActiveDay}
+            spcOutlooksLoading={spcOutlooksLoading}
+            spcValidTime={spcValidTime}
+            onSpcOutlookTypeChange={setSpcOutlookType}
+            onSpcActiveDayChange={setSpcActiveDay}
+            spcMdGeoJSON={spcMdGeoJSON}
             userReportsGeoJSON={userReportsGeoJSON}
             evacZonesGeoJSON={evacZonesGeoJSON}
             reporterEvacZonesGeoJSON={reporterEvacZonesGeoJSON}
@@ -633,7 +654,7 @@ const flightBounds = useMemo(() => {
             onPrecipRingToggle={onPrecipRingToggle}
           />
 
-          <Legend />
+          <Legend spcOutlookType={spcOutlookType} spcActiveDay={spcActiveDay} />
           <FireDetailPanel />
 
           {/* Bug report button – fixed to bottom-right of map area */}

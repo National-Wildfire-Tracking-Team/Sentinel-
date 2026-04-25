@@ -1,10 +1,10 @@
 /**
  * noaaWeather.js
- * NOAA Weather API – Public US government data, no API key required.
+ * NOAA/NWS Weather API – Public US government data, no API key required.
  *
  * Endpoints used:
  * - Active alerts: https://api.weather.gov/alerts/active
- * - Fetches ALL active weather alerts
+ * - Fetches ALL active NOAA/NWS alerts
  *
  * Docs: https://www.weather.gov/documentation/services-web-api
  */
@@ -156,12 +156,12 @@ export async function enrichAlertsWithGeometry(alerts) {
 }
 
 /**
- * Fetch ALL active weather alerts, following NWS API pagination so no alerts
- * are missed when there are more than 500 active across the US.
+ * Fetch ALL active NOAA/NWS weather alerts, following NWS API pagination so
+ * no alerts are missed when there are more than 500 active across the US.
  * Results are cached for 5 minutes.
  * @returns {Promise<Array>}  Normalized alert objects
  */
-export async function fetchFireWeatherAlerts() {
+export async function fetchNWSAlerts() {
   const cacheKey = 'noaa:all-alerts';
   const cached = getCached(cacheKey);
   if (cached !== null) return cached;

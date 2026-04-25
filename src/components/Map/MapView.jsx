@@ -26,11 +26,13 @@ import GOESLayer          from './layers/GOESLayer';
 import StormReportsLayer  from './layers/StormReportsLayer';
 import UserReportsLayer   from './layers/UserReportsLayer';
 import SPCOutlookLayer from './layers/SPCOutlookLayer';
+import SPCMesoscaleDiscussionLayer from './layers/SPCMesoscaleDiscussionLayer';
 import RadarLayer from './layers/RadarLayer';
 import EvacZonesLayer from './layers/EvacZonesLayer';
 import ReporterEvacZonesLayer from './layers/ReporterEvacZonesLayer';
 import { MeasurementLayer, MeasurementPanel } from './MeasurementTool';
 import { PrecipitationRing } from './PrecipitationRing';
+import SPCOutlookSelector from './SPCOutlookSelector';
 import FlightLayer from './layers/FlightLayer';
 import RAWSLayer from './layers/RAWSLayer';
 import AirNowMonitorsLayer from './layers/AirNowMonitorsLayer';
@@ -153,24 +155,57 @@ function HoverTooltip({ feature, lngLat }) {
         </>
       );
       break;
-    case 'spc-outlook-fill':
+    case 'spc-md-fill': {
+      const tillStr = p.activeTill ? `Active till ${p.activeTill}` : null;
       content = (
         <>
-          <div className="font-semibold text-fuchsia-300">
-            SPC {String(p.day || '').toUpperCase()} Outlook
+          <div className="font-semibold text-red-400">
+            {p.name || 'Mesoscale Discussion'}
           </div>
-          <div className="text-gray-300 text-xs mt-0.5">
-            Risk: <span className="text-white font-medium">{p.riskCategory || 'TSTM'}</span>
-          </div>
-          {p.outlookLabel && (
-            <div className="text-gray-400 text-xs">{p.outlookLabel}</div>
+          {tillStr && (
+            <div className="text-gray-300 text-xs mt-0.5">{tillStr}</div>
           )}
-          {p.DESC && (
-            <div className="text-gray-400 text-xs mt-1 max-w-[220px] line-clamp-3">{p.DESC}</div>
+          <div className="text-gray-400 text-xs mt-0.5">SPC Mesoscale Discussion</div>
+          {p.url && (
+            <div className="text-sky-400 text-xs mt-1">Click for full discussion ↗</div>
           )}
         </>
       );
       break;
+    }
+    case 'spc-outlook-fill': {
+      const dayNum = String(p.day || '').replace('day', '');
+      const typeLabel = (() => {
+        const t = p.outlookType || 'categorical';
+        const map = { categorical: 'Categorical', tornado: 'Tornado Prob.', hail: 'Hail Prob.', wind: 'Wind Prob.', severe: 'Severe Prob.' };
+        return map[t] || t;
+      })();
+      const validStr = p.validTime
+        ? (() => {
+            const s = String(p.validTime);
+            if (s.length === 12) {
+              const yr = s.slice(0, 4), mo = s.slice(4, 6), dy = s.slice(6, 8), hr = s.slice(8, 10), mn = s.slice(10, 12);
+              const d = new Date(`${yr}-${mo}-${dy}T${hr}:${mn}Z`);
+              return isNaN(d.getTime()) ? null : d.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', timeZoneName: 'short' });
+            }
+            return null;
+          })()
+        : null;
+      content = (
+        <>
+          <div className="font-semibold text-yellow-300">
+            SPC Day {dayNum} · {typeLabel}
+          </div>
+          <div className="text-gray-300 text-xs mt-0.5">
+            {p.outlookLabel || p.riskCategory || (p.probPct != null ? `${p.probPct}% probability` : 'Outlook')}
+          </div>
+          {validStr && (
+            <div className="text-gray-400 text-xs mt-0.5">Valid: {validStr}</div>
+          )}
+        </>
+      );
+      break;
+    }
     case 'user-reports-circle':
       content = (
         <>
@@ -475,6 +510,13 @@ function FlightDetailPopup({ flight, lngLat, onClose }) {
  * @param {object|null} props.spcReportsGeoJSON
  * @param {object|null} props.iemReportsGeoJSON
  * @param {object|null} props.spcOutlooksGeoJSON
+ * @param {string}      [props.spcOutlookType]       - active outlook type key
+ * @param {string}      [props.spcActiveDay]         - active day key e.g. 'day1'
+ * @param {boolean}     [props.spcOutlooksLoading]
+ * @param {string|null} [props.spcValidTime]
+ * @param {Function}    [props.onSpcOutlookTypeChange]
+ * @param {Function}    [props.onSpcActiveDayChange]
+ * @param {object|null} props.spcMdGeoJSON
  * @param {object|null} props.userReportsGeoJSON
  * @param {object|null} props.evacZonesGeoJSON
  * @param {object|null} props.reporterEvacZonesGeoJSON
@@ -497,6 +539,13 @@ export default function MapView({
   spcReportsGeoJSON,
   iemReportsGeoJSON,
   spcOutlooksGeoJSON,
+  spcOutlookType = 'categorical',
+  spcActiveDay = 'day1',
+  spcOutlooksLoading = false,
+  spcValidTime = null,
+  onSpcOutlookTypeChange,
+  onSpcActiveDayChange,
+  spcMdGeoJSON,
   userReportsGeoJSON,
   evacZonesGeoJSON,
   reporterEvacZonesGeoJSON,
@@ -627,6 +676,7 @@ export default function MapView({
     if (isWeatherTab && layers.aqi && aqiGeoJSON)                        ids.push('aqi-stations-circle');
     if (isWeatherTab && layers.weatherAlerts && alertsGeoJSON) ids.push('weather-alerts-fill');
     if (isWeatherTab && layers.spcOutlooks && spcOutlooksGeoJSON)        ids.push('spc-outlook-fill');
+    if (isWeatherTab && layers.spcMd && spcMdGeoJSON)                   ids.push('spc-md-fill');
     if (isWeatherTab && layers.spcReports && spcReportsGeoJSON)          ids.push('spc-reports-circle');
     if (isWeatherTab && layers.iemReports && iemReportsGeoJSON)          ids.push('iem-reports-circle');
     if (isWildfireTab && layers.evacZones && evacZonesGeoJSON)                        ids.push('evac-zones-fill');
@@ -849,6 +899,11 @@ export default function MapView({
           expires:   p.expires,
         });
       }
+    } else if (feature.layer.id === 'spc-md-fill') {
+      // Open the SPC MD page in a new tab when the user clicks a polygon
+      if (p.url) {
+        window.open(p.url, '_blank', 'noopener,noreferrer');
+      }
     }
   }, [measureActive, alerts, selectFire]);
 
@@ -905,6 +960,18 @@ export default function MapView({
 
   return (
     <div className="absolute inset-0 bg-sentinel-900">
+      {/* SPC outlook day/type selector – shown when the SPC layer is active on weather tab */}
+      {isWeatherTab && layers.spcOutlooks && (
+        <SPCOutlookSelector
+          outlookType={spcOutlookType}
+          onOutlookTypeChange={onSpcOutlookTypeChange}
+          activeDay={spcActiveDay}
+          onActiveDayChange={onSpcActiveDayChange}
+          loading={spcOutlooksLoading}
+          validTime={spcValidTime}
+        />
+      )}
+
       <Map
         ref={mapRef}
         {...viewport}
@@ -955,6 +1022,12 @@ export default function MapView({
         <SPCOutlookLayer
           geoJSON={spcOutlooksGeoJSON}
           visible={isWeatherTab && layers.spcOutlooks}
+        />
+
+        {/* SPC Mesoscale Discussions – red-dash outlined polygons */}
+        <SPCMesoscaleDiscussionLayer
+          geoJSON={spcMdGeoJSON}
+          visible={isWeatherTab && layers.spcMd}
         />
 
         {/* Fire perimeter polygons */}

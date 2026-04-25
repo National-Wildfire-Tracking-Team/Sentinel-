@@ -23,6 +23,7 @@ const initialState = {
     spcReports:        false,
     iemReports:        false,
     spcOutlooks:       false,
+    spcMd:             false,
     radar:             false,
     evacZones:         false,
     reporterEvacZones: true,

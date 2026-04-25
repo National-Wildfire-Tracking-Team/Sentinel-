@@ -28,7 +28,7 @@ const capabilities = [
     icon: CloudLightning,
     title: 'Weather Alert Monitoring',
     description:
-      'We track Red Flag Warnings, Fire Weather Watches, and other critical weather alerts from the National Weather Service that indicate elevated wildfire risk.',
+      'We track Red Flag Warnings, Fire Weather Watches, and other critical NOAA/NWS alerts that indicate elevated wildfire risk.',
   },
   {
     icon: Eye,

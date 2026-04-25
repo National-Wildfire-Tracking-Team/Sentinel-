@@ -1,6 +1,6 @@
 /**
  * WeatherAlertsFeed.jsx
- * Live active NWS weather alerts feed for weather tracking mode.
+ * Live active NOAA/NWS alerts feed for weather tracking mode.
  */
 
 import { useMemo, useState } from 'react';
