@@ -6,7 +6,7 @@
 
 import { useState, memo } from 'react';
 import {
-  Layers, Flame, MapPin, Wind, CloudRain, Eye, ChevronDown, ChevronRight, Radar, AlertTriangle, Ruler, Hexagon, PlaneTakeoff, Satellite, Map as MapIcon, Thermometer, Crosshair, Activity,
+  Layers, Flame, MapPin, Wind, CloudRain, Eye, ChevronDown, ChevronRight, Radar, AlertTriangle, Ruler, Hexagon, PlaneTakeoff, Satellite, Map as MapIcon, Thermometer, Crosshair, Activity, Droplets,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 
@@ -20,6 +20,7 @@ const LAYER_GROUPS = [
       { key: 'evacZones',         label: 'Evacuation Zones',    sublabel: 'Cal OES Hosted + PROD',  icon: AlertTriangle, color: '#ef4444' },
       { key: 'rawsStations',      label: 'RAWS Stations',       sublabel: 'Fire weather stations',  icon: Thermometer,  color: '#f97316' },
       { key: 'airNowMonitors',    label: 'Air Quality Monitors', sublabel: 'EPA AirNow sensor network', icon: Activity,  color: '#38bdf8' },
+      { key: 'droughtOutlook',    label: 'Drought Outlook',      sublabel: 'NOAA CPC Monthly Outlook',  icon: Droplets,  color: '#f59e0b' },
     ],
   },
   {

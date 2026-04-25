@@ -26,6 +26,7 @@ import { useReporterEvacZones, reporterEvacZonesToGeoJSON } from '../hooks/useRe
 import { useFlightData } from '../hooks/useFlightData';
 import { useRAWSData } from '../hooks/useRAWSData';
 import { useAirNowMonitors } from '../hooks/useAirNowMonitors';
+import { useDroughtOutlook } from '../hooks/useDroughtOutlook';
 import { polygonCentroid } from '../utils/geoUtils';
 
 // Components
@@ -308,6 +309,12 @@ const flightBounds = useMemo(() => {
     refresh: refreshAirNowMonitors,
   } = useAirNowMonitors(layers.airNowMonitors);
 
+  // NOAA CPC Drought Outlook – only fetch when the layer is toggled on
+  const {
+    geoJSON: droughtOutlookGeoJSON,
+    refresh: refreshDroughtOutlook,
+  } = useDroughtOutlook(layers.droughtOutlook);
+
   useEffect(() => {
     if (flightsError) console.error('[FlightTracking] Error:', flightsError);
   }, [flightsError]);
@@ -572,7 +579,8 @@ const flightBounds = useMemo(() => {
     if (layers.flights) refreshFlights();
     if (rawsEnabled) refreshRAWS();
     if (layers.airNowMonitors) refreshAirNowMonitors();
-  }, [refreshHotspots, refreshPerimeters, refreshAlerts, refreshIncidents, refreshStormReports, refreshSpcOutlooks, refreshSpcMd, refreshUserReports, refreshEvacZones, refreshReporterEvacZones, refreshAQI, refreshFlights, refreshRAWS, refreshAirNowMonitors, layers.aqi, layers.flights, rawsEnabled, layers.airNowMonitors]);
+    if (layers.droughtOutlook) refreshDroughtOutlook();
+  }, [refreshHotspots, refreshPerimeters, refreshAlerts, refreshIncidents, refreshStormReports, refreshSpcOutlooks, refreshUserReports, refreshEvacZones, refreshReporterEvacZones, refreshAQI, refreshFlights, refreshRAWS, refreshAirNowMonitors, refreshDroughtOutlook, layers.aqi, layers.flights, rawsEnabled, layers.airNowMonitors, layers.droughtOutlook]);
 
   return (
     <div className="h-screen w-screen flex flex-col bg-sentinel-900 text-white overflow-hidden select-none">
@@ -625,6 +633,7 @@ const flightBounds = useMemo(() => {
             flightsGeoJSON={flightsGeoJSON}
             rawsGeoJSON={rawsGeoJSON}
             airNowMonitorsGeoJSON={airNowMonitorsGeoJSON}
+            droughtOutlookGeoJSON={droughtOutlookGeoJSON}
             savedLocations={savedLocations}
             measureActive={measureActive}
             measureMode={measureMode}
