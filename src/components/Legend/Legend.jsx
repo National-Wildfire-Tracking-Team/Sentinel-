@@ -156,7 +156,7 @@ const Legend = memo(function Legend({ spcOutlookType = 'categorical', spcActiveD
             )}
 
             {layers.weatherAlerts && (
-              <Section title="Weather Alerts">
+              <Section title="NOAA/NWS Alerts">
                 <ColorRow color="#ED368D" label="Red Flag Warning" />
                 <ColorRow color="#F8DCB1" label="Fire Weather Watch" />
                 <ColorRow color="#E43831" label="Tornado Warning" />
