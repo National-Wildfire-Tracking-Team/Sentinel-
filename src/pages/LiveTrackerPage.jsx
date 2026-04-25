@@ -27,6 +27,7 @@ import { useFlightData } from '../hooks/useFlightData';
 import { useRAWSData } from '../hooks/useRAWSData';
 import { useAirNowMonitors } from '../hooks/useAirNowMonitors';
 import { useDroughtOutlook } from '../hooks/useDroughtOutlook';
+import { useWeatherRadarStations } from '../hooks/useWeatherRadarStations';
 import { polygonCentroid } from '../utils/geoUtils';
 
 // Components
@@ -84,6 +85,7 @@ const WEATHER_LAYER_PRESET = {
   rawsStations: false,
   flights: false,
   airNowMonitors: false,
+  weatherRadarStations: true,
 };
 
 const THREE_DAYS_MS = 3 * 24 * 60 * 60 * 1000;
@@ -314,6 +316,12 @@ const flightBounds = useMemo(() => {
     geoJSON: droughtOutlookGeoJSON,
     refresh: refreshDroughtOutlook,
   } = useDroughtOutlook(layers.droughtOutlook);
+
+  // NOAA NEXRAD / TDWR weather radar station locations
+  const {
+    geoJSON: weatherRadarStationsGeoJSON,
+    refresh: refreshWeatherRadarStations,
+  } = useWeatherRadarStations(layers.weatherRadarStations);
 
   useEffect(() => {
     if (flightsError) console.error('[FlightTracking] Error:', flightsError);
@@ -580,7 +588,8 @@ const flightBounds = useMemo(() => {
     if (rawsEnabled) refreshRAWS();
     if (layers.airNowMonitors) refreshAirNowMonitors();
     if (layers.droughtOutlook) refreshDroughtOutlook();
-  }, [refreshHotspots, refreshPerimeters, refreshAlerts, refreshIncidents, refreshStormReports, refreshSpcOutlooks, refreshUserReports, refreshEvacZones, refreshReporterEvacZones, refreshAQI, refreshFlights, refreshRAWS, refreshAirNowMonitors, refreshDroughtOutlook, layers.aqi, layers.flights, rawsEnabled, layers.airNowMonitors, layers.droughtOutlook]);
+    if (layers.weatherRadarStations) refreshWeatherRadarStations();
+  }, [refreshHotspots, refreshPerimeters, refreshAlerts, refreshIncidents, refreshStormReports, refreshSpcOutlooks, refreshUserReports, refreshEvacZones, refreshReporterEvacZones, refreshAQI, refreshFlights, refreshRAWS, refreshAirNowMonitors, refreshDroughtOutlook, refreshWeatherRadarStations, layers.aqi, layers.flights, rawsEnabled, layers.airNowMonitors, layers.droughtOutlook, layers.weatherRadarStations]);
 
   return (
     <div className="h-screen w-screen flex flex-col bg-sentinel-900 text-white overflow-hidden select-none">
@@ -634,6 +643,7 @@ const flightBounds = useMemo(() => {
             rawsGeoJSON={rawsGeoJSON}
             airNowMonitorsGeoJSON={airNowMonitorsGeoJSON}
             droughtOutlookGeoJSON={droughtOutlookGeoJSON}
+            weatherRadarStationsGeoJSON={weatherRadarStationsGeoJSON}
             savedLocations={savedLocations}
             measureActive={measureActive}
             measureMode={measureMode}

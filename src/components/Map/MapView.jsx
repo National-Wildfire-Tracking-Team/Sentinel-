@@ -37,6 +37,7 @@ import FlightLayer from './layers/FlightLayer';
 import RAWSLayer from './layers/RAWSLayer';
 import AirNowMonitorsLayer from './layers/AirNowMonitorsLayer';
 import DroughtOutlookLayer from './layers/DroughtOutlookLayer';
+import WeatherRadarStationsLayer from './layers/WeatherRadarStationsLayer';
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN || '';
 const HAS_MAPBOX_TOKEN = Boolean(MAPBOX_TOKEN.trim());
@@ -343,6 +344,30 @@ function HoverTooltip({ feature, lngLat }) {
       );
       break;
     }
+    case 'radar-stations-circle': {
+      const typeColor = p.radarType === 'TDWR' ? 'text-violet-400' : 'text-cyan-400';
+      content = (
+        <>
+          <div className={`font-semibold ${typeColor}`}>
+            {p.siteId} — {p.siteName}
+          </div>
+          <div className="text-gray-300 text-xs mt-0.5">
+            Type: <span className="text-white font-medium">{p.radarType}</span>
+          </div>
+          {p.antennaElevation != null && (
+            <div className="text-gray-400 text-xs">
+              Elevation: {Math.round(p.antennaElevation).toLocaleString()} ft
+            </div>
+          )}
+          <div className="text-gray-500 text-[10px] mt-1">
+            {p.radarType === 'TDWR'
+              ? 'FAA Terminal Doppler Weather Radar'
+              : 'NOAA Next-Generation Radar'}
+          </div>
+        </>
+      );
+      break;
+    }
     case 'drought-outlook-fill': {
       const outlookLabel = {
         Drought_Develops: 'Drought Likely to Develop',
@@ -524,6 +549,7 @@ function FlightDetailPopup({ flight, lngLat, onClose }) {
  * @param {object|null} props.rawsGeoJSON
  * @param {object|null} props.airNowMonitorsGeoJSON
  * @param {object|null} props.droughtOutlookGeoJSON
+ * @param {object|null} props.weatherRadarStationsGeoJSON
  * @param {Array}       [props.savedLocations]
  * @param {'wildfire'|'weather'} [props.activeMapTab]
  */
@@ -553,6 +579,7 @@ export default function MapView({
   rawsGeoJSON,
   airNowMonitorsGeoJSON,
   droughtOutlookGeoJSON,
+  weatherRadarStationsGeoJSON,
   savedLocations = [],
   measureActive = false,
   measureMode = 'distance',
@@ -685,13 +712,14 @@ export default function MapView({
     if (layers.rawsStations && rawsGeoJSON)                                           ids.push('raws-stations-circle');
     if (isWildfireTab && layers.airNowMonitors && airNowMonitorsGeoJSON)              ids.push('airnow-monitors-circle');
     if (isWildfireTab && layers.droughtOutlook && droughtOutlookGeoJSON)              ids.push('drought-outlook-fill');
+    if (isWeatherTab && layers.weatherRadarStations && weatherRadarStationsGeoJSON)   ids.push('radar-stations-circle');
     return ids;
   }, [measureActive, isWildfireTab, isWeatherTab, layers.fireHotspots, layers.firePerimeters, layers.incidentLocations, layers.aqi,
       layers.weatherAlerts, layers.spcOutlooks, layers.spcReports, layers.iemReports, layers.evacZones, layers.reporterEvacZones,
-      layers.flights, layers.rawsStations, layers.airNowMonitors, layers.droughtOutlook,
+      layers.flights, layers.rawsStations, layers.airNowMonitors, layers.droughtOutlook, layers.weatherRadarStations,
       hotspotsGeoJSON, perimetersGeoJSON, incidentsGeoJSON, aqiGeoJSON, alertsGeoJSON, spcOutlooksGeoJSON,
       spcReportsGeoJSON, iemReportsGeoJSON, userReportsGeoJSON, evacZonesGeoJSON, reporterEvacZonesGeoJSON,
-      flightsGeoJSON, rawsGeoJSON, airNowMonitorsGeoJSON, droughtOutlookGeoJSON]);
+      flightsGeoJSON, rawsGeoJSON, airNowMonitorsGeoJSON, droughtOutlookGeoJSON, weatherRadarStationsGeoJSON]);
 
   // Clear stale hover when layers change
   useEffect(() => {
@@ -1098,6 +1126,12 @@ export default function MapView({
         <DroughtOutlookLayer
           geoJSON={droughtOutlookGeoJSON}
           visible={isWildfireTab && layers.droughtOutlook}
+        />
+
+        {/* NOAA NEXRAD / TDWR weather radar station locations */}
+        <WeatherRadarStationsLayer
+          geoJSON={weatherRadarStationsGeoJSON}
+          visible={isWeatherTab && layers.weatherRadarStations}
         />
 
         {/* Fire hotspot points – rendered last (top) */}

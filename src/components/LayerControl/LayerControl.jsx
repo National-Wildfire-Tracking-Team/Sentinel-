@@ -6,7 +6,7 @@
 
 import { useState, memo } from 'react';
 import {
-  Layers, Flame, MapPin, Wind, CloudRain, Eye, ChevronDown, ChevronRight, Radar, AlertTriangle, Ruler, Hexagon, PlaneTakeoff, Satellite, Map as MapIcon, Thermometer, Crosshair, Activity, Droplets,
+  Layers, Flame, MapPin, Wind, CloudRain, Eye, ChevronDown, ChevronRight, Radar, AlertTriangle, Ruler, Hexagon, PlaneTakeoff, Satellite, Map as MapIcon, Thermometer, Crosshair, Activity, Droplets, Radio,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 
@@ -37,7 +37,8 @@ const LAYER_GROUPS = [
       { key: 'weatherAlerts',  label: 'Fire Weather Alerts',  sublabel: 'NOAA NWS',                  icon: Wind,          color: '#ef4444' },
       { key: 'spcOutlooks',    label: 'SPC Outlooks',         sublabel: 'NOAA SPC Day 1-3 convective', icon: AlertTriangle, color: '#facc15' },
       { key: 'spcMd',          label: 'Mesoscale Discussions', sublabel: 'NOAA SPC active MDs',         icon: AlertTriangle, color: '#e3000f' },
-      { key: 'rawsStations',   label: 'RAWS Stations',        sublabel: 'Fire weather stations',      icon: Thermometer,   color: '#f97316' },
+      { key: 'rawsStations',          label: 'RAWS Stations',          sublabel: 'Fire weather stations',            icon: Thermometer, color: '#f97316' },
+      { key: 'weatherRadarStations',  label: 'Radar Stations',         sublabel: 'NOAA NEXRAD & FAA TDWR sites',     icon: Radio,       color: '#06b6d4' },
     ],
   },
   {
