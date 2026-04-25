@@ -24,7 +24,6 @@ import { useFireReports, reportsToGeoJSON } from '../hooks/useFireReports';
 import { useCombinedEvacZones } from '../hooks/useCombinedEvacZones';
 import { useReporterEvacZones, reporterEvacZonesToGeoJSON } from '../hooks/useReporterEvacZones';
 import { useFlightData } from '../hooks/useFlightData';
-import { useRAWSData } from '../hooks/useRAWSData';
 import { useAirNowMonitors } from '../hooks/useAirNowMonitors';
 import { useDroughtOutlook } from '../hooks/useDroughtOutlook';
 import { polygonCentroid } from '../utils/geoUtils';
@@ -58,10 +57,8 @@ const WILDFIRE_LAYER_PRESET = {
   goesWest: false,
   spcOutlooks: false,
   spcMd: false,
-  radar: false,
   evacZones: false,
   reporterEvacZones: true,
-  rawsStations: false,
   flights: false,
   airNowMonitors: false,
 };
@@ -79,9 +76,7 @@ const WEATHER_LAYER_PRESET = {
   spcMd: true,
   spcReports: true,
   iemReports: true,
-  radar: true,
   evacZones: false,
-  rawsStations: false,
   flights: false,
   airNowMonitors: false,
 };
@@ -133,9 +128,6 @@ function filterActiveFiresGeoJSON(geoJSON, { containedKey }) {
   };
 }
 
-// RAWS stations load once the map is zoomed in to roughly county scale
-const RAWS_MIN_ZOOM = 9;
-
 export default function LiveTrackerPage() {
   const { layers, setLayer, setRefreshed, setLoading, feedFilter, viewport } = useApp();
   const { locations: savedLocations } = useSavedLocations();
@@ -145,7 +137,6 @@ export default function LiveTrackerPage() {
   const [bannerDismissed, setBannerDismissed] = useState(false);
   const [measureActive, setMeasureActive] = useState(false);
   const [measureMode, setMeasureMode] = useState('distance');
-  const [precipRingActive, setPrecipRingActive] = useState(false);
 
   const onMeasureActivate = useCallback((mode) => {
     setMeasureMode(mode);
@@ -154,10 +145,6 @@ export default function LiveTrackerPage() {
 
   const onMeasureClose = useCallback(() => {
     setMeasureActive(false);
-  }, []);
-
-  const onPrecipRingToggle = useCallback(() => {
-    setPrecipRingActive(v => !v);
   }, []);
 
   // Apply layer presets only when switching between wildfire/weather tabs.
@@ -295,13 +282,6 @@ const flightBounds = useMemo(() => {
     error: flightsError,
     refresh: refreshFlights,
 } = useFlightData(flightBounds, layers.flights);
-
-  // RAWS weather stations – only fetch when layer is on AND zoomed in enough
-  const rawsEnabled = layers.rawsStations && (viewport?.zoom ?? 0) >= RAWS_MIN_ZOOM;
-  const {
-    geoJSON: rawsGeoJSON,
-    refresh: refreshRAWS,
-  } = useRAWSData(rawsEnabled);
 
   // AirNow monitor stations – only fetch when the layer is toggled on
   const {
@@ -577,10 +557,9 @@ const flightBounds = useMemo(() => {
     refreshReporterEvacZones();
     if (layers.aqi) refreshAQI();
     if (layers.flights) refreshFlights();
-    if (rawsEnabled) refreshRAWS();
     if (layers.airNowMonitors) refreshAirNowMonitors();
     if (layers.droughtOutlook) refreshDroughtOutlook();
-  }, [refreshHotspots, refreshPerimeters, refreshAlerts, refreshIncidents, refreshStormReports, refreshSpcOutlooks, refreshUserReports, refreshEvacZones, refreshReporterEvacZones, refreshAQI, refreshFlights, refreshRAWS, refreshAirNowMonitors, refreshDroughtOutlook, layers.aqi, layers.flights, rawsEnabled, layers.airNowMonitors, layers.droughtOutlook]);
+  }, [refreshHotspots, refreshPerimeters, refreshAlerts, refreshIncidents, refreshStormReports, refreshSpcOutlooks, refreshUserReports, refreshEvacZones, refreshReporterEvacZones, refreshAQI, refreshFlights, refreshAirNowMonitors, refreshDroughtOutlook, layers.aqi, layers.flights, layers.airNowMonitors, layers.droughtOutlook]);
 
   return (
     <div className="h-screen w-screen flex flex-col bg-sentinel-900 text-white overflow-hidden select-none">
@@ -631,7 +610,6 @@ const flightBounds = useMemo(() => {
             evacZonesGeoJSON={evacZonesGeoJSON}
             reporterEvacZonesGeoJSON={reporterEvacZonesGeoJSON}
             flightsGeoJSON={flightsGeoJSON}
-            rawsGeoJSON={rawsGeoJSON}
             airNowMonitorsGeoJSON={airNowMonitorsGeoJSON}
             droughtOutlookGeoJSON={droughtOutlookGeoJSON}
             savedLocations={savedLocations}
@@ -639,7 +617,6 @@ const flightBounds = useMemo(() => {
             measureMode={measureMode}
             onMeasureActivate={onMeasureActivate}
             onMeasureClose={onMeasureClose}
-            precipRingActive={precipRingActive}
           />
 
           <LayerControl
@@ -650,8 +627,6 @@ const flightBounds = useMemo(() => {
             measureMode={measureMode}
             onMeasureActivate={onMeasureActivate}
             onMeasureClose={onMeasureClose}
-            precipRingActive={precipRingActive}
-            onPrecipRingToggle={onPrecipRingToggle}
           />
 
           <Legend spcOutlookType={spcOutlookType} spcActiveDay={spcActiveDay} />

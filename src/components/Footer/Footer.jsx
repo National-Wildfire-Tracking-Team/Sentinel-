@@ -58,11 +58,6 @@ export default function Footer() {
                 </a>
               </li>
               <li>
-                <a href="https://www.weather.gov" target="_blank" rel="noopener noreferrer" className="text-sentinel-300 hover:text-fire-400 text-sm transition-colors">
-                  National Weather Service
-                </a>
-              </li>
-              <li>
                 <a href="http://www.ADSBexchange.com" target="_blank" rel="noopener noreferrer" className="text-sentinel-300 hover:text-fire-400 text-sm transition-colors">
                   ADS-B Exchange
                 </a>
@@ -81,7 +76,7 @@ export default function Footer() {
               Terms of Service
             </Link>
             <p className="text-sentinel-500">
-              Data sourced from NASA FIRMS, NIFC, NOAA &amp; NWS
+              Data sourced from NASA FIRMS, NIFC, NOAA
             </p>
           </div>
         </div>

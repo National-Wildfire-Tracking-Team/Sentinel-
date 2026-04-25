@@ -6,7 +6,7 @@
 
 import { useState, memo } from 'react';
 import {
-  Layers, Flame, MapPin, Wind, CloudRain, Eye, ChevronDown, ChevronRight, Radar, AlertTriangle, Ruler, Hexagon, PlaneTakeoff, Satellite, Map as MapIcon, Thermometer, Crosshair, Activity, Droplets,
+  Layers, Flame, MapPin, Wind, CloudRain, Eye, ChevronDown, ChevronRight, AlertTriangle, Ruler, Hexagon, PlaneTakeoff, Satellite, Map as MapIcon, Crosshair, Activity, Droplets,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 
@@ -18,7 +18,6 @@ const LAYER_GROUPS = [
       { key: 'firePerimeters',    label: 'Fire Perimeters',     sublabel: 'NIFC WFIGS',             icon: MapPin,       color: '#ff6600' },
       { key: 'incidentLocations', label: 'Incident Locations',  sublabel: 'WFIGS · NWTT verified',  icon: Flame,        color: '#f59e0b' },
       { key: 'evacZones',         label: 'Evacuation Zones',    sublabel: 'Cal OES Hosted + PROD',  icon: AlertTriangle, color: '#ef4444' },
-      { key: 'rawsStations',      label: 'RAWS Stations',       sublabel: 'Fire weather stations',  icon: Thermometer,  color: '#f97316' },
       { key: 'airNowMonitors',    label: 'Air Quality Monitors', sublabel: 'EPA AirNow sensor network', icon: Activity,  color: '#38bdf8' },
       { key: 'droughtOutlook',    label: 'Drought Outlook',      sublabel: 'NOAA CPC Monthly Outlook',  icon: Droplets,  color: '#f59e0b' },
     ],
@@ -37,7 +36,6 @@ const LAYER_GROUPS = [
       { key: 'weatherAlerts',  label: 'Fire Weather Alerts',  sublabel: 'NOAA NWS',                  icon: Wind,          color: '#ef4444' },
       { key: 'spcOutlooks',    label: 'SPC Outlooks',         sublabel: 'NOAA SPC Day 1-3 convective', icon: AlertTriangle, color: '#facc15' },
       { key: 'spcMd',          label: 'Mesoscale Discussions', sublabel: 'NOAA SPC active MDs',         icon: AlertTriangle, color: '#e3000f' },
-      { key: 'rawsStations',   label: 'RAWS Stations',        sublabel: 'Fire weather stations',      icon: Thermometer,   color: '#f97316' },
     ],
   },
   {
@@ -45,12 +43,6 @@ const LAYER_GROUPS = [
     layers: [
       { key: 'goesEast',   label: 'GOES East Imagery',        sublabel: 'NOAA GOES East · visible',                            icon: Eye, color: '#8b5cf6' },
       { key: 'goesWest',   label: 'GOES West Imagery',        sublabel: 'NOAA GOES West · visible',                            icon: Eye, color: '#7c3aed' },
-    ],
-  },
-  {
-    label: 'Radar',
-    layers: [
-      { key: 'radar', label: 'NEXRAD Reflectivity', sublabel: 'NEXRAD Level 2 composite', icon: Radar, color: '#10b981' },
     ],
   },
   {
@@ -115,8 +107,6 @@ const LayerControl = memo(function LayerControl({
   measureMode = 'distance',
   onMeasureActivate,
   onMeasureClose,
-  precipRingActive = false,
-  onPrecipRingToggle,
 }) {
   const { layerPanelOpen, toggleLayerPanel } = useApp();
   const [collapsed, setCollapsed] = useState({});

@@ -21,7 +21,7 @@ import { supabase } from '../api/supabaseClient';
 
 const FREE_FEATURES = [
   { icon: <Layers size={14} />,       label: 'Wildfire, weather, and all-hazard map tabs' },
-  { icon: <Radio size={14} />,        label: 'NWS alerts, radar, and satellite imagery' },
+  { icon: <Radio size={14} />,        label: 'Weather alerts and satellite imagery' },
   { icon: <Wind size={14} />,         label: 'AQI and wind data' },
   { icon: <MapPin size={14} />,       label: 'Up to 4 saved locations with basic alerts' },
   { icon: <Camera size={14} />,       label: 'Cameras and aircraft when available' },

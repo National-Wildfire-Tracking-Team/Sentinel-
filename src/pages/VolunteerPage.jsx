@@ -25,7 +25,7 @@ const roles = [
     icon: Database,
     title: 'Data Engineer',
     description:
-      'Build and maintain data pipelines that ingest information from NASA FIRMS, NIFC, NWS, and other authoritative sources to power our tracking platform.',
+      'Build and maintain data pipelines that ingest information from NASA FIRMS, NIFC, NOAA, and other authoritative sources to power our tracking platform.',
     badge: 'Technical',
     link: 'https://docs.google.com/forms/d/e/1FAIpQLSfbjW4BisLzInH3eEbDPzDH10pVHGx_ubbVPQGlf5wzRbqaLw/viewform?usp=header',
   },

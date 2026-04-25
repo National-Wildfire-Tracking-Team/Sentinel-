@@ -1,6 +1,6 @@
 /**
  * WeatherAlertsFeed.jsx
- * Live active NOAA/NWS alerts feed for weather tracking mode.
+ * Live active NOAA weather alerts feed for weather tracking mode.
  */
 
 import { useMemo, useState } from 'react';
@@ -221,14 +221,14 @@ export default function WeatherAlertsFeed({ alerts = [], loading, error, activeF
         {error && !loading && (
           <div className="flex items-start gap-2 p-3 bg-red-950/40 border border-red-800/50 rounded-lg text-red-300 text-sm">
             <AlertCircle size={15} className="shrink-0 mt-0.5" />
-            <span>Could not load active NWS/FEMA alerts.</span>
+            <span>Could not load active weather alerts.</span>
           </div>
         )}
 
         {!loading && !error && filtered.length === 0 && (
           <div className="text-center py-8 text-sentinel-300 text-sm flex flex-col items-center gap-2">
             <CloudSun size={18} />
-            <span>{activeFilter === 'all' ? 'No active NWS or FEMA alerts.' : `No active ${activeFilter}s.`}</span>
+            <span>{activeFilter === 'all' ? 'No active weather or FEMA alerts.' : `No active ${activeFilter}s.`}</span>
           </div>
         )}
 
