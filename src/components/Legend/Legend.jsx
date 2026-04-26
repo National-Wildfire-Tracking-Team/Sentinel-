@@ -109,13 +109,18 @@ const FIRE_WX_LIGHTNING_SCALE = [
   { color: '#3C6FCD', label: 'CRITICAL – Dry Lightning (Scattered)' },
 ];
 
-const Legend = memo(function Legend({ spcOutlookType = 'categorical', spcActiveDay = 'day1', fireWxOutlookType = 'winds_low_humidity' }) {
+const Legend = memo(function Legend({
+  spcOutlookType = 'categorical',
+  spcActiveDay = 'day1',
+  spcWeatherOutlookMode = 'convective',
+  fireWxOutlookType = 'winds_low_humidity',
+}) {
   const { layers, legendOpen, toggleLegend } = useApp();
   const [collapsed, setCollapsed] = useState(true);
 
   if (!legendOpen) return null;
 
-  const anyActive = layers.fireHotspots || layers.aqi || layers.firePerimeters || layers.spcOutlooks
+  const anyActive = layers.fireHotspots || layers.aqi || layers.firePerimeters || layers.spcWeatherOutlooks
     || layers.weatherAlerts || layers.radar || layers.incidentLocations
     || layers.spcReports || layers.iemReports || layers.fireWeatherOutlooks;
   if (!anyActive) return null;
@@ -183,7 +188,7 @@ const Legend = memo(function Legend({ spcOutlookType = 'categorical', spcActiveD
               </Section>
             )}
 
-            {layers.spcOutlooks && (
+            {layers.spcWeatherOutlooks && spcWeatherOutlookMode === 'convective' && (
               <Section title={spcScale.title}>
                 {spcScale.scale.map(row => <ColorRow key={row.label} {...row} />)}
               </Section>
@@ -203,13 +208,15 @@ const Legend = memo(function Legend({ spcOutlookType = 'categorical', spcActiveD
               </Section>
             )}
 
-            {layers.fireWeatherOutlooks && fireWxOutlookType === 'winds_low_humidity' && (
+            {(layers.fireWeatherOutlooks || (layers.spcWeatherOutlooks && spcWeatherOutlookMode === 'fireWx'))
+              && fireWxOutlookType === 'winds_low_humidity' && (
               <Section title="Fire Weather – Wind &amp; RH">
                 {FIRE_WX_WIND_SCALE.map(row => <ColorRow key={row.label} {...row} />)}
               </Section>
             )}
 
-            {layers.fireWeatherOutlooks && fireWxOutlookType === 'dry_thunderstorm' && (
+            {(layers.fireWeatherOutlooks || (layers.spcWeatherOutlooks && spcWeatherOutlookMode === 'fireWx'))
+              && fireWxOutlookType === 'dry_thunderstorm' && (
               <Section title="Fire Weather – Dry Lightning">
                 {FIRE_WX_LIGHTNING_SCALE.map(row => <ColorRow key={row.label} {...row} />)}
               </Section>

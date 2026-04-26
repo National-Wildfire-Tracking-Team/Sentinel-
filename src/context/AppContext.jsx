@@ -22,7 +22,8 @@ const initialState = {
     goesFire18:        false,
     spcReports:        false,
     iemReports:        false,
-    spcOutlooks:       false,
+    spcWeatherOutlooks: false,
+    fireWeatherOutlooks: false,
     radar:             false,
     evacZones:         false,
     reporterEvacZones: false,
@@ -30,7 +31,6 @@ const initialState = {
     rawsStations:          false,
     airNowMonitors:        false,
     droughtOutlook:        false,
-    fireWeatherOutlooks:   false,
   },
   // Currently clicked/selected fire feature (hotspot or perimeter)
   selectedFire: null,

@@ -31,7 +31,7 @@ import EvacZonesLayer from './layers/EvacZonesLayer';
 import ReporterEvacZonesLayer from './layers/ReporterEvacZonesLayer';
 import { MeasurementLayer, MeasurementPanel } from './MeasurementTool';
 import { PrecipitationRing } from './PrecipitationRing';
-import SPCOutlookSelector from './SPCOutlookSelector';
+import SPCWeatherTabOutlookControls from './SPCWeatherTabOutlookControls';
 import FlightLayer from './layers/FlightLayer';
 import RAWSLayer from './layers/RAWSLayer';
 import AirNowMonitorsLayer from './layers/AirNowMonitorsLayer';
@@ -553,6 +553,8 @@ function FlightDetailPopup({ flight, lngLat, onClose }) {
  * @param {string|null} [props.fireWxValidTime]
  * @param {Function}    [props.onFireWxOutlookTypeChange]
  * @param {Function}    [props.onFireWxActiveDayChange]
+ * @param {'convective'|'fireWx'} [props.spcWeatherOutlookMode] – weather tab combined SPC layer sub-mode
+ * @param {Function}    [props.onSpcWeatherOutlookModeChange]
  * @param {Array}       [props.savedLocations]
  * @param {'wildfire'|'weather'} [props.activeMapTab]
  */
@@ -589,6 +591,8 @@ export default function MapView({
   fireWxValidTime = null,
   onFireWxOutlookTypeChange,
   onFireWxActiveDayChange,
+  spcWeatherOutlookMode = 'convective',
+  onSpcWeatherOutlookModeChange,
   savedLocations = [],
   measureActive = false,
   measureMode = 'distance',
@@ -711,7 +715,9 @@ export default function MapView({
     if (isWildfireTab && layers.incidentLocations && userReportsGeoJSON)  ids.push('user-reports-circle');
     if (isWeatherTab && layers.aqi && aqiGeoJSON)                        ids.push('aqi-stations-circle');
     if (isWeatherTab && layers.weatherAlerts && alertsGeoJSON) ids.push('weather-alerts-fill');
-    if (isWeatherTab && layers.spcOutlooks && spcOutlooksGeoJSON)        ids.push('spc-outlook-fill');
+    if (isWeatherTab && layers.spcWeatherOutlooks && spcWeatherOutlookMode === 'convective' && spcOutlooksGeoJSON) {
+      ids.push('spc-outlook-fill');
+    }
     if (isWeatherTab && layers.weatherAlerts && spcMdGeoJSON) ids.push('spc-md-fill');
     if (isWeatherTab && layers.spcReports && spcReportsGeoJSON)          ids.push('spc-reports-circle');
     if (isWeatherTab && layers.iemReports && iemReportsGeoJSON)          ids.push('iem-reports-circle');
@@ -721,10 +727,13 @@ export default function MapView({
     if (layers.rawsStations && rawsGeoJSON)                                           ids.push('raws-stations-circle');
     if (isWildfireTab && layers.airNowMonitors && airNowMonitorsGeoJSON)              ids.push('airnow-monitors-circle');
     if (isWildfireTab && layers.droughtOutlook && droughtOutlookGeoJSON)              ids.push('drought-outlook-fill');
-    if (layers.fireWeatherOutlooks && fireWeatherOutlooksGeoJSON)                     ids.push('fire-weather-outlook-fill');
+    if (layers.fireWeatherOutlooks && fireWeatherOutlooksGeoJSON) ids.push('fire-weather-outlook-fill');
+    if (isWeatherTab && layers.spcWeatherOutlooks && spcWeatherOutlookMode === 'fireWx' && fireWeatherOutlooksGeoJSON) {
+      ids.push('fire-weather-outlook-fill');
+    }
     return ids;
   }, [measureActive, isWildfireTab, isWeatherTab, layers.fireHotspots, layers.firePerimeters, layers.incidentLocations, layers.aqi,
-      layers.weatherAlerts, layers.spcOutlooks, layers.spcReports, layers.iemReports, layers.evacZones, layers.reporterEvacZones, spcMdGeoJSON,
+      layers.weatherAlerts, layers.spcWeatherOutlooks, spcWeatherOutlookMode, layers.spcReports, layers.iemReports, layers.evacZones, layers.reporterEvacZones, spcMdGeoJSON,
       layers.flights, layers.rawsStations, layers.airNowMonitors, layers.droughtOutlook, layers.fireWeatherOutlooks,
       hotspotsGeoJSON, perimetersGeoJSON, incidentsGeoJSON, aqiGeoJSON, alertsGeoJSON, spcOutlooksGeoJSON,
       spcReportsGeoJSON, iemReportsGeoJSON, userReportsGeoJSON, evacZonesGeoJSON, reporterEvacZonesGeoJSON,
@@ -997,20 +1006,8 @@ export default function MapView({
 
   return (
     <div className="absolute inset-0 bg-sentinel-900">
-      {/* SPC outlook day/type selector – shown when the SPC layer is active on weather tab */}
-      {isWeatherTab && layers.spcOutlooks && (
-        <SPCOutlookSelector
-          outlookType={spcOutlookType}
-          onOutlookTypeChange={onSpcOutlookTypeChange}
-          activeDay={spcActiveDay}
-          onActiveDayChange={onSpcActiveDayChange}
-          loading={spcOutlooksLoading}
-          validTime={spcValidTime}
-        />
-      )}
-
-      {/* Fire Weather Outlook selector – shown when fire weather layer is active */}
-      {layers.fireWeatherOutlooks && !layers.spcOutlooks && (
+      {/* Wildfire tab: fire weather outlook selector only (convective uses combined control on weather tab) */}
+      {isWildfireTab && layers.fireWeatherOutlooks && (
         <FireWeatherOutlookSelector
           outlookType={fireWxOutlookType}
           onOutlookTypeChange={onFireWxOutlookTypeChange}
@@ -1018,6 +1015,26 @@ export default function MapView({
           onActiveDayChange={onFireWxActiveDayChange}
           loading={fireWeatherOutlooksLoading}
           validTime={fireWxValidTime}
+        />
+      )}
+
+      {/* Weather tab: one control for convective + fire-weather SPC outlooks */}
+      {isWeatherTab && layers.spcWeatherOutlooks && (
+        <SPCWeatherTabOutlookControls
+          mode={spcWeatherOutlookMode}
+          onModeChange={onSpcWeatherOutlookModeChange}
+          spcOutlookType={spcOutlookType}
+          onSpcOutlookTypeChange={onSpcOutlookTypeChange}
+          spcActiveDay={spcActiveDay}
+          onSpcActiveDayChange={onSpcActiveDayChange}
+          spcLoading={spcWeatherOutlookMode === 'convective' && spcOutlooksLoading}
+          spcValidTime={spcValidTime}
+          fireWxOutlookType={fireWxOutlookType}
+          onFireWxOutlookTypeChange={onFireWxOutlookTypeChange}
+          fireWxActiveDay={fireWxActiveDay}
+          onFireWxActiveDayChange={onFireWxActiveDayChange}
+          fireWxLoading={spcWeatherOutlookMode === 'fireWx' && fireWeatherOutlooksLoading}
+          fireWxValidTime={fireWxValidTime}
         />
       )}
 
@@ -1071,7 +1088,7 @@ export default function MapView({
         {/* SPC convective outlook polygons */}
         <SPCOutlookLayer
           geoJSON={spcOutlooksGeoJSON}
-          visible={isWeatherTab && layers.spcOutlooks}
+          visible={isWeatherTab && layers.spcWeatherOutlooks && spcWeatherOutlookMode === 'convective'}
         />
 
         {/* Fire perimeter polygons */}
@@ -1147,7 +1164,7 @@ export default function MapView({
         {/* SPC Fire Weather Outlook polygons – visible on wildfire tab */}
         <FireWeatherOutlookLayer
           geoJSON={fireWeatherOutlooksGeoJSON}
-          visible={layers.fireWeatherOutlooks}
+          visible={layers.fireWeatherOutlooks || (isWeatherTab && layers.spcWeatherOutlooks && spcWeatherOutlookMode === 'fireWx')}
           outlookType={fireWxOutlookType}
         />
 

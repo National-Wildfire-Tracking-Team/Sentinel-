@@ -51,6 +51,8 @@ const FireWeatherOutlookSelector = memo(function FireWeatherOutlookSelector({
   onActiveDayChange,
   loading = false,
   validTime = null,
+  /** When true, no absolute positioning (nest inside a parent that handles layout) */
+  inline = false,
 }) {
   const colors = TYPE_COLORS[outlookType] || TYPE_COLORS.winds_low_humidity;
 
@@ -103,12 +105,8 @@ const FireWeatherOutlookSelector = memo(function FireWeatherOutlookSelector({
     );
   }
 
-  return (
-    <div
-      className="absolute top-3 left-1/2 -translate-x-1/2 z-20 pointer-events-auto animate-fade-in"
-      style={{ maxWidth: 'calc(100vw - 1rem)' }}
-    >
-      <div className="bg-sentinel-900/96 backdrop-blur-md border border-sentinel-700/80 rounded-2xl shadow-2xl overflow-hidden">
+  const card = (
+    <div className="bg-sentinel-900/96 backdrop-blur-md border border-sentinel-700/80 rounded-2xl shadow-2xl overflow-hidden w-full max-w-full">
 
         {/* ── Type tab bar ── */}
         <div className="flex items-stretch border-b border-sentinel-700/60">
@@ -177,7 +175,19 @@ const FireWeatherOutlookSelector = memo(function FireWeatherOutlookSelector({
             </span>
           ) : null}
         </div>
-      </div>
+    </div>
+  );
+
+  if (inline) {
+    return <div className="w-full max-w-full pointer-events-auto animate-fade-in" style={{ maxWidth: 'calc(100vw - 1rem)' }}>{card}</div>;
+  }
+
+  return (
+    <div
+      className="absolute top-3 left-1/2 -translate-x-1/2 z-20 pointer-events-auto animate-fade-in"
+      style={{ maxWidth: 'calc(100vw - 1rem)' }}
+    >
+      {card}
     </div>
   );
 });
