@@ -67,6 +67,8 @@ const WILDFIRE_LAYER_PRESET = {
   fireWeatherOutlooks: false,
 };
 
+// Weather tab: only auto-enable NWS alerts (includes SPC MDs on map), and NEXRAD;
+// other weather layers are opt-in via the layer panel.
 const WEATHER_LAYER_PRESET = {
   fireHotspots: false,
   firePerimeters: false,
@@ -76,9 +78,9 @@ const WEATHER_LAYER_PRESET = {
   smoke: false,
   goesEast: false,
   goesWest: false,
-  spcWeatherOutlooks: true,
-  spcReports: true,
-  iemReports: true,
+  spcWeatherOutlooks: false,
+  spcReports: false,
+  iemReports: false,
   radar: true,
   evacZones: false,
   reporterEvacZones: false,
@@ -232,7 +234,9 @@ export default function LiveTrackerPage() {
     spcGeoJSON,
     iemGeoJSON,
     refresh: refreshStormReports,
-  } = useStormReports(activeMapTab === MAP_TABS.weather);
+  } = useStormReports(
+    activeMapTab === MAP_TABS.weather && (layers.spcReports || layers.iemReports)
+  );
 
   const [spcOutlookType, setSpcOutlookType] = useState('categorical');
   const [spcActiveDay,   setSpcActiveDay]   = useState('day1');
@@ -591,7 +595,9 @@ const flightBounds = useMemo(() => {
     refreshPerimeters();
     refreshAlerts();
     refreshIncidents();
-    refreshStormReports();
+    if (activeMapTab === MAP_TABS.weather && (layers.spcReports || layers.iemReports)) {
+      refreshStormReports();
+    }
     refreshSpcOutlooks();
     refreshSpcMd();
     refreshUserReports();
@@ -605,7 +611,13 @@ const flightBounds = useMemo(() => {
     if (layers.fireWeatherOutlooks || (layers.spcWeatherOutlooks && spcWeatherOutlookMode === 'fireWx')) {
       refreshFireWeatherOutlooks();
     }
-  }, [refreshHotspots, refreshPerimeters, refreshAlerts, refreshIncidents, refreshStormReports, refreshSpcOutlooks, refreshUserReports, refreshEvacZones, refreshReporterEvacZones, refreshAQI, refreshFlights, refreshRAWS, refreshAirNowMonitors, refreshDroughtOutlook, refreshFireWeatherOutlooks, layers.aqi, layers.flights, rawsEnabled, layers.airNowMonitors, layers.droughtOutlook, layers.fireWeatherOutlooks, layers.spcWeatherOutlooks, spcWeatherOutlookMode]);
+  }, [
+    refreshHotspots, refreshPerimeters, refreshAlerts, refreshIncidents, refreshStormReports,
+    refreshSpcMd, refreshSpcOutlooks, refreshUserReports, refreshEvacZones, refreshReporterEvacZones,
+    refreshAQI, refreshFlights, refreshRAWS, refreshAirNowMonitors, refreshDroughtOutlook, refreshFireWeatherOutlooks,
+    activeMapTab, layers.aqi, layers.flights, rawsEnabled, layers.airNowMonitors, layers.droughtOutlook,
+    layers.fireWeatherOutlooks, layers.spcWeatherOutlooks, spcWeatherOutlookMode, layers.spcReports, layers.iemReports,
+  ]);
 
   return (
     <div className="h-screen w-screen flex flex-col bg-sentinel-900 text-white overflow-hidden select-none">
