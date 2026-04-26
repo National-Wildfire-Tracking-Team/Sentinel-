@@ -200,7 +200,7 @@ const Legend = memo(function Legend({
                 <ColorRow color="#3b82f6" label="Hail" />
                 <ColorRow color="#f59e0b" label="Wind" />
                 <div className="text-sentinel-300 text-[10px] pt-1 mt-1 border-t border-sentinel-700">
-                  NWS LSR: reports from the last 12 hours
+                  NWS LSR: reports from the last 24 hours
                 </div>
               </Section>
             )}

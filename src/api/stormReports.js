@@ -3,8 +3,8 @@
  * NWS Local Storm Reports (LSR) for weather tracking — NOAA ArcGIS MapServer.
  * https://mapservices.weather.noaa.gov/vector/rest/services/obs/nws_local_storm_reports/MapServer
  *
- * Layer 0 = last 24h; we only query that sublayer, then keep points from the last 12 hours
- * (by report time). ~30 min refresh is typical for the service.
+ * Layer 0 = last 24h; we only query that sublayer, then keep points from the last 24 hours
+ * (by report time, rolling from “now”). ~30 min refresh is typical for the service.
  */
 
 import { getCached, setCached, invalidateCache } from '../utils/dataCache';
@@ -14,7 +14,7 @@ const NWS_LSR_MAPSERVER_24H_LAYER = 0;
 export const NWS_LSR_MAPSERVER_BASE =
   'https://mapservices.weather.noaa.gov/vector/rest/services/obs/nws_local_storm_reports/MapServer';
 
-const STORM_REPORTS_MAX_AGE_HOURS = 12;
+const STORM_REPORTS_MAX_AGE_HOURS = 24;
 const NWS_LSR_CHUNK = 2000;
 const NWS_LSR_GEO_CHUNK = 500;
 const NWS_LSR_GEOJSON_CACHE_KEY = 'nws-lsr:mapserver-geojson';
@@ -89,7 +89,7 @@ function filterToPastHours(featureCollection, hours) {
 }
 
 /**
- * Fetches 24h LSR points from the MapServer, then keeps only the last 12 hours by report time.
+ * Fetches 24h LSR points from the MapServer, then keeps only the last 24 hours by report time.
  */
 export async function fetchNwsLsrMapServerAsGeoJSON(options = {}) {
   const layerId = NWS_LSR_MAPSERVER_24H_LAYER;
@@ -190,7 +190,7 @@ export async function fetchNwsLsrMapServerAsGeoJSON(options = {}) {
 }
 
 /**
- * @internal Cached 24h MapServer GeoJSON; rolling 12h window applied on read
+ * @internal Cached 24h MapServer GeoJSON; rolling 24h window applied on read
  * (see fetchNwsLsrMapServerForHook) so the cutoff stays "now" between refreshes.
  */
 export async function fetchNwsLsrMapServerForHook(options = {}) {
