@@ -65,7 +65,7 @@ const WILDFIRE_LAYER_PRESET = {
   rawsStations: false,
   flights: false,
   airNowMonitors: false,
-  fireWeatherOutlooks: true,
+  fireWeatherOutlooks: false,
 };
 
 const WEATHER_LAYER_PRESET = {
