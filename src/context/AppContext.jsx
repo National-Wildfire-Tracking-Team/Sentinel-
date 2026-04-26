@@ -11,8 +11,8 @@ const initialState = {
   // Which map data layers are currently visible
   layers: {
     fireHotspots:      false,
-    firePerimeters:    true,
-    incidentLocations: true,
+    firePerimeters:    false,
+    incidentLocations: false,
     aqi:               false,
     weatherAlerts:     false,
     smoke:             false,
@@ -26,7 +26,7 @@ const initialState = {
     spcMd:             false,
     radar:             false,
     evacZones:         false,
-    reporterEvacZones: true,
+    reporterEvacZones: false,
     flights:           false,
     rawsStations:          false,
     airNowMonitors:        false,
