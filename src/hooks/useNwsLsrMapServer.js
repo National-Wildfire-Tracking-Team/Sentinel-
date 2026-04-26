@@ -1,11 +1,13 @@
 /**
- * NWS Local Storm Reports from NOAA MapServer (24/48/72h).
+ * NWS Local Storm Reports: NOAA 24h MapServer layer, shown as last 12h on the map.
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { fetchNwsLsrMapServerForHook, invalidateNwsLsrMapServerCache } from '../api/stormReports';
 
 const REFRESH_MS = 30 * 60 * 1000;
+/** Re-apply 12h cutoff from cached 24h data so points age out before next MapServer fetch. */
+const ROLL_12H_MS = 5 * 60 * 1000;
 
 const EMPTY = { type: 'FeatureCollection', features: [] };
 
@@ -27,6 +29,16 @@ export function useNwsLsrMapServer(enabled = false) {
       setError(err.message || 'Could not load NWS storm reports');
     } finally {
       setLoading(false);
+    }
+  }, [enabled]);
+
+  const reapply12h = useCallback(async (abortSignal) => {
+    if (!enabled) return;
+    try {
+      const data = await fetchNwsLsrMapServerForHook({ signal: abortSignal });
+      if (data?.type === 'FeatureCollection') setGeoJSON(data);
+    } catch (err) {
+      if (err.name !== 'AbortError') { /* non-fatal */ }
     }
   }, [enabled]);
 
@@ -52,6 +64,15 @@ export function useNwsLsrMapServer(enabled = false) {
       }
     };
   }, [load, enabled]);
+
+  useEffect(() => {
+    if (!enabled) return;
+    const id = setInterval(() => {
+      const c = new AbortController();
+      reapply12h(c.signal);
+    }, ROLL_12H_MS);
+    return () => clearInterval(id);
+  }, [enabled, reapply12h]);
 
   return { geoJSON, loading, error, refresh };
 }

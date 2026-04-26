@@ -122,7 +122,7 @@ const Legend = memo(function Legend({
 
   const anyActive = layers.fireHotspots || layers.aqi || layers.firePerimeters || layers.spcWeatherOutlooks
     || layers.weatherAlerts || layers.radar || layers.incidentLocations
-    || layers.spcReports || layers.iemReports || layers.nwsReports || layers.fireWeatherOutlooks;
+    || layers.stormReports || layers.fireWeatherOutlooks;
   if (!anyActive) return null;
 
   const spcScale = SPC_SCALES[spcOutlookType] || SPC_SCALES.categorical;
@@ -194,16 +194,14 @@ const Legend = memo(function Legend({
               </Section>
             )}
 
-            {(layers.spcReports || layers.iemReports || layers.nwsReports) && (
+            {layers.stormReports && (
               <Section title="Storm Reports">
                 <ColorRow color="#ef4444" label="Tornado" />
                 <ColorRow color="#3b82f6" label="Hail" />
                 <ColorRow color="#f59e0b" label="Wind" />
-                {layers.nwsReports && (
-                  <div className="text-sentinel-300 text-[10px] pt-1 mt-1 border-t border-sentinel-700">
-                    NWS LSR: 24/48/72h windows from NOAA
-                  </div>
-                )}
+                <div className="text-sentinel-300 text-[10px] pt-1 mt-1 border-t border-sentinel-700">
+                  NWS LSR: reports from the last 12 hours
+                </div>
               </Section>
             )}
 
