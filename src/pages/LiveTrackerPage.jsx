@@ -57,7 +57,7 @@ const WILDFIRE_LAYER_PRESET = {
   smoke: false,
   goesEast: false,
   goesWest: false,
-  spcOutlooks: false,
+  spcWeatherOutlooks: false,
   radar: false,
   evacZones: false,
   reporterEvacZones: true,
@@ -76,7 +76,7 @@ const WEATHER_LAYER_PRESET = {
   smoke: false,
   goesEast: false,
   goesWest: false,
-  spcOutlooks: true,
+  spcWeatherOutlooks: true,
   spcReports: true,
   iemReports: true,
   radar: true,
@@ -85,7 +85,6 @@ const WEATHER_LAYER_PRESET = {
   rawsStations: false,
   flights: false,
   airNowMonitors: false,
-  fireWeatherOutlooks: false,
 };
 
 const THREE_DAYS_MS = 3 * 24 * 60 * 60 * 1000;
@@ -237,13 +236,18 @@ export default function LiveTrackerPage() {
 
   const [spcOutlookType, setSpcOutlookType] = useState('categorical');
   const [spcActiveDay,   setSpcActiveDay]   = useState('day1');
+  const [spcWeatherOutlookMode, setSpcWeatherOutlookMode] = useState('convective');
 
   const {
     geoJSON:   spcOutlooksGeoJSON,
     loading:   spcOutlooksLoading,
     validTime: spcValidTime,
     refresh:   refreshSpcOutlooks,
-  } = useSpcOutlooks(activeMapTab === MAP_TABS.weather, spcActiveDay, spcOutlookType);
+  } = useSpcOutlooks(
+    layers.spcWeatherOutlooks && spcWeatherOutlookMode === 'convective' && activeMapTab === MAP_TABS.weather,
+    spcActiveDay,
+    spcOutlookType
+  );
 
   const {
     geoJSON:  spcMdGeoJSON,
@@ -327,7 +331,8 @@ const flightBounds = useMemo(() => {
     validTime: fireWxValidTime,
     refresh:   refreshFireWeatherOutlooks,
   } = useFireWeatherOutlooks(
-    layers.fireWeatherOutlooks,
+    (layers.fireWeatherOutlooks && activeMapTab === MAP_TABS.wildfire)
+      || (layers.spcWeatherOutlooks && spcWeatherOutlookMode === 'fireWx' && activeMapTab === MAP_TABS.weather),
     fireWxActiveDay,
     fireWxOutlookType
   );
@@ -597,8 +602,10 @@ const flightBounds = useMemo(() => {
     if (rawsEnabled) refreshRAWS();
     if (layers.airNowMonitors) refreshAirNowMonitors();
     if (layers.droughtOutlook) refreshDroughtOutlook();
-    if (layers.fireWeatherOutlooks) refreshFireWeatherOutlooks();
-  }, [refreshHotspots, refreshPerimeters, refreshAlerts, refreshIncidents, refreshStormReports, refreshSpcOutlooks, refreshUserReports, refreshEvacZones, refreshReporterEvacZones, refreshAQI, refreshFlights, refreshRAWS, refreshAirNowMonitors, refreshDroughtOutlook, refreshFireWeatherOutlooks, layers.aqi, layers.flights, rawsEnabled, layers.airNowMonitors, layers.droughtOutlook, layers.fireWeatherOutlooks]);
+    if (layers.fireWeatherOutlooks || (layers.spcWeatherOutlooks && spcWeatherOutlookMode === 'fireWx')) {
+      refreshFireWeatherOutlooks();
+    }
+  }, [refreshHotspots, refreshPerimeters, refreshAlerts, refreshIncidents, refreshStormReports, refreshSpcOutlooks, refreshUserReports, refreshEvacZones, refreshReporterEvacZones, refreshAQI, refreshFlights, refreshRAWS, refreshAirNowMonitors, refreshDroughtOutlook, refreshFireWeatherOutlooks, layers.aqi, layers.flights, rawsEnabled, layers.airNowMonitors, layers.droughtOutlook, layers.fireWeatherOutlooks, layers.spcWeatherOutlooks, spcWeatherOutlookMode]);
 
   return (
     <div className="h-screen w-screen flex flex-col bg-sentinel-900 text-white overflow-hidden select-none">
@@ -659,6 +666,8 @@ const flightBounds = useMemo(() => {
             fireWxValidTime={fireWxValidTime}
             onFireWxOutlookTypeChange={setFireWxOutlookType}
             onFireWxActiveDayChange={setFireWxActiveDay}
+            spcWeatherOutlookMode={spcWeatherOutlookMode}
+            onSpcWeatherOutlookModeChange={setSpcWeatherOutlookMode}
             savedLocations={savedLocations}
             measureActive={measureActive}
             measureMode={measureMode}
@@ -679,7 +688,12 @@ const flightBounds = useMemo(() => {
             onPrecipRingToggle={onPrecipRingToggle}
           />
 
-          <Legend spcOutlookType={spcOutlookType} spcActiveDay={spcActiveDay} fireWxOutlookType={fireWxOutlookType} />
+          <Legend
+            spcOutlookType={spcOutlookType}
+            spcActiveDay={spcActiveDay}
+            spcWeatherOutlookMode={spcWeatherOutlookMode}
+            fireWxOutlookType={fireWxOutlookType}
+          />
           <FireDetailPanel />
 
           {/* Bug report button – fixed to bottom-right of map area */}
