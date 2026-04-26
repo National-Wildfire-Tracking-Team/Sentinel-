@@ -58,7 +58,6 @@ const WILDFIRE_LAYER_PRESET = {
   goesEast: false,
   goesWest: false,
   spcOutlooks: false,
-  spcMd: false,
   radar: false,
   evacZones: false,
   reporterEvacZones: true,
@@ -78,7 +77,6 @@ const WEATHER_LAYER_PRESET = {
   goesEast: false,
   goesWest: false,
   spcOutlooks: true,
-  spcMd: true,
   spcReports: true,
   iemReports: true,
   radar: true,
@@ -250,7 +248,7 @@ export default function LiveTrackerPage() {
   const {
     geoJSON:  spcMdGeoJSON,
     refresh:  refreshSpcMd,
-  } = useSpcMesoscaleDiscussion(activeMapTab === MAP_TABS.weather && layers.spcMd);
+  } = useSpcMesoscaleDiscussion(activeMapTab === MAP_TABS.weather && layers.weatherAlerts);
 
   // California evacuation zones – combined CalOES hosted-view + PROD feed
   const {

@@ -168,7 +168,7 @@ const Legend = memo(function Legend({ spcOutlookType = 'categorical', spcActiveD
             )}
 
             {layers.weatherAlerts && (
-              <Section title="NOAA/NWS Alerts">
+              <Section title="NWS &amp; SPC">
                 <ColorRow color="#ED368D" label="Red Flag Warning" />
                 <ColorRow color="#F8DCB1" label="Fire Weather Watch" />
                 <ColorRow color="#E43831" label="Tornado Warning" />
@@ -177,6 +177,9 @@ const Legend = memo(function Legend({ spcOutlookType = 'categorical', spcActiveD
                 <ColorRow color="#BE2B82" label="Extreme Heat Warning" />
                 <ColorRow color="#CC2936" label="Hurricane Warning" />
                 <ColorRow color="#9E5936" label="Fire Warning" />
+                <div className="pt-1 mt-1 border-t border-sentinel-700" />
+                <div className="text-sentinel-300 text-[10px] mb-1">SPC mesoscale: red outline</div>
+                <ColorRow color="#e3000f" label="MD polygon (dashed)" />
               </Section>
             )}
 

@@ -26,7 +26,6 @@ import GOESLayer          from './layers/GOESLayer';
 import StormReportsLayer  from './layers/StormReportsLayer';
 import UserReportsLayer   from './layers/UserReportsLayer';
 import SPCOutlookLayer from './layers/SPCOutlookLayer';
-import SPCMesoscaleDiscussionLayer from './layers/SPCMesoscaleDiscussionLayer';
 import RadarLayer from './layers/RadarLayer';
 import EvacZonesLayer from './layers/EvacZonesLayer';
 import ReporterEvacZonesLayer from './layers/ReporterEvacZonesLayer';
@@ -713,7 +712,7 @@ export default function MapView({
     if (isWeatherTab && layers.aqi && aqiGeoJSON)                        ids.push('aqi-stations-circle');
     if (isWeatherTab && layers.weatherAlerts && alertsGeoJSON) ids.push('weather-alerts-fill');
     if (isWeatherTab && layers.spcOutlooks && spcOutlooksGeoJSON)        ids.push('spc-outlook-fill');
-    if (isWeatherTab && layers.spcMd && spcMdGeoJSON)                   ids.push('spc-md-fill');
+    if (isWeatherTab && layers.weatherAlerts && spcMdGeoJSON) ids.push('spc-md-fill');
     if (isWeatherTab && layers.spcReports && spcReportsGeoJSON)          ids.push('spc-reports-circle');
     if (isWeatherTab && layers.iemReports && iemReportsGeoJSON)          ids.push('iem-reports-circle');
     if (isWildfireTab && layers.evacZones && evacZonesGeoJSON)                        ids.push('evac-zones-fill');
@@ -725,7 +724,7 @@ export default function MapView({
     if (layers.fireWeatherOutlooks && fireWeatherOutlooksGeoJSON)                     ids.push('fire-weather-outlook-fill');
     return ids;
   }, [measureActive, isWildfireTab, isWeatherTab, layers.fireHotspots, layers.firePerimeters, layers.incidentLocations, layers.aqi,
-      layers.weatherAlerts, layers.spcOutlooks, layers.spcReports, layers.iemReports, layers.evacZones, layers.reporterEvacZones,
+      layers.weatherAlerts, layers.spcOutlooks, layers.spcReports, layers.iemReports, layers.evacZones, layers.reporterEvacZones, spcMdGeoJSON,
       layers.flights, layers.rawsStations, layers.airNowMonitors, layers.droughtOutlook, layers.fireWeatherOutlooks,
       hotspotsGeoJSON, perimetersGeoJSON, incidentsGeoJSON, aqiGeoJSON, alertsGeoJSON, spcOutlooksGeoJSON,
       spcReportsGeoJSON, iemReportsGeoJSON, userReportsGeoJSON, evacZonesGeoJSON, reporterEvacZonesGeoJSON,
@@ -1065,6 +1064,7 @@ export default function MapView({
         {/* Weather alert zones */}
         <WeatherAlertsLayer
           geoJSON={alertsGeoJSON}
+          spcMdGeoJSON={spcMdGeoJSON}
           visible={isWeatherTab && layers.weatherAlerts}
         />
 
@@ -1072,12 +1072,6 @@ export default function MapView({
         <SPCOutlookLayer
           geoJSON={spcOutlooksGeoJSON}
           visible={isWeatherTab && layers.spcOutlooks}
-        />
-
-        {/* SPC Mesoscale Discussions – red-dash outlined polygons */}
-        <SPCMesoscaleDiscussionLayer
-          geoJSON={spcMdGeoJSON}
-          visible={isWeatherTab && layers.spcMd}
         />
 
         {/* Fire perimeter polygons */}
