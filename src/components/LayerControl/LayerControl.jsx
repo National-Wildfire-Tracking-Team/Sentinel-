@@ -35,10 +35,9 @@ const LAYER_GROUPS = [
   {
     label: 'Weather',
     layers: [
-      { key: 'weatherAlerts',      label: 'Fire Weather Alerts',     sublabel: 'NOAA NWS',                       icon: Wind,          color: '#ef4444' },
+      { key: 'weatherAlerts',      label: 'NWS & mesoscale',         sublabel: 'NWS active alerts + SPC MDs',    icon: Wind,          color: '#ef4444' },
       { key: 'spcOutlooks',        label: 'SPC Outlooks',            sublabel: 'NOAA SPC Day 1-3 convective',    icon: AlertTriangle, color: '#facc15' },
       { key: 'fireWeatherOutlooks', label: 'Fire Weather Outlooks',  sublabel: 'SPC Day 1-8 fire weather',       icon: Zap,           color: '#ff6b35' },
-      { key: 'spcMd',              label: 'Mesoscale Discussions',   sublabel: 'NOAA SPC active MDs',            icon: AlertTriangle, color: '#e3000f' },
       { key: 'rawsStations',       label: 'RAWS Stations',           sublabel: 'Fire weather stations',         icon: Thermometer,   color: '#f97316' },
     ],
   },
