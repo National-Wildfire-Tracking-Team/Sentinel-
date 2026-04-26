@@ -83,6 +83,7 @@ const WEATHER_LAYER_PRESET = {
   iemReports: true,
   radar: true,
   evacZones: false,
+  reporterEvacZones: false,
   rawsStations: false,
   flights: false,
   airNowMonitors: false,
