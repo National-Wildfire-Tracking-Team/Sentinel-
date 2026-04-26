@@ -22,6 +22,7 @@ const initialState = {
     goesFire18:        false,
     spcReports:        false,
     iemReports:        false,
+    nwsReports:          false,
     spcWeatherOutlooks: false,
     fireWeatherOutlooks: false,
     radar:             false,

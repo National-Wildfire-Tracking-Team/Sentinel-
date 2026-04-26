@@ -133,6 +133,34 @@ function HoverTooltip({ feature, lngLat }) {
         </>
       );
       break;
+    case 'nws-lsr-reports-circle':
+      content = (
+        <>
+          <div className="font-semibold text-sky-300">
+            {p.reportType} <span className="text-sentinel-300">
+              (NWS LSR{p.nwsLsrWindow ? ` · ${p.nwsLsrWindow}` : ''})
+            </span>
+          </div>
+          {p.lsrDescription && (
+            <div className="text-gray-300 text-xs mt-0.5 line-clamp-2">{p.lsrDescription}</div>
+          )}
+          {p.wfo && <div className="text-gray-400 text-xs">{p.wfo}</div>}
+          <div className="text-gray-300 text-xs mt-0.5">
+            {p.city ? `${p.city}, ` : ''}{p.state}
+            {p.county ? ` · ${p.county} County` : ''}
+          </div>
+          {p.magnitude && <div className="text-gray-300 text-xs">Magnitude: {p.magnitude}</div>}
+          {p.reportedAt && (
+            <div className="text-gray-400 text-xs">
+              {new Date(p.reportedAt).toLocaleString()}
+            </div>
+          )}
+          {p.comments && (
+            <div className="text-gray-400 text-xs mt-1 max-w-[220px] line-clamp-3">{p.comments}</div>
+          )}
+        </>
+      );
+      break;
     case 'spc-reports-circle':
     case 'iem-reports-circle':
       content = (
@@ -531,6 +559,7 @@ function FlightDetailPopup({ flight, lngLat, onClose }) {
  * @param {object|null} props.alertsGeoJSON
  * @param {object|null} props.spcReportsGeoJSON
  * @param {object|null} props.iemReportsGeoJSON
+ * @param {object|null} props.nwsLsrGeoJSON
  * @param {object|null} props.spcOutlooksGeoJSON
  * @param {string}      [props.spcOutlookType]       - active outlook type key
  * @param {string}      [props.spcActiveDay]         - active day key e.g. 'day1'
@@ -569,6 +598,7 @@ export default function MapView({
   alertsGeoJSON,
   spcReportsGeoJSON,
   iemReportsGeoJSON,
+  nwsLsrGeoJSON,
   spcOutlooksGeoJSON,
   spcOutlookType = 'categorical',
   spcActiveDay = 'day1',
@@ -721,6 +751,7 @@ export default function MapView({
     if (isWeatherTab && layers.weatherAlerts && spcMdGeoJSON) ids.push('spc-md-fill');
     if (isWeatherTab && layers.spcReports && spcReportsGeoJSON)          ids.push('spc-reports-circle');
     if (isWeatherTab && layers.iemReports && iemReportsGeoJSON)          ids.push('iem-reports-circle');
+    if (isWeatherTab && layers.nwsReports && nwsLsrGeoJSON)                ids.push('nws-lsr-reports-circle');
     if (isWildfireTab && layers.evacZones && evacZonesGeoJSON)                        ids.push('evac-zones-fill');
     if (isWildfireTab && layers.reporterEvacZones && reporterEvacZonesGeoJSON)        ids.push('reporter-evac-zones-fill');
     if (layers.flights && flightsGeoJSON)                                             ids.push('flights-symbol');
@@ -733,10 +764,10 @@ export default function MapView({
     }
     return ids;
   }, [measureActive, isWildfireTab, isWeatherTab, layers.fireHotspots, layers.firePerimeters, layers.incidentLocations, layers.aqi,
-      layers.weatherAlerts, layers.spcWeatherOutlooks, spcWeatherOutlookMode, layers.spcReports, layers.iemReports, layers.evacZones, layers.reporterEvacZones, spcMdGeoJSON,
+      layers.weatherAlerts, layers.spcWeatherOutlooks, spcWeatherOutlookMode, layers.spcReports, layers.iemReports, layers.nwsReports, layers.evacZones, layers.reporterEvacZones, spcMdGeoJSON,
       layers.flights, layers.rawsStations, layers.airNowMonitors, layers.droughtOutlook, layers.fireWeatherOutlooks,
       hotspotsGeoJSON, perimetersGeoJSON, incidentsGeoJSON, aqiGeoJSON, alertsGeoJSON, spcOutlooksGeoJSON,
-      spcReportsGeoJSON, iemReportsGeoJSON, userReportsGeoJSON, evacZonesGeoJSON, reporterEvacZonesGeoJSON,
+      spcReportsGeoJSON, iemReportsGeoJSON, nwsLsrGeoJSON, userReportsGeoJSON, evacZonesGeoJSON, reporterEvacZonesGeoJSON,
       flightsGeoJSON, rawsGeoJSON, airNowMonitorsGeoJSON, droughtOutlookGeoJSON, fireWeatherOutlooksGeoJSON]);
 
   // Clear stale hover when layers change
@@ -1129,6 +1160,13 @@ export default function MapView({
           geoJSON={iemReportsGeoJSON}
           visible={isWeatherTab && layers.iemReports}
           opacity={0.75}
+        />
+
+        <StormReportsLayer
+          idPrefix="nws-lsr"
+          geoJSON={nwsLsrGeoJSON}
+          visible={isWeatherTab && layers.nwsReports}
+          opacity={0.88}
         />
 
         {/* California evacuation zones (official Cal OES feed) */}
