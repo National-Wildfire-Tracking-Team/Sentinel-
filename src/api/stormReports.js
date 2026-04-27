@@ -51,15 +51,29 @@ async function fetchNwsLsrMapServerJson(url, init) {
   return res.json();
 }
 
+/**
+ * MapServer `valid_time` is often "YYYY-MM-DD HH:mm:ss+00" — ECMAScript Date rejects
+ * "+00" (needs "+00:00"), so the rolling 24h filter must not use raw `new Date(valid_time)`.
+ */
+function parseNwsLsrValidTimeToMs(validTime) {
+  if (validTime == null) return null;
+  if (typeof validTime === 'number' && Number.isFinite(validTime)) return validTime;
+  if (typeof validTime !== 'string') return null;
+  let s = String(validTime).trim().replace(' ', 'T');
+  // "+00" / "-05" style offsets are invalid in JS; normalize to "+00:00"
+  if (/[+-]\d{2}$/.test(s) && !/[+-]\d{2}:\d{2}$/.test(s)) {
+    s += ':00';
+  }
+  const t = new Date(s).getTime();
+  return Number.isFinite(t) ? t : null;
+}
+
 function reportedAtToMs(f) {
   const p = f?.properties;
   if (!p) return null;
-  if (p.valid_time) {
-    try {
-      return new Date(String(p.valid_time).replace(' ', 'T')).getTime();
-    } catch { /* ignore */ }
-  }
-  if (typeof p.lsr_validtime === 'number') {
+  const fromValid = parseNwsLsrValidTimeToMs(p.valid_time);
+  if (fromValid != null) return fromValid;
+  if (typeof p.lsr_validtime === 'number' && Number.isFinite(p.lsr_validtime)) {
     return p.lsr_validtime;
   }
   if (p.reportedAt) {
@@ -171,14 +185,14 @@ export async function fetchNwsLsrMapServerAsGeoJSON(options = {}) {
       comments: orig?.remarks || '',
       wfo: orig?.wfo || orig?.wfo_id || '',
       lsrDescription: orig?.descript || '',
-      reportedAt: orig?.valid_time
-        ? (() => {
-            try {
-              return new Date(String(orig.valid_time).replace(' ', 'T')).toISOString();
-            } catch { return ''; }
-          })()
-        : (typeof orig?.lsr_validtime === 'number'
-          ? new Date(orig.lsr_validtime).toISOString() : ''),
+      reportedAt: (() => {
+        const ms = parseNwsLsrValidTimeToMs(orig?.valid_time);
+        if (ms != null) return new Date(ms).toISOString();
+        if (typeof orig?.lsr_validtime === 'number' && Number.isFinite(orig.lsr_validtime)) {
+          return new Date(orig.lsr_validtime).toISOString();
+        }
+        return '';
+      })(),
     };
     byObjectId.set(oid, f);
   }
