@@ -17,7 +17,7 @@ import { useMergedFireData, getFireMatchKey } from '../hooks/useMergedFireData';
 import { useAQIData } from '../hooks/useAQIData';
 import { useWeatherAlerts } from '../hooks/useWeatherAlerts';
 import { useIncidents } from '../hooks/useIncidents';
-import { useStormReports } from '../hooks/useStormReports';
+import { useNwsLsrMapServer } from '../hooks/useNwsLsrMapServer';
 import { useSpcOutlooks } from '../hooks/useSpcOutlooks';
 import { useSpcMesoscaleDiscussion } from '../hooks/useSpcMesoscaleDiscussion';
 import { useFireReports, reportsToGeoJSON } from '../hooks/useFireReports';
@@ -65,6 +65,7 @@ const WILDFIRE_LAYER_PRESET = {
   flights: false,
   airNowMonitors: false,
   fireWeatherOutlooks: false,
+  stormReports: false,
 };
 
 // Weather tab: only auto-enable NWS alerts (includes SPC MDs on map), and NEXRAD;
@@ -79,8 +80,7 @@ const WEATHER_LAYER_PRESET = {
   goesEast: false,
   goesWest: false,
   spcWeatherOutlooks: false,
-  spcReports: false,
-  iemReports: false,
+  stormReports: false,
   radar: true,
   evacZones: false,
   reporterEvacZones: false,
@@ -231,12 +231,9 @@ export default function LiveTrackerPage() {
   } = useIncidents(0.1);
 
   const {
-    spcGeoJSON,
-    iemGeoJSON,
+    geoJSON: stormReportsGeoJSON,
     refresh: refreshStormReports,
-  } = useStormReports(
-    activeMapTab === MAP_TABS.weather && (layers.spcReports || layers.iemReports)
-  );
+  } = useNwsLsrMapServer(activeMapTab === MAP_TABS.weather && layers.stormReports);
 
   const [spcOutlookType, setSpcOutlookType] = useState('categorical');
   const [spcActiveDay,   setSpcActiveDay]   = useState('day1');
@@ -595,7 +592,7 @@ const flightBounds = useMemo(() => {
     refreshPerimeters();
     refreshAlerts();
     refreshIncidents();
-    if (activeMapTab === MAP_TABS.weather && (layers.spcReports || layers.iemReports)) {
+    if (activeMapTab === MAP_TABS.weather && layers.stormReports) {
       refreshStormReports();
     }
     refreshSpcOutlooks();
@@ -616,7 +613,7 @@ const flightBounds = useMemo(() => {
     refreshSpcMd, refreshSpcOutlooks, refreshUserReports, refreshEvacZones, refreshReporterEvacZones,
     refreshAQI, refreshFlights, refreshRAWS, refreshAirNowMonitors, refreshDroughtOutlook, refreshFireWeatherOutlooks,
     activeMapTab, layers.aqi, layers.flights, rawsEnabled, layers.airNowMonitors, layers.droughtOutlook,
-    layers.fireWeatherOutlooks, layers.spcWeatherOutlooks, spcWeatherOutlookMode, layers.spcReports, layers.iemReports,
+    layers.fireWeatherOutlooks, layers.spcWeatherOutlooks, spcWeatherOutlookMode, layers.stormReports,
   ]);
 
   return (
@@ -654,8 +651,7 @@ const flightBounds = useMemo(() => {
             incidentDotsGeoJSON={finalIncidentDotsGeoJSON}
             aqiGeoJSON={aqiGeoJSON}
             alertsGeoJSON={filteredAlertsGeoJSON}
-            spcReportsGeoJSON={spcGeoJSON}
-            iemReportsGeoJSON={iemGeoJSON}
+            stormReportsGeoJSON={stormReportsGeoJSON}
             spcOutlooksGeoJSON={spcOutlooksGeoJSON}
             spcOutlookType={spcOutlookType}
             spcActiveDay={spcActiveDay}
