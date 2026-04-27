@@ -8,7 +8,7 @@ import { memo, useState } from 'react';
 import {
   X, Flame, MapPin, Users, Home, Calendar, Thermometer,
   AlertTriangle, Wind, ExternalLink, TrendingUp, ShieldAlert,
-  CloudRain, Clock, Info, Share2, ShieldCheck,
+  CloudRain, Clock, Info, Share2, ShieldCheck, Zap,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import {
@@ -798,6 +798,72 @@ function ReporterEvacZoneDetail({ fire }) {
   );
 }
 
+function TransmissionLineDetail({ fire }) {
+  const CMRA_DATASET_URL =
+    'https://resilience.climate.gov/datasets/d4090758322c4d32a4cd002ffaa0aa12_0';
+
+  const row = (label, value) => {
+    if (value == null || String(value).trim() === '') return null;
+    return (
+      <div className="flex justify-between gap-3 py-1.5 border-b border-sentinel-700/80 text-xs">
+        <span className="text-sentinel-400 shrink-0">{label}</span>
+        <span className="text-sentinel-100 text-right font-medium">{String(value)}</span>
+      </div>
+    );
+  };
+
+  return (
+    <>
+      <div className="mb-4 flex items-start gap-2">
+        <div className="mt-0.5 p-1.5 rounded-lg bg-amber-500/15 border border-amber-500/30">
+          <Zap size={16} className="text-amber-400" />
+        </div>
+        <div>
+          <h3 className="font-bold text-white text-lg leading-tight">{fire.name || 'Transmission line'}</h3>
+          <p className="text-sentinel-400 text-[11px] mt-1">
+            U.S. electric transmission (CMRA archive). Lines load for your current map view (up to 2,000 segments).
+          </p>
+        </div>
+      </div>
+
+      <div className="rounded-xl border border-sentinel-700 bg-sentinel-800/40 px-3 py-1 mb-4">
+        {row('Line ID', fire.lineId)}
+        {row('Voltage (kV)', fire.voltage)}
+        {row('Voltage class', fire.voltClass)}
+        {row('Line type', fire.lineType)}
+        {row('Operational status', fire.status)}
+        {row('Owner', fire.owner)}
+        {fire.naicsDesc && (
+          <div className="py-2 text-xs text-sentinel-300 leading-snug border-b border-sentinel-700/80 last:border-0">
+            <span className="text-[10px] font-bold text-sentinel-500 uppercase tracking-wider block mb-1">NAICS</span>
+            {fire.naicsDesc}
+          </div>
+        )}
+        {row('Data source', fire.source)}
+      </div>
+
+      {Number.isFinite(fire.lat) && Number.isFinite(fire.lng) && (
+        <div className="mb-4 text-xs text-sentinel-400">
+          Location:{' '}
+          <span className="text-sentinel-200 font-mono">
+            {fire.lat.toFixed(5)}, {fire.lng.toFixed(5)}
+          </span>
+        </div>
+      )}
+
+      <a
+        href={CMRA_DATASET_URL}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="flex items-center gap-1.5 text-xs text-amber-400 hover:text-amber-300 transition-colors"
+      >
+        <ExternalLink size={12} />
+        Dataset on Climate Mapping (CMRA)
+      </a>
+    </>
+  );
+}
+
 // ─── Main Panel ───────────────────────────────────────────────────────────────
 
 const FireDetailPanel = memo(function FireDetailPanel() {
@@ -894,6 +960,7 @@ const FireDetailPanel = memo(function FireDetailPanel() {
              selectedFire.type === 'user-report'     ? 'Community Report' :
              selectedFire.type === 'evacuation-zone'          ? 'Evacuation Zone' :
              selectedFire.type === 'reporter-evacuation-zone' ? 'Reporter Evac Zone' :
+             selectedFire.type === 'transmission-line'        ? 'Critical Infrastructure' :
              'Fire Detail'}
           </span>
           <div className="flex items-center gap-1">
@@ -930,6 +997,7 @@ const FireDetailPanel = memo(function FireDetailPanel() {
           {selectedFire.type === 'user-report'     && <UserReportDetail fire={selectedFire} />}
           {selectedFire.type === 'evacuation-zone'          && <EvacZoneDetail         fire={selectedFire} />}
           {selectedFire.type === 'reporter-evacuation-zone' && <ReporterEvacZoneDetail  fire={selectedFire} />}
+          {selectedFire.type === 'transmission-line'       && <TransmissionLineDetail fire={selectedFire} />}
         </div>
       </div>
     </>

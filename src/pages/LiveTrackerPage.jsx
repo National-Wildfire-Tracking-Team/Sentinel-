@@ -28,6 +28,8 @@ import { useRAWSData } from '../hooks/useRAWSData';
 import { useAirNowMonitors } from '../hooks/useAirNowMonitors';
 import { useDroughtOutlook } from '../hooks/useDroughtOutlook';
 import { useFireWeatherOutlooks } from '../hooks/useFireWeatherOutlooks';
+import { useCriticalInfrastructure } from '../hooks/useCriticalInfrastructure';
+import { usePlan } from '../hooks/usePlan';
 import { polygonCentroid } from '../utils/geoUtils';
 
 // Components
@@ -66,6 +68,7 @@ const WILDFIRE_LAYER_PRESET = {
   airNowMonitors: false,
   fireWeatherOutlooks: false,
   stormReports: false,
+  criticalInfrastructure: false,
 };
 
 // Weather tab: only auto-enable NWS alerts (includes SPC MDs on map), and NEXRAD;
@@ -82,6 +85,7 @@ const WEATHER_LAYER_PRESET = {
   spcWeatherOutlooks: false,
   stormReports: false,
   radar: true,
+  criticalInfrastructure: false,
   evacZones: false,
   reporterEvacZones: false,
   rawsStations: false,
@@ -141,6 +145,8 @@ const RAWS_MIN_ZOOM = 9;
 
 export default function LiveTrackerPage() {
   const { layers, setLayer, setRefreshed, setLoading, feedFilter, viewport } = useApp();
+  const { isPro } = usePlan();
+  const criticalInfraEntitled = isPro;
   const { locations: savedLocations } = useSavedLocations();
   const [activeMapTab, setActiveMapTab] = useState(MAP_TABS.wildfire);
   const [mapType, setMapType] = useState('satellite');
@@ -162,6 +168,12 @@ export default function LiveTrackerPage() {
   const onPrecipRingToggle = useCallback(() => {
     setPrecipRingActive(v => !v);
   }, []);
+
+  useEffect(() => {
+    if (!criticalInfraEntitled && layers.criticalInfrastructure) {
+      setLayer('criticalInfrastructure', false);
+    }
+  }, [criticalInfraEntitled, layers.criticalInfrastructure, setLayer]);
 
   // Apply layer presets only when switching between wildfire/weather tabs.
   // The locations tab keeps whatever layers were already active.
@@ -321,6 +333,12 @@ const flightBounds = useMemo(() => {
     geoJSON: droughtOutlookGeoJSON,
     refresh: refreshDroughtOutlook,
   } = useDroughtOutlook(layers.droughtOutlook);
+
+  const criticalInfraEnabled = Boolean(layers.criticalInfrastructure && criticalInfraEntitled);
+  const {
+    geoJSON: criticalInfrastructureGeoJSON,
+    refresh: refreshCriticalInfrastructure,
+  } = useCriticalInfrastructure(criticalInfraEnabled, viewport);
 
   // SPC Fire Weather Outlooks – day/type selector state
   const [fireWxOutlookType, setFireWxOutlookType] = useState('winds_low_humidity');
@@ -605,6 +623,7 @@ const flightBounds = useMemo(() => {
     if (rawsEnabled) refreshRAWS();
     if (layers.airNowMonitors) refreshAirNowMonitors();
     if (layers.droughtOutlook) refreshDroughtOutlook();
+    if (criticalInfraEnabled) refreshCriticalInfrastructure();
     if (layers.fireWeatherOutlooks || (layers.spcWeatherOutlooks && spcWeatherOutlookMode === 'fireWx')) {
       refreshFireWeatherOutlooks();
     }
@@ -612,8 +631,10 @@ const flightBounds = useMemo(() => {
     refreshHotspots, refreshPerimeters, refreshAlerts, refreshIncidents, refreshStormReports,
     refreshSpcMd, refreshSpcOutlooks, refreshUserReports, refreshEvacZones, refreshReporterEvacZones,
     refreshAQI, refreshFlights, refreshRAWS, refreshAirNowMonitors, refreshDroughtOutlook, refreshFireWeatherOutlooks,
+    refreshCriticalInfrastructure,
     activeMapTab, layers.aqi, layers.flights, rawsEnabled, layers.airNowMonitors, layers.droughtOutlook,
     layers.fireWeatherOutlooks, layers.spcWeatherOutlooks, spcWeatherOutlookMode, layers.stormReports,
+    criticalInfraEnabled,
   ]);
 
   return (
@@ -667,6 +688,8 @@ const flightBounds = useMemo(() => {
             rawsGeoJSON={rawsGeoJSON}
             airNowMonitorsGeoJSON={airNowMonitorsGeoJSON}
             droughtOutlookGeoJSON={droughtOutlookGeoJSON}
+            criticalInfrastructureGeoJSON={criticalInfrastructureGeoJSON}
+            criticalInfrastructureVisible={criticalInfraEnabled}
             fireWeatherOutlooksGeoJSON={fireWeatherOutlooksGeoJSON}
             fireWxOutlookType={fireWxOutlookType}
             fireWxActiveDay={fireWxActiveDay}
@@ -686,6 +709,7 @@ const flightBounds = useMemo(() => {
 
           <LayerControl
             activeMapTab={activeMapTab}
+            infrastructureLayersEntitled={isPro}
             mapType={mapType}
             onMapTypeChange={setMapType}
             measureActive={measureActive}

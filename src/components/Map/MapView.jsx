@@ -38,6 +38,7 @@ import AirNowMonitorsLayer from './layers/AirNowMonitorsLayer';
 import DroughtOutlookLayer from './layers/DroughtOutlookLayer';
 import FireWeatherOutlookLayer from './layers/FireWeatherOutlookLayer';
 import FireWeatherOutlookSelector from './FireWeatherOutlookSelector';
+import CriticalInfrastructureLayer from './layers/CriticalInfrastructureLayer';
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN || '';
 const HAS_MAPBOX_TOKEN = Boolean(MAPBOX_TOKEN.trim());
@@ -448,6 +449,29 @@ function HoverTooltip({ feature, lngLat }) {
       );
       break;
     }
+    case 'cmra-transmission-lines': {
+      const kv = (label, val) => (val != null && String(val).trim() !== '' ? (
+        <div className="text-gray-300 text-xs">
+          {label}: <span className="text-white font-medium">{String(val)}</span>
+        </div>
+      ) : null);
+      content = (
+        <>
+          <div className="font-semibold text-amber-300">Transmission line</div>
+          {kv('ID', p.ID)}
+          {kv('Voltage (kV)', p.VOLTAGE)}
+          {kv('Class', p.VOLT_CLASS)}
+          {kv('Type', p.TYPE)}
+          {kv('Status', p.STATUS)}
+          {kv('Owner', p.OWNER)}
+          {p.NAICS_DESC && (
+            <div className="text-gray-400 text-[10px] mt-1 line-clamp-2">{p.NAICS_DESC}</div>
+          )}
+          <div className="text-gray-500 text-[10px] mt-1">CMRA · U.S. transmission (archive)</div>
+        </>
+      );
+      break;
+    }
     default:
       return null;
   }
@@ -550,6 +574,8 @@ function FlightDetailPopup({ flight, lngLat, onClose }) {
  * @param {object|null} props.rawsGeoJSON
  * @param {object|null} props.airNowMonitorsGeoJSON
  * @param {object|null} props.droughtOutlookGeoJSON
+ * @param {object|null} props.criticalInfrastructureGeoJSON
+ * @param {boolean}     [props.criticalInfrastructureVisible]
  * @param {object|null} props.fireWeatherOutlooksGeoJSON
  * @param {string}      [props.fireWxOutlookType]
  * @param {string}      [props.fireWxActiveDay]
@@ -587,6 +613,8 @@ export default function MapView({
   rawsGeoJSON,
   airNowMonitorsGeoJSON,
   droughtOutlookGeoJSON,
+  criticalInfrastructureGeoJSON,
+  criticalInfrastructureVisible = false,
   fireWeatherOutlooksGeoJSON,
   fireWxOutlookType = 'winds_low_humidity',
   fireWxActiveDay = 'day1',
@@ -729,6 +757,9 @@ export default function MapView({
     if (layers.rawsStations && rawsGeoJSON)                                           ids.push('raws-stations-circle');
     if (isWildfireTab && layers.airNowMonitors && airNowMonitorsGeoJSON)              ids.push('airnow-monitors-circle');
     if (isWildfireTab && layers.droughtOutlook && droughtOutlookGeoJSON)              ids.push('drought-outlook-fill');
+    if (criticalInfrastructureVisible && criticalInfrastructureGeoJSON?.features?.length) {
+      ids.push('cmra-transmission-lines');
+    }
     if (layers.fireWeatherOutlooks && fireWeatherOutlooksGeoJSON) ids.push('fire-weather-outlook-fill');
     if (isWeatherTab && layers.spcWeatherOutlooks && spcWeatherOutlookMode === 'fireWx' && fireWeatherOutlooksGeoJSON) {
       ids.push('fire-weather-outlook-fill');
@@ -739,7 +770,8 @@ export default function MapView({
       layers.flights, layers.rawsStations, layers.airNowMonitors, layers.droughtOutlook, layers.fireWeatherOutlooks,
       hotspotsGeoJSON, perimetersGeoJSON, incidentsGeoJSON, aqiGeoJSON, alertsGeoJSON, spcOutlooksGeoJSON,
       stormReportsGeoJSON, userReportsGeoJSON, evacZonesGeoJSON, reporterEvacZonesGeoJSON,
-      flightsGeoJSON, rawsGeoJSON, airNowMonitorsGeoJSON, droughtOutlookGeoJSON, fireWeatherOutlooksGeoJSON]);
+      flightsGeoJSON, rawsGeoJSON, airNowMonitorsGeoJSON, droughtOutlookGeoJSON, fireWeatherOutlooksGeoJSON,
+      criticalInfrastructureVisible, criticalInfrastructureGeoJSON]);
 
   // Clear stale hover when layers change
   useEffect(() => {
@@ -769,6 +801,27 @@ export default function MapView({
     if (feature.layer.id === 'flights-symbol') {
       setSelectedFlight(feature.properties);
       setSelectedFlightLngLat(evt.lngLat);
+      return;
+    }
+
+    if (feature.layer.id === 'cmra-transmission-lines') {
+      setSelectedFlight(null);
+      setSelectedFlightLngLat(null);
+      selectFire({
+        type: 'transmission-line',
+        id: p.OBJECTID ?? p.ID ?? `${evt.lngLat.lng},${evt.lngLat.lat}`,
+        name: p.ID || 'Transmission line',
+        lat: evt.lngLat.lat,
+        lng: evt.lngLat.lng,
+        lineId: p.ID,
+        voltage: p.VOLTAGE,
+        voltClass: p.VOLT_CLASS,
+        lineType: p.TYPE,
+        status: p.STATUS,
+        owner: p.OWNER,
+        naicsDesc: p.NAICS_DESC,
+        source: p.SOURCE,
+      });
       return;
     }
 
@@ -1134,6 +1187,11 @@ export default function MapView({
         <ReporterEvacZonesLayer
           geoJSON={reporterEvacZonesGeoJSON}
           visible={isWildfireTab && layers.reporterEvacZones}
+        />
+
+        <CriticalInfrastructureLayer
+          geoJSON={criticalInfrastructureGeoJSON}
+          visible={criticalInfrastructureVisible}
         />
 
         {/* RAWS weather stations – visible on both wildfire and weather tabs */}
