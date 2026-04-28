@@ -36,6 +36,7 @@ import FlightLayer from './layers/FlightLayer';
 import RAWSLayer from './layers/RAWSLayer';
 import AirNowMonitorsLayer from './layers/AirNowMonitorsLayer';
 import DroughtOutlookLayer from './layers/DroughtOutlookLayer';
+import NdgdSmokeForecastLayer from './layers/NdgdSmokeForecastLayer';
 import FireWeatherOutlookLayer from './layers/FireWeatherOutlookLayer';
 import FireWeatherOutlookSelector from './FireWeatherOutlookSelector';
 import CriticalInfrastructureLayer from './layers/CriticalInfrastructureLayer';
@@ -368,6 +369,27 @@ function HoverTooltip({ feature, lngLat }) {
       );
       break;
     }
+    case 'ndgd-smoke-forecast-fill': {
+      const refMs = typeof p.referencedate === 'number' ? p.referencedate : null;
+      const toMs = typeof p.todate === 'number' ? p.todate : null;
+      const fmt = (ms) => {
+        if (ms == null || !Number.isFinite(ms)) return null;
+        const d = new Date(ms);
+        return Number.isNaN(d.getTime()) ? null : d.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', timeZoneName: 'short' });
+      };
+      const refStr = fmt(refMs);
+      const toStr = fmt(toMs);
+      const band = p.smoke_classdesc ? `${p.smoke_classdesc} µg/m³` : 'Smoke concentration';
+      content = (
+        <>
+          <div className="font-semibold text-yellow-200">NOAA Smoke Forecast</div>
+          <div className="text-white text-xs mt-0.5 font-medium">{band}</div>
+          {refStr && <div className="text-gray-300 text-xs">From: {refStr}</div>}
+          {toStr && <div className="text-gray-400 text-xs">To: {toStr}</div>}
+        </>
+      );
+      break;
+    }
     case 'airnow-monitors-circle': {
       const aqiColor = (aqi) => {
         if (aqi == null) return '#94a3b8';
@@ -574,6 +596,7 @@ function FlightDetailPopup({ flight, lngLat, onClose }) {
  * @param {object|null} props.rawsGeoJSON
  * @param {object|null} props.airNowMonitorsGeoJSON
  * @param {object|null} props.droughtOutlookGeoJSON
+ * @param {object|null} props.ndgdSmokeForecastGeoJSON
  * @param {object|null} props.criticalInfrastructureGeoJSON
  * @param {boolean}     [props.criticalInfrastructureVisible]
  * @param {object|null} props.fireWeatherOutlooksGeoJSON
@@ -613,6 +636,7 @@ export default function MapView({
   rawsGeoJSON,
   airNowMonitorsGeoJSON,
   droughtOutlookGeoJSON,
+  ndgdSmokeForecastGeoJSON,
   criticalInfrastructureGeoJSON,
   criticalInfrastructureVisible = false,
   fireWeatherOutlooksGeoJSON,
@@ -757,6 +781,9 @@ export default function MapView({
     if (layers.rawsStations && rawsGeoJSON)                                           ids.push('raws-stations-circle');
     if (isWildfireTab && layers.airNowMonitors && airNowMonitorsGeoJSON)              ids.push('airnow-monitors-circle');
     if (isWildfireTab && layers.droughtOutlook && droughtOutlookGeoJSON)              ids.push('drought-outlook-fill');
+    if (isWildfireTab && layers.ndgdSmokeForecast && ndgdSmokeForecastGeoJSON?.features?.length) {
+      ids.push('ndgd-smoke-forecast-fill');
+    }
     if (criticalInfrastructureVisible && criticalInfrastructureGeoJSON?.features?.length) {
       ids.push('cmra-transmission-lines');
     }
@@ -767,10 +794,10 @@ export default function MapView({
     return ids;
   }, [measureActive, isWildfireTab, isWeatherTab, layers.fireHotspots, layers.firePerimeters, layers.incidentLocations, layers.aqi,
       layers.weatherAlerts, layers.spcWeatherOutlooks, spcWeatherOutlookMode, layers.stormReports, layers.evacZones, layers.reporterEvacZones, spcMdGeoJSON,
-      layers.flights, layers.rawsStations, layers.airNowMonitors, layers.droughtOutlook, layers.fireWeatherOutlooks,
+      layers.flights, layers.rawsStations, layers.airNowMonitors, layers.droughtOutlook, layers.ndgdSmokeForecast, layers.fireWeatherOutlooks,
       hotspotsGeoJSON, perimetersGeoJSON, incidentsGeoJSON, aqiGeoJSON, alertsGeoJSON, spcOutlooksGeoJSON,
       stormReportsGeoJSON, userReportsGeoJSON, evacZonesGeoJSON, reporterEvacZonesGeoJSON,
-      flightsGeoJSON, rawsGeoJSON, airNowMonitorsGeoJSON, droughtOutlookGeoJSON, fireWeatherOutlooksGeoJSON,
+      flightsGeoJSON, rawsGeoJSON, airNowMonitorsGeoJSON, droughtOutlookGeoJSON, ndgdSmokeForecastGeoJSON, fireWeatherOutlooksGeoJSON,
       criticalInfrastructureVisible, criticalInfrastructureGeoJSON]);
 
   // Clear stale hover when layers change
@@ -1210,6 +1237,12 @@ export default function MapView({
         <DroughtOutlookLayer
           geoJSON={droughtOutlookGeoJSON}
           visible={isWildfireTab && layers.droughtOutlook}
+        />
+
+        {/* NOAA NDGD hourly smoke concentration (48h CONUS) */}
+        <NdgdSmokeForecastLayer
+          geoJSON={ndgdSmokeForecastGeoJSON}
+          visible={isWildfireTab && layers.ndgdSmokeForecast}
         />
 
         {/* SPC Fire Weather Outlook polygons – visible on wildfire tab */}

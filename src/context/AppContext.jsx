@@ -30,6 +30,7 @@ const initialState = {
     rawsStations:          false,
     airNowMonitors:        false,
     droughtOutlook:        false,
+    ndgdSmokeForecast:     false,
     criticalInfrastructure: false,
   },
   // Currently clicked/selected fire feature (hotspot or perimeter)

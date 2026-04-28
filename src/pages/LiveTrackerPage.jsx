@@ -27,6 +27,7 @@ import { useFlightData } from '../hooks/useFlightData';
 import { useRAWSData } from '../hooks/useRAWSData';
 import { useAirNowMonitors } from '../hooks/useAirNowMonitors';
 import { useDroughtOutlook } from '../hooks/useDroughtOutlook';
+import { useNdgdSmokeForecast } from '../hooks/useNdgdSmokeForecast';
 import { useFireWeatherOutlooks } from '../hooks/useFireWeatherOutlooks';
 import { useCriticalInfrastructure } from '../hooks/useCriticalInfrastructure';
 import { usePlan } from '../hooks/usePlan';
@@ -66,6 +67,7 @@ const WILDFIRE_LAYER_PRESET = {
   rawsStations: false,
   flights: false,
   airNowMonitors: false,
+  ndgdSmokeForecast: false,
   fireWeatherOutlooks: false,
   stormReports: false,
   criticalInfrastructure: false,
@@ -91,6 +93,7 @@ const WEATHER_LAYER_PRESET = {
   rawsStations: false,
   flights: false,
   airNowMonitors: false,
+  ndgdSmokeForecast: false,
 };
 
 const THREE_DAYS_MS = 3 * 24 * 60 * 60 * 1000;
@@ -333,6 +336,11 @@ const flightBounds = useMemo(() => {
     geoJSON: droughtOutlookGeoJSON,
     refresh: refreshDroughtOutlook,
   } = useDroughtOutlook(layers.droughtOutlook);
+
+  const {
+    geoJSON: ndgdSmokeForecastGeoJSON,
+    refresh: refreshNdgdSmokeForecast,
+  } = useNdgdSmokeForecast(layers.ndgdSmokeForecast && activeMapTab === MAP_TABS.wildfire);
 
   const criticalInfraEnabled = Boolean(layers.criticalInfrastructure && criticalInfraEntitled);
   const {
@@ -623,6 +631,7 @@ const flightBounds = useMemo(() => {
     if (rawsEnabled) refreshRAWS();
     if (layers.airNowMonitors) refreshAirNowMonitors();
     if (layers.droughtOutlook) refreshDroughtOutlook();
+    if (layers.ndgdSmokeForecast && activeMapTab === MAP_TABS.wildfire) refreshNdgdSmokeForecast();
     if (criticalInfraEnabled) refreshCriticalInfrastructure();
     if (layers.fireWeatherOutlooks || (layers.spcWeatherOutlooks && spcWeatherOutlookMode === 'fireWx')) {
       refreshFireWeatherOutlooks();
@@ -630,9 +639,9 @@ const flightBounds = useMemo(() => {
   }, [
     refreshHotspots, refreshPerimeters, refreshAlerts, refreshIncidents, refreshStormReports,
     refreshSpcMd, refreshSpcOutlooks, refreshUserReports, refreshEvacZones, refreshReporterEvacZones,
-    refreshAQI, refreshFlights, refreshRAWS, refreshAirNowMonitors, refreshDroughtOutlook, refreshFireWeatherOutlooks,
+    refreshAQI, refreshFlights, refreshRAWS, refreshAirNowMonitors, refreshDroughtOutlook, refreshNdgdSmokeForecast, refreshFireWeatherOutlooks,
     refreshCriticalInfrastructure,
-    activeMapTab, layers.aqi, layers.flights, rawsEnabled, layers.airNowMonitors, layers.droughtOutlook,
+    activeMapTab, layers.aqi, layers.flights, rawsEnabled, layers.airNowMonitors, layers.droughtOutlook, layers.ndgdSmokeForecast,
     layers.fireWeatherOutlooks, layers.spcWeatherOutlooks, spcWeatherOutlookMode, layers.stormReports,
     criticalInfraEnabled,
   ]);
@@ -688,6 +697,7 @@ const flightBounds = useMemo(() => {
             rawsGeoJSON={rawsGeoJSON}
             airNowMonitorsGeoJSON={airNowMonitorsGeoJSON}
             droughtOutlookGeoJSON={droughtOutlookGeoJSON}
+            ndgdSmokeForecastGeoJSON={ndgdSmokeForecastGeoJSON}
             criticalInfrastructureGeoJSON={criticalInfrastructureGeoJSON}
             criticalInfrastructureVisible={criticalInfraEnabled}
             fireWeatherOutlooksGeoJSON={fireWeatherOutlooksGeoJSON}
