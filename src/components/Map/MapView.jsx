@@ -37,6 +37,7 @@ import RAWSLayer from './layers/RAWSLayer';
 import AirNowMonitorsLayer from './layers/AirNowMonitorsLayer';
 import DroughtOutlookLayer from './layers/DroughtOutlookLayer';
 import NdgdSmokeForecastLayer from './layers/NdgdSmokeForecastLayer';
+import NdgdSmokeTimeSlider from './NdgdSmokeTimeSlider';
 import FireWeatherOutlookLayer from './layers/FireWeatherOutlookLayer';
 import FireWeatherOutlookSelector from './FireWeatherOutlookSelector';
 import CriticalInfrastructureLayer from './layers/CriticalInfrastructureLayer';
@@ -47,6 +48,15 @@ const LOCATION_PROMPT_KEY = 'sentinel-live-location-choice';
 
 // Quick helper if you don't already have one exported from utils
 const num = (val) => Number(val);
+
+/** NDGD GeoJSON uses epoch ms in `todate` / `Todate` for the valid forecast hour */
+function ndgdFeatureToDateMs(feature) {
+  const p = feature?.properties;
+  if (!p) return null;
+  const raw = p.todate ?? p.Todate;
+  const n = Number(raw);
+  return Number.isFinite(n) ? n : null;
+}
 
 // ─── Base map styles ──────────────────────────────────────────────────────────
 const MAP_STYLES = {
@@ -672,6 +682,38 @@ export default function MapView({
   const [hoverFeature, setHoverFeature] = useState(null);
   const [hoverLngLat,  setHoverLngLat]  = useState(null);
 
+  /** NDGD smoke: which forecast hour (index into sorted unique `todate` values) */
+  const [ndgdSmokeHourIndex, setNdgdSmokeHourIndex] = useState(0);
+
+  const ndgdForecastHoursMs = useMemo(() => {
+    const feats = ndgdSmokeForecastGeoJSON?.features;
+    if (!feats?.length) return [];
+    const seen = new Set();
+    for (const f of feats) {
+      const ms = ndgdFeatureToDateMs(f);
+      if (ms != null) seen.add(ms);
+    }
+    return Array.from(seen).sort((a, b) => a - b);
+  }, [ndgdSmokeForecastGeoJSON]);
+
+  useEffect(() => {
+    if (!ndgdForecastHoursMs.length) return;
+    setNdgdSmokeHourIndex((i) => Math.min(i, ndgdForecastHoursMs.length - 1));
+  }, [ndgdForecastHoursMs]);
+
+  const ndgdSmokeFilteredGeoJSON = useMemo(() => {
+    const feats = ndgdSmokeForecastGeoJSON?.features;
+    if (!feats?.length) return { type: 'FeatureCollection', features: [] };
+    const hours = ndgdForecastHoursMs;
+    if (!hours.length) return ndgdSmokeForecastGeoJSON;
+    const idx = Math.min(Math.max(0, ndgdSmokeHourIndex), hours.length - 1);
+    const targetMs = hours[idx];
+    return {
+      type: 'FeatureCollection',
+      features: feats.filter((f) => ndgdFeatureToDateMs(f) === targetMs),
+    };
+  }, [ndgdSmokeForecastGeoJSON, ndgdForecastHoursMs, ndgdSmokeHourIndex]);
+
   // Selected aircraft popup state
   const [selectedFlight,       setSelectedFlight]       = useState(null);
   const [selectedFlightLngLat, setSelectedFlightLngLat] = useState(null);
@@ -781,7 +823,7 @@ export default function MapView({
     if (layers.rawsStations && rawsGeoJSON)                                           ids.push('raws-stations-circle');
     if (isWildfireTab && layers.airNowMonitors && airNowMonitorsGeoJSON)              ids.push('airnow-monitors-circle');
     if (isWildfireTab && layers.droughtOutlook && droughtOutlookGeoJSON)              ids.push('drought-outlook-fill');
-    if (isWildfireTab && layers.ndgdSmokeForecast && ndgdSmokeForecastGeoJSON?.features?.length) {
+    if (isWildfireTab && layers.ndgdSmokeForecast && ndgdSmokeFilteredGeoJSON?.features?.length) {
       ids.push('ndgd-smoke-forecast-fill');
     }
     if (criticalInfrastructureVisible && criticalInfrastructureGeoJSON?.features?.length) {
@@ -797,7 +839,7 @@ export default function MapView({
       layers.flights, layers.rawsStations, layers.airNowMonitors, layers.droughtOutlook, layers.ndgdSmokeForecast, layers.fireWeatherOutlooks,
       hotspotsGeoJSON, perimetersGeoJSON, incidentsGeoJSON, aqiGeoJSON, alertsGeoJSON, spcOutlooksGeoJSON,
       stormReportsGeoJSON, userReportsGeoJSON, evacZonesGeoJSON, reporterEvacZonesGeoJSON,
-      flightsGeoJSON, rawsGeoJSON, airNowMonitorsGeoJSON, droughtOutlookGeoJSON, ndgdSmokeForecastGeoJSON, fireWeatherOutlooksGeoJSON,
+      flightsGeoJSON, rawsGeoJSON, airNowMonitorsGeoJSON, droughtOutlookGeoJSON, ndgdSmokeFilteredGeoJSON, fireWeatherOutlooksGeoJSON,
       criticalInfrastructureVisible, criticalInfrastructureGeoJSON]);
 
   // Clear stale hover when layers change
@@ -1100,6 +1142,14 @@ export default function MapView({
         />
       )}
 
+      {isWildfireTab && layers.ndgdSmokeForecast && (
+        <NdgdSmokeTimeSlider
+          forecastHoursMs={ndgdForecastHoursMs}
+          valueIndex={ndgdSmokeHourIndex}
+          onIndexChange={setNdgdSmokeHourIndex}
+        />
+      )}
+
       {/* Weather tab: one control for convective + fire-weather SPC outlooks */}
       {isWeatherTab && layers.spcWeatherOutlooks && (
         <SPCWeatherTabOutlookControls
@@ -1241,7 +1291,7 @@ export default function MapView({
 
         {/* NOAA NDGD hourly smoke concentration (48h CONUS) */}
         <NdgdSmokeForecastLayer
-          geoJSON={ndgdSmokeForecastGeoJSON}
+          geoJSON={ndgdSmokeFilteredGeoJSON}
           visible={isWildfireTab && layers.ndgdSmokeForecast}
         />
 
