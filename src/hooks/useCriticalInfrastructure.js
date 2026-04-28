@@ -1,9 +1,11 @@
 /**
- * Fetches CMRA electric transmission lines for the current map viewport (Pro / Team).
+ * Fetches CMRA electric transmission lines and EIA natural gas pipelines
+ * for the current map viewport (Pro / Team / reporter).
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { fetchTransmissionLinesInBounds } from '../api/cmraTransmissionLines';
+import { fetchGasPipelinesInBounds } from '../api/criticalInfrastructureEiaGasPipelines';
 
 const EMPTY_GEOJSON = { type: 'FeatureCollection', features: [] };
 
@@ -47,7 +49,8 @@ function boundsFromViewport(viewport) {
  * @param {object|null} viewport From AppContext { longitude, latitude, zoom }
  */
 export function useCriticalInfrastructure(enabled, viewport) {
-  const [geoJSON, setGeoJSON] = useState(EMPTY_GEOJSON);
+  const [transmissionGeoJSON, setTransmissionGeoJSON] = useState(EMPTY_GEOJSON);
+  const [gasPipelinesGeoJSON, setGasPipelinesGeoJSON] = useState(EMPTY_GEOJSON);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const debounceRef = useRef(null);
@@ -62,14 +65,29 @@ export function useCriticalInfrastructure(enabled, viewport) {
     setLoading(true);
     setError(null);
     try {
-      const data = await fetchTransmissionLinesInBounds(bounds);
+      const [trans, gas] = await Promise.all([
+        fetchTransmissionLinesInBounds(bounds).catch((e) => {
+          console.warn('[CriticalInfrastructure] Transmission lines:', e.message);
+          return EMPTY_GEOJSON;
+        }),
+        fetchGasPipelinesInBounds(bounds).catch((e) => {
+          console.warn('[CriticalInfrastructure] Gas pipelines:', e.message);
+          return EMPTY_GEOJSON;
+        }),
+      ]);
       if (seq !== seqRef.current) return;
-      setGeoJSON(data);
+      setTransmissionGeoJSON(
+        trans?.features ? trans : EMPTY_GEOJSON
+      );
+      setGasPipelinesGeoJSON(
+        gas?.features ? gas : EMPTY_GEOJSON
+      );
     } catch (err) {
       if (seq !== seqRef.current) return;
       console.warn('[CriticalInfrastructure] Failed to load:', err.message);
       setError(err.message);
-      setGeoJSON(EMPTY_GEOJSON);
+      setTransmissionGeoJSON(EMPTY_GEOJSON);
+      setGasPipelinesGeoJSON(EMPTY_GEOJSON);
     } finally {
       if (seq === seqRef.current) setLoading(false);
     }
@@ -78,7 +96,8 @@ export function useCriticalInfrastructure(enabled, viewport) {
   useEffect(() => {
     if (!enabled) {
       seqRef.current += 1;
-      setGeoJSON(EMPTY_GEOJSON);
+      setTransmissionGeoJSON(EMPTY_GEOJSON);
+      setGasPipelinesGeoJSON(EMPTY_GEOJSON);
       setLoading(false);
       setError(null);
       return undefined;
@@ -95,5 +114,5 @@ export function useCriticalInfrastructure(enabled, viewport) {
     };
   }, [enabled, load, viewport?.longitude, viewport?.latitude, viewport?.zoom]);
 
-  return { geoJSON, loading, error, refresh: load };
+  return { transmissionGeoJSON, gasPipelinesGeoJSON, loading, error, refresh: load };
 }
