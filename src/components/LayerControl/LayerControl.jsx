@@ -4,9 +4,10 @@
  * Collapsible on mobile.
  */
 
-import { useState, memo } from 'react';
+import { useState, memo, useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import {
-  Layers, Flame, MapPin, Wind, CloudRain, CloudLightning, Eye, ChevronDown, ChevronRight, Radar, AlertTriangle, Ruler, Hexagon, PlaneTakeoff, Satellite, Map as MapIcon, Thermometer, Crosshair, Activity, Droplets, Zap,
+  Layers, Flame, MapPin, Wind, CloudRain, CloudLightning, Eye, ChevronDown, ChevronRight, Radar, AlertTriangle, Ruler, Hexagon, PlaneTakeoff, Satellite, Map as MapIcon, Thermometer, Activity, Droplets, Zap, Lock,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 
@@ -64,9 +65,34 @@ const LAYER_GROUPS = [
   },
 ];
 
-function LayerToggle({ layerKey, label, sublabel, icon: Icon, color }) {
+function LayerToggle({ layerKey, label, sublabel, icon: Icon, color, locked }) {
   const { layers, toggleLayer } = useApp();
   const active = layers[layerKey];
+
+  if (locked) {
+    return (
+      <div className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg opacity-70">
+        <div
+          className="shrink-0 w-7 h-7 rounded-md flex items-center justify-center border border-sentinel-600"
+        >
+          <Lock size={12} className="text-sentinel-400" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="text-sm font-medium text-sentinel-200 truncate flex items-center gap-1.5">
+            {label}
+            <span className="text-[9px] font-bold uppercase tracking-wide text-amber-400/90">Pro</span>
+          </div>
+          <div className="text-[10px] text-sentinel-400 truncate">{sublabel}</div>
+        </div>
+        <Link
+          to="/pricing"
+          className="shrink-0 text-[10px] font-semibold text-amber-400 hover:text-amber-300 underline underline-offset-2"
+        >
+          Upgrade
+        </Link>
+      </div>
+    );
+  }
 
   return (
     <button
@@ -110,6 +136,7 @@ function LayerToggle({ layerKey, label, sublabel, icon: Icon, color }) {
 
 const LayerControl = memo(function LayerControl({
   activeMapTab = 'wildfire',
+  infrastructureLayersEntitled = false,
   mapType = 'satellite',
   onMapTypeChange,
   measureActive = false,
@@ -121,7 +148,25 @@ const LayerControl = memo(function LayerControl({
 }) {
   const { layerPanelOpen, toggleLayerPanel } = useApp();
   const [collapsed, setCollapsed] = useState({});
-  const visibleGroups = LAYER_GROUPS.filter((group) => {
+
+  const layerGroups = useMemo(() => {
+    const infraLayers = [
+      {
+        key: 'criticalInfrastructure',
+        label: 'Critical Infrastructure',
+        sublabel: 'CMRA · electric transmission lines',
+        icon: Zap,
+        color: '#fbbf24',
+        locked: !infrastructureLayersEntitled,
+      },
+    ];
+    return [
+      ...LAYER_GROUPS,
+      { label: 'Infrastructure', showOnWildfire: true, layers: infraLayers },
+    ];
+  }, [infrastructureLayersEntitled]);
+
+  const visibleGroups = layerGroups.filter((group) => {
     if (group.hidden) return false;
     if (group.showAlways) return true;
     if (activeMapTab === 'wildfire') return group.label === 'Fire Data' || group.showOnWildfire;
@@ -243,7 +288,7 @@ const LayerControl = memo(function LayerControl({
                 {!collapsed[group.label] && group.layers
                   .filter(layer => !layer.wildfireOnly || activeMapTab === 'wildfire')
                   .map(layer => (
-                    <LayerToggle key={layer.key} layerKey={layer.key} {...layer} />
+                    <LayerToggle key={layer.key} layerKey={layer.key} {...layer} locked={layer.locked} />
                   ))}
               </div>
             ))}
