@@ -699,7 +699,8 @@ const flightBounds = useMemo(() => {
             airNowMonitorsGeoJSON={airNowMonitorsGeoJSON}
             droughtOutlookGeoJSON={droughtOutlookGeoJSON}
             ndgdSmokeForecastGeoJSON={ndgdSmokeForecastGeoJSON}
-            criticalInfrastructureGeoJSON={criticalInfrastructureGeoJSON}
+            criticalInfrastructureTransGeoJSON={criticalInfrastructureTransGeoJSON}
+            criticalInfrastructureGasGeoJSON={criticalInfrastructureGasGeoJSON}
             criticalInfrastructureVisible={criticalInfraEnabled}
             fireWeatherOutlooksGeoJSON={fireWeatherOutlooksGeoJSON}
             fireWxOutlookType={fireWxOutlookType}
