@@ -148,8 +148,8 @@ const RAWS_MIN_ZOOM = 9;
 
 export default function LiveTrackerPage() {
   const { layers, setLayer, setRefreshed, setLoading, feedFilter, viewport } = useApp();
-  const { isPro } = usePlan();
-  const criticalInfraEntitled = isPro;
+  const { hasProInfrastructureAccess } = usePlan();
+  const criticalInfraEntitled = hasProInfrastructureAccess;
   const { locations: savedLocations } = useSavedLocations();
   const [activeMapTab, setActiveMapTab] = useState(MAP_TABS.wildfire);
   const [mapType, setMapType] = useState('satellite');
@@ -344,7 +344,8 @@ const flightBounds = useMemo(() => {
 
   const criticalInfraEnabled = Boolean(layers.criticalInfrastructure && criticalInfraEntitled);
   const {
-    geoJSON: criticalInfrastructureGeoJSON,
+    transmissionGeoJSON: criticalInfrastructureTransGeoJSON,
+    gasPipelinesGeoJSON: criticalInfrastructureGasGeoJSON,
     refresh: refreshCriticalInfrastructure,
   } = useCriticalInfrastructure(criticalInfraEnabled, viewport);
 
@@ -719,7 +720,7 @@ const flightBounds = useMemo(() => {
 
           <LayerControl
             activeMapTab={activeMapTab}
-            infrastructureLayersEntitled={isPro}
+            infrastructureLayersEntitled={hasProInfrastructureAccess}
             mapType={mapType}
             onMapTypeChange={setMapType}
             measureActive={measureActive}

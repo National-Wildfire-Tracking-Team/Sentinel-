@@ -499,7 +499,24 @@ function HoverTooltip({ feature, lngLat }) {
           {p.NAICS_DESC && (
             <div className="text-gray-400 text-[10px] mt-1 line-clamp-2">{p.NAICS_DESC}</div>
           )}
-          <div className="text-gray-500 text-[10px] mt-1">CMRA · U.S. transmission (archive)</div>
+          <div className="text-gray-500 text-[10px] mt-1">CMRA · U.S. electric transmission (archive)</div>
+        </>
+      );
+      break;
+    }
+    case 'eia-gas-pipelines': {
+      const k = (label, val) => (val != null && String(val).trim() !== '' ? (
+        <div className="text-gray-300 text-xs">
+          {label}: <span className="text-white font-medium">{String(val)}</span>
+        </div>
+      ) : null);
+      content = (
+        <>
+          <div className="font-semibold text-sky-300">Natural gas pipeline</div>
+          {k('Interstate / intrastate', p.TYPEPIPE)}
+          {k('Operator', p.Operator)}
+          {k('Status', p.Status)}
+          <div className="text-gray-500 text-[10px] mt-1">EIA U.S. pipeline (public)</div>
         </>
       );
       break;
@@ -829,6 +846,9 @@ export default function MapView({
     if (criticalInfrastructureVisible && criticalInfrastructureGeoJSON?.features?.length) {
       ids.push('cmra-transmission-lines');
     }
+    if (criticalInfrastructureVisible && criticalInfrastructureGasGeoJSON?.features?.length) {
+      ids.push('eia-gas-pipelines');
+    }
     if (layers.fireWeatherOutlooks && fireWeatherOutlooksGeoJSON) ids.push('fire-weather-outlook-fill');
     if (isWeatherTab && layers.spcWeatherOutlooks && spcWeatherOutlookMode === 'fireWx' && fireWeatherOutlooksGeoJSON) {
       ids.push('fire-weather-outlook-fill');
@@ -890,6 +910,24 @@ export default function MapView({
         owner: p.OWNER,
         naicsDesc: p.NAICS_DESC,
         source: p.SOURCE,
+      });
+      return;
+    }
+
+    if (feature.layer.id === 'eia-gas-pipelines') {
+      setSelectedFlight(null);
+      setSelectedFlightLngLat(null);
+      selectFire({
+        type: 'gas-pipeline',
+        id: p.FID ?? p.OBJECTID ?? `${evt.lngLat.lng},${evt.lngLat.lat}`,
+        name: p.Operator || 'Natural gas pipeline',
+        lat: evt.lngLat.lat,
+        lng: evt.lngLat.lng,
+        pipeType: p.TYPEPIPE,
+        operator: p.Operator,
+        status: p.Status,
+        shapeLeng: p.Shape_Leng,
+        shapeLength: p.Shape__Length,
       });
       return;
     }
@@ -1267,7 +1305,8 @@ export default function MapView({
         />
 
         <CriticalInfrastructureLayer
-          geoJSON={criticalInfrastructureGeoJSON}
+          transmissionGeoJSON={criticalInfrastructureTransGeoJSON}
+          gasPipelinesGeoJSON={criticalInfrastructureGasGeoJSON}
           visible={criticalInfrastructureVisible}
         />
 

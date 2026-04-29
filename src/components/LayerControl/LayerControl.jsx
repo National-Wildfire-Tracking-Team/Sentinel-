@@ -155,7 +155,7 @@ const LayerControl = memo(function LayerControl({
       {
         key: 'criticalInfrastructure',
         label: 'Critical Infrastructure',
-        sublabel: 'CMRA · electric transmission lines',
+        sublabel: 'CMRA power lines · EIA natural gas pipelines',
         icon: Zap,
         color: '#fbbf24',
         locked: !infrastructureLayersEntitled,
