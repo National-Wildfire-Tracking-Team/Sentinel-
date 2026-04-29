@@ -4,7 +4,7 @@
  * Sentinel Pro (field intelligence, $9.99/month).
  */
 
-import { useState } from 'react';
+import { useState, useEffect, createElement } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import {
   Flame, Check, X, Zap, ChevronRight, AlertCircle,
@@ -91,6 +91,16 @@ export default function PricingPage() {
   const [openFaq, setOpenFaq] = useState(null);
 
   const checkoutResult = searchParams.get('checkout');
+
+  useEffect(() => {
+    const scriptId = 'stripe-buy-button-js';
+    if (document.getElementById(scriptId)) return;
+    const script = document.createElement('script');
+    script.id = scriptId;
+    script.async = true;
+    script.src = 'https://js.stripe.com/v3/buy-button.js';
+    document.body.appendChild(script);
+  }, []);
 
   async function handleUpgradePro() {
     setError(null);
@@ -232,17 +242,24 @@ export default function PricingPage() {
               Weather enthusiasts, wildfire trackers, media, and the prepared public.
             </p>
 
-            <button
-              onClick={handleUpgradePro}
-              disabled={busy || alreadyPro}
-              className={`w-full py-2.5 rounded-xl text-sm font-semibold transition-colors mb-8
-                ${alreadyPro
-                  ? 'bg-sentinel-700 border border-sentinel-600 text-sentinel-400 cursor-default'
-                  : 'bg-fire-600 hover:bg-fire-500 text-white'}
-                disabled:opacity-60 disabled:cursor-not-allowed`}
-            >
-              {busy ? 'Redirecting to checkout…' : alreadyPro ? 'Current Plan' : 'Start Sentinel Pro'}
-            </button>
+            {alreadyPro ? (
+              <button
+                type="button"
+                disabled
+                className="w-full py-2.5 rounded-xl text-sm font-semibold transition-colors mb-8
+                  bg-sentinel-700 border border-sentinel-600 text-sentinel-400 cursor-default"
+              >
+                Current Plan
+              </button>
+            ) : (
+              <div className="w-full flex justify-center mb-8 min-h-[42px] items-center">
+                {createElement('stripe-buy-button', {
+                  'buy-button-id': 'buy_btn_1TRMm6HwBOQlFhO30vGZ8D9I',
+                  'publishable-key':
+                    'pk_live_51SZkn9HwBOQlFhO3YobFxbtHGSnTn8pbIY9dW5lmwVdGdgOg9pBbkDSALGoAOvftveH3wnRxkMdkkJ0JuciZ6BVL00CX0sXEss',
+                })}
+              </div>
+            )}
 
             {/* All Free features */}
             <p className="text-xs font-bold uppercase tracking-widest text-sentinel-400 mb-3">
