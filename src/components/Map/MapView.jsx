@@ -624,7 +624,8 @@ function FlightDetailPopup({ flight, lngLat, onClose }) {
  * @param {object|null} props.airNowMonitorsGeoJSON
  * @param {object|null} props.droughtOutlookGeoJSON
  * @param {object|null} props.ndgdSmokeForecastGeoJSON
- * @param {object|null} props.criticalInfrastructureGeoJSON
+ * @param {object|null} props.criticalInfrastructureTransGeoJSON
+ * @param {object|null} props.criticalInfrastructureGasGeoJSON
  * @param {boolean}     [props.criticalInfrastructureVisible]
  * @param {object|null} props.fireWeatherOutlooksGeoJSON
  * @param {string}      [props.fireWxOutlookType]
@@ -664,7 +665,8 @@ export default function MapView({
   airNowMonitorsGeoJSON,
   droughtOutlookGeoJSON,
   ndgdSmokeForecastGeoJSON,
-  criticalInfrastructureGeoJSON,
+  criticalInfrastructureTransGeoJSON,
+  criticalInfrastructureGasGeoJSON,
   criticalInfrastructureVisible = false,
   fireWeatherOutlooksGeoJSON,
   fireWxOutlookType = 'winds_low_humidity',
@@ -843,7 +845,7 @@ export default function MapView({
     if (isWildfireTab && layers.ndgdSmokeForecast && ndgdSmokeFilteredGeoJSON?.features?.length) {
       ids.push('ndgd-smoke-forecast-fill');
     }
-    if (criticalInfrastructureVisible && criticalInfrastructureGeoJSON?.features?.length) {
+    if (criticalInfrastructureVisible && criticalInfrastructureTransGeoJSON?.features?.length) {
       ids.push('cmra-transmission-lines');
     }
     if (criticalInfrastructureVisible && criticalInfrastructureGasGeoJSON?.features?.length) {
@@ -860,7 +862,7 @@ export default function MapView({
       hotspotsGeoJSON, perimetersGeoJSON, incidentsGeoJSON, aqiGeoJSON, alertsGeoJSON, spcOutlooksGeoJSON,
       stormReportsGeoJSON, userReportsGeoJSON, evacZonesGeoJSON, reporterEvacZonesGeoJSON,
       flightsGeoJSON, rawsGeoJSON, airNowMonitorsGeoJSON, droughtOutlookGeoJSON, ndgdSmokeFilteredGeoJSON, fireWeatherOutlooksGeoJSON,
-      criticalInfrastructureVisible, criticalInfrastructureGeoJSON]);
+      criticalInfrastructureVisible, criticalInfrastructureTransGeoJSON, criticalInfrastructureGasGeoJSON]);
 
   // Clear stale hover when layers change
   useEffect(() => {
