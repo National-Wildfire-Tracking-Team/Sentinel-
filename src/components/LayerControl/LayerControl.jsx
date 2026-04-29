@@ -21,6 +21,7 @@ const LAYER_GROUPS = [
       { key: 'evacZones',         label: 'Evacuation Zones',    sublabel: 'Cal OES Hosted + PROD',  icon: AlertTriangle, color: '#ef4444' },
       { key: 'rawsStations',      label: 'RAWS Stations',       sublabel: 'Fire weather stations',  icon: Thermometer,  color: '#f97316' },
       { key: 'airNowMonitors',    label: 'Air Quality Monitors', sublabel: 'EPA AirNow sensor network', icon: Activity,  color: '#38bdf8' },
+      { key: 'ndgdSmokeForecast', label: 'Smoke Concentration', sublabel: 'NOAA NDGD hourly (48h)', icon: CloudRain, color: '#eab308' },
       { key: 'droughtOutlook',      label: 'Drought Outlook',         sublabel: 'NOAA CPC Monthly Outlook',      icon: Droplets,  color: '#f59e0b' },
       { key: 'fireWeatherOutlooks', label: 'Fire Weather Outlooks',    sublabel: 'SPC Day 1-8 fire weather',      icon: Zap,       color: '#ff6b35' },
     ],

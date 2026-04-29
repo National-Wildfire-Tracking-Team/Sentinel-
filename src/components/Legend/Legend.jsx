@@ -109,6 +109,14 @@ const FIRE_WX_LIGHTNING_SCALE = [
   { color: '#3C6FCD', label: 'CRITICAL – Dry Lightning (Scattered)' },
 ];
 
+const NDGD_SMOKE_SCALE = [
+  { color: '#ffffa3', label: '0–3 µg/m³' },
+  { color: '#fad157', label: '3–25 µg/m³' },
+  { color: '#f2a62c', label: '25–63 µg/m³' },
+  { color: '#ab5213', label: '63–158 µg/m³' },
+  { color: '#690000', label: '158–1000 µg/m³' },
+];
+
 const Legend = memo(function Legend({
   spcOutlookType = 'categorical',
   spcActiveDay = 'day1',
@@ -122,7 +130,7 @@ const Legend = memo(function Legend({
 
   const anyActive = layers.fireHotspots || layers.aqi || layers.firePerimeters || layers.spcWeatherOutlooks
     || layers.weatherAlerts || layers.radar || layers.incidentLocations
-    || layers.stormReports || layers.fireWeatherOutlooks;
+    || layers.stormReports || layers.fireWeatherOutlooks || layers.ndgdSmokeForecast;
   if (!anyActive) return null;
 
   const spcScale = SPC_SCALES[spcOutlookType] || SPC_SCALES.categorical;
@@ -208,6 +216,13 @@ const Legend = memo(function Legend({
             {layers.radar && (
               <Section title="Radar Reflectivity (dBZ)">
                 {RADAR_DBZ_SCALE.map(row => <ColorRow key={row.label} {...row} />)}
+              </Section>
+            )}
+
+            {layers.ndgdSmokeForecast && (
+              <Section title="NOAA Smoke Forecast (NDGD)">
+                <div className="text-sentinel-300 text-[10px] mb-1">Hourly surface smoke · µg/m³</div>
+                {NDGD_SMOKE_SCALE.map(row => <ColorRow key={row.label} {...row} />)}
               </Section>
             )}
 
