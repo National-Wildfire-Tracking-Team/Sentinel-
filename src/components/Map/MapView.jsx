@@ -467,7 +467,24 @@ function HoverTooltip({ feature, lngLat }) {
           {p.NAICS_DESC && (
             <div className="text-gray-400 text-[10px] mt-1 line-clamp-2">{p.NAICS_DESC}</div>
           )}
-          <div className="text-gray-500 text-[10px] mt-1">CMRA · U.S. transmission (archive)</div>
+          <div className="text-gray-500 text-[10px] mt-1">CMRA · U.S. electric transmission (archive)</div>
+        </>
+      );
+      break;
+    }
+    case 'eia-gas-pipelines': {
+      const k = (label, val) => (val != null && String(val).trim() !== '' ? (
+        <div className="text-gray-300 text-xs">
+          {label}: <span className="text-white font-medium">{String(val)}</span>
+        </div>
+      ) : null);
+      content = (
+        <>
+          <div className="font-semibold text-sky-300">Natural gas pipeline</div>
+          {k('Interstate / intrastate', p.TYPEPIPE)}
+          {k('Operator', p.Operator)}
+          {k('Status', p.Status)}
+          <div className="text-gray-500 text-[10px] mt-1">EIA U.S. pipeline (public)</div>
         </>
       );
       break;
@@ -574,7 +591,8 @@ function FlightDetailPopup({ flight, lngLat, onClose }) {
  * @param {object|null} props.rawsGeoJSON
  * @param {object|null} props.airNowMonitorsGeoJSON
  * @param {object|null} props.droughtOutlookGeoJSON
- * @param {object|null} props.criticalInfrastructureGeoJSON
+ * @param {object|null} props.criticalInfrastructureTransGeoJSON
+ * @param {object|null} props.criticalInfrastructureGasGeoJSON
  * @param {boolean}     [props.criticalInfrastructureVisible]
  * @param {object|null} props.fireWeatherOutlooksGeoJSON
  * @param {string}      [props.fireWxOutlookType]
@@ -613,7 +631,8 @@ export default function MapView({
   rawsGeoJSON,
   airNowMonitorsGeoJSON,
   droughtOutlookGeoJSON,
-  criticalInfrastructureGeoJSON,
+  criticalInfrastructureTransGeoJSON,
+  criticalInfrastructureGasGeoJSON,
   criticalInfrastructureVisible = false,
   fireWeatherOutlooksGeoJSON,
   fireWxOutlookType = 'winds_low_humidity',
@@ -757,8 +776,11 @@ export default function MapView({
     if (layers.rawsStations && rawsGeoJSON)                                           ids.push('raws-stations-circle');
     if (isWildfireTab && layers.airNowMonitors && airNowMonitorsGeoJSON)              ids.push('airnow-monitors-circle');
     if (isWildfireTab && layers.droughtOutlook && droughtOutlookGeoJSON)              ids.push('drought-outlook-fill');
-    if (criticalInfrastructureVisible && criticalInfrastructureGeoJSON?.features?.length) {
+    if (criticalInfrastructureVisible && criticalInfrastructureTransGeoJSON?.features?.length) {
       ids.push('cmra-transmission-lines');
+    }
+    if (criticalInfrastructureVisible && criticalInfrastructureGasGeoJSON?.features?.length) {
+      ids.push('eia-gas-pipelines');
     }
     if (layers.fireWeatherOutlooks && fireWeatherOutlooksGeoJSON) ids.push('fire-weather-outlook-fill');
     if (isWeatherTab && layers.spcWeatherOutlooks && spcWeatherOutlookMode === 'fireWx' && fireWeatherOutlooksGeoJSON) {
@@ -771,7 +793,7 @@ export default function MapView({
       hotspotsGeoJSON, perimetersGeoJSON, incidentsGeoJSON, aqiGeoJSON, alertsGeoJSON, spcOutlooksGeoJSON,
       stormReportsGeoJSON, userReportsGeoJSON, evacZonesGeoJSON, reporterEvacZonesGeoJSON,
       flightsGeoJSON, rawsGeoJSON, airNowMonitorsGeoJSON, droughtOutlookGeoJSON, fireWeatherOutlooksGeoJSON,
-      criticalInfrastructureVisible, criticalInfrastructureGeoJSON]);
+      criticalInfrastructureVisible, criticalInfrastructureTransGeoJSON, criticalInfrastructureGasGeoJSON]);
 
   // Clear stale hover when layers change
   useEffect(() => {
@@ -821,6 +843,24 @@ export default function MapView({
         owner: p.OWNER,
         naicsDesc: p.NAICS_DESC,
         source: p.SOURCE,
+      });
+      return;
+    }
+
+    if (feature.layer.id === 'eia-gas-pipelines') {
+      setSelectedFlight(null);
+      setSelectedFlightLngLat(null);
+      selectFire({
+        type: 'gas-pipeline',
+        id: p.FID ?? p.OBJECTID ?? `${evt.lngLat.lng},${evt.lngLat.lat}`,
+        name: p.Operator || 'Natural gas pipeline',
+        lat: evt.lngLat.lat,
+        lng: evt.lngLat.lng,
+        pipeType: p.TYPEPIPE,
+        operator: p.Operator,
+        status: p.Status,
+        shapeLeng: p.Shape_Leng,
+        shapeLength: p.Shape__Length,
       });
       return;
     }
@@ -1190,7 +1230,8 @@ export default function MapView({
         />
 
         <CriticalInfrastructureLayer
-          geoJSON={criticalInfrastructureGeoJSON}
+          transmissionGeoJSON={criticalInfrastructureTransGeoJSON}
+          gasPipelinesGeoJSON={criticalInfrastructureGasGeoJSON}
           visible={criticalInfrastructureVisible}
         />
 

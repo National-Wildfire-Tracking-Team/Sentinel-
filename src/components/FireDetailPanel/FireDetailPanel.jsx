@@ -8,7 +8,7 @@ import { memo, useState } from 'react';
 import {
   X, Flame, MapPin, Users, Home, Calendar, Thermometer,
   AlertTriangle, Wind, ExternalLink, TrendingUp, ShieldAlert,
-  CloudRain, Clock, Info, Share2, ShieldCheck, Zap,
+  CloudRain, Clock, Info, Share2, ShieldCheck, Zap, Fuel,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import {
@@ -864,6 +864,63 @@ function TransmissionLineDetail({ fire }) {
   );
 }
 
+function GasPipelineDetail({ fire }) {
+  const EIA_SERVICE_URL =
+    'https://services2.arcgis.com/FiaPA4ga0iQKduv3/arcgis/rest/services' +
+    '/Natural_Gas_Interstate_and_Intrastate_Pipelines_1/FeatureServer';
+
+  const row = (label, value) => {
+    if (value == null || String(value).trim() === '') return null;
+    return (
+      <div className="flex justify-between gap-3 py-1.5 border-b border-sentinel-700/80 text-xs">
+        <span className="text-sentinel-400 shrink-0">{label}</span>
+        <span className="text-sentinel-100 text-right font-medium">{String(value)}</span>
+      </div>
+    );
+  };
+
+  return (
+    <>
+      <div className="mb-4 flex items-start gap-2">
+        <div className="mt-0.5 p-1.5 rounded-lg bg-sky-500/15 border border-sky-500/30">
+          <Fuel size={16} className="text-sky-300" />
+        </div>
+        <div>
+          <h3 className="font-bold text-white text-lg leading-tight">{fire.name || 'Natural gas pipeline'}</h3>
+          <p className="text-sentinel-400 text-[11px] mt-1">
+            EIA interstate and intrastate natural gas pipelines. Data loads for your current map view (up to 2,000 segments per request).
+          </p>
+        </div>
+      </div>
+
+      <div className="rounded-xl border border-sentinel-700 bg-sentinel-800/40 px-3 py-1 mb-4">
+        {row('Interstate / intrastate', fire.pipeType)}
+        {row('Operator', fire.operator)}
+        {row('Operational status', fire.status)}
+      </div>
+
+      {Number.isFinite(fire.lat) && Number.isFinite(fire.lng) && (
+        <div className="mb-4 text-xs text-sentinel-400">
+          Location:{' '}
+          <span className="text-sentinel-200 font-mono">
+            {fire.lat.toFixed(5)}, {fire.lng.toFixed(5)}
+          </span>
+        </div>
+      )}
+
+      <a
+        href={EIA_SERVICE_URL}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="flex items-center gap-1.5 text-xs text-sky-400 hover:text-sky-300 transition-colors"
+      >
+        <ExternalLink size={12} />
+        EIA pipeline feature service
+      </a>
+    </>
+  );
+}
+
 // ─── Main Panel ───────────────────────────────────────────────────────────────
 
 const FireDetailPanel = memo(function FireDetailPanel() {
@@ -961,6 +1018,7 @@ const FireDetailPanel = memo(function FireDetailPanel() {
              selectedFire.type === 'evacuation-zone'          ? 'Evacuation Zone' :
              selectedFire.type === 'reporter-evacuation-zone' ? 'Reporter Evac Zone' :
              selectedFire.type === 'transmission-line'        ? 'Critical Infrastructure' :
+             selectedFire.type === 'gas-pipeline'            ? 'Critical Infrastructure' :
              'Fire Detail'}
           </span>
           <div className="flex items-center gap-1">
@@ -998,6 +1056,7 @@ const FireDetailPanel = memo(function FireDetailPanel() {
           {selectedFire.type === 'evacuation-zone'          && <EvacZoneDetail         fire={selectedFire} />}
           {selectedFire.type === 'reporter-evacuation-zone' && <ReporterEvacZoneDetail  fire={selectedFire} />}
           {selectedFire.type === 'transmission-line'       && <TransmissionLineDetail fire={selectedFire} />}
+          {selectedFire.type === 'gas-pipeline'            && <GasPipelineDetail     fire={selectedFire} />}
         </div>
       </div>
     </>

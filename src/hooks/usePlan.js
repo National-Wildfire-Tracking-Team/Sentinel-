@@ -63,7 +63,7 @@ export const PLANS = {
 };
 
 export function usePlan() {
-  const { subscription } = useAuth();
+  const { subscription, isReporter } = useAuth();
 
   const planId =
     subscription?.status === 'active' || subscription?.status === 'trialing'
@@ -72,13 +72,18 @@ export function usePlan() {
 
   const plan = PLANS[planId] ?? PLANS.free;
 
+  const isPaidPlan = planId === 'pro' || planId === 'team';
+  /** Pro-equivalent data access for field reporters (no subscription required). */
+  const hasProInfrastructureAccess = isPaidPlan || Boolean(isReporter);
+
   return {
     planId,
     plan,
     subscription,
     isPro: planId === 'pro',
     isTeam: planId === 'team',
-    isPaid: planId === 'pro' || planId === 'team',
+    isPaid: isPaidPlan,
+    hasProInfrastructureAccess,
     isActive: subscription?.status === 'active' || subscription?.status === 'trialing' || planId === 'free',
     cancelAtPeriodEnd: subscription?.cancel_at_period_end ?? false,
     currentPeriodEnd: subscription?.current_period_end ?? null,
