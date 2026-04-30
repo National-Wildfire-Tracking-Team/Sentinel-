@@ -517,7 +517,9 @@ function UserReportDetail({ fire }) {
   const [tab, setTab] = useState('updates');
 
   const acres = parseLatestAcreage(fire.description);
-  const containment = parseLatestContainment(fire.description) ?? 0;
+  const containmentParsed = parseLatestContainment(fire.description);
+  const hasContainment = containmentParsed !== null;
+  const containment = containmentParsed ?? 0;
   const containColor = containmentToColor(containment);
   const incidentNotesPreview = extractIncidentNotesFromDescription(fire.description);
 
@@ -548,13 +550,13 @@ function UserReportDetail({ fire }) {
         <div className="flex-1 flex flex-col items-center justify-center py-4 px-2">
           <span className="text-[10px] font-bold text-sentinel-400 uppercase tracking-widest mb-1">Containment</span>
           <span className="text-2xl font-black leading-none" style={{ color: containColor }}>
-            {containment > 0 ? `${containment}%` : '—'}
+            {hasContainment ? `${containment}%` : '—'}
           </span>
         </div>
       </div>
 
-      {/* Containment bar (only when we have data) */}
-      {containment > 0 && (
+      {/* Containment bar when containment was reported (including 0%) */}
+      {hasContainment && (
         <div className="mb-4 h-1.5 w-full bg-sentinel-700 rounded-full overflow-hidden">
           <div
             className="h-full rounded-full transition-all duration-700"
@@ -609,6 +611,20 @@ function UserReportDetail({ fire }) {
 
       {tab === 'info' && (
         <div className="space-y-2 text-xs text-sentinel-400">
+          {acres != null && (
+            <div className="flex justify-between gap-2">
+              <span className="shrink-0">Acres (reporter)</span>
+              <span className="text-white font-semibold text-right">
+                {acres.toLocaleString('en-US', { maximumFractionDigits: 1 })}
+              </span>
+            </div>
+          )}
+          {hasContainment && (
+            <div className="flex justify-between gap-2">
+              <span className="shrink-0">Containment (reporter)</span>
+              <span className="text-white font-semibold">{containment}%</span>
+            </div>
+          )}
           {incidentNotesPreview && (
             <div>
               <p className="text-[10px] font-bold text-sentinel-500 uppercase tracking-widest mb-1.5">

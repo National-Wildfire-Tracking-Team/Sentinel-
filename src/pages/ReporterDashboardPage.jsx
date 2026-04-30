@@ -233,6 +233,7 @@ function IncidentCard({
 
   /* Update (append notes) state */
   const [updateAcreage, setUpdateAcreage] = useState('');
+  const [updateContainment, setUpdateContainment] = useState('');
   const [updateNotes, setUpdateNotes]     = useState('');
   const [updateBusy, setUpdateBusy]       = useState(false);
   const [updateFeedback, setUpdateFeedback] = useState(null);
@@ -264,8 +265,15 @@ function IncidentCard({
   }
 
   async function handlePostUpdate() {
-    if (!updateAcreage.toString().trim() && !updateNotes.trim()) {
-      setUpdateFeedback({ type: 'error', message: 'Enter acreage or notes before posting.' });
+    const hasAcres = updateAcreage.toString().trim().length > 0;
+    const hasContain = updateContainment.toString().trim().length > 0;
+    const hasNotes = updateNotes.trim().length > 0;
+    if (!hasAcres && !hasContain && !hasNotes) {
+      setUpdateFeedback({ type: 'error', message: 'Enter acreage, containment, or notes before posting.' });
+      return;
+    }
+    if (hasContain && !Number.isFinite(Number(updateContainment))) {
+      setUpdateFeedback({ type: 'error', message: 'Containment must be a number between 0 and 100.' });
       return;
     }
     setUpdateBusy(true);
@@ -275,12 +283,17 @@ function IncidentCard({
         id: report.id,
         description: report.description || '',
         acreage: updateAcreage,
+        containment: hasContain ? updateContainment : undefined,
         notes: updateNotes,
       });
 
       const parts = [];
-      if (updateAcreage.toString().trim()) parts.push(`Acreage: ${updateAcreage.toString().trim()}`);
-      if (updateNotes.trim()) parts.push(updateNotes.trim());
+      if (hasAcres) parts.push(`Acreage: ${updateAcreage.toString().trim()}`);
+      if (hasContain) {
+        const c = Math.min(100, Math.max(0, Math.round(Number(updateContainment))));
+        parts.push(`Containment: ${c}%`);
+      }
+      if (hasNotes) parts.push(updateNotes.trim());
 
       await insertReporterUpdate({
         incidentId: report.id,
@@ -290,6 +303,7 @@ function IncidentCard({
       });
 
       setUpdateAcreage('');
+      setUpdateContainment('');
       setUpdateNotes('');
       setUpdateFeedback({ type: 'success', message: 'Update posted successfully.' });
       setMode('view');
@@ -474,6 +488,19 @@ function IncidentCard({
                   value={updateAcreage}
                   onChange={(e) => setUpdateAcreage(e.target.value)}
                   placeholder="e.g. 2450"
+                  className={INPUT_CLS}
+                />
+              </div>
+              <div>
+                <label className={LABEL_CLS}>Containment (%)</label>
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="1"
+                  value={updateContainment}
+                  onChange={(e) => setUpdateContainment(e.target.value)}
+                  placeholder="e.g. 0–100 (optional)"
                   className={INPUT_CLS}
                 />
               </div>
@@ -915,6 +942,8 @@ export default function ReporterDashboardPage() {
   const searchDebounceRef = useRef(null);
 
   const [incidentName, setIncidentName] = useState('');
+  const [initialAcres, setInitialAcres] = useState('');
+  const [initialContainment, setInitialContainment] = useState('');
   const [incidentNotes, setIncidentNotes] = useState('');
   const [internalNotes, setInternalNotes] = useState('');
   const [images, setImages] = useState([]);
@@ -1165,6 +1194,16 @@ export default function ReporterDashboardPage() {
       setError('Please complete all required (*) address fields.');
       return;
     }
+    const rawInitAcres = initialAcres.toString().trim();
+    if (rawInitAcres !== '' && !Number.isFinite(Number(rawInitAcres))) {
+      setError('Estimated acres must be a valid number.');
+      return;
+    }
+    const rawInitContain = initialContainment.toString().trim();
+    if (rawInitContain !== '' && !Number.isFinite(Number(rawInitContain))) {
+      setError('Containment must be a number between 0 and 100.');
+      return;
+    }
 
     setBusy(true);
     try {
@@ -1187,11 +1226,23 @@ export default function ReporterDashboardPage() {
         (county ? `, ${county} County` : '') +
         `, ${usState} ${zip}`;
 
+      const opsLines = [];
+      if (initialAcres.toString().trim()) {
+        opsLines.push(`Acreage: ${initialAcres.toString().trim()}`);
+      }
+      const rawInitContain = initialContainment.toString().trim();
+      if (rawInitContain !== '' && Number.isFinite(Number(rawInitContain))) {
+        const c = Math.min(100, Math.max(0, Math.round(Number(rawInitContain))));
+        opsLines.push(`Containment: ${c}%`);
+      }
+      const opsBlock = opsLines.length > 0 ? `\n\n${opsLines.join('\n')}` : '';
+
       const description = [
         `ADDRESS: ${locationLine}`,
         `JURISDICTION: ${jurisdiction}`,
         isIntersection ? 'INTERSECTION SEARCH: Yes' : null,
         `\nINCIDENT NOTES:\n${incidentNotes}`,
+        opsBlock || null,
         internalNotes.trim() ? `\nINTERNAL NOTES:\n${internalNotes}` : null,
       ].filter(Boolean).join('\n');
 
@@ -1204,11 +1255,14 @@ export default function ReporterDashboardPage() {
       });
 
       const sourceName = profile?.email?.split('@')[0] || 'Reporter';
-      const initialTimelineBody = [
+      const initialTimelineParts = [
         `Initial report: ${incidentName.trim()}`,
         '',
+        ...opsLines,
+        opsLines.length > 0 ? '' : null,
         incidentNotes.trim(),
-      ].join('\n');
+      ].filter((line) => line !== null && line !== '');
+      const initialTimelineBody = initialTimelineParts.join('\n');
       await insertReporterUpdate({
         incidentId: created.id,
         content: initialTimelineBody,
@@ -1225,6 +1279,7 @@ export default function ReporterDashboardPage() {
       setReportLat(null); setReportLng(null);
       setSuggestions([]); setShowSuggestions(false);
       setIncidentName(''); setIncidentNotes(''); setInternalNotes('');
+      setInitialAcres(''); setInitialContainment('');
       images.forEach((img) => URL.revokeObjectURL(img.preview));
       setImages([]);
       refreshReports();
@@ -1492,6 +1547,33 @@ export default function ReporterDashboardPage() {
                   maxLength={120}
                   className={INPUT_CLS}
                 />
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+                <div>
+                  <label className={LABEL_CLS}>Estimated acres</label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.1"
+                    value={initialAcres}
+                    onChange={(e) => setInitialAcres(e.target.value)}
+                    placeholder="Optional — shows on public map"
+                    className={INPUT_CLS}
+                  />
+                </div>
+                <div>
+                  <label className={LABEL_CLS}>Containment (%)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="1"
+                    value={initialContainment}
+                    onChange={(e) => setInitialContainment(e.target.value)}
+                    placeholder="Optional — 0–100"
+                    className={INPUT_CLS}
+                  />
+                </div>
               </div>
             </div>
 
