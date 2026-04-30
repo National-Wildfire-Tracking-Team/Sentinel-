@@ -32,6 +32,8 @@ const initialState = {
     droughtOutlook:        false,
     ndgdSmokeForecast:     false,
     criticalInfrastructure: false,
+    /** USGS National Map — colleges/universities (structures layer 56); Pro */
+    schoolsUniversities: false,
   },
   // Currently clicked/selected fire feature (hotspot or perimeter)
   selectedFire: null,

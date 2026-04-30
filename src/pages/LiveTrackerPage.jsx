@@ -30,6 +30,7 @@ import { useDroughtOutlook } from '../hooks/useDroughtOutlook';
 import { useNdgdSmokeForecast } from '../hooks/useNdgdSmokeForecast';
 import { useFireWeatherOutlooks } from '../hooks/useFireWeatherOutlooks';
 import { useCriticalInfrastructure } from '../hooks/useCriticalInfrastructure';
+import { useNationalMapColleges } from '../hooks/useNationalMapColleges';
 import { usePlan } from '../hooks/usePlan';
 import { polygonCentroid } from '../utils/geoUtils';
 
@@ -71,6 +72,7 @@ const WILDFIRE_LAYER_PRESET = {
   fireWeatherOutlooks: false,
   stormReports: false,
   criticalInfrastructure: false,
+  schoolsUniversities: false,
 };
 
 // Weather tab: only auto-enable NWS alerts (includes SPC MDs on map), and NEXRAD;
@@ -94,6 +96,7 @@ const WEATHER_LAYER_PRESET = {
   flights: false,
   airNowMonitors: false,
   ndgdSmokeForecast: false,
+  schoolsUniversities: false,
 };
 
 const THREE_DAYS_MS = 3 * 24 * 60 * 60 * 1000;
@@ -177,6 +180,12 @@ export default function LiveTrackerPage() {
       setLayer('criticalInfrastructure', false);
     }
   }, [criticalInfraEntitled, layers.criticalInfrastructure, setLayer]);
+
+  useEffect(() => {
+    if (!criticalInfraEntitled && layers.schoolsUniversities) {
+      setLayer('schoolsUniversities', false);
+    }
+  }, [criticalInfraEntitled, layers.schoolsUniversities, setLayer]);
 
   // Apply layer presets only when switching between wildfire/weather tabs.
   // The locations tab keeps whatever layers were already active.
@@ -348,6 +357,16 @@ const flightBounds = useMemo(() => {
     gasPipelinesGeoJSON: criticalInfrastructureGasGeoJSON,
     refresh: refreshCriticalInfrastructure,
   } = useCriticalInfrastructure(criticalInfraEnabled, viewport);
+
+  const schoolsLayerEnabled = Boolean(
+    layers.schoolsUniversities
+    && criticalInfraEntitled
+    && (activeMapTab === MAP_TABS.wildfire || activeMapTab === MAP_TABS.weather)
+  );
+  const {
+    geoJSON: nationalMapCollegesGeoJSON,
+    refresh: refreshNationalMapColleges,
+  } = useNationalMapColleges(schoolsLayerEnabled, viewport);
 
   // SPC Fire Weather Outlooks – day/type selector state
   const [fireWxOutlookType, setFireWxOutlookType] = useState('winds_low_humidity');
@@ -634,6 +653,7 @@ const flightBounds = useMemo(() => {
     if (layers.droughtOutlook) refreshDroughtOutlook();
     if (layers.ndgdSmokeForecast && activeMapTab === MAP_TABS.wildfire) refreshNdgdSmokeForecast();
     if (criticalInfraEnabled) refreshCriticalInfrastructure();
+    if (schoolsLayerEnabled) refreshNationalMapColleges();
     if (layers.fireWeatherOutlooks || (layers.spcWeatherOutlooks && spcWeatherOutlookMode === 'fireWx')) {
       refreshFireWeatherOutlooks();
     }
@@ -642,9 +662,11 @@ const flightBounds = useMemo(() => {
     refreshSpcMd, refreshSpcOutlooks, refreshUserReports, refreshEvacZones, refreshReporterEvacZones,
     refreshAQI, refreshFlights, refreshRAWS, refreshAirNowMonitors, refreshDroughtOutlook, refreshNdgdSmokeForecast, refreshFireWeatherOutlooks,
     refreshCriticalInfrastructure,
+    refreshNationalMapColleges,
     activeMapTab, layers.aqi, layers.flights, rawsEnabled, layers.airNowMonitors, layers.droughtOutlook, layers.ndgdSmokeForecast,
     layers.fireWeatherOutlooks, layers.spcWeatherOutlooks, spcWeatherOutlookMode, layers.stormReports,
     criticalInfraEnabled,
+    schoolsLayerEnabled,
   ]);
 
   return (
@@ -702,6 +724,8 @@ const flightBounds = useMemo(() => {
             criticalInfrastructureTransGeoJSON={criticalInfrastructureTransGeoJSON}
             criticalInfrastructureGasGeoJSON={criticalInfrastructureGasGeoJSON}
             criticalInfrastructureVisible={criticalInfraEnabled}
+            nationalMapCollegesGeoJSON={nationalMapCollegesGeoJSON}
+            nationalMapCollegesVisible={schoolsLayerEnabled}
             fireWeatherOutlooksGeoJSON={fireWeatherOutlooksGeoJSON}
             fireWxOutlookType={fireWxOutlookType}
             fireWxActiveDay={fireWxActiveDay}

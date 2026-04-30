@@ -32,13 +32,13 @@ const PRO_INFRA_LIVE = [
   { icon: <Train size={14} />,         label: 'Railroads' },
   { icon: <Bolt size={14} />,          label: 'Powerlines (nationwide)' },
   { icon: <Droplets size={14} />,      label: 'Pipelines (nationwide)' },
+  { icon: <GraduationCap size={14} />, label: 'Schools & universities (USGS National Map)' },
 ];
 
 const PRO_INFRA_SOON = [
   { icon: <Factory size={14} />,      label: 'Major manufacturing sites' },
   { icon: <Factory size={14} />,      label: 'Chemical manufacturing facilities' },
   { icon: <Cross size={14} />,         label: 'Hospitals & medical centers' },
-  { icon: <GraduationCap size={14} />, label: 'Schools & universities' },
   { icon: <Users size={14} />,        label: 'Mass gathering locations (stadiums, venues, fairs)' },
 ];
 
@@ -343,7 +343,7 @@ export default function PricingPage() {
                 { label: 'Powerlines — nationwide',                     free: false, pro: true  },
                 { label: 'Pipelines — nationwide',                      free: false, pro: true  },
                 { label: 'Hospitals & medical centers',                 free: false, pro: '🔜'  },
-                { label: 'Schools & universities',                      free: false, pro: '🔜'  },
+                { label: 'Schools & universities (USGS National Map)',    free: false, pro: true  },
                 { label: 'Mass gathering locations',                    free: false, pro: '🔜'  },
                 { label: 'Chemical & manufacturing facilities',         free: false, pro: '🔜'  },
                 { label: 'Tribal nations',                              free: false, pro: '🔜'  },

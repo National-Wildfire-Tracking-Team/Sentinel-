@@ -41,6 +41,7 @@ import NdgdSmokeTimeSlider from './NdgdSmokeTimeSlider';
 import FireWeatherOutlookLayer from './layers/FireWeatherOutlookLayer';
 import FireWeatherOutlookSelector from './FireWeatherOutlookSelector';
 import CriticalInfrastructureLayer from './layers/CriticalInfrastructureLayer';
+import NationalMapCollegesLayer from './layers/NationalMapCollegesLayer';
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN || '';
 const HAS_MAPBOX_TOKEN = Boolean(MAPBOX_TOKEN.trim());
@@ -525,6 +526,17 @@ function HoverTooltip({ feature, lngLat }) {
       );
       break;
     }
+    case 'national-map-colleges-circle': {
+      const name = p.NAME || p.name || 'School / university';
+      content = (
+        <>
+          <div className="font-semibold text-violet-300">USGS National Map</div>
+          <div className="text-white text-xs mt-0.5 font-medium line-clamp-2">{name}</div>
+          <div className="text-gray-400 text-[10px] mt-1">Colleges &amp; universities (structures)</div>
+        </>
+      );
+      break;
+    }
     default:
       return null;
   }
@@ -635,6 +647,8 @@ function FlightDetailPopup({ flight, lngLat, onClose }) {
  * @param {object|null} props.criticalInfrastructureTransGeoJSON
  * @param {object|null} props.criticalInfrastructureGasGeoJSON
  * @param {boolean}     [props.criticalInfrastructureVisible]
+ * @param {object|null} props.nationalMapCollegesGeoJSON
+ * @param {boolean}     [props.nationalMapCollegesVisible]
  * @param {object|null} props.fireWeatherOutlooksGeoJSON
  * @param {string}      [props.fireWxOutlookType]
  * @param {string}      [props.fireWxActiveDay]
@@ -676,6 +690,8 @@ export default function MapView({
   criticalInfrastructureTransGeoJSON,
   criticalInfrastructureGasGeoJSON,
   criticalInfrastructureVisible = false,
+  nationalMapCollegesGeoJSON,
+  nationalMapCollegesVisible = false,
   fireWeatherOutlooksGeoJSON,
   fireWxOutlookType = 'winds_low_humidity',
   fireWxActiveDay = 'day1',
@@ -859,6 +875,9 @@ export default function MapView({
     if (criticalInfrastructureVisible && criticalInfrastructureGasGeoJSON?.features?.length) {
       ids.push('eia-gas-pipelines');
     }
+    if (nationalMapCollegesVisible && nationalMapCollegesGeoJSON?.features?.length) {
+      ids.push('national-map-colleges-circle');
+    }
     if (layers.fireWeatherOutlooks && fireWeatherOutlooksGeoJSON) ids.push('fire-weather-outlook-fill');
     if (isWeatherTab && layers.spcWeatherOutlooks && spcWeatherOutlookMode === 'fireWx' && fireWeatherOutlooksGeoJSON) {
       ids.push('fire-weather-outlook-fill');
@@ -870,7 +889,8 @@ export default function MapView({
       hotspotsGeoJSON, perimetersGeoJSON, incidentsGeoJSON, aqiGeoJSON, alertsGeoJSON, spcOutlooksGeoJSON,
       stormReportsGeoJSON, userReportsGeoJSON, evacZonesGeoJSON, reporterEvacZonesGeoJSON,
       flightsGeoJSON, rawsGeoJSON, airNowMonitorsGeoJSON, droughtOutlookGeoJSON, ndgdSmokeFilteredGeoJSON, fireWeatherOutlooksGeoJSON,
-      criticalInfrastructureVisible, criticalInfrastructureTransGeoJSON, criticalInfrastructureGasGeoJSON]);
+      criticalInfrastructureVisible, criticalInfrastructureTransGeoJSON, criticalInfrastructureGasGeoJSON,
+      nationalMapCollegesVisible, nationalMapCollegesGeoJSON]);
 
   // Clear stale hover when layers change
   useEffect(() => {
@@ -938,6 +958,21 @@ export default function MapView({
         status: p.Status,
         shapeLeng: p.Shape_Leng,
         shapeLength: p.Shape__Length,
+      });
+      return;
+    }
+
+    if (feature.layer.id === 'national-map-colleges-circle') {
+      setSelectedFlight(null);
+      setSelectedFlightLngLat(null);
+      selectFire({
+        type: 'national-map-college',
+        id: p.OBJECTID ?? p.FID ?? `${evt.lngLat.lng},${evt.lngLat.lat}`,
+        name: p.NAME || p.name || 'School / university',
+        lat: evt.lngLat.lat,
+        lng: evt.lngLat.lng,
+        ftype: p.FTYPE,
+        properties: p,
       });
       return;
     }
@@ -1318,6 +1353,11 @@ export default function MapView({
           transmissionGeoJSON={criticalInfrastructureTransGeoJSON}
           gasPipelinesGeoJSON={criticalInfrastructureGasGeoJSON}
           visible={criticalInfrastructureVisible}
+        />
+
+        <NationalMapCollegesLayer
+          geoJSON={nationalMapCollegesGeoJSON}
+          visible={nationalMapCollegesVisible}
         />
 
         {/* RAWS weather stations – visible on both wildfire and weather tabs */}

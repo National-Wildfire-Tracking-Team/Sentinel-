@@ -9,6 +9,7 @@ import {
   X, Flame, MapPin, Users, Home, Calendar, Thermometer,
   AlertTriangle, Wind, ExternalLink, TrendingUp, ShieldAlert,
   CloudRain, Clock, Info, Share2, ShieldCheck, Zap, Fuel,
+  GraduationCap,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import {
@@ -921,6 +922,66 @@ function GasPipelineDetail({ fire }) {
   );
 }
 
+const NATIONAL_MAP_STRUCTURES_URL =
+  'https://carto.nationalmap.gov/arcgis/rest/services/structures/MapServer/56';
+
+function NationalMapCollegeDetail({ fire }) {
+  const p = fire.properties || {};
+  const row = (label, value) => {
+    if (value == null || String(value).trim() === '') return null;
+    return (
+      <div className="flex justify-between gap-3 py-1.5 border-b border-sentinel-700/80 text-xs">
+        <span className="text-sentinel-400 shrink-0">{label}</span>
+        <span className="text-sentinel-100 text-right font-medium">{String(value)}</span>
+      </div>
+    );
+  };
+
+  const displayName = fire.name || p.NAME || p.name || 'School / university';
+
+  return (
+    <>
+      <div className="mb-4 flex items-start gap-2">
+        <div className="mt-0.5 p-1.5 rounded-lg bg-violet-500/15 border border-violet-500/30">
+          <GraduationCap size={16} className="text-violet-300" />
+        </div>
+        <div>
+          <h3 className="font-bold text-white text-lg leading-tight">{displayName}</h3>
+          <p className="text-sentinel-400 text-[11px] mt-1">
+            USGS National Map — Colleges &amp; universities (structures). Points load for your current map view.
+          </p>
+        </div>
+      </div>
+
+      <div className="rounded-xl border border-sentinel-700 bg-sentinel-800/40 px-3 py-1 mb-4">
+        {row('OBJECTID', p.OBJECTID)}
+        {row('Feature type (FTYPE)', p.FTYPE)}
+        {row('State FIPS', p.STATE_FIPS)}
+        {row('County FIPS', p.COUNTY_FIPS)}
+      </div>
+
+      {Number.isFinite(fire.lat) && Number.isFinite(fire.lng) && (
+        <div className="mb-4 text-xs text-sentinel-400">
+          Location:{' '}
+          <span className="text-sentinel-200 font-mono">
+            {fire.lat.toFixed(5)}, {fire.lng.toFixed(5)}
+          </span>
+        </div>
+      )}
+
+      <a
+        href={NATIONAL_MAP_STRUCTURES_URL}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="flex items-center gap-1.5 text-xs text-violet-400 hover:text-violet-300 transition-colors"
+      >
+        <ExternalLink size={12} />
+        USGS National Map layer (ArcGIS REST)
+      </a>
+    </>
+  );
+}
+
 // ─── Main Panel ───────────────────────────────────────────────────────────────
 
 const FireDetailPanel = memo(function FireDetailPanel() {
@@ -1019,6 +1080,7 @@ const FireDetailPanel = memo(function FireDetailPanel() {
              selectedFire.type === 'reporter-evacuation-zone' ? 'Reporter Evac Zone' :
              selectedFire.type === 'transmission-line'        ? 'Critical Infrastructure' :
              selectedFire.type === 'gas-pipeline'            ? 'Critical Infrastructure' :
+             selectedFire.type === 'national-map-college'    ? 'School / University' :
              'Fire Detail'}
           </span>
           <div className="flex items-center gap-1">
@@ -1057,6 +1119,7 @@ const FireDetailPanel = memo(function FireDetailPanel() {
           {selectedFire.type === 'reporter-evacuation-zone' && <ReporterEvacZoneDetail  fire={selectedFire} />}
           {selectedFire.type === 'transmission-line'       && <TransmissionLineDetail fire={selectedFire} />}
           {selectedFire.type === 'gas-pipeline'            && <GasPipelineDetail     fire={selectedFire} />}
+          {selectedFire.type === 'national-map-college'    && <NationalMapCollegeDetail fire={selectedFire} />}
         </div>
       </div>
     </>
