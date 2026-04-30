@@ -31,8 +31,8 @@ const SPCWeatherTabOutlookControls = memo(function SPCWeatherTabOutlookControls(
       className="absolute top-3 left-1/2 -translate-x-1/2 z-20 pointer-events-auto flex flex-col items-stretch gap-1.5 animate-fade-in"
       style={{ maxWidth: 'calc(100vw - 1rem)' }}
     >
-      <div className="flex items-center justify-center gap-1 px-1">
-        <span className="text-[9px] font-bold text-sentinel-500 uppercase tracking-widest hidden sm:inline mr-0.5">
+      <div className="flex items-center justify-center gap-1 px-1 py-1 rounded-xl bg-black/95 border border-zinc-700 shadow-lg shadow-black/50 ring-1 ring-white/10">
+        <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest hidden sm:inline mr-0.5">
           Outlook
         </span>
         <button
@@ -41,8 +41,8 @@ const SPCWeatherTabOutlookControls = memo(function SPCWeatherTabOutlookControls(
           className={`
             px-2.5 py-1 rounded-lg text-[10px] sm:text-xs font-bold uppercase tracking-wide transition-all
             ${mode === 'convective'
-              ? 'bg-amber-500/25 text-amber-200 ring-1 ring-amber-500/50 shadow-sm'
-              : 'text-sentinel-400 hover:text-sentinel-100 bg-sentinel-800/50 hover:bg-sentinel-800'
+              ? 'bg-amber-600 text-white ring-1 ring-amber-400/60 shadow-sm'
+              : 'text-zinc-400 hover:text-white hover:bg-zinc-800'
             }`}
           aria-pressed={mode === 'convective'}
         >
@@ -54,8 +54,8 @@ const SPCWeatherTabOutlookControls = memo(function SPCWeatherTabOutlookControls(
           className={`
             px-2.5 py-1 rounded-lg text-[10px] sm:text-xs font-bold uppercase tracking-wide transition-all
             ${mode === 'fireWx'
-              ? 'bg-orange-500/25 text-orange-200 ring-1 ring-orange-500/50 shadow-sm'
-              : 'text-sentinel-400 hover:text-sentinel-100 bg-sentinel-800/50 hover:bg-sentinel-800'
+              ? 'bg-orange-600 text-white ring-1 ring-orange-400/60 shadow-sm'
+              : 'text-zinc-400 hover:text-white hover:bg-zinc-800'
             }`}
           aria-pressed={mode === 'fireWx'}
         >
