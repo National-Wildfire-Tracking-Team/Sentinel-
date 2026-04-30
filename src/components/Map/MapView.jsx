@@ -311,6 +311,22 @@ function HoverTooltip({ feature, lngLat }) {
       break;
     }
     case 'evac-zones-fill': {
+      const isIpaws = p.source === 'ipaws';
+      if (isIpaws) {
+        content = (
+          <>
+            <div className="font-semibold text-amber-400">IPAWS / EAS</div>
+            <div className="text-white text-xs mt-0.5 font-medium">{p.ipawsHeadline || p.zoneName}</div>
+            {p.ipawsAreaDesc && <div className="text-gray-300 text-xs">{p.ipawsAreaDesc}</div>}
+            {(p.ipawsSent || p.effectiveDate) && (
+              <div className="text-gray-400 text-xs mt-1">
+                {new Date(p.ipawsSent || p.effectiveDate).toLocaleString()}
+              </div>
+            )}
+          </>
+        );
+        break;
+      }
       const statusColors = {
         'evacuation order':   'text-red-400',
         'evacuation warning': 'text-orange-400',
@@ -1089,6 +1105,7 @@ export default function MapView({
         user_id:     p.user_id,
       });
     } else if (feature.layer.id === 'evac-zones-fill') {
+      const isIpaws = p.source === 'ipaws';
       selectFire({
         type:           'evacuation-zone',
         id:             p.id || null,
@@ -1106,6 +1123,17 @@ export default function MapView({
         source:         p.source         || null,
         lat:            evt.lngLat.lat,
         lng:            evt.lngLat.lng,
+        ...(isIpaws && {
+          ipawsIdentifier: p.ipawsIdentifier,
+          ipawsHeadline: p.ipawsHeadline,
+          ipawsDescription: p.ipawsDescription,
+          ipawsEvent: p.ipawsEvent,
+          ipawsSent: p.ipawsSent,
+          ipawsExpires: p.ipawsExpires,
+          ipawsSenderName: p.ipawsSenderName,
+          ipawsInstruction: p.ipawsInstruction,
+          ipawsAreaDesc: p.ipawsAreaDesc,
+        }),
       });
     } else if (feature.layer.id === 'reporter-evac-zones-fill') {
       selectFire({

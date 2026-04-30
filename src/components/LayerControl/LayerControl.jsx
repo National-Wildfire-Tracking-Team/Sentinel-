@@ -16,7 +16,7 @@ const LAYER_DEFS = {
   fireHotspots:      { label: 'Fire Hotspots',       sublabel: 'NASA FIRMS satellite',          icon: Flame,        color: '#ff4500' },
   firePerimeters:    { label: 'Fire Perimeters',     sublabel: 'NIFC WFIGS',                  icon: MapPin,       color: '#ff6600' },
   incidentLocations: { label: 'Incident Locations',  sublabel: 'WFIGS · NWTT verified',       icon: Flame,        color: '#f59e0b' },
-  evacZones:         { label: 'Evacuation Zones',    sublabel: 'Cal OES Hosted + PROD',       icon: AlertTriangle, color: '#ef4444' },
+  evacZones:         { label: 'Evacuation Zones',    sublabel: 'Cal OES + IPAWS (CAP polygons)', icon: AlertTriangle, color: '#ef4444' },
   reporterEvacZones: { label: 'Reporter Evac Zones', sublabel: 'Field-reported boundaries',   icon: Users,        color: '#f97316' },
   ndgdSmokeForecast: { label: 'Smoke Concentration', sublabel: 'NOAA NDGD hourly (48h)',      icon: CloudRain,    color: '#eab308' },
   droughtOutlook:    { label: 'Drought Outlook',     sublabel: 'NOAA CPC Monthly Outlook',    icon: Droplets,     color: '#f59e0b' },
@@ -289,7 +289,7 @@ const LayerControl = memo(function LayerControl({
                 <p className="text-[10px] text-zinc-400 mt-0.5 truncate">
                   {activeMapTab === 'weather'
                     ? 'Weather, radar, and air quality'
-                    : 'Wildfire activity and evacuation data'}
+                    : 'Wildfire activity, evacuation zones (California + IPAWS polygons), and outlook data'}
                 </p>
               </div>
               <div className="flex items-center shrink-0 bg-zinc-900 border border-zinc-700 rounded-lg p-0.5">
