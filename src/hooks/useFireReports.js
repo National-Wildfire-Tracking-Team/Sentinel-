@@ -120,7 +120,7 @@ export async function submitFireReport({ title, description, latitude, longitude
   if (!isSupabaseConfigured) {
     throw new Error('Supabase is not configured');
   }
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from('fire_reports')
     .insert({
       title,
@@ -129,9 +129,19 @@ export async function submitFireReport({ title, description, latitude, longitude
       longitude,
       status: 'approved',
       user_id: userId,
-    });
+    })
+    .select('id')
+    .single();
   if (error) throw error;
-  return { title, description, latitude, longitude, status: 'approved', user_id: userId };
+  return {
+    id: data.id,
+    title,
+    description,
+    latitude,
+    longitude,
+    status: 'approved',
+    user_id: userId,
+  };
 }
 
 /** Admin action: set the status of a report. */
@@ -274,8 +284,8 @@ export async function createExternalFireUpdate({
   return { title: fireName, description, latitude, longitude, status: 'approved', user_id: userId };
 }
 
-/** Reporter action: append an operational update (acreage/notes) to a report. */
-export async function appendFireReportUpdate({ id, description, acreage, notes }) {
+/** Reporter action: append an operational update (acreage / containment / notes) to a report. */
+export async function appendFireReportUpdate({ id, description, acreage, notes, containment }) {
   if (!isSupabaseConfigured) throw new Error('Supabase is not configured');
 
   const acreageLine = acreage?.toString().trim()
@@ -283,14 +293,22 @@ export async function appendFireReportUpdate({ id, description, acreage, notes }
     : null;
   const noteLine = notes?.trim() ? `Notes: ${notes.trim()}` : null;
 
-  if (!acreageLine && !noteLine) {
-    throw new Error('Please provide acreage or notes for the update.');
+  const rawContain = containment !== undefined && containment !== null
+    ? String(containment).trim()
+    : '';
+  const containmentLine = rawContain !== '' && Number.isFinite(Number(rawContain))
+    ? `Containment: ${Math.min(100, Math.max(0, Math.round(Number(rawContain))))}%`
+    : null;
+
+  if (!acreageLine && !noteLine && !containmentLine) {
+    throw new Error('Please provide acreage, containment, or notes for the update.');
   }
 
   const timestamp = new Date().toLocaleString();
   const updateBlock = [
     `UPDATE (${timestamp})`,
     acreageLine,
+    containmentLine,
     noteLine,
   ].filter(Boolean).join('\n');
 
