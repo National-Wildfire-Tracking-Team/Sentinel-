@@ -135,18 +135,18 @@ function LayerToggle({ layerKey, label, sublabel, icon: Icon, color, locked }) {
 
   if (locked) {
     return (
-      <div className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg opacity-70">
+      <div className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg opacity-90">
         <div
-          className="shrink-0 w-7 h-7 rounded-md flex items-center justify-center border border-sentinel-600"
+          className="shrink-0 w-7 h-7 rounded-md flex items-center justify-center border border-zinc-600"
         >
-          <Lock size={12} className="text-sentinel-400" />
+          <Lock size={12} className="text-zinc-400" />
         </div>
         <div className="flex-1 min-w-0">
-          <div className="text-sm font-medium text-sentinel-200 truncate flex items-center gap-1.5">
+          <div className="text-sm font-medium text-zinc-100 truncate flex items-center gap-1.5">
             {label}
-            <span className="text-[9px] font-bold uppercase tracking-wide text-amber-400/90">Pro</span>
+            <span className="text-[9px] font-bold uppercase tracking-wide text-amber-400">Pro</span>
           </div>
-          <div className="text-[10px] text-sentinel-400 truncate">{sublabel}</div>
+          <div className="text-[10px] text-zinc-400 truncate">{sublabel}</div>
         </div>
         <Link
           to="/pricing"
@@ -163,7 +163,7 @@ function LayerToggle({ layerKey, label, sublabel, icon: Icon, color, locked }) {
       type="button"
       onClick={() => toggleLayer(layerKey)}
       className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg
-                      hover:bg-sentinel-800/80 transition-colors group text-left"
+                      hover:bg-white/10 transition-colors group text-left"
       aria-pressed={active}
       aria-label={`Toggle ${label}`}
     >
@@ -171,22 +171,22 @@ function LayerToggle({ layerKey, label, sublabel, icon: Icon, color, locked }) {
         className="shrink-0 w-7 h-7 rounded-md flex items-center justify-center"
         style={{
           backgroundColor: active ? `${color}22` : 'transparent',
-          border: `1px solid ${active ? color + '55' : '#334155'}`,
+          border: `1px solid ${active ? color + '55' : '#52525b'}`,
         }}
       >
-        <Icon size={14} style={{ color: active ? color : '#64748b' }} />
+        <Icon size={14} style={{ color: active ? color : '#a1a1aa' }} />
       </div>
 
       <div className="flex-1 min-w-0">
-        <div className={`text-sm font-medium truncate transition-colors ${active ? 'text-white' : 'text-sentinel-100'}`}>
+        <div className={`text-sm font-medium truncate transition-colors ${active ? 'text-white' : 'text-zinc-100'}`}>
           {label}
         </div>
-        <div className="text-[10px] text-sentinel-400 leading-snug line-clamp-2">{sublabel}</div>
+        <div className="text-[10px] text-zinc-400 leading-snug line-clamp-2">{sublabel}</div>
       </div>
 
       <div
         className={`shrink-0 relative w-9 h-5 rounded-full transition-colors duration-200
-          ${active ? 'bg-fire-600' : 'bg-sentinel-600'}`}
+          ${active ? 'bg-fire-600' : 'bg-zinc-600'}`}
       >
         <span
           className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow
@@ -250,17 +250,17 @@ const LayerControl = memo(function LayerControl({
 
   const tabAccent =
     activeMapTab === 'weather'
-      ? 'from-sky-600/30 to-transparent'
-      : 'from-fire-600/25 to-transparent';
+      ? 'from-sky-600/40 to-black'
+      : 'from-fire-600/35 to-black';
 
   return (
     <div className="absolute top-4 right-4 z-20 flex flex-col items-end gap-2">
       <button
         onClick={toggleLayerPanel}
-        className="flex items-center gap-2 px-3 py-2 bg-sentinel-800/95 backdrop-blur-sm
-                   border border-sentinel-600 rounded-xl shadow-xl
+        className="flex items-center gap-2 px-3 py-2 bg-black/95 backdrop-blur-sm
+                   border border-zinc-700 rounded-xl shadow-xl
                    text-white text-sm font-medium
-                   hover:bg-sentinel-700 hover:border-sentinel-500 transition-colors"
+                   hover:bg-zinc-950 hover:border-zinc-500 transition-colors"
         aria-label="Toggle layer control"
       >
         <Layers size={15} />
@@ -269,29 +269,29 @@ const LayerControl = memo(function LayerControl({
 
       {layerPanelOpen && (
         <div
-          className="w-[17.5rem] sm:w-72 bg-sentinel-900/98 backdrop-blur-md border border-sentinel-600
-                        rounded-xl shadow-2xl overflow-hidden animate-fade-in ring-1 ring-black/20"
+          className="w-[17.5rem] sm:w-72 bg-black backdrop-blur-md border border-zinc-700
+                        rounded-xl shadow-2xl shadow-black/60 overflow-hidden animate-fade-in"
         >
-          <div className={`px-3 pt-3 pb-2 border-b border-sentinel-700/80 bg-gradient-to-b ${tabAccent}`}>
+          <div className={`px-3 pt-3 pb-2 border-b border-zinc-800 bg-gradient-to-b ${tabAccent}`}>
             <div className="flex items-center justify-between gap-2">
               <div className="min-w-0">
-                <span className="text-[11px] font-bold text-sentinel-100 uppercase tracking-wider">
+                <span className="text-[11px] font-bold text-white uppercase tracking-wider">
                   Map layers
                 </span>
-                <p className="text-[10px] text-sentinel-400 mt-0.5 truncate">
+                <p className="text-[10px] text-zinc-400 mt-0.5 truncate">
                   {activeMapTab === 'weather'
                     ? 'Weather, radar, and air quality'
                     : 'Wildfire activity and evacuation data'}
                 </p>
               </div>
-              <div className="flex items-center shrink-0 bg-sentinel-800/90 border border-sentinel-600 rounded-lg p-0.5">
+              <div className="flex items-center shrink-0 bg-zinc-900 border border-zinc-700 rounded-lg p-0.5">
                 <button
                   type="button"
                   onClick={() => onMapTypeChange?.('satellite')}
                   className={`flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-semibold transition-all ${
                     mapType === 'satellite'
                       ? 'bg-fire-600 text-white shadow'
-                      : 'text-sentinel-300 hover:text-white'
+                      : 'text-zinc-300 hover:text-white'
                   }`}
                   title="Satellite view"
                 >
@@ -304,7 +304,7 @@ const LayerControl = memo(function LayerControl({
                   className={`flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-semibold transition-all ${
                     mapType === 'rendered'
                       ? 'bg-fire-600 text-white shadow'
-                      : 'text-sentinel-300 hover:text-white'
+                      : 'text-zinc-300 hover:text-white'
                   }`}
                   title="Map view"
                 >
@@ -322,7 +322,7 @@ const LayerControl = memo(function LayerControl({
                   className={`w-7 h-7 flex items-center justify-center rounded-md transition-all ${
                     measureActive && measureMode === 'distance'
                       ? 'bg-orange-500 text-white border border-orange-400'
-                      : 'text-sentinel-300 hover:text-white hover:bg-sentinel-700'
+                      : 'text-zinc-300 hover:text-white hover:bg-zinc-800'
                   }`}
                 >
                   <Ruler size={13} />
@@ -338,7 +338,7 @@ const LayerControl = memo(function LayerControl({
                   className={`w-7 h-7 flex items-center justify-center rounded-md transition-all ${
                     measureActive && measureMode === 'polygon'
                       ? 'bg-orange-500 text-white border border-orange-400'
-                      : 'text-sentinel-300 hover:text-white hover:bg-sentinel-700'
+                      : 'text-zinc-300 hover:text-white hover:bg-zinc-800'
                   }`}
                 >
                   <Hexagon size={13} />
@@ -360,16 +360,16 @@ const LayerControl = memo(function LayerControl({
                   <button
                     type="button"
                     onClick={() => toggleGroup(sectionKey)}
-                    className="w-full flex items-start gap-2 px-1.5 py-2 rounded-lg hover:bg-sentinel-800/50 transition-colors text-left"
+                    className="w-full flex items-start gap-2 px-1.5 py-2 rounded-lg hover:bg-white/5 transition-colors text-left"
                   >
                     {isSectionCollapsed ? (
-                      <ChevronRight size={14} className="shrink-0 text-sentinel-500 mt-0.5" />
+                      <ChevronRight size={14} className="shrink-0 text-zinc-500 mt-0.5" />
                     ) : (
-                      <ChevronDown size={14} className="shrink-0 text-sentinel-500 mt-0.5" />
+                      <ChevronDown size={14} className="shrink-0 text-zinc-500 mt-0.5" />
                     )}
                     <div className="flex-1 min-w-0">
                       <div className="text-xs font-semibold text-white leading-tight">{section.title}</div>
-                      <div className="text-[10px] text-sentinel-500 mt-0.5 leading-snug">{section.subtitle}</div>
+                      <div className="text-[10px] text-zinc-400 mt-0.5 leading-snug">{section.subtitle}</div>
                     </div>
                   </button>
 
@@ -377,10 +377,10 @@ const LayerControl = memo(function LayerControl({
                     <div className="pl-1 pb-2 space-y-3">
                       {section.groups.map((group) => (
                         <div key={`${sectionKey}-${group.label}`}>
-                          <div className="px-2 pb-1.5 text-[10px] font-semibold uppercase tracking-wider text-sentinel-500">
+                          <div className="px-2 pb-1.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-500">
                             {group.label}
                           </div>
-                          <div className="rounded-lg bg-sentinel-800/40 border border-sentinel-700/50 divide-y divide-sentinel-700/40 overflow-hidden">
+                          <div className="rounded-lg bg-zinc-950 border border-zinc-800 divide-y divide-zinc-800 overflow-hidden">
                             {group.layers.map((layerRef) => {
                               if (section.infraLayers) {
                                 const layer = section.infraLayers.find((l) => l.key === layerRef);
