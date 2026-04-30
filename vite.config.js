@@ -22,5 +22,23 @@ export default defineConfig({
   },
   server: {
     port: 3000,
+    proxy: {
+      // IPAWS backend (run `npm run ipaws-server`); avoids clashing with SPA routes
+      '/alerts': {
+        target: 'http://127.0.0.1:3847',
+        changeOrigin: true,
+        rewrite: () => '/api/alerts',
+      },
+    },
+  },
+  preview: {
+    port: 3000,
+    proxy: {
+      '/alerts': {
+        target: 'http://127.0.0.1:3847',
+        changeOrigin: true,
+        rewrite: () => '/api/alerts',
+      },
+    },
   },
 });

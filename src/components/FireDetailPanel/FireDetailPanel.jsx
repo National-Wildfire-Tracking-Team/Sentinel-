@@ -660,6 +660,76 @@ function AQIDetail({ fire }) {
 // ─── Official Evacuation Zone Detail ─────────────────────────────────────────
 
 function EvacZoneDetail({ fire }) {
+  const isIpaws = fire.source === 'ipaws';
+
+  if (isIpaws) {
+    const color = '#f59e0b';
+    return (
+      <>
+        <div className="mb-4">
+          <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+            <h3 className="font-bold text-white text-lg leading-tight">
+              {fire.ipawsHeadline || fire.zoneName || fire.name}
+            </h3>
+          </div>
+          <div
+            className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold border"
+            style={{ backgroundColor: color + '22', borderColor: color + '66', color }}
+          >
+            IPAWS / EAS
+          </div>
+          {fire.ipawsEvent && fire.ipawsEvent !== fire.ipawsHeadline && (
+            <p className="text-sentinel-400 text-sm mt-2">{fire.ipawsEvent}</p>
+          )}
+        </div>
+
+        {fire.ipawsAreaDesc && (
+          <div className="mb-3 text-sm text-sentinel-200">
+            <span className="text-sentinel-400 text-xs uppercase tracking-wider">Area</span>
+            <p className="mt-0.5">{fire.ipawsAreaDesc}</p>
+          </div>
+        )}
+
+        {fire.ipawsSent && (
+          <div className="mb-2 text-xs text-sentinel-400">
+            Effective / sent:{' '}
+            <span className="text-sentinel-200">{new Date(fire.ipawsSent).toLocaleString()}</span>
+          </div>
+        )}
+
+        {fire.ipawsExpires && (
+          <div className="mb-3 text-xs text-sentinel-400">
+            Expires: <span className="text-sentinel-200">{new Date(fire.ipawsExpires).toLocaleString()}</span>
+          </div>
+        )}
+
+        {fire.ipawsSenderName && (
+          <div className="mb-3 text-xs text-sentinel-400">
+            Sender: <span className="text-sentinel-200">{fire.ipawsSenderName}</span>
+          </div>
+        )}
+
+        {fire.ipawsDescription && (
+          <div className="mt-2">
+            <p className="text-[10px] font-bold text-sentinel-400 uppercase tracking-widest mb-2">Description</p>
+            <p className="text-sentinel-200 text-sm leading-relaxed whitespace-pre-wrap">{fire.ipawsDescription}</p>
+          </div>
+        )}
+
+        {fire.ipawsInstruction && (
+          <div className="mt-4">
+            <p className="text-[10px] font-bold text-sentinel-400 uppercase tracking-widest mb-2">Instruction</p>
+            <p className="text-sentinel-200 text-sm leading-relaxed whitespace-pre-wrap">{fire.ipawsInstruction}</p>
+          </div>
+        )}
+
+        {fire.ipawsIdentifier && (
+          <p className="mt-4 text-[10px] text-sentinel-500 font-mono break-all">ID: {fire.ipawsIdentifier}</p>
+        )}
+      </>
+    );
+  }
+
   const WARNING_TYPE_COLOR = {
     'Evacuation Order':   '#ef4444',
     'Evacuation Warning': '#f97316',
@@ -1015,7 +1085,7 @@ const FireDetailPanel = memo(function FireDetailPanel() {
              selectedFire.type === 'aqi'             ? 'Air Quality' :
              selectedFire.type === 'weather-alert'   ? 'Weather Alert' :
              selectedFire.type === 'user-report'     ? 'Community Report' :
-             selectedFire.type === 'evacuation-zone'          ? 'Evacuation Zone' :
+             selectedFire.type === 'evacuation-zone'          ? (selectedFire.source === 'ipaws' ? 'IPAWS alert' : 'Evacuation Zone') :
              selectedFire.type === 'reporter-evacuation-zone' ? 'Reporter Evac Zone' :
              selectedFire.type === 'transmission-line'        ? 'Critical Infrastructure' :
              selectedFire.type === 'gas-pipeline'            ? 'Critical Infrastructure' :

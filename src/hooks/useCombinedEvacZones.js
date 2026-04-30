@@ -22,7 +22,12 @@
  *   effectiveDate
  *   expirationDate
  *   externalURL
- *   source       – "hosted" | "prod"
+ *   source       – "hosted" | "prod" | "ipaws"
+ *
+ * IPAWS (optional)
+ * ───────────────
+ * When VITE_IPAWS_ALERTS_URL is set (default in dev: same-origin `/alerts` via Vite proxy),
+ * CAP alerts with polygon/circle geometry are merged in as additional features (source: ipaws).
  *
  * Deduplication
  * ─────────────
@@ -35,8 +40,13 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { fetchCAEvacZones }    from '../api/caEvacZones';
 import { fetchCaEvacuations }  from '../api/caEvacuations';
+import { ipawsAlertsToEvacFeatures } from '../utils/ipawsEvacGeoJSON';
 
 const REFRESH_MS = parseInt(import.meta.env.VITE_REFRESH_INTERVAL || '300000', 10);
+/** In dev, default to Vite proxy → Node poller; in prod set VITE_IPAWS_ALERTS_URL explicitly. */
+const IPAWS_ALERTS_URL = (
+  import.meta.env.VITE_IPAWS_ALERTS_URL ?? (import.meta.env.DEV ? '/alerts' : '')
+).trim();
 const EMPTY_GEOJSON = { type: 'FeatureCollection', features: [] };
 
 // ─── Schema normalisation ─────────────────────────────────────────────────────
@@ -149,6 +159,18 @@ function deduplicateAgainstProd(hostedFeatures, prodFeatures) {
   });
 }
 
+async function fetchIpawsEvacFeatures() {
+  if (!IPAWS_ALERTS_URL) return [];
+  try {
+    const res = await fetch(IPAWS_ALERTS_URL, { headers: { Accept: 'application/json' } });
+    if (!res.ok) return [];
+    const data = await res.json();
+    return ipawsAlertsToEvacFeatures(data.alerts);
+  } catch {
+    return [];
+  }
+}
+
 // ─── Hook ────────────────────────────────────────────────────────────────────
 
 /**
@@ -169,10 +191,10 @@ export function useCombinedEvacZones(enabled = true) {
     setLoading(true);
     setError(null);
 
-    // Fetch both sources concurrently; individual errors are handled inside each fetch fn.
-    const [hosted, prod] = await Promise.all([
+    const [hosted, prod, ipawsFeatures] = await Promise.all([
       fetchCAEvacZones(),
       fetchCaEvacuations(),
+      fetchIpawsEvacFeatures(),
     ]);
 
     if (!mountedRef.current) return;
@@ -185,7 +207,7 @@ export function useCombinedEvacZones(enabled = true) {
 
     const merged = {
       type: 'FeatureCollection',
-      features: [...normProd, ...uniqueHosted],
+      features: [...normProd, ...uniqueHosted, ...ipawsFeatures],
     };
 
     setGeoJSON(merged);
