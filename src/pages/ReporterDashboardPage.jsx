@@ -1195,11 +1195,24 @@ export default function ReporterDashboardPage() {
         internalNotes.trim() ? `\nINTERNAL NOTES:\n${internalNotes}` : null,
       ].filter(Boolean).join('\n');
 
-      await submitFireReport({
+      const created = await submitFireReport({
         title: incidentName.trim(),
         description,
         latitude,
         longitude,
+        userId: user.id,
+      });
+
+      const sourceName = profile?.email?.split('@')[0] || 'Reporter';
+      const initialTimelineBody = [
+        `Initial report: ${incidentName.trim()}`,
+        '',
+        incidentNotes.trim(),
+      ].join('\n');
+      await insertReporterUpdate({
+        incidentId: created.id,
+        content: initialTimelineBody,
+        sourceName,
         userId: user.id,
       });
 

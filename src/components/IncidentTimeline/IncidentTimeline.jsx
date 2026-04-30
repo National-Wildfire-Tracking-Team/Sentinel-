@@ -4,9 +4,9 @@
  * in reverse-chronological order with realtime subscription via Supabase.
  */
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import {
-  MessageSquare, Bot, Send, Pencil, Trash2, Check, X, Loader2, ShieldCheck,
+  MessageSquare, Bot, Send, Pencil, Trash2, Check, X, Loader2,
 } from 'lucide-react';
 import { useIncidentUpdates } from '../../hooks/useIncidentUpdates';
 import { useAuth } from '../../context/AuthContext';
@@ -195,8 +195,22 @@ function EditBox({ update, onSave, onCancel }) {
  * @param {boolean} allowPost    Show the compose box (reporter portal only).
  * @param {string}  dataSource   Fallback source label shown in the automated-only
  *                               notice when there are no updates at all (e.g. "NIFC / IRWIN").
+ * @param {'fed'|'community'} sourceVariant  When "community", do not show the
+ *                               automated-feed notice (reporter-submitted incidents).
+ * @param {string} [legacyInitialSubmission]  If the DB has no rows yet, show this
+ *                               as a synthetic reporter update (older reports submitted
+ *                               before the timeline was seeded).
+ * @param {string} [legacySubmittedAt]       ISO timestamp for the synthetic update
+ *                               (e.g. fire_reports.created_at).
  */
-export default function IncidentTimeline({ incidentId, allowPost = false, dataSource = 'NIFC / IRWIN' }) {
+export default function IncidentTimeline({
+  incidentId,
+  allowPost = false,
+  dataSource = 'NIFC / IRWIN',
+  sourceVariant = 'fed',
+  legacyInitialSubmission = '',
+  legacySubmittedAt = null,
+}) {
   const { updates, loading, error, addUpdate, editUpdate, deleteUpdate } = useIncidentUpdates(incidentId);
   const { user, profile, isAuthenticated, isReporter, isAdmin } = useAuth();
   const [editing, setEditing] = useState(null);
@@ -218,11 +232,28 @@ export default function IncidentTimeline({ incidentId, allowPost = false, dataSo
     await deleteUpdate(updateId);
   };
 
-  if (!incidentId) return null;
+  const legacyTrimmed = (legacyInitialSubmission || '').trim();
+
+  const displayUpdates = useMemo(() => {
+    const synthetic =
+      !loading && !error && updates.length === 0 && legacyTrimmed
+        ? [{
+            id: '__legacy_initial_submission__',
+            incident_id: incidentId,
+            content: legacyTrimmed,
+            source_type: 'reporter',
+            source_name: 'NWTT Reporter',
+            user_id: null,
+            created_at: legacySubmittedAt || new Date(0).toISOString(),
+          }]
+        : [];
+    if (synthetic.length === 0) return updates;
+    return [...updates, ...synthetic];
+  }, [loading, error, updates, legacyTrimmed, legacySubmittedAt, incidentId]);
 
   // Determine whether any human reporter has posted to this incident.
-  const hasReporterUpdates = updates.some((u) => u.source_type === 'reporter');
-  const automatedOnly = !loading && !error && !hasReporterUpdates;
+  const hasReporterUpdates = displayUpdates.some((u) => u.source_type === 'reporter');
+  const automatedOnly = !loading && !error && !hasReporterUpdates && sourceVariant !== 'community';
 
   // Build a readable source label from the automated update records themselves,
   // falling back to the dataSource prop when there are no updates yet.
@@ -232,6 +263,8 @@ export default function IncidentTimeline({ incidentId, allowPost = false, dataSo
     )];
     return names.length > 0 ? names.join(', ') : dataSource;
   })();
+
+  if (!incidentId) return null;
 
   return (
     <div className="mt-4">
@@ -274,7 +307,7 @@ export default function IncidentTimeline({ incidentId, allowPost = false, dataSo
       )}
 
       {/* Empty state (no updates at all) */}
-      {!loading && !error && updates.length === 0 && (
+      {!loading && !error && displayUpdates.length === 0 && (
         <div className="text-center py-4">
           <MessageSquare size={18} className="mx-auto text-sentinel-600 mb-2" />
           <p className="text-xs text-sentinel-500">No updates yet.</p>
@@ -287,9 +320,9 @@ export default function IncidentTimeline({ incidentId, allowPost = false, dataSo
       )}
 
       {/* Update feed */}
-      {!loading && updates.length > 0 && (
+      {!loading && displayUpdates.length > 0 && (
         <div>
-          {updates.map((u) =>
+          {displayUpdates.map((u) =>
             editing?.id === u.id ? (
               <EditBox
                 key={u.id}

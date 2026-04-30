@@ -502,12 +502,24 @@ function parseLatestContainment(description) {
   return null;
 }
 
+/** Text after "INCIDENT NOTES:" in a community fire_reports description (initial submit). */
+function extractIncidentNotesFromDescription(description) {
+  if (!description || typeof description !== 'string') return '';
+  const m = description.match(/\nINCIDENT NOTES:\n([\s\S]*)$/);
+  if (!m) return '';
+  let body = m[1].trim();
+  const internalIdx = body.search(/\nINTERNAL NOTES:\n/);
+  if (internalIdx >= 0) body = body.slice(0, internalIdx).trim();
+  return body;
+}
+
 function UserReportDetail({ fire }) {
   const [tab, setTab] = useState('updates');
 
   const acres = parseLatestAcreage(fire.description);
   const containment = parseLatestContainment(fire.description) ?? 0;
   const containColor = containmentToColor(containment);
+  const incidentNotesPreview = extractIncidentNotesFromDescription(fire.description);
 
   // Extract a clean location from the structured description if present
   const locationMatch = fire.description?.match(/^ADDRESS:\s*(.+)$/m);
@@ -585,10 +597,26 @@ function UserReportDetail({ fire }) {
         ))}
       </div>
 
-      {tab === 'updates' && <IncidentTimeline incidentId={fire.id} />}
+      {tab === 'updates' && (
+        <IncidentTimeline
+          incidentId={fire.id}
+          dataSource="NWTT reporter"
+          sourceVariant="community"
+          legacyInitialSubmission={incidentNotesPreview}
+          legacySubmittedAt={fire.created_at}
+        />
+      )}
 
       {tab === 'info' && (
         <div className="space-y-2 text-xs text-sentinel-400">
+          {incidentNotesPreview && (
+            <div>
+              <p className="text-[10px] font-bold text-sentinel-500 uppercase tracking-widest mb-1.5">
+                Incident notes
+              </p>
+              <p className="text-sentinel-200 leading-relaxed whitespace-pre-wrap">{incidentNotesPreview}</p>
+            </div>
+          )}
           {locationLine && (
             <div className="flex justify-between gap-2">
               <span className="shrink-0">Address</span>
