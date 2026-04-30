@@ -84,3 +84,31 @@ src/
 npm run build   # outputs to dist/
 npm run preview # preview production build
 ```
+
+## Fire weather risk API (Open-Meteo)
+
+Small Node.js service under `server/` that pulls hourly forecast data from [Open-Meteo](https://open-meteo.com/) (no API key), computes a 0–100 fire risk score per hour, and returns JSON suitable for Mapbox or other web clients. Responses include `Access-Control-Allow-Origin: *` for browser use.
+
+### Run locally
+
+```bash
+npm run fire-weather-api
+```
+
+Default port is **3847**. Override with `PORT`, and optional cache TTL with `FIRE_WEATHER_CACHE_TTL_MS` (default 5 minutes).
+
+### Endpoints
+
+| Path | Description |
+|------|-------------|
+| `GET /api/fire-weather?latitude={lat}&longitude={lon}` | Full hourly series with scores |
+| `GET /api/fire-weather/max-24h?latitude={lat}&longitude={lon}` | Single hour with highest risk in the next 24 hours |
+| `GET /health` | Liveness check |
+
+`lat` / `lon` are accepted as aliases for `latitude` / `longitude`.
+
+### Example request
+
+```bash
+curl "http://127.0.0.1:3847/api/fire-weather?latitude=37.7749&longitude=-122.4194"
+```
