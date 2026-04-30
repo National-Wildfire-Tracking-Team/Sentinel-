@@ -91,10 +91,10 @@ const FireWeatherOutlookSelector = memo(function FireWeatherOutlookSelector({
         className={`
           px-2 py-1 rounded-lg text-xs font-semibold transition-all
           ${!supported
-            ? 'text-sentinel-700 cursor-not-allowed'
+            ? 'text-zinc-700 cursor-not-allowed'
             : isActive
               ? `${colors.bg} text-white shadow-sm ring-1 ${colors.ring}`
-              : 'text-sentinel-300 hover:text-white hover:bg-sentinel-700'
+              : 'text-zinc-200 hover:text-white hover:bg-zinc-800'
           }
         `}
         aria-pressed={isActive}
@@ -106,10 +106,10 @@ const FireWeatherOutlookSelector = memo(function FireWeatherOutlookSelector({
   }
 
   const card = (
-    <div className="bg-sentinel-900/96 backdrop-blur-md border border-sentinel-700/80 rounded-2xl shadow-2xl overflow-hidden w-full max-w-full">
+    <div className="bg-black border border-zinc-700 rounded-2xl shadow-2xl shadow-black/60 overflow-hidden w-full max-w-full ring-1 ring-white/10">
 
         {/* ── Type tab bar ── */}
-        <div className="flex items-stretch border-b border-sentinel-700/60">
+        <div className="flex items-stretch border-b border-zinc-800">
           {FIRE_WX_OUTLOOK_TYPES.map(type => {
             const isActive = outlookType === type.key;
             const c = TYPE_COLORS[type.key];
@@ -123,8 +123,8 @@ const FireWeatherOutlookSelector = memo(function FireWeatherOutlookSelector({
                   flex-1 flex flex-col items-center gap-0.5 px-4 py-2 text-[10px] font-bold
                   uppercase tracking-wide transition-all relative
                   ${isActive
-                    ? `${c.text} bg-sentinel-800/70`
-                    : 'text-sentinel-400 hover:text-sentinel-100 hover:bg-sentinel-800/40'
+                    ? `${c.text} bg-zinc-900/90`
+                    : 'text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900/70'
                   }
                 `}
                 aria-pressed={isActive}
@@ -132,7 +132,7 @@ const FireWeatherOutlookSelector = memo(function FireWeatherOutlookSelector({
                 {isActive && (
                   <span className={`absolute bottom-0 left-2 right-2 h-0.5 rounded-full ${c.bg} opacity-90`} />
                 )}
-                <span className={isActive ? c.text : 'text-sentinel-500'}>{TYPE_ICONS[type.key]}</span>
+                <span className={isActive ? c.text : 'text-zinc-500'}>{TYPE_ICONS[type.key]}</span>
                 <span className="leading-none">{type.label}</span>
               </button>
             );
@@ -142,7 +142,7 @@ const FireWeatherOutlookSelector = memo(function FireWeatherOutlookSelector({
         {/* ── Day pills ── */}
         <div className="px-3 pt-2 pb-1">
           <div className="flex items-center gap-1 mb-1">
-            <span className="text-[10px] font-semibold text-sentinel-400 uppercase tracking-widest shrink-0 w-8">Day</span>
+            <span className="text-[10px] font-semibold text-zinc-500 uppercase tracking-widest shrink-0 w-8">Day</span>
             <div className="flex items-center gap-1">
               {daysRow1.map(({ key, label }) => (
                 <DayButton key={key} dayKey={key} label={label.replace('Day ', '')} />
@@ -161,16 +161,16 @@ const FireWeatherOutlookSelector = memo(function FireWeatherOutlookSelector({
 
         {/* ── Status row ── */}
         <div className="flex items-center justify-between px-3 pb-2">
-          <span className="text-[10px] text-sentinel-500 font-medium">
+          <span className="text-[10px] text-zinc-400 font-medium">
             SPC Fire Weather Outlook
           </span>
           {loading ? (
-            <div className="flex items-center gap-1.5 text-[10px] text-sentinel-400">
+            <div className="flex items-center gap-1.5 text-[10px] text-zinc-400">
               <Spinner />
               <span className="hidden sm:inline">Loading…</span>
             </div>
           ) : validLabel ? (
-            <span className="text-[10px] text-sentinel-500 whitespace-nowrap hidden sm:block" title="SPC issue time (UTC)">
+            <span className="text-[10px] text-zinc-400 whitespace-nowrap hidden sm:block" title="SPC issue time (UTC)">
               {validLabel}
             </span>
           ) : null}

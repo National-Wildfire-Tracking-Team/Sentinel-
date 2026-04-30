@@ -71,12 +71,16 @@ const MAP_STYLES = {
 /**
  * Tooltip shown on hover
  */
+const OUTLOOK_LAYER_IDS = new Set(['spc-outlook-fill', 'drought-outlook-fill', 'fire-weather-outlook-fill']);
+
 function HoverTooltip({ feature, lngLat }) {
   if (!feature || !lngLat) return null;
   const p = feature.properties;
+  const layerId = feature.layer.id;
+  const isOutlookPopup = OUTLOOK_LAYER_IDS.has(layerId);
 
   let content = null;
-  switch (feature.layer.id) {
+  switch (layerId) {
     case 'fire-hotspots-circle': {
       const detections = num(p.detection_count) || 1;
       const isConsolidated = detections > 1;
@@ -214,11 +218,11 @@ function HoverTooltip({ feature, lngLat }) {
           <div className="font-semibold text-yellow-300">
             SPC Day {dayNum} · {typeLabel}
           </div>
-          <div className="text-gray-300 text-xs mt-0.5">
+          <div className="text-zinc-200 text-xs mt-0.5">
             {p.outlookLabel || p.riskCategory || (p.probPct != null ? `${p.probPct}% probability` : 'Outlook')}
           </div>
           {validStr && (
-            <div className="text-gray-400 text-xs mt-0.5">Valid: {validStr}</div>
+            <div className="text-zinc-400 text-xs mt-0.5">Valid: {validStr}</div>
           )}
         </>
       );
@@ -373,8 +377,8 @@ function HoverTooltip({ feature, lngLat }) {
         <>
           <div className="font-semibold text-amber-400">CPC Drought Outlook</div>
           <div className="text-white text-xs mt-0.5 font-medium">{outlookLabel}</div>
-          {p.target && <div className="text-gray-300 text-xs">Forecast: {p.target}</div>}
-          {p.fcst_date && <div className="text-gray-400 text-xs">Issued: {p.fcst_date}</div>}
+          {p.target && <div className="text-zinc-300 text-xs">Forecast: {p.target}</div>}
+          {p.fcst_date && <div className="text-zinc-400 text-xs">Issued: {p.fcst_date}</div>}
         </>
       );
       break;
@@ -525,6 +529,10 @@ function HoverTooltip({ feature, lngLat }) {
       return null;
   }
 
+  const popupShell = isOutlookPopup
+    ? 'bg-black border border-zinc-700 rounded-lg p-3 shadow-2xl shadow-black/70 text-sm min-w-[160px] ring-1 ring-white/10'
+    : 'bg-sentinel-800 border border-sentinel-600 rounded-lg p-2.5 shadow-2xl text-sm min-w-[140px]';
+
   return (
     <Popup
       longitude={lngLat.lng}
@@ -535,7 +543,7 @@ function HoverTooltip({ feature, lngLat }) {
       offset={[0, -8]}
       className="sentinel-popup"
     >
-      <div className="bg-sentinel-800 border border-sentinel-600 rounded-lg p-2.5 shadow-2xl text-sm min-w-[140px]">
+      <div className={popupShell}>
         {content}
       </div>
     </Popup>
