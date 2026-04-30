@@ -91,37 +91,56 @@ const Sidebar = memo(function Sidebar({
           </Link>
         </div>
 
-        {/* Map mode tabs */}
-        <div className="px-3 pt-1 pb-2 border-b border-sentinel-700/70 shrink-0">
-          <div className="inline-flex w-full rounded-xl border border-sentinel-700 bg-sentinel-800 p-1 gap-1">
+        {/* Map mode tabs — matches layer panel accent (fire vs sky) */}
+        <div className="px-3 pt-1 pb-2.5 border-b border-sentinel-700/70 shrink-0">
+          <div
+            className="relative grid w-full grid-cols-2 gap-0 rounded-xl border border-sentinel-600 bg-sentinel-800/90 p-1 shadow-inner"
+            role="tablist"
+            aria-label="Map mode"
+          >
             <button
               type="button"
+              role="tab"
               onClick={() => onTabChange?.('wildfire')}
-              className={`flex-1 inline-flex items-center justify-center gap-1.5 px-2 py-1.5 text-xs font-semibold rounded-lg transition-colors ${
+              className={`relative z-10 flex items-center justify-center gap-1.5 px-2 py-2 text-xs font-semibold rounded-lg transition-all duration-200 ${
                 activeMapTab === 'wildfire'
-                  ? 'bg-fire-600 text-white'
-                  : 'text-sentinel-200 hover:bg-sentinel-700'
+                  ? 'text-white shadow-md shadow-black/25'
+                  : 'text-sentinel-400 hover:text-sentinel-200'
               }`}
               aria-pressed={activeMapTab === 'wildfire'}
+              aria-selected={activeMapTab === 'wildfire'}
             >
-              <Flame size={13} />
+              {activeMapTab === 'wildfire' && (
+                <span
+                  className="absolute inset-0 rounded-lg bg-gradient-to-b from-fire-500 to-fire-600 border border-fire-400/40 -z-10"
+                  aria-hidden
+                />
+              )}
+              <Flame size={14} className={activeMapTab === 'wildfire' ? 'text-white' : 'opacity-80'} />
               Wildfire
             </button>
 
             <button
               type="button"
+              role="tab"
               onClick={() => onTabChange?.('weather')}
-              className={`flex-1 inline-flex items-center justify-center gap-1.5 px-2 py-1.5 text-xs font-semibold rounded-lg transition-colors ${
+              className={`relative z-10 flex items-center justify-center gap-1.5 px-2 py-2 text-xs font-semibold rounded-lg transition-all duration-200 ${
                 activeMapTab === 'weather'
-                  ? 'bg-sky-600 text-white'
-                  : 'text-sentinel-200 hover:bg-sentinel-700'
+                  ? 'text-white shadow-md shadow-black/25'
+                  : 'text-sentinel-400 hover:text-sentinel-200'
               }`}
               aria-pressed={activeMapTab === 'weather'}
+              aria-selected={activeMapTab === 'weather'}
             >
-              <CloudSun size={13} />
+              {activeMapTab === 'weather' && (
+                <span
+                  className="absolute inset-0 rounded-lg bg-gradient-to-b from-sky-500 to-sky-600 border border-sky-400/40 -z-10"
+                  aria-hidden
+                />
+              )}
+              <CloudSun size={14} className={activeMapTab === 'weather' ? 'text-white' : 'opacity-80'} />
               Weather
             </button>
-
           </div>
         </div>
 
