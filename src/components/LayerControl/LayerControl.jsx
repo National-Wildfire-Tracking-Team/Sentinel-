@@ -1,70 +1,133 @@
 /**
  * LayerControl.jsx
  * Floating right panel to toggle all map data layers on/off.
- * Collapsible on mobile.
+ * Collapsible on mobile. Layers are grouped by the active map tab (Wildfire vs Weather).
  */
 
-import { useState, memo, useMemo } from 'react';
+import { useState, memo, useMemo, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  Layers, Flame, MapPin, Wind, CloudRain, CloudLightning, Eye, ChevronDown, ChevronRight, Radar, AlertTriangle, Ruler, Hexagon, PlaneTakeoff, Satellite, Map as MapIcon, Thermometer, Activity, Droplets, Zap, Lock,
+  Layers, Flame, MapPin, Wind, CloudRain, CloudLightning, Eye, ChevronDown, ChevronRight, Radar, AlertTriangle, Ruler, Hexagon, PlaneTakeoff, Satellite, Map as MapIcon, Thermometer, Activity, Droplets, Zap, Lock, Users,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 
-const LAYER_GROUPS = [
-  {
-    label: 'Fire Data',
-    layers: [
-      { key: 'fireHotspots',      label: 'Fire Hotspots',       sublabel: 'NASA FIRMS satellite',   icon: Flame,        color: '#ff4500' },
-      { key: 'firePerimeters',    label: 'Fire Perimeters',     sublabel: 'NIFC WFIGS',             icon: MapPin,       color: '#ff6600' },
-      { key: 'incidentLocations', label: 'Incident Locations',  sublabel: 'WFIGS · NWTT verified',  icon: Flame,        color: '#f59e0b' },
-      { key: 'evacZones',         label: 'Evacuation Zones',    sublabel: 'Cal OES Hosted + PROD',  icon: AlertTriangle, color: '#ef4444' },
-      { key: 'rawsStations',      label: 'RAWS Stations',       sublabel: 'Fire weather stations',  icon: Thermometer,  color: '#f97316' },
-      { key: 'airNowMonitors',    label: 'Air Quality Monitors', sublabel: 'EPA AirNow sensor network', icon: Activity,  color: '#38bdf8' },
-      { key: 'ndgdSmokeForecast', label: 'Smoke Concentration', sublabel: 'NOAA NDGD hourly (48h)', icon: CloudRain, color: '#eab308' },
-      { key: 'droughtOutlook',      label: 'Drought Outlook',         sublabel: 'NOAA CPC Monthly Outlook',      icon: Droplets,  color: '#f59e0b' },
-      { key: 'fireWeatherOutlooks', label: 'Fire Weather Outlooks',    sublabel: 'SPC Day 1-8 fire weather',      icon: Zap,       color: '#ff6b35' },
-    ],
-  },
-  {
-    label: 'Air Quality',
-    hidden: true,
-    layers: [
-      { key: 'aqi',   label: 'AQI Overlay',    sublabel: 'EPA AirNow + heatmap',   icon: Wind,    color: '#3b82f6' },
-      { key: 'smoke', label: 'Smoke Forecast', sublabel: 'NOAA HRRR',   icon: CloudRain, color: '#94a3b8' },
-    ],
-  },
-  {
-    label: 'Weather',
-    layers: [
-      { key: 'weatherAlerts',         label: 'NWS & mesoscale',  sublabel: 'NWS active alerts + SPC MDs',           icon: Wind,          color: '#ef4444' },
-      { key: 'stormReports',         label: 'Storm reports',      sublabel: 'NWS LSR · last 24 hours',            icon: CloudLightning, color: '#7c3aed' },
-      { key: 'spcWeatherOutlooks',    label: 'SPC outlooks',        sublabel: 'Convective (Day 1-3) + fire weather (Day 1-8)', icon: AlertTriangle, color: '#f59e0b' },
-      { key: 'rawsStations',         label: 'RAWS Stations',        sublabel: 'Fire weather stations',              icon: Thermometer,   color: '#f97316' },
-    ],
-  },
-  {
-    label: 'Satellite',
-    layers: [
-      { key: 'goesEast',   label: 'GOES East Imagery',        sublabel: 'NOAA GOES East · visible',                            icon: Eye, color: '#8b5cf6' },
-      { key: 'goesWest',   label: 'GOES West Imagery',        sublabel: 'NOAA GOES West · visible',                            icon: Eye, color: '#7c3aed' },
-    ],
-  },
-  {
-    label: 'Radar',
-    layers: [
-      { key: 'radar', label: 'NEXRAD Reflectivity', sublabel: 'NEXRAD Level 2 composite', icon: Radar, color: '#10b981' },
-    ],
-  },
-  {
-    label: 'Aviation',
-    hidden: true,
-    showAlways: true,
-    layers: [
-      { key: 'flights', label: 'Live Flight Tracking', sublabel: 'OpenSky Network ADS-B', icon: PlaneTakeoff, color: '#ff5a00' },
-    ],
-  },
-];
+/** Layer row definitions — grouped under tab-specific sections below */
+const LAYER_DEFS = {
+  fireHotspots:      { label: 'Fire Hotspots',       sublabel: 'NASA FIRMS satellite',          icon: Flame,        color: '#ff4500' },
+  firePerimeters:    { label: 'Fire Perimeters',     sublabel: 'NIFC WFIGS',                  icon: MapPin,       color: '#ff6600' },
+  incidentLocations: { label: 'Incident Locations',  sublabel: 'WFIGS · NWTT verified',       icon: Flame,        color: '#f59e0b' },
+  evacZones:         { label: 'Evacuation Zones',    sublabel: 'Cal OES Hosted + PROD',       icon: AlertTriangle, color: '#ef4444' },
+  reporterEvacZones: { label: 'Reporter Evac Zones', sublabel: 'Field-reported boundaries',   icon: Users,        color: '#f97316' },
+  ndgdSmokeForecast: { label: 'Smoke Concentration', sublabel: 'NOAA NDGD hourly (48h)',      icon: CloudRain,    color: '#eab308' },
+  droughtOutlook:    { label: 'Drought Outlook',     sublabel: 'NOAA CPC Monthly Outlook',    icon: Droplets,     color: '#f59e0b' },
+  fireWeatherOutlooks: { label: 'Fire Weather Outlooks', sublabel: 'SPC Day 1-8 fire weather', icon: Zap,          color: '#ff6b35' },
+  rawsStations:      { label: 'RAWS Stations',       sublabel: 'Fire weather stations',       icon: Thermometer,  color: '#f97316' },
+  airNowMonitors:    { label: 'Air Quality Monitors', sublabel: 'EPA AirNow sensor network',  icon: Activity,     color: '#38bdf8' },
+  weatherAlerts:     { label: 'NWS & mesoscale',     sublabel: 'NWS active alerts + SPC MDs', icon: Wind,         color: '#ef4444' },
+  stormReports:      { label: 'Storm reports',       sublabel: 'NWS LSR · last 24 hours',     icon: CloudLightning, color: '#7c3aed' },
+  spcWeatherOutlooks: { label: 'SPC outlooks',     sublabel: 'Convective + fire weather',    icon: AlertTriangle, color: '#f59e0b' },
+  goesEast:          { label: 'GOES East Imagery',   sublabel: 'NOAA GOES East · visible',    icon: Eye,           color: '#8b5cf6' },
+  goesWest:          { label: 'GOES West Imagery',   sublabel: 'NOAA GOES West · visible',    icon: Eye,           color: '#7c3aed' },
+  radar:             { label: 'NEXRAD Reflectivity', sublabel: 'NEXRAD Level 2 composite',     icon: Radar,        color: '#10b981' },
+  aqi:               { label: 'AQI Overlay',         sublabel: 'EPA AirNow + heatmap',        icon: Wind,         color: '#3b82f6' },
+  smoke:             { label: 'Smoke Forecast',      sublabel: 'NOAA HRRR',                   icon: CloudRain,    color: '#94a3b8' },
+  flights:           { label: 'Live Flight Tracking', sublabel: 'OpenSky Network ADS-B',      icon: PlaneTakeoff, color: '#ff5a00' },
+};
+
+/**
+ * Sections shown per map tab. Order matches visual stack top → bottom.
+ */
+const TAB_SECTIONS = {
+  wildfire: [
+    {
+      id: 'wf-activity',
+      title: 'Fire activity',
+      subtitle: 'Perimeters, hotspots, and incidents',
+      groups: [
+        {
+          label: 'Core layers',
+          layers: ['fireHotspots', 'firePerimeters', 'incidentLocations'],
+        },
+      ],
+    },
+    {
+      id: 'wf-evac',
+      title: 'Evacuation & outlooks',
+      subtitle: 'Zones, smoke, and fire-weather products',
+      groups: [
+        {
+          label: 'Evacuation',
+          layers: ['evacZones', 'reporterEvacZones'],
+        },
+        {
+          label: 'Outlooks & smoke',
+          layers: ['ndgdSmokeForecast', 'droughtOutlook', 'fireWeatherOutlooks'],
+        },
+      ],
+    },
+    {
+      id: 'wf-monitor',
+      title: 'Monitoring',
+      subtitle: 'Stations and sensors',
+      groups: [
+        {
+          label: 'Stations',
+          layers: ['rawsStations', 'airNowMonitors'],
+        },
+      ],
+    },
+  ],
+  weather: [
+    {
+      id: 'wx-hazards',
+      title: 'Weather hazards',
+      subtitle: 'Alerts, reports, and outlooks',
+      groups: [
+        {
+          label: 'Active weather',
+          layers: ['weatherAlerts', 'stormReports', 'spcWeatherOutlooks'],
+        },
+        {
+          label: 'Stations',
+          layers: ['rawsStations'],
+        },
+      ],
+    },
+    {
+      id: 'wx-air',
+      title: 'Air quality',
+      subtitle: 'Forecast and observations',
+      groups: [
+        {
+          label: 'Overlays',
+          layers: ['aqi', 'smoke'],
+        },
+      ],
+    },
+    {
+      id: 'wx-imagery',
+      title: 'Radar & satellite',
+      subtitle: 'Precipitation and cloud imagery',
+      groups: [
+        {
+          label: 'Imagery',
+          layers: ['radar', 'goesEast', 'goesWest'],
+        },
+      ],
+    },
+    {
+      id: 'wx-aviation',
+      title: 'Aviation',
+      subtitle: 'ADS-B traffic',
+      groups: [
+        {
+          label: 'Traffic',
+          layers: ['flights'],
+        },
+      ],
+    },
+  ],
+};
 
 function LayerToggle({ layerKey, label, sublabel, icon: Icon, color, locked }) {
   const { layers, toggleLayer } = useApp();
@@ -72,7 +135,7 @@ function LayerToggle({ layerKey, label, sublabel, icon: Icon, color, locked }) {
 
   if (locked) {
     return (
-      <div className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg opacity-70">
+      <div className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg opacity-70">
         <div
           className="shrink-0 w-7 h-7 rounded-md flex items-center justify-center border border-sentinel-600"
         >
@@ -99,29 +162,28 @@ function LayerToggle({ layerKey, label, sublabel, icon: Icon, color, locked }) {
     <button
       type="button"
       onClick={() => toggleLayer(layerKey)}
-      className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg
-                      hover:bg-sentinel-700/50 transition-colors group text-left"
+      className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg
+                      hover:bg-sentinel-800/80 transition-colors group text-left"
       aria-pressed={active}
       aria-label={`Toggle ${label}`}
     >
-      {/* Color swatch / icon */}
       <div
         className="shrink-0 w-7 h-7 rounded-md flex items-center justify-center"
-        style={{ backgroundColor: active ? `${color}25` : 'transparent',
-                 border: `1px solid ${active ? color + '60' : '#2d3540'}` }}
+        style={{
+          backgroundColor: active ? `${color}22` : 'transparent',
+          border: `1px solid ${active ? color + '55' : '#334155'}`,
+        }}
       >
-        <Icon size={14} style={{ color: active ? color : '#5a6a7a' }} />
+        <Icon size={14} style={{ color: active ? color : '#64748b' }} />
       </div>
 
-      {/* Labels */}
       <div className="flex-1 min-w-0">
-        <div className={`text-sm font-medium truncate transition-colors ${active ? 'text-white' : 'text-sentinel-200'}`}>
+        <div className={`text-sm font-medium truncate transition-colors ${active ? 'text-white' : 'text-sentinel-100'}`}>
           {label}
         </div>
-        <div className="text-[10px] text-sentinel-300 truncate">{sublabel}</div>
+        <div className="text-[10px] text-sentinel-400 leading-snug line-clamp-2">{sublabel}</div>
       </div>
 
-      {/* Toggle switch */}
       <div
         className={`shrink-0 relative w-9 h-5 rounded-full transition-colors duration-200
           ${active ? 'bg-fire-600' : 'bg-sentinel-600'}`}
@@ -150,60 +212,79 @@ const LayerControl = memo(function LayerControl({
   const { layerPanelOpen, toggleLayerPanel } = useApp();
   const [collapsed, setCollapsed] = useState({});
 
-  const layerGroups = useMemo(() => {
-    const infraLayers = [
+  const infraLayers = useMemo(() => [
+    {
+      key: 'criticalInfrastructure',
+      label: 'Critical Infrastructure',
+      sublabel: 'CMRA power lines · EIA natural gas pipelines',
+      icon: Zap,
+      color: '#fbbf24',
+      locked: !infrastructureLayersEntitled,
+    },
+  ], [infrastructureLayersEntitled]);
+
+  const sections = useMemo(() => {
+    const base = TAB_SECTIONS[activeMapTab === 'weather' ? 'weather' : 'wildfire'] || TAB_SECTIONS.wildfire;
+    if (activeMapTab !== 'wildfire') {
+      return base;
+    }
+    return [
+      ...base,
       {
-        key: 'criticalInfrastructure',
-        label: 'Critical Infrastructure',
-        sublabel: 'CMRA power lines · EIA natural gas pipelines',
-        icon: Zap,
-        color: '#fbbf24',
-        locked: !infrastructureLayersEntitled,
+        id: 'wf-infra',
+        title: 'Infrastructure',
+        subtitle: 'Energy corridors (Pro)',
+        groups: [{ label: 'Layers', layers: infraLayers.map((l) => l.key) }],
+        infraLayers,
       },
     ];
-    return [
-      ...LAYER_GROUPS,
-      { label: 'Infrastructure', showOnWildfire: true, layers: infraLayers },
-    ];
-  }, [infrastructureLayersEntitled]);
+  }, [activeMapTab, infraLayers]);
 
-  const visibleGroups = layerGroups.filter((group) => {
-    if (group.hidden) return false;
-    if (group.showAlways) return true;
-    if (activeMapTab === 'wildfire') return group.label === 'Fire Data' || group.showOnWildfire;
-    return group.label !== 'Fire Data';
-  });
+  // When switching Wildfire / Weather, reset accordion and expand the first section
+  useEffect(() => {
+    const firstId = activeMapTab === 'weather' ? 'wx-hazards' : 'wf-activity';
+    setCollapsed({ [firstId]: false });
+  }, [activeMapTab]);
 
-  const toggleGroup = (label) => setCollapsed(c => ({ ...c, [label]: !c[label] }));
+  const toggleGroup = (key) => setCollapsed((c) => ({ ...c, [key]: !c[key] }));
+
+  const tabAccent =
+    activeMapTab === 'weather'
+      ? 'from-sky-600/30 to-transparent'
+      : 'from-fire-600/25 to-transparent';
 
   return (
     <div className="absolute top-4 right-4 z-20 flex flex-col items-end gap-2">
-      {/* Toggle button */}
       <button
         onClick={toggleLayerPanel}
-        className="flex items-center gap-2 px-3 py-2 bg-sentinel-800
-                   border border-sentinel-700 rounded-xl shadow-xl
+        className="flex items-center gap-2 px-3 py-2 bg-sentinel-800/95 backdrop-blur-sm
+                   border border-sentinel-600 rounded-xl shadow-xl
                    text-white text-sm font-medium
-                   hover:bg-sentinel-700 transition-colors"
+                   hover:bg-sentinel-700 hover:border-sentinel-500 transition-colors"
         aria-label="Toggle layer control"
       >
         <Layers size={15} />
         <span className="hidden sm:inline">Layers</span>
       </button>
 
-      {/* Layer panel */}
       {layerPanelOpen && (
-        <div className="w-56 bg-sentinel-900 border border-sentinel-700
-                        rounded-xl shadow-2xl overflow-hidden animate-fade-in">
-          {/* Header */}
-          <div className="px-3 pt-2 pb-1.5 border-b border-sentinel-700">
-            {/* Row 1: label + map type toggle */}
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-sentinel-100 uppercase tracking-widest">
-                Map Layers
-              </span>
-              {/* Map type toggle */}
-              <div className="flex items-center bg-sentinel-800 border border-sentinel-600 rounded-lg p-0.5">
+        <div
+          className="w-[17.5rem] sm:w-72 bg-sentinel-900/98 backdrop-blur-md border border-sentinel-600
+                        rounded-xl shadow-2xl overflow-hidden animate-fade-in ring-1 ring-black/20"
+        >
+          <div className={`px-3 pt-3 pb-2 border-b border-sentinel-700/80 bg-gradient-to-b ${tabAccent}`}>
+            <div className="flex items-center justify-between gap-2">
+              <div className="min-w-0">
+                <span className="text-[11px] font-bold text-sentinel-100 uppercase tracking-wider">
+                  Map layers
+                </span>
+                <p className="text-[10px] text-sentinel-400 mt-0.5 truncate">
+                  {activeMapTab === 'weather'
+                    ? 'Weather, radar, and air quality'
+                    : 'Wildfire activity and evacuation data'}
+                </p>
+              </div>
+              <div className="flex items-center shrink-0 bg-sentinel-800/90 border border-sentinel-600 rounded-lg p-0.5">
                 <button
                   type="button"
                   onClick={() => onMapTypeChange?.('satellite')}
@@ -232,10 +313,11 @@ const LayerControl = memo(function LayerControl({
                 </button>
               </div>
             </div>
-            {/* Row 2: measurement tools pushed right */}
-            <div className="flex items-center justify-end gap-1 mt-1.5">
+
+            <div className="flex items-center justify-end gap-1 mt-2">
               <div className="relative group">
                 <button
+                  type="button"
                   onClick={() => (measureActive && measureMode === 'distance') ? onMeasureClose?.() : onMeasureActivate?.('distance')}
                   className={`w-7 h-7 flex items-center justify-center rounded-md transition-all ${
                     measureActive && measureMode === 'distance'
@@ -251,6 +333,7 @@ const LayerControl = memo(function LayerControl({
               </div>
               <div className="relative group">
                 <button
+                  type="button"
                   onClick={() => (measureActive && measureMode === 'polygon') ? onMeasureClose?.() : onMeasureActivate?.('polygon')}
                   className={`w-7 h-7 flex items-center justify-center rounded-md transition-all ${
                     measureActive && measureMode === 'polygon'
@@ -264,35 +347,77 @@ const LayerControl = memo(function LayerControl({
                   Area
                 </span>
               </div>
-
             </div>
           </div>
 
-          {/* Layer groups */}
-          <div className="py-1 max-h-[60vh] overflow-y-auto">
-            {visibleGroups.map(group => (
-              <div key={group.label}>
-                {/* Group header */}
-                <button
-                  onClick={() => toggleGroup(group.label)}
-                  className="w-full flex items-center gap-2 px-3 py-1.5
-                             text-[10px] font-bold text-sentinel-300 uppercase tracking-widest
-                             hover:text-white transition-colors"
-                >
-                  {collapsed[group.label]
-                    ? <ChevronRight size={10} />
-                    : <ChevronDown size={10} />
-                  }
-                  {group.label}
-                </button>
+          <div className="py-2 max-h-[min(60vh,28rem)] overflow-y-auto">
+            {sections.map((section) => {
+              const sectionKey = section.id;
+              const isSectionCollapsed = collapsed[sectionKey];
 
-                {!collapsed[group.label] && group.layers
-                  .filter(layer => !layer.wildfireOnly || activeMapTab === 'wildfire')
-                  .map(layer => (
-                    <LayerToggle key={layer.key} layerKey={layer.key} {...layer} locked={layer.locked} />
-                  ))}
-              </div>
-            ))}
+              return (
+                <div key={sectionKey} className="mb-1 last:mb-0 px-2">
+                  <button
+                    type="button"
+                    onClick={() => toggleGroup(sectionKey)}
+                    className="w-full flex items-start gap-2 px-1.5 py-2 rounded-lg hover:bg-sentinel-800/50 transition-colors text-left"
+                  >
+                    {isSectionCollapsed ? (
+                      <ChevronRight size={14} className="shrink-0 text-sentinel-500 mt-0.5" />
+                    ) : (
+                      <ChevronDown size={14} className="shrink-0 text-sentinel-500 mt-0.5" />
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <div className="text-xs font-semibold text-white leading-tight">{section.title}</div>
+                      <div className="text-[10px] text-sentinel-500 mt-0.5 leading-snug">{section.subtitle}</div>
+                    </div>
+                  </button>
+
+                  {!isSectionCollapsed && (
+                    <div className="pl-1 pb-2 space-y-3">
+                      {section.groups.map((group) => (
+                        <div key={`${sectionKey}-${group.label}`}>
+                          <div className="px-2 pb-1.5 text-[10px] font-semibold uppercase tracking-wider text-sentinel-500">
+                            {group.label}
+                          </div>
+                          <div className="rounded-lg bg-sentinel-800/40 border border-sentinel-700/50 divide-y divide-sentinel-700/40 overflow-hidden">
+                            {group.layers.map((layerRef) => {
+                              if (section.infraLayers) {
+                                const layer = section.infraLayers.find((l) => l.key === layerRef);
+                                if (!layer) return null;
+                                return (
+                                  <LayerToggle
+                                    key={layer.key}
+                                    layerKey={layer.key}
+                                    label={layer.label}
+                                    sublabel={layer.sublabel}
+                                    icon={layer.icon}
+                                    color={layer.color}
+                                    locked={layer.locked}
+                                  />
+                                );
+                              }
+                              const def = LAYER_DEFS[layerRef];
+                              if (!def) return null;
+                              return (
+                                <LayerToggle
+                                  key={layerRef}
+                                  layerKey={layerRef}
+                                  label={def.label}
+                                  sublabel={def.sublabel}
+                                  icon={def.icon}
+                                  color={def.color}
+                                />
+                              );
+                            })}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
