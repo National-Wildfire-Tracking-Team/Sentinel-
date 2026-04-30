@@ -22,5 +22,14 @@ export default defineConfig({
   },
   server: {
     port: 3000,
+    proxy: {
+      // OSM temporary road closures API — avoid mixed-content redirect to http:// and dev CORS issues
+      '/api/osm-closures': {
+        target: 'https://api.closures.osm.ch',
+        changeOrigin: true,
+        secure: true,
+        rewrite: (path) => path.replace(/^\/api\/osm-closures/, '/api/v1/closures'),
+      },
+    },
   },
 });

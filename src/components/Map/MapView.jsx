@@ -5,7 +5,7 @@
  * Uses react-map-gl with Mapbox GL JS and satellite imagery.
  */
 
-import { useRef, useCallback, useMemo, useState, useEffect } from 'react';
+import { useRef, useCallback, useMemo, useState, useEffect, useLayoutEffect } from 'react';
 import Map, { NavigationControl, ScaleControl, Popup, Marker } from 'react-map-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 
@@ -41,6 +41,9 @@ import NdgdSmokeTimeSlider from './NdgdSmokeTimeSlider';
 import FireWeatherOutlookLayer from './layers/FireWeatherOutlookLayer';
 import FireWeatherOutlookSelector from './FireWeatherOutlookSelector';
 import CriticalInfrastructureLayer from './layers/CriticalInfrastructureLayer';
+import OsmRoadClosuresLayer from './layers/OsmRoadClosuresLayer';
+import { useOsmRoadClosures } from '../../hooks/useOsmRoadClosures';
+import { boundsFromViewport } from '../../utils/geoUtils';
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN || '';
 const HAS_MAPBOX_TOKEN = Boolean(MAPBOX_TOKEN.trim());
@@ -525,6 +528,21 @@ function HoverTooltip({ feature, lngLat }) {
       );
       break;
     }
+    case 'osm-road-closures-point':
+    case 'osm-road-closures-line': {
+      const typeLabel = p.closure_type ? String(p.closure_type).replace(/_/g, ' ') : 'Road closure';
+      content = (
+        <>
+          <div className="font-semibold text-amber-300">Temporary road closure</div>
+          <div className="text-gray-300 text-xs mt-0.5 capitalize">{typeLabel}</div>
+          {p.description && (
+            <div className="text-gray-400 text-xs mt-1 max-w-[240px] line-clamp-3">{p.description}</div>
+          )}
+          <div className="text-gray-500 text-[10px] mt-1">OSM closures API</div>
+        </>
+      );
+      break;
+    }
     default:
       return null;
   }
@@ -645,7 +663,7 @@ function FlightDetailPopup({ flight, lngLat, onClose }) {
  * @param {'convective'|'fireWx'} [props.spcWeatherOutlookMode] – weather tab combined SPC layer sub-mode
  * @param {Function}    [props.onSpcWeatherOutlookModeChange]
  * @param {Array}       [props.savedLocations]
- * @param {'wildfire'|'weather'} [props.activeMapTab]
+ * @param {number}        [props.osmRoadClosuresRefreshToken] – bump to refetch OSM road closures
  */
 export default function MapView({
   activeMapTab = 'wildfire',
@@ -691,9 +709,12 @@ export default function MapView({
   onMeasureActivate,
   onMeasureClose,
   precipRingActive = false,
+  osmRoadClosuresRefreshToken = 0,
 }) {
   const { layers, alerts, selectFire, viewport, setViewport, sidebarOpen } = useApp();
   const mapRef = useRef(null);
+  const mapPaneRef = useRef(null);
+  const [mapPaneSize, setMapPaneSize] = useState({ width: 0, height: 0 });
 
   // Resize the Mapbox canvas after the sidebar transition completes (300ms)
   useEffect(() => {
@@ -704,6 +725,42 @@ export default function MapView({
   }, [sidebarOpen]);
   const isWildfireTab = activeMapTab === 'wildfire';
   const isWeatherTab  = activeMapTab === 'weather';
+
+  useLayoutEffect(() => {
+    const el = mapPaneRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') {
+      setMapPaneSize({
+        width: typeof window !== 'undefined' ? window.innerWidth : 1200,
+        height: typeof window !== 'undefined' ? window.innerHeight : 800,
+      });
+      return undefined;
+    }
+    const ro = new ResizeObserver(() => {
+      setMapPaneSize({
+        width: Math.max(64, el.clientWidth),
+        height: Math.max(64, el.clientHeight),
+      });
+    });
+    ro.observe(el);
+    setMapPaneSize({
+      width: Math.max(64, el.clientWidth),
+      height: Math.max(64, el.clientHeight),
+    });
+    return () => ro.disconnect();
+  }, []);
+
+  const osmClosuresBounds = useMemo(() => {
+    if (!viewport || !mapPaneSize.width) return null;
+    return boundsFromViewport(viewport, mapPaneSize.width, mapPaneSize.height);
+  }, [viewport, mapPaneSize.width, mapPaneSize.height]);
+
+  const osmClosuresEnabled = (isWildfireTab || isWeatherTab) && layers.osmRoadClosures;
+
+  const { geoJSON: osmRoadClosuresGeoJSON } = useOsmRoadClosures(
+    osmClosuresEnabled,
+    osmClosuresBounds,
+    osmRoadClosuresRefreshToken,
+  );
 
   // Hover tooltip state
   const [hoverFeature, setHoverFeature] = useState(null);
@@ -863,14 +920,19 @@ export default function MapView({
     if (isWeatherTab && layers.spcWeatherOutlooks && spcWeatherOutlookMode === 'fireWx' && fireWeatherOutlooksGeoJSON) {
       ids.push('fire-weather-outlook-fill');
     }
+    if (osmClosuresEnabled && osmRoadClosuresGeoJSON?.features?.length) {
+      ids.push('osm-road-closures-point', 'osm-road-closures-line');
+    }
     return ids;
   }, [measureActive, isWildfireTab, isWeatherTab, layers.fireHotspots, layers.firePerimeters, layers.incidentLocations, layers.aqi,
       layers.weatherAlerts, layers.spcWeatherOutlooks, spcWeatherOutlookMode, layers.stormReports, layers.evacZones, layers.reporterEvacZones, spcMdGeoJSON,
       layers.flights, layers.rawsStations, layers.airNowMonitors, layers.droughtOutlook, layers.ndgdSmokeForecast, layers.fireWeatherOutlooks,
+      layers.osmRoadClosures,
       hotspotsGeoJSON, perimetersGeoJSON, incidentsGeoJSON, aqiGeoJSON, alertsGeoJSON, spcOutlooksGeoJSON,
       stormReportsGeoJSON, userReportsGeoJSON, evacZonesGeoJSON, reporterEvacZonesGeoJSON,
       flightsGeoJSON, rawsGeoJSON, airNowMonitorsGeoJSON, droughtOutlookGeoJSON, ndgdSmokeFilteredGeoJSON, fireWeatherOutlooksGeoJSON,
-      criticalInfrastructureVisible, criticalInfrastructureTransGeoJSON, criticalInfrastructureGasGeoJSON]);
+      criticalInfrastructureVisible, criticalInfrastructureTransGeoJSON, criticalInfrastructureGasGeoJSON,
+      osmClosuresEnabled, osmRoadClosuresGeoJSON]);
 
   // Clear stale hover when layers change
   useEffect(() => {
@@ -1122,6 +1184,22 @@ export default function MapView({
       if (p.url) {
         window.open(p.url, '_blank', 'noopener,noreferrer');
       }
+    } else if (feature.layer.id === 'osm-road-closures-point' || feature.layer.id === 'osm-road-closures-line') {
+      selectFire({
+        type: 'osm-road-closure',
+        id: p.id,
+        name: p.closure_type ? String(p.closure_type).replace(/_/g, ' ') : 'Road closure',
+        description: p.description || null,
+        closure_type: p.closure_type || null,
+        status: p.status || null,
+        source: p.source || null,
+        transport_mode: p.transport_mode || null,
+        start_time: p.start_time || null,
+        end_time: p.end_time || null,
+        confidence_level: p.confidence_level != null ? num(p.confidence_level) : null,
+        lat: evt.lngLat.lat,
+        lng: evt.lngLat.lng,
+      });
     }
   }, [measureActive, alerts, selectFire]);
 
@@ -1177,7 +1255,7 @@ export default function MapView({
   }, [setViewport]);
 
   return (
-    <div className="absolute inset-0 bg-sentinel-900">
+    <div ref={mapPaneRef} className="absolute inset-0 bg-sentinel-900">
       {/* Wildfire tab: fire weather outlook selector only (convective uses combined control on weather tab) */}
       {isWildfireTab && layers.fireWeatherOutlooks && (
         <FireWeatherOutlookSelector
@@ -1324,6 +1402,11 @@ export default function MapView({
         <RAWSLayer
           geoJSON={rawsGeoJSON}
           visible={layers.rawsStations}
+        />
+
+        <OsmRoadClosuresLayer
+          geoJSON={osmRoadClosuresGeoJSON}
+          visible={osmClosuresEnabled}
         />
 
         {/* AirNow monitor stations – individual sensor readings (wildfire tab) */}

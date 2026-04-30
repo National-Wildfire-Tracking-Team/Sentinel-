@@ -53,3 +53,32 @@ export function polygonCentroid(geometry) {
   }
   return null;
 }
+
+/**
+ * Web Mercator bounds in WGS84 for the visible map rectangle (approximate).
+ * @param {{ longitude: number; latitude: number; zoom: number }} view
+ * @param {number} widthPx
+ * @param {number} heightPx
+ * @returns {{ west: number; south: number; east: number; north: number }}
+ */
+export function boundsFromViewport(view, widthPx, heightPx) {
+  const longitude = Number(view.longitude);
+  const latitude = Number(view.latitude);
+  const zoom = Number(view.zoom ?? 0);
+  const w = Math.max(64, widthPx);
+  const h = Math.max(64, heightPx);
+  const latRad = (latitude * Math.PI) / 180;
+  const metersPerPixel = (156543.03 * Math.cos(latRad)) / 2 ** zoom;
+  const halfWm = (w / 2) * metersPerPixel;
+  const halfHm = (h / 2) * metersPerPixel;
+  const metersPerDegLat = 111320;
+  const metersPerDegLon = 111320 * Math.cos(latRad);
+  const dLon = halfWm / Math.max(metersPerDegLon, 1e-6);
+  const dLat = halfHm / metersPerDegLat;
+  return {
+    west: longitude - dLon,
+    east: longitude + dLon,
+    south: latitude - dLat,
+    north: latitude + dLat,
+  };
+}

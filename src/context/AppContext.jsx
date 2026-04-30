@@ -32,6 +32,7 @@ const initialState = {
     droughtOutlook:        false,
     ndgdSmokeForecast:     false,
     criticalInfrastructure: false,
+    osmRoadClosures:       false,
   },
   // Currently clicked/selected fire feature (hotspot or perimeter)
   selectedFire: null,

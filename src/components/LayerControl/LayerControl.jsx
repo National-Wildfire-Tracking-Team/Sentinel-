@@ -7,7 +7,7 @@
 import { useState, memo, useMemo, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  Layers, Flame, MapPin, Wind, CloudRain, CloudLightning, Eye, ChevronDown, ChevronRight, Radar, AlertTriangle, Ruler, Hexagon, PlaneTakeoff, Satellite, Map as MapIcon, Thermometer, Activity, Droplets, Zap, Lock, Users,
+  Layers, Flame, MapPin, Wind, CloudRain, CloudLightning, Eye, ChevronDown, ChevronRight, Radar, AlertTriangle, Ruler, Hexagon, PlaneTakeoff, Satellite, Map as MapIcon, Thermometer, Activity, Droplets, Zap, Lock, Users, Construction,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 
@@ -32,6 +32,7 @@ const LAYER_DEFS = {
   aqi:               { label: 'AQI Overlay',         sublabel: 'EPA AirNow + heatmap',        icon: Wind,         color: '#3b82f6' },
   smoke:             { label: 'Smoke Forecast',      sublabel: 'NOAA HRRR',                   icon: CloudRain,    color: '#94a3b8' },
   flights:           { label: 'Live Flight Tracking', sublabel: 'OpenSky Network ADS-B',      icon: PlaneTakeoff, color: '#ff5a00' },
+  osmRoadClosures:   { label: 'Road closures',       sublabel: 'OSM temporary closures API', icon: Construction, color: '#f59e0b' },
 };
 
 /**
@@ -74,6 +75,10 @@ const TAB_SECTIONS = {
           label: 'Stations',
           layers: ['rawsStations', 'airNowMonitors'],
         },
+        {
+          label: 'Transport',
+          layers: ['osmRoadClosures'],
+        },
       ],
     },
   ],
@@ -90,6 +95,10 @@ const TAB_SECTIONS = {
         {
           label: 'Stations',
           layers: ['rawsStations'],
+        },
+        {
+          label: 'Transport',
+          layers: ['osmRoadClosures'],
         },
       ],
     },

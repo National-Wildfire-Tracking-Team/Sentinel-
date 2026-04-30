@@ -71,6 +71,7 @@ const WILDFIRE_LAYER_PRESET = {
   fireWeatherOutlooks: false,
   stormReports: false,
   criticalInfrastructure: false,
+  osmRoadClosures: false,
 };
 
 // Weather tab: only auto-enable NWS alerts (includes SPC MDs on map), and NEXRAD;
@@ -94,6 +95,7 @@ const WEATHER_LAYER_PRESET = {
   flights: false,
   airNowMonitors: false,
   ndgdSmokeForecast: false,
+  osmRoadClosures: false,
 };
 
 const THREE_DAYS_MS = 3 * 24 * 60 * 60 * 1000;
@@ -158,6 +160,7 @@ export default function LiveTrackerPage() {
   const [measureActive, setMeasureActive] = useState(false);
   const [measureMode, setMeasureMode] = useState('distance');
   const [precipRingActive, setPrecipRingActive] = useState(false);
+  const [osmClosuresRefreshToken, setOsmClosuresRefreshToken] = useState(0);
 
   const onMeasureActivate = useCallback((mode) => {
     setMeasureMode(mode);
@@ -637,6 +640,9 @@ const flightBounds = useMemo(() => {
     if (layers.fireWeatherOutlooks || (layers.spcWeatherOutlooks && spcWeatherOutlookMode === 'fireWx')) {
       refreshFireWeatherOutlooks();
     }
+    if (layers.osmRoadClosures && (activeMapTab === MAP_TABS.wildfire || activeMapTab === MAP_TABS.weather)) {
+      setOsmClosuresRefreshToken((t) => t + 1);
+    }
   }, [
     refreshHotspots, refreshPerimeters, refreshAlerts, refreshIncidents, refreshStormReports,
     refreshSpcMd, refreshSpcOutlooks, refreshUserReports, refreshEvacZones, refreshReporterEvacZones,
@@ -644,6 +650,7 @@ const flightBounds = useMemo(() => {
     refreshCriticalInfrastructure,
     activeMapTab, layers.aqi, layers.flights, rawsEnabled, layers.airNowMonitors, layers.droughtOutlook, layers.ndgdSmokeForecast,
     layers.fireWeatherOutlooks, layers.spcWeatherOutlooks, spcWeatherOutlookMode, layers.stormReports,
+    layers.osmRoadClosures,
     criticalInfraEnabled,
   ]);
 
@@ -717,6 +724,7 @@ const flightBounds = useMemo(() => {
             onMeasureActivate={onMeasureActivate}
             onMeasureClose={onMeasureClose}
             precipRingActive={precipRingActive}
+            osmRoadClosuresRefreshToken={osmClosuresRefreshToken}
           />
 
           <LayerControl

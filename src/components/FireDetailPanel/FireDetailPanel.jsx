@@ -8,7 +8,7 @@ import { memo, useState } from 'react';
 import {
   X, Flame, MapPin, Users, Home, Calendar, Thermometer,
   AlertTriangle, Wind, ExternalLink, TrendingUp, ShieldAlert,
-  CloudRain, Clock, Info, Share2, ShieldCheck, Zap, Fuel,
+  CloudRain, Clock, Info, Share2, ShieldCheck, Zap, Fuel, Construction,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import {
@@ -798,6 +798,72 @@ function ReporterEvacZoneDetail({ fire }) {
   );
 }
 
+const OSM_CLOSURES_REPO = 'https://github.com/Archit1706/temporary-road-closures';
+
+function OsmRoadClosureDetail({ fire }) {
+  const row = (label, value) => {
+    if (value == null || String(value).trim() === '') return null;
+    return (
+      <div className="flex justify-between gap-3 py-1.5 border-b border-sentinel-700/80 text-xs">
+        <span className="text-sentinel-400 shrink-0">{label}</span>
+        <span className="text-sentinel-100 text-right font-medium">{String(value)}</span>
+      </div>
+    );
+  };
+
+  return (
+    <>
+      <div className="mb-4 flex items-start gap-2">
+        <div className="mt-0.5 p-1.5 rounded-lg bg-amber-500/15 border border-amber-500/30">
+          <Construction size={16} className="text-amber-400" />
+        </div>
+        <div>
+          <h3 className="font-bold text-white text-lg leading-tight">Temporary road closure</h3>
+          <p className="text-sentinel-400 text-[11px] mt-1">
+            Community-reported data from the OpenStreetMap temporary road closures project.
+          </p>
+        </div>
+      </div>
+
+      <div className="rounded-xl border border-sentinel-700 bg-sentinel-800/40 px-3 py-1 mb-4">
+        {row('Type', fire.closure_type)}
+        {row('Status', fire.status)}
+        {row('Transport', fire.transport_mode)}
+        {row('Source', fire.source)}
+        {fire.confidence_level != null && row('Confidence', String(fire.confidence_level))}
+        {fire.start_time && row('Starts', new Date(fire.start_time).toLocaleString())}
+        {fire.end_time && row('Ends', new Date(fire.end_time).toLocaleString())}
+      </div>
+
+      {fire.description && (
+        <div className="mb-4">
+          <p className="text-[10px] font-bold text-sentinel-400 uppercase tracking-widest mb-2">Description</p>
+          <p className="text-sentinel-200 text-sm leading-relaxed whitespace-pre-wrap">{fire.description}</p>
+        </div>
+      )}
+
+      {Number.isFinite(fire.lat) && Number.isFinite(fire.lng) && (
+        <div className="mb-4 text-xs text-sentinel-400">
+          Location:{' '}
+          <span className="text-sentinel-200 font-mono">
+            {fire.lat.toFixed(5)}, {fire.lng.toFixed(5)}
+          </span>
+        </div>
+      )}
+
+      <a
+        href={OSM_CLOSURES_REPO}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="flex items-center gap-1.5 text-xs text-amber-400 hover:text-amber-300 transition-colors"
+      >
+        <ExternalLink size={12} />
+        Project on GitHub
+      </a>
+    </>
+  );
+}
+
 function TransmissionLineDetail({ fire }) {
   const CMRA_DATASET_URL =
     'https://resilience.climate.gov/datasets/d4090758322c4d32a4cd002ffaa0aa12_0';
@@ -926,13 +992,14 @@ function GasPipelineDetail({ fire }) {
 const FireDetailPanel = memo(function FireDetailPanel() {
   const { selectedFire, clearSelected, alerts } = useApp();
   const [shareStatus, setShareStatus] = useState('');
-  const isShareableFireType = ['hotspot', 'perimeter', 'incident', 'user-report'].includes(selectedFire?.type);
+  const isShareableFireType = ['hotspot', 'perimeter', 'incident', 'user-report', 'osm-road-closure'].includes(selectedFire?.type);
 
   const buildShareText = (fire) => {
     const title =
       fire.name ||
       fire.title ||
-      (fire.type === 'hotspot' ? 'Fire hotspot' : 'Fire incident');
+      (fire.type === 'hotspot' ? 'Fire hotspot' :
+        fire.type === 'osm-road-closure' ? 'Road closure' : 'Fire incident');
     const locationParts = [];
     if (fire.county) locationParts.push(`${fire.county} County`);
     if (fire.state) locationParts.push(fire.state);
@@ -1019,6 +1086,7 @@ const FireDetailPanel = memo(function FireDetailPanel() {
              selectedFire.type === 'reporter-evacuation-zone' ? 'Reporter Evac Zone' :
              selectedFire.type === 'transmission-line'        ? 'Critical Infrastructure' :
              selectedFire.type === 'gas-pipeline'            ? 'Critical Infrastructure' :
+             selectedFire.type === 'osm-road-closure'       ? 'Road closure' :
              'Fire Detail'}
           </span>
           <div className="flex items-center gap-1">
@@ -1057,6 +1125,7 @@ const FireDetailPanel = memo(function FireDetailPanel() {
           {selectedFire.type === 'reporter-evacuation-zone' && <ReporterEvacZoneDetail  fire={selectedFire} />}
           {selectedFire.type === 'transmission-line'       && <TransmissionLineDetail fire={selectedFire} />}
           {selectedFire.type === 'gas-pipeline'            && <GasPipelineDetail     fire={selectedFire} />}
+          {selectedFire.type === 'osm-road-closure'       && <OsmRoadClosureDetail fire={selectedFire} />}
         </div>
       </div>
     </>
