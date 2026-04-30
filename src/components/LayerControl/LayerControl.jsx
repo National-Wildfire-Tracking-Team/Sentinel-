@@ -7,7 +7,7 @@
 import { useState, memo, useMemo, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  Layers, Flame, MapPin, Wind, CloudRain, CloudLightning, Eye, ChevronDown, ChevronRight, Radar, AlertTriangle, Ruler, Hexagon, PlaneTakeoff, Satellite, Map as MapIcon, Thermometer, Activity, Droplets, Zap, Lock, Users,
+  Layers, Flame, MapPin, Wind, CloudRain, CloudLightning, Eye, ChevronDown, ChevronRight, Radar, AlertTriangle, Ruler, Hexagon, PlaneTakeoff, Satellite, Map as MapIcon, Thermometer, Activity, Droplets, Zap, Lock, Users, GraduationCap,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 
@@ -221,11 +221,19 @@ const LayerControl = memo(function LayerControl({
       color: '#fbbf24',
       locked: !infrastructureLayersEntitled,
     },
+    {
+      key: 'schoolsUniversities',
+      label: 'Schools & Universities',
+      sublabel: 'USGS National Map · colleges & universities',
+      icon: GraduationCap,
+      color: '#a78bfa',
+      locked: !infrastructureLayersEntitled,
+    },
   ], [infrastructureLayersEntitled]);
 
   const sections = useMemo(() => {
     const base = TAB_SECTIONS[activeMapTab === 'weather' ? 'weather' : 'wildfire'] || TAB_SECTIONS.wildfire;
-    if (activeMapTab !== 'wildfire') {
+    if (activeMapTab !== 'wildfire' && activeMapTab !== 'weather') {
       return base;
     }
     return [
@@ -233,7 +241,7 @@ const LayerControl = memo(function LayerControl({
       {
         id: 'wf-infra',
         title: 'Infrastructure',
-        subtitle: 'Energy corridors (Pro)',
+        subtitle: 'Energy & key facilities (Pro)',
         groups: [{ label: 'Layers', layers: infraLayers.map((l) => l.key) }],
         infraLayers,
       },
