@@ -3,13 +3,13 @@
  * @see https://github.com/Archit1706/temporary-road-closures
  */
 
-const DEFAULT_DEV_BASE = '/api/osm-closures';
-const DEFAULT_PROD_BASE = 'https://api.closures.osm.ch/api/v1/closures';
+/** Same-origin path: Vite dev server proxies it; Netlify proxies it in production (avoids upstream CORS). */
+const DEFAULT_RELATIVE_BASE = '/api/osm-closures';
 
 function apiBase() {
   const fromEnv = import.meta.env.VITE_OSM_ROAD_CLOSURES_API;
   if (fromEnv) return String(fromEnv).replace(/\/$/, '');
-  return import.meta.env.DEV ? DEFAULT_DEV_BASE : DEFAULT_PROD_BASE;
+  return DEFAULT_RELATIVE_BASE;
 }
 
 /**
@@ -43,7 +43,8 @@ export async function fetchClosuresInBounds(bounds, opts = {}) {
   });
 
   const base = apiBase();
-  const url = `${base}/?${params.toString()}`;
+  const qs = params.toString();
+  const url = qs ? `${base}?${qs}` : base;
   const res = await fetch(url, {
     headers: { Accept: 'application/json' },
   });

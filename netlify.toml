@@ -9,6 +9,13 @@
   status = 200
   force = true
 
+# OSM temporary road closures API (same-origin proxy; upstream does not send CORS for Netlify preview)
+[[redirects]]
+  from = "/api/osm-closures"
+  to = "https://api.closures.osm.ch/api/v1/closures/"
+  status = 200
+  force = true
+
 # Edge functions
 [[edge_functions]]
   function = "firms-proxy"
