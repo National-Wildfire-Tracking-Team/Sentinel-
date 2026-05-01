@@ -11,9 +11,17 @@
 
 import { fetchWithCache } from '../utils/dataCache';
 
+/** Exclude NOAA placeholder polygon shown when no MD is active (name "NoArea"). */
 const MD_URL =
   'https://mapservices.weather.noaa.gov/vector/rest/services/outlooks/spc_mesoscale_discussion/MapServer/0/query?' +
-  new URLSearchParams({ where: '1=1', outFields: '*', f: 'geojson', resultRecordCount: '200' }).toString();
+  new URLSearchParams({
+    where: "name <> 'NoArea'",
+    outFields: '*',
+    f: 'geojson',
+    resultRecordCount: '200',
+  }).toString();
+
+const CACHE_KEY = 'spc:md:active:v2';
 
 /** Parse the expiry time from folderpath, e.g. "MD 0519 Active Till 2130 UTC" → "2130 UTC" */
 function parseActiveTill(folderpath = '') {
@@ -43,13 +51,21 @@ function normalizeFeature(feature) {
   };
 }
 
+function isPlaceholderMd(feature) {
+  const name = String(feature?.properties?.name ?? '').trim();
+  return /^noarea$/i.test(name);
+}
+
 export async function fetchSpcMesoscaleDiscussions() {
-  const data = await fetchWithCache(MD_URL, 'spc:md:active', {}, 5 * 60 * 1000);
+  const data = await fetchWithCache(MD_URL, CACHE_KEY, {}, 5 * 60 * 1000);
 
   if (data?.type === 'FeatureCollection' && Array.isArray(data.features)) {
+    const features = data.features
+      .filter((f) => f?.geometry && !isPlaceholderMd(f))
+      .map(normalizeFeature);
     return {
       ...data,
-      features: data.features.map(normalizeFeature),
+      features,
     };
   }
   return { type: 'FeatureCollection', features: [] };
