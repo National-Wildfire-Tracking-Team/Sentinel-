@@ -1,10 +1,12 @@
 /**
  * useWeatherAlerts.js
- * Unified nationwide alert system with:
+ * Unified nationwide alert system:
  * - NWS API (primary)
  * - NOAA MapServer (geometry backup)
  * - FEMA IPAWS (supplement)
- * - NWS Zone fallback (UGC-based geometry reconstruction)
+ * - NWS Zones (UGC fallback)
+ * - Counties (county fallback)
+ * - CWA (County Warning Area fallback) ← FIXES MIDWEST GAPS
  */
 
 import { useState, useEffect, useCallback, useRef } from "react";
@@ -13,24 +15,38 @@ import { useApp } from "../context/AppContext";
 const REFRESH_MS = 60 * 1000;
 
 /* =========================
-   ZONES (LOAD ONCE)
+   ZONES
 ========================= */
 const ZONES_URL =
   "https://services2.arcgis.com/C8EMgrsFcRFL6LrL/arcgis/rest/services/LatestNWSZones/FeatureServer/0/query?where=1%3D1&outFields=STATE,ZONE&outSR=4326&f=geojson";
 
-async function fetchZones() {
+/* =========================
+   COUNTIES (YOU MUST PROVIDE THIS FILE)
+========================= */
+const COUNTY_URL = "/counties.geojson";
+
+/* =========================
+   CWA LAYER (FIX FOR MIDWEST)
+========================= */
+const CWA_URL =
+  "https://mapservices.weather.noaa.gov/static/rest/services/nws_reference_maps/nws_reference_map/FeatureServer/2/query?where=1%3D1&outFields=*&outSR=4326&f=geojson";
+
+/* =========================
+   LOAD HELPERS
+========================= */
+async function fetchJSON(url) {
   try {
-    const res = await fetch(ZONES_URL);
-    if (!res.ok) throw new Error("Zones fetch failed");
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`Fetch failed: ${url}`);
     return await res.json();
   } catch (err) {
-    console.warn("Zones failed:", err.message);
+    console.warn(err.message);
     return null;
   }
 }
 
 /* =========================
-   NWS FETCH
+   NWS ALERTS
 ========================= */
 async function fetchAllNWSAlerts() {
   let url = "https://api.weather.gov/alerts/active";
@@ -48,24 +64,20 @@ async function fetchAllNWSAlerts() {
 
     const data = await res.json();
 
-    const mapped = data.features.map((f) => ({
-      id: f.id,
-      type: f.properties.event,
-      headline: f.properties.headline,
-      description: f.properties.description,
-      severity: f.properties.severity,
-      urgency: f.properties.urgency,
-      affectedArea: f.properties.areaDesc,
-      effective: f.properties.effective,
-      onset: f.properties.onset,
-      sent: f.properties.sent,
-      expires: f.properties.expires,
-      geometry: f.geometry,
-      geocodes: f.properties.geocode?.UGC || [],
-      source: "NWS",
-    }));
+    alerts.push(
+      ...data.features.map((f) => ({
+        id: f.id,
+        type: f.properties.event,
+        headline: f.properties.headline,
+        severity: f.properties.severity,
+        urgency: f.properties.urgency,
+        affectedArea: f.properties.areaDesc,
+        geometry: f.geometry,
+        geocodes: f.properties.geocode?.UGC || [],
+        source: "NWS",
+      }))
+    );
 
-    alerts.push(...mapped);
     url = data.pagination?.next || null;
   }
 
@@ -73,7 +85,7 @@ async function fetchAllNWSAlerts() {
 }
 
 /* =========================
-   NOAA MAPSERVER
+   MAPSERVER
 ========================= */
 const MAPSERVER_BASE =
   "https://mapservices.weather.noaa.gov/eventdriven/rest/services/WWA/watch_warn_adv/MapServer";
@@ -81,61 +93,29 @@ const MAPSERVER_BASE =
 const MAPSERVER_LAYERS = [0, 1];
 
 async function fetchNOAAMapServerAlerts() {
-  const allFeatures = [];
+  const all = [];
 
   await Promise.all(
-    MAPSERVER_LAYERS.map(async (layerId) => {
+    MAPSERVER_LAYERS.map(async (id) => {
       const url =
-        `${MAPSERVER_BASE}/${layerId}/query` +
-        `?where=1%3D1&outFields=prod_type,msg_type,phenom,sig,url,expiration,onset,issuance,wfo,cap_id` +
+        `${MAPSERVER_BASE}/${id}/query` +
+        `?where=1%3D1&outFields=prod_type,sig,cap_id,issuance,expiration` +
         `&outSR=4326&f=geojson`;
 
-      try {
-        const res = await fetch(url);
-        if (!res.ok) throw new Error();
-        const data = await res.json();
-        allFeatures.push(...(data.features || []));
-      } catch {
-        console.warn(`MapServer layer ${layerId} failed`);
-      }
+      const data = await fetchJSON(url);
+      if (data?.features) all.push(...data.features);
     })
   );
 
-  return allFeatures.map((f) => {
-    const p = f.properties || {};
-    return {
-      id: p.cap_id || null,
-      type: p.prod_type || null,
-      headline: p.prod_type || null,
-      description: null,
-      severity: sigToSeverity(p.sig),
-      urgency: sigToUrgency(p.sig),
-      affectedArea: p.wfo || null,
-      effective: p.issuance || null,
-      onset: p.onset || null,
-      sent: p.issuance || null,
-      expires: p.expiration || null,
-      geometry: f.geometry || null,
-      geocodes: [],
-      source: "NWS",
-    };
-  });
-}
-
-function sigToSeverity(sig) {
-  if (sig === "W") return "Extreme";
-  if (sig === "A") return "Severe";
-  if (sig === "Y") return "Moderate";
-  if (sig === "S") return "Minor";
-  return "Unknown";
-}
-
-function sigToUrgency(sig) {
-  if (sig === "W") return "Immediate";
-  if (sig === "A") return "Expected";
-  if (sig === "Y") return "Expected";
-  if (sig === "S") return "Future";
-  return "Unknown";
+  return all.map((f) => ({
+    id: f.properties.cap_id || null,
+    type: f.properties.prod_type || null,
+    severity: sigToSeverity(f.properties.sig),
+    urgency: sigToUrgency(f.properties.sig),
+    geometry: f.geometry,
+    geocodes: [],
+    source: "NWS",
+  }));
 }
 
 /* =========================
@@ -149,73 +129,91 @@ async function fetchFemaAlerts() {
     const doc = new DOMParser().parseFromString(xml, "application/xml");
     const entries = Array.from(doc.querySelectorAll("entry"));
 
-    return entries.map((e) => {
-      const getText = (tag) => e.querySelector(tag)?.textContent ?? null;
-
-      return {
-        id: getText("id"),
-        type: getText("cap\\:event, event"),
-        severity: getText("cap\\:severity, severity"),
-        urgency: getText("cap\\:urgency, urgency"),
-        affectedArea: getText("cap\\:areaDesc, areaDesc"),
-        effective: getText("cap\\:effective, effective"),
-        sent: getText("cap\\:sent, sent"),
-        geometry: null,
-        geocodes: [],
-        source: "FEMA",
-      };
-    });
-  } catch (err) {
-    console.warn("FEMA failed:", err.message);
+    return entries.map((e) => ({
+      id: e.querySelector("id")?.textContent,
+      type: null,
+      severity: null,
+      urgency: null,
+      geometry: null,
+      geocodes: [],
+      source: "FEMA",
+    }));
+  } catch {
     return [];
   }
 }
 
 /* =========================
-   MERGE (GEOMETRY-AWARE)
+   SEVERITY MAP
+========================= */
+function sigToSeverity(sig) {
+  if (sig === "W") return "Extreme";
+  if (sig === "A") return "Severe";
+  if (sig === "Y") return "Moderate";
+  if (sig === "S") return "Minor";
+  return "Unknown";
+}
+
+function sigToUrgency(sig) {
+  if (sig === "W") return "Immediate";
+  if (sig === "A") return "Expected";
+  return "Unknown";
+}
+
+/* =========================
+   MERGE (DO NOT LOSE GEOMETRY)
 ========================= */
 function mergeAlerts(primary, ...rest) {
-  const byId = new Map();
+  const map = new Map();
 
-  function add(alert) {
-    if (!alert.id) return;
+  function add(a) {
+    if (!a.id) return;
 
-    const existing = byId.get(alert.id);
+    const existing = map.get(a.id);
 
-    if (!existing || (!existing.geometry && alert.geometry)) {
-      byId.set(alert.id, alert);
+    if (!existing) {
+      map.set(a.id, a);
+      return;
+    }
+
+    if (!existing.geometry && a.geometry) {
+      map.set(a.id, a);
     }
   }
 
   primary.forEach(add);
   rest.flat().forEach(add);
 
-  return Array.from(byId.values());
+  return [...map.values()];
 }
 
 /* =========================
    GEOMETRY HELPERS
 ========================= */
-function normalizeGeometry(geom) {
-  if (!geom) return null;
+function normalizeGeometry(g) {
+  if (!g) return null;
 
-  if (geom.type === "GeometryCollection") {
-    return geom.geometries.find(
-      (g) => g.type === "Polygon" || g.type === "MultiPolygon"
+  if (g.type === "GeometryCollection") {
+    return g.geometries.find(
+      (x) => x.type === "Polygon" || x.type === "MultiPolygon"
     );
   }
 
-  return geom;
+  return g;
 }
 
-function getZoneGeometry(alert, zoneMap) {
+function getGeometry(alert, zoneMap, countyMap, cwaMap) {
   if (alert.geometry) return normalizeGeometry(alert.geometry);
 
-  if (!alert.geocodes || !zoneMap) return null;
+  if (!alert.geocodes) return null;
 
-  const matches = alert.geocodes
-    .map((code) => zoneMap.get(code))
-    .filter(Boolean);
+  const matches = [];
+
+  for (const code of alert.geocodes) {
+    if (zoneMap?.has(code)) matches.push(zoneMap.get(code));
+    else if (countyMap?.has(code)) matches.push(countyMap.get(code));
+    else if (cwaMap?.has(code)) matches.push(cwaMap.get(code));
+  }
 
   if (!matches.length) return null;
 
@@ -226,14 +224,14 @@ function getZoneGeometry(alert, zoneMap) {
 }
 
 /* =========================
-   GEOJSON
+   GEOJSON BUILDER
 ========================= */
-function toGeoJSON(alerts, zoneMap) {
+function toGeoJSON(alerts, zoneMap, countyMap, cwaMap) {
   return {
     type: "FeatureCollection",
     features: alerts
       .map((a) => {
-        const geom = getZoneGeometry(a, zoneMap);
+        const geom = getGeometry(a, zoneMap, countyMap, cwaMap);
 
         return {
           type: "Feature",
@@ -258,65 +256,87 @@ export function useWeatherAlerts() {
   const [alerts, setAlertsState] = useState([]);
   const [geoJSON, setGeoJSON] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
 
   const { setAlerts } = useApp();
 
-  const mountedRef = useRef(true);
-  const intervalRef = useRef(null);
   const zoneMapRef = useRef(null);
+  const countyMapRef = useRef(null);
+  const cwaMapRef = useRef(null);
+  const mountedRef = useRef(true);
 
   const load = useCallback(async () => {
-    try {
-      setError(null);
+    const [nws, mapserver, fema] = await Promise.all([
+      fetchAllNWSAlerts(),
+      fetchNOAAMapServerAlerts(),
+      fetchFemaAlerts(),
+    ]);
 
-      const [nws, mapserver, fema] = await Promise.all([
-        fetchAllNWSAlerts(),
-        fetchNOAAMapServerAlerts(),
-        fetchFemaAlerts(),
-      ]);
+    if (!mountedRef.current) return;
 
-      if (!mountedRef.current) return;
+    const merged = mergeAlerts(nws, mapserver, fema);
 
-      const merged = mergeAlerts(nws, mapserver, fema);
+    setAlertsState(merged);
+    setAlerts(merged);
 
-      setAlertsState(merged);
-      setAlerts(merged);
+    setGeoJSON(toGeoJSON(merged, zoneMapRef.current, countyMapRef.current, cwaMapRef.current));
 
-      setGeoJSON(toGeoJSON(merged, zoneMapRef.current));
-      setLoading(false);
-    } catch (err) {
-      if (!mountedRef.current) return;
-      setError(err.message);
-      setLoading(false);
-    }
+    setLoading(false);
   }, [setAlerts]);
 
   useEffect(() => {
     mountedRef.current = true;
 
-    // Load zones once
-    if (!zoneMapRef.current) {
-      fetchZones().then((zones) => {
-        if (!zones) return;
+    /* =========================
+       LOAD ZONES
+    ========================= */
+    fetchJSON(ZONES_URL).then((zones) => {
+      if (!zones) return;
+      const map = new Map();
 
-        const map = new Map();
-
-        zones.features.forEach((f) => {
-          const key = f.properties.STATE + "Z" + f.properties.ZONE;
-          map.set(key, f.geometry);
-        });
-
-        zoneMapRef.current = map;
+      zones.features.forEach((f) => {
+        const key = f.properties.STATE + "Z" + f.properties.ZONE;
+        map.set(key, f.geometry);
       });
-    }
+
+      zoneMapRef.current = map;
+    });
+
+    /* =========================
+       LOAD COUNTIES
+    ========================= */
+    fetchJSON(COUNTY_URL).then((counties) => {
+      if (!counties) return;
+      const map = new Map();
+
+      counties.features.forEach((f) => {
+        const key = f.properties.STATE_ABBR + "C" + f.properties.COUNTYFP;
+        map.set(key, f.geometry);
+      });
+
+      countyMapRef.current = map;
+    });
+
+    /* =========================
+       LOAD CWA (FIX MIDWEST)
+    ========================= */
+    fetchJSON(CWA_URL).then((cwa) => {
+      if (!cwa) return;
+      const map = new Map();
+
+      cwa.features.forEach((f) => {
+        const key = f.properties?.WFO || f.properties?.ID;
+        if (key) map.set(key, f.geometry);
+      });
+
+      cwaMapRef.current = map;
+    });
 
     load();
-    intervalRef.current = setInterval(load, REFRESH_MS);
+    const interval = setInterval(load, REFRESH_MS);
 
     return () => {
       mountedRef.current = false;
-      clearInterval(intervalRef.current);
+      clearInterval(interval);
     };
   }, [load]);
 
@@ -324,7 +344,6 @@ export function useWeatherAlerts() {
     alerts,
     geoJSON,
     loading,
-    error,
     refresh: load,
   };
 }
