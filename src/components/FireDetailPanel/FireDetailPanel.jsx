@@ -9,7 +9,7 @@ import {
   X, Flame, MapPin, Users, Home, Calendar, Thermometer,
   AlertTriangle, Wind, ExternalLink, TrendingUp, ShieldAlert,
   CloudRain, Clock, Info, Share2, ShieldCheck, Zap, Fuel,
-  GraduationCap,
+  GraduationCap, FileText, Copy,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import {
@@ -386,81 +386,199 @@ function IncidentDetail({ fire }) {
   );
 }
 
+function firstPopulationFromParams(parameters) {
+  if (!parameters || typeof parameters !== 'object') return null;
+  const keys = Object.keys(parameters);
+  const popKey = keys.find((k) => /^population$/i.test(k) || /^POP/i.test(k));
+  if (!popKey) return null;
+  const raw = parameters[popKey];
+  const n = Array.isArray(raw) ? raw[0] : raw;
+  const v = parseInt(String(n).replace(/\D/g, ''), 10);
+  return Number.isFinite(v) ? v : null;
+}
+
+function issuingOfficeFromAlert(alert) {
+  const wmo = alert.parameters?.WMOidentifier;
+  if (Array.isArray(wmo) && wmo[0]) {
+    const parts = String(wmo[0]).trim().split(/\s+/);
+    if (parts.length >= 2) return parts[1].toUpperCase();
+  }
+  const ugc = alert.geocodes || alert.geocode?.UGC;
+  const fromUgc = Array.isArray(ugc) ? ugc.find((c) => typeof c === 'string' && /^[A-Z]{3}\d/.test(c)) : null;
+  if (fromUgc && fromUgc.length >= 3) return fromUgc.slice(0, 3).toUpperCase();
+  return null;
+}
+
+function sourceChipLabel(response, senderName) {
+  if (response && String(response).trim()) {
+    const r = String(response).replace(/_/g, ' ');
+    const cap = r.charAt(0).toUpperCase() + r.slice(1);
+    return `Source: ${cap}.`;
+  }
+  if (senderName) return `Source: ${senderName}.`;
+  return null;
+}
+
 function AlertDetail({ fire, alerts }) {
-  // Look up the full alert record (with description, instruction, etc.)
-  // from context — the map feature only carries a summarized set of props.
-  const full = alerts?.find(a => a.id === fire.id) || {};
+  const [tab, setTab] = useState('text');
+  const [copyStatus, setCopyStatus] = useState('');
 
-  const type = fire.name || full.type;
-  const severity = fire.severity || full.severity;
+  const full = alerts?.find((a) => a.id === fire.id) || {};
+  const merged = { ...full, ...fire };
 
-  // Use the official NWS color for this alert type.
-  const typeColor = nwsAlertColor(type);
+  const eventTitle = merged.eventType || merged.type || 'Weather alert';
+  const typeColor = nwsAlertColor(eventTitle);
+  const office = issuingOfficeFromAlert(merged);
+  const pop = firstPopulationFromParams(merged.parameters);
+  const areaSqMi = merged.areaSqMi;
+  const sourceLabel = sourceChipLabel(merged.response, merged.senderName);
+
+  const bulletinBody = merged.description || merged.instruction || '';
+
+  const handleCopyText = async () => {
+    const text = bulletinBody || merged.headline || eventTitle;
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+        setCopyStatus('Copied');
+      } else {
+        setCopyStatus('Unavailable');
+      }
+    } catch {
+      setCopyStatus('Failed');
+    }
+    window.setTimeout(() => setCopyStatus(''), 2000);
+  };
+
+  const chipBase =
+    'inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-semibold border';
+  const chipInfo = `${chipBase} bg-sky-100/95 text-blue-900 border-blue-200/80`;
+  const chipOutline = `${chipBase} bg-white text-[#1D2951] border-[#1D2951]/40`;
+  const actionBtn =
+    'inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[11px] font-bold text-gray-900 bg-amber-400 hover:bg-amber-300 border border-amber-500/50 transition-colors';
 
   return (
     <>
-      <div className="flex items-center gap-2 mb-4">
-        <div
-          className="p-2 rounded-lg"
-          style={{ backgroundColor: typeColor + '30' }}
-        >
-          <AlertTriangle size={18} style={{ color: typeColor }} />
+      <div className="relative mb-4">
+        <div className="h-0.5 rounded-full mb-2" style={{ backgroundColor: typeColor }} aria-hidden />
+        <h3 className="font-bold text-white text-lg leading-tight pr-8">{eventTitle}</h3>
+      </div>
+
+      <div className="flex flex-col gap-2 mb-4">
+        <div className="flex flex-wrap gap-1.5">
+          {merged.sent && (
+            <span className={chipInfo}>Issued {formatRelativeTime(merged.sent)}</span>
+          )}
+          {merged.expires && (
+            <span className={chipInfo}>Expires {formatRelativeTime(merged.expires)}</span>
+          )}
+          {sourceLabel && <span className={chipInfo}>{sourceLabel}</span>}
+          {office && <span className={chipOutline}>Office: {office}</span>}
         </div>
-        <div>
-          <h3 className="font-bold text-white text-base">{type}</h3>
-          <p className="text-sentinel-400 text-xs">{full.senderName || 'National Weather Service'}</p>
+        <div className="flex flex-wrap gap-1.5 items-center">
+          {areaSqMi != null && Number.isFinite(areaSqMi) && (
+            <span className={chipInfo}>Area: {areaSqMi.toLocaleString('en-US', { maximumFractionDigits: 1 })} mi²</span>
+          )}
+          {pop != null && <span className={chipInfo}>Population: {pop.toLocaleString()}</span>}
+          <span className={chipInfo} title="Polygon count (approx.)">
+            👁️ {merged.geometry?.type === 'MultiPolygon' ? merged.geometry.coordinates.length : 1}
+          </span>
+          <button type="button" onClick={handleCopyText} className={actionBtn}>
+            <Copy size={13} />
+            Copy Text
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              const text = bulletinBody || merged.headline || eventTitle;
+              const payload = {
+                title: 'NWTT Weather Alert',
+                text: text.slice(0, 4000),
+                url: window.location.href,
+              };
+              const canShare =
+                typeof navigator.share === 'function' &&
+                (typeof navigator.canShare !== 'function' || navigator.canShare(payload));
+              if (canShare) {
+                navigator.share(payload).catch(() => {});
+              } else if (navigator.clipboard?.writeText) {
+                navigator.clipboard.writeText(`${payload.text}\n${payload.url}`);
+                setCopyStatus('Link copied');
+                window.setTimeout(() => setCopyStatus(''), 2000);
+              }
+            }}
+            className={actionBtn}
+          >
+            <Share2 size={13} />
+            Share
+          </button>
+          {copyStatus && <span className="text-[10px] text-sentinel-400">{copyStatus}</span>}
         </div>
       </div>
 
-      {fire.headline && (
-        <div
-          className="mb-4 p-3 rounded-lg text-xs leading-relaxed"
-          style={{ backgroundColor: typeColor + '20', border: `1px solid ${typeColor}40`, color: typeColor }}
+      <div className="border-b border-sentinel-700 mb-3 flex gap-0">
+        <button
+          type="button"
+          onClick={() => setTab('text')}
+          className={`flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2.5 text-xs font-bold border-b-2 transition-colors ${
+            tab === 'text' ? 'border-sky-500 text-sky-400' : 'border-transparent text-sentinel-500 hover:text-sentinel-300'
+          }`}
         >
-          {fire.headline}
-        </div>
-      )}
-
-      <div className="grid grid-cols-2 gap-2 mb-4">
-        {severity && <StatBlock label="Severity" value={severity} color="text-white" />}
-        {full.urgency && <StatBlock label="Urgency" value={full.urgency} />}
-        {full.certainty && <StatBlock label="Certainty" value={full.certainty} />}
-        {fire.expires && (
-          <StatBlock label="Expires" value={formatRelativeTime(fire.expires)} icon={Calendar} />
-        )}
+          <FileText size={14} />
+          Text
+        </button>
+        <button
+          type="button"
+          onClick={() => setTab('impacts')}
+          className={`flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2.5 text-xs font-bold border-b-2 transition-colors ${
+            tab === 'impacts' ? 'border-sky-500 text-sky-400' : 'border-transparent text-sentinel-500 hover:text-sentinel-300'
+          }`}
+        >
+          <MapPin size={14} />
+          Impacts
+        </button>
       </div>
 
-      {full.affectedArea && (
-        <div className="mb-4">
-          <div className="text-[10px] font-bold text-sentinel-500 uppercase tracking-widest mb-1.5">
-            Affected Area
-          </div>
-          <div className="flex items-start gap-2 text-xs text-sentinel-300">
-            <MapPin size={12} className="shrink-0 mt-0.5" />
-            <span>{full.affectedArea}</span>
-          </div>
+      {tab === 'text' && (
+        <div className="rounded-lg border border-sentinel-700 bg-sentinel-950/80 p-3 mb-4 max-h-[min(55vh,420px)] overflow-y-auto">
+          {bulletinBody ? (
+            <pre className="text-[11px] leading-relaxed text-sentinel-200 font-mono whitespace-pre-wrap break-words">
+              {bulletinBody}
+            </pre>
+          ) : (
+            <p className="text-xs text-sentinel-400">No bulletin text available for this alert.</p>
+          )}
         </div>
       )}
 
-      {full.description && (
-        <div className="mb-4">
-          <div className="text-[10px] font-bold text-sentinel-500 uppercase tracking-widest mb-1.5">
-            Description
+      {tab === 'impacts' && (
+        <div className="space-y-3 mb-4 text-xs text-sentinel-300">
+          {merged.headline && (
+            <div>
+              <div className="text-[10px] font-bold text-sentinel-500 uppercase tracking-widest mb-1">Headline</div>
+              <p className="leading-relaxed text-sentinel-200">{merged.headline}</p>
+            </div>
+          )}
+          {merged.affectedArea && (
+            <div className="flex items-start gap-2">
+              <MapPin size={14} className="shrink-0 mt-0.5 text-sky-400" />
+              <div>
+                <div className="text-[10px] font-bold text-sentinel-500 uppercase tracking-widest mb-1">Affected area</div>
+                <p className="leading-relaxed">{merged.affectedArea}</p>
+              </div>
+            </div>
+          )}
+          <div className="grid grid-cols-2 gap-2">
+            {merged.severity && <StatBlock label="Severity" value={merged.severity} color="text-white" />}
+            {merged.urgency && <StatBlock label="Urgency" value={merged.urgency} />}
+            {merged.certainty && <StatBlock label="Certainty" value={merged.certainty} />}
           </div>
-          <p className="text-xs text-sentinel-300 leading-relaxed whitespace-pre-line">
-            {full.description}
-          </p>
-        </div>
-      )}
-
-      {full.instruction && (
-        <div className="mb-2 p-3 bg-red-950/30 border border-red-900/50 rounded-lg">
-          <div className="text-[10px] font-bold text-red-400 uppercase tracking-widest mb-1.5">
-            Instructions
-          </div>
-          <p className="text-xs text-red-200/90 leading-relaxed whitespace-pre-line">
-            {full.instruction}
-          </p>
+          {merged.instruction && (
+            <div className="p-3 bg-red-950/30 border border-red-900/50 rounded-lg">
+              <div className="text-[10px] font-bold text-red-400 uppercase tracking-widest mb-1.5">Instructions</div>
+              <p className="text-red-200/90 leading-relaxed whitespace-pre-line">{merged.instruction}</p>
+            </div>
+          )}
         </div>
       )}
     </>
@@ -1101,9 +1219,14 @@ function NationalMapCollegeDetail({ fire }) {
 const FireDetailPanel = memo(function FireDetailPanel() {
   const { selectedFire, clearSelected, alerts } = useApp();
   const [shareStatus, setShareStatus] = useState('');
-  const isShareableFireType = ['hotspot', 'perimeter', 'incident', 'user-report'].includes(selectedFire?.type);
+  const isShareableFireType = ['hotspot', 'perimeter', 'incident', 'user-report', 'weather-alert'].includes(selectedFire?.type);
 
   const buildShareText = (fire) => {
+    if (fire.type === 'weather-alert') {
+      const title = fire.eventType || fire.type || 'Weather alert';
+      const head = fire.headline ? ` — ${fire.headline.slice(0, 120)}` : '';
+      return `${title}${head}`;
+    }
     const title =
       fire.name ||
       fire.title ||
@@ -1123,8 +1246,8 @@ const FireDetailPanel = memo(function FireDetailPanel() {
     const shareText = buildShareText(selectedFire);
     const shareUrl = window.location.href;
     const payload = {
-      title: 'Sentinel Fire Tracker',
-      text: `Track this fire on Sentinel: ${shareText}`,
+      title: selectedFire.type === 'weather-alert' ? 'NWTT Weather Alert' : 'Sentinel Fire Tracker',
+      text: selectedFire.type === 'weather-alert' ? shareText : `Track this fire on Sentinel: ${shareText}`,
       url: shareUrl,
     };
 

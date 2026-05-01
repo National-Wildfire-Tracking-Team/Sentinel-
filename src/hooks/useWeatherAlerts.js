@@ -11,6 +11,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useApp } from "../context/AppContext";
+import { geometryAreaSqMi } from "../utils/geoArea";
 
 const REFRESH_MS = 60 * 1000;
 
@@ -65,17 +66,31 @@ async function fetchAllNWSAlerts() {
     const data = await res.json();
 
     alerts.push(
-      ...data.features.map((f) => ({
-        id: f.id,
-        type: f.properties.event,
-        headline: f.properties.headline,
-        severity: f.properties.severity,
-        urgency: f.properties.urgency,
-        affectedArea: f.properties.areaDesc,
-        geometry: f.geometry,
-        geocodes: f.properties.geocode?.UGC || [],
-        source: "NWS",
-      }))
+      ...data.features.map((f) => {
+        const p = f.properties || {};
+        return {
+          id: p.id || f.id,
+          type: p.event,
+          headline: p.headline,
+          description: p.description,
+          instruction: p.instruction,
+          severity: p.severity,
+          urgency: p.urgency,
+          certainty: p.certainty,
+          sent: p.sent,
+          effective: p.effective,
+          onset: p.onset,
+          expires: p.expires,
+          senderName: p.senderName,
+          affectedArea: p.areaDesc,
+          response: p.response,
+          parameters: p.parameters,
+          geocode: p.geocode,
+          geocodes: p.geocode?.UGC || [],
+          geometry: f.geometry,
+          source: "NWS",
+        };
+      })
     );
 
     url = data.pagination?.next || null;
@@ -177,7 +192,17 @@ function mergeAlerts(primary, ...rest) {
     }
 
     if (!existing.geometry && a.geometry) {
-      map.set(a.id, a);
+      map.set(a.id, { ...a, ...existing, geometry: a.geometry });
+      return;
+    }
+
+    if (existing.geometry && !a.geometry && (a.description || a.headline)) {
+      map.set(a.id, { ...a, ...existing, geometry: existing.geometry });
+      return;
+    }
+
+    if (existing.geometry && a.geometry && (a.description || a.instruction) && !existing.description && !existing.instruction) {
+      map.set(a.id, { ...existing, ...a, geometry: existing.geometry });
     }
   }
 
@@ -266,15 +291,23 @@ export function useWeatherAlerts() {
   const mergedRef = useRef([]);
 
   const applyGeoJSON = useCallback(() => {
+    const withArea = mergedRef.current.map((a) => {
+      const geom = getGeometry(a, zoneMapRef.current, countyMapRef.current, cwaMapRef.current);
+      const areaSqMi = geom ? geometryAreaSqMi(geom) : null;
+      return { ...a, areaSqMi };
+    });
+    mergedRef.current = withArea;
     setGeoJSON(
       toGeoJSON(
-        mergedRef.current,
+        withArea,
         zoneMapRef.current,
         countyMapRef.current,
         cwaMapRef.current
       )
     );
-  }, []);
+    setAlertsState(withArea);
+    setAlerts(withArea);
+  }, [setAlerts]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -289,8 +322,6 @@ export function useWeatherAlerts() {
 
     // Phase 1: NWS only — unblock UI quickly (feed + map with API geometry)
     mergedRef.current = mergeAlerts(nws);
-    setAlertsState(mergedRef.current);
-    setAlerts(mergedRef.current);
     applyGeoJSON();
     setLoading(false);
 
@@ -309,8 +340,6 @@ export function useWeatherAlerts() {
     if (!mountedRef.current) return;
 
     mergedRef.current = mergeAlerts(nws, mapserver, fema);
-    setAlertsState(mergedRef.current);
-    setAlerts(mergedRef.current);
     applyGeoJSON();
   }, [setAlerts, applyGeoJSON]);
 
