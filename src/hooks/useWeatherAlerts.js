@@ -1,7 +1,7 @@
 /**
  * useWeatherAlerts.js
  * Unified nationwide alert system:
- * - NWS API (primary)
+ * - NWS API (primary) — shown first for fast weather-tab paint
  * - NOAA MapServer (geometry backup)
  * - FEMA IPAWS (supplement)
  * - NWS Zones (UGC fallback)
@@ -263,25 +263,56 @@ export function useWeatherAlerts() {
   const countyMapRef = useRef(null);
   const cwaMapRef = useRef(null);
   const mountedRef = useRef(true);
+  const mergedRef = useRef([]);
+
+  const applyGeoJSON = useCallback(() => {
+    setGeoJSON(
+      toGeoJSON(
+        mergedRef.current,
+        zoneMapRef.current,
+        countyMapRef.current,
+        cwaMapRef.current
+      )
+    );
+  }, []);
 
   const load = useCallback(async () => {
-    const [nws, mapserver, fema] = await Promise.all([
-      fetchAllNWSAlerts(),
-      fetchNOAAMapServerAlerts(),
-      fetchFemaAlerts(),
-    ]);
+    setLoading(true);
+    let nws = [];
+    try {
+      nws = await fetchAllNWSAlerts();
+    } catch (err) {
+      console.warn(err?.message || err);
+    }
 
     if (!mountedRef.current) return;
 
-    const merged = mergeAlerts(nws, mapserver, fema);
-
-    setAlertsState(merged);
-    setAlerts(merged);
-
-    setGeoJSON(toGeoJSON(merged, zoneMapRef.current, countyMapRef.current, cwaMapRef.current));
-
+    // Phase 1: NWS only — unblock UI quickly (feed + map with API geometry)
+    mergedRef.current = mergeAlerts(nws);
+    setAlertsState(mergedRef.current);
+    setAlerts(mergedRef.current);
+    applyGeoJSON();
     setLoading(false);
-  }, [setAlerts]);
+
+    // Phase 2: MapServer + FEMA in parallel, then merge (fills geometry gaps)
+    let mapserver = [];
+    let fema = [];
+    try {
+      [mapserver, fema] = await Promise.all([
+        fetchNOAAMapServerAlerts(),
+        fetchFemaAlerts(),
+      ]);
+    } catch (err) {
+      console.warn(err?.message || err);
+    }
+
+    if (!mountedRef.current) return;
+
+    mergedRef.current = mergeAlerts(nws, mapserver, fema);
+    setAlertsState(mergedRef.current);
+    setAlerts(mergedRef.current);
+    applyGeoJSON();
+  }, [setAlerts, applyGeoJSON]);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -299,6 +330,7 @@ export function useWeatherAlerts() {
       });
 
       zoneMapRef.current = map;
+      if (mountedRef.current) applyGeoJSON();
     });
 
     /* =========================
@@ -314,6 +346,7 @@ export function useWeatherAlerts() {
       });
 
       countyMapRef.current = map;
+      if (mountedRef.current) applyGeoJSON();
     });
 
     /* =========================
@@ -329,6 +362,7 @@ export function useWeatherAlerts() {
       });
 
       cwaMapRef.current = map;
+      if (mountedRef.current) applyGeoJSON();
     });
 
     load();
@@ -338,7 +372,7 @@ export function useWeatherAlerts() {
       mountedRef.current = false;
       clearInterval(interval);
     };
-  }, [load]);
+  }, [load, applyGeoJSON]);
 
   return {
     alerts,

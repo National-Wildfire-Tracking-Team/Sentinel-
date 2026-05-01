@@ -34,7 +34,7 @@ function isRecentHotspot(spot, nowMs) {
   return (nowMs - acquiredAtMs) <= MAX_HOTSPOT_AGE_MS;
 }
 
-export function useFireHotspots(bounds) {
+export function useFireHotspots(bounds, enabled = true) {
   const [geoJSON, setGeoJSON]   = useState(null);
   const [loading, setLoading]   = useState(true);
   const [error,   setError]     = useState(null);
@@ -44,6 +44,7 @@ export function useFireHotspots(bounds) {
   const mountedRef  = useRef(true);
 
   const load = useCallback(async () => {
+    if (!enabled) return;
     try {
       setLoading(true);
       setError(null);
@@ -74,17 +75,24 @@ export function useFireHotspots(bounds) {
     } finally {
       if (mountedRef.current) setLoading(false);
     }
-  }, [bounds]);
+  }, [bounds, enabled]);
 
   useEffect(() => {
     mountedRef.current = true;
+    if (!enabled) {
+      clearInterval(intervalRef.current);
+      setLoading(false);
+      return () => {
+        mountedRef.current = false;
+      };
+    }
     load();
     intervalRef.current = setInterval(load, REFRESH_MS);
     return () => {
       mountedRef.current = false;
       clearInterval(intervalRef.current);
     };
-  }, [load]);
+  }, [load, enabled]);
 
   return { geoJSON, loading, error, count, sourceCounts, refresh: load };
 }

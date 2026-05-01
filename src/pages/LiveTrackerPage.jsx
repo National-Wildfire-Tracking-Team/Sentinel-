@@ -207,13 +207,15 @@ export default function LiveTrackerPage() {
 
 
   // ── Data feeds ──
+  const wildfireDataEnabled = activeMapTab !== MAP_TABS.weather;
+
   const {
     geoJSON: hotspotsGeoJSON,
     loading: hotspotsLoading,
     count: hotspotsCount,
     sourceCounts: hotspotsSourceCounts,
     refresh: refreshHotspots,
-  } = useFireHotspots(US_BOUNDS);
+  } = useFireHotspots(US_BOUNDS, wildfireDataEnabled);
 
   const {
     perimetersGeoJSON,
@@ -222,7 +224,7 @@ export default function LiveTrackerPage() {
     perimetersCount,
     dotsCount,
     refresh: refreshPerimeters,
-  } = useMergedFireData(5);
+  } = useMergedFireData(5, wildfireDataEnabled);
 
   const {
     geoJSON: aqiGeoJSON,
@@ -252,7 +254,7 @@ export default function LiveTrackerPage() {
     loading: incidentsLoading,
     error: incidentsError,
     refresh: refreshIncidents,
-  } = useIncidents(0.1);
+  } = useIncidents(0.1, wildfireDataEnabled);
 
   const {
     geoJSON: stormReportsGeoJSON,
