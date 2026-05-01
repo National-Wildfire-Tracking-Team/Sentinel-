@@ -9,7 +9,7 @@ import { fetchIncidents, incidentsToGeoJSON } from '../api/inciweb';
 
 const REFRESH_MS = parseInt(import.meta.env.VITE_REFRESH_INTERVAL || '300000', 10);
 
-export function useIncidents(minAcres = 0.1) {
+export function useIncidents(minAcres = 0.1, enabled = true) {
   const [incidents, setIncidents] = useState([]);
   const [geoJSON,   setGeoJSON]   = useState(null);
   const [loading,   setLoading]   = useState(true);
@@ -18,6 +18,7 @@ export function useIncidents(minAcres = 0.1) {
   const mountedRef  = useRef(true);
 
   const load = useCallback(async () => {
+    if (!enabled) return;
     try {
       setLoading(true);
       setError(null);
@@ -33,17 +34,24 @@ export function useIncidents(minAcres = 0.1) {
     } finally {
       if (mountedRef.current) setLoading(false);
     }
-  }, [minAcres]);
+  }, [minAcres, enabled]);
 
   useEffect(() => {
     mountedRef.current = true;
+    if (!enabled) {
+      clearInterval(intervalRef.current);
+      setLoading(false);
+      return () => {
+        mountedRef.current = false;
+      };
+    }
     load();
     intervalRef.current = setInterval(load, REFRESH_MS);
     return () => {
       mountedRef.current = false;
       clearInterval(intervalRef.current);
     };
-  }, [load]);
+  }, [load, enabled]);
 
   return { incidents, geoJSON, loading, error, count: incidents.length, refresh: load };
 }

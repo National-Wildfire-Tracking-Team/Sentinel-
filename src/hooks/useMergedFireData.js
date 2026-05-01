@@ -153,7 +153,7 @@ function mergeFireData(perimeters, incidents) {
  *   refresh: function,
  * }}
  */
-export function useMergedFireData(minAcres = 100) {
+export function useMergedFireData(minAcres = 100, enabled = true) {
   const [perimetersGeoJSON,   setPerimetersGeoJSON]   = useState(null);
   const [incidentDotsGeoJSON, setIncidentDotsGeoJSON] = useState(null);
   const [loading,             setLoading]             = useState(true);
@@ -163,6 +163,7 @@ export function useMergedFireData(minAcres = 100) {
   const intervalRef = useRef(null);
 
   const load = useCallback(async () => {
+    if (!enabled) return;
     try {
       setError(null);
       const [perimeters, incidents] = await Promise.all([
@@ -180,13 +181,18 @@ export function useMergedFireData(minAcres = 100) {
     } finally {
       setLoading(false);
     }
-  }, [minAcres]);
+  }, [minAcres, enabled]);
 
   useEffect(() => {
+    if (!enabled) {
+      clearInterval(intervalRef.current);
+      setLoading(false);
+      return;
+    }
     load();
     intervalRef.current = setInterval(load, REFRESH_MS);
     return () => clearInterval(intervalRef.current);
-  }, [load]);
+  }, [load, enabled]);
 
   return {
     perimetersGeoJSON,
