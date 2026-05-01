@@ -1,12 +1,28 @@
 /**
  * WeatherAlertsFeed.jsx
- * Live active NOAA/NWS alerts feed for weather tracking mode.
+ * Live active NOAA/NWS alerts feed — grouped by category and event type,
+ * with compact cards matching the weather sidebar design.
  */
 
-import { useMemo, useState } from 'react';
-import { Loader2, AlertCircle, ShieldAlert, AlertTriangle, Info, CloudSun } from 'lucide-react';
+import { useMemo, useState, useCallback } from 'react';
+import {
+  Loader2,
+  AlertCircle,
+  ShieldAlert,
+  AlertTriangle,
+  Info,
+  CloudSun,
+  Eye,
+  HelpCircle,
+  ChevronDown,
+  ChevronRight,
+} from 'lucide-react';
 import { nwsAlertColor, nwsAlertCategory } from '../../utils/nwsColors';
 import { useApp } from '../../context/AppContext';
+import { formatRelativeTime } from '../../utils/formatUtils';
+
+const NAVY = '#1D2951';
+const MAROON = '#8B0000';
 
 /** Compute a representative center [lng, lat] from a GeoJSON Polygon or MultiPolygon. */
 function getAlertCenter(alert) {
@@ -24,109 +40,314 @@ function getAlertCenter(alert) {
   return { lng: sumLng / ring.length, lat: sumLat / ring.length };
 }
 
-const SEVERITY_STYLES = {
-  Extreme:  'border-red-600/60 bg-red-950/50 text-red-200',
-  Severe:   'border-orange-600/60 bg-orange-950/50 text-orange-200',
-  Moderate: 'border-yellow-600/60 bg-yellow-950/50 text-yellow-200',
-  Minor:    'border-blue-600/60 bg-blue-950/50 text-blue-200',
-  Unknown:  'border-sentinel-600 bg-sentinel-800/60 text-sentinel-200',
+function firstPopulation(params) {
+  if (!params || typeof params !== 'object') return null;
+  const keys = Object.keys(params);
+  const popKey = keys.find((k) => /^population$/i.test(k) || /^POP/i.test(k));
+  if (!popKey) return null;
+  const raw = params[popKey];
+  const n = Array.isArray(raw) ? raw[0] : raw;
+  const v = parseInt(String(n).replace(/\D/g, ''), 10);
+  return Number.isFinite(v) ? v : null;
+}
+
+function firstStateCode(geocodes) {
+  if (!geocodes?.length) return null;
+  const ugc = geocodes.find((c) => typeof c === 'string' && c.length >= 2);
+  if (!ugc) return null;
+  return ugc.slice(0, 2).toUpperCase();
+}
+
+function issuingOfficeCode(alert) {
+  const wmo = alert.parameters?.WMOidentifier;
+  if (Array.isArray(wmo) && wmo[0]) {
+    const parts = String(wmo[0]).trim().split(/\s+/);
+    if (parts.length >= 2) return parts[1].toUpperCase();
+  }
+  const ugc = alert.geocodes || alert.geocode?.UGC;
+  const fromUgc = Array.isArray(ugc) ? ugc.find((c) => typeof c === 'string' && /^[A-Z]{3}\d/.test(c)) : null;
+  if (fromUgc && fromUgc.length >= 3) return fromUgc.slice(0, 3).toUpperCase();
+  return null;
+}
+
+function categoryLabel(key) {
+  if (key === 'warning') return 'Warnings';
+  if (key === 'watch') return 'Watches';
+  if (key === 'advisory') return 'Advisories';
+  if (key === 'statement') return 'Statements';
+  if (key === 'eas') return 'EAS';
+  return 'Other';
+}
+
+const CATEGORY_ORDER = ['warning', 'watch', 'advisory', 'statement', 'eas', 'other'];
+
+const CATEGORY_CARD_BG = {
+  warning: '#FDE2E2',
+  watch: '#FFF4E5',
+  advisory: '#F0F9FF',
+  statement: '#F1F5F9',
+  eas: '#FEF3C7',
+  other: '#F1F5F9',
 };
 
 const SEVERITY_ICONS = {
-  Extreme:  ShieldAlert,
-  Severe:   AlertTriangle,
+  Extreme: ShieldAlert,
+  Severe: AlertTriangle,
   Moderate: AlertTriangle,
-  Minor:    Info,
-  Unknown:  Info,
+  Minor: Info,
+  Unknown: Info,
 };
 
-const SEVERITY_RANK = {
-  Extreme: 0,
-  Severe: 1,
-  Moderate: 2,
-  Minor: 3,
-  Unknown: 4,
-};
-
-function AlertRow({ alert }) {
-  const [expanded, setExpanded] = useState(false);
-  const { selectFire, setViewport } = useApp();
-  const severity = alert.severity || 'Unknown';
-  const styles = SEVERITY_STYLES[severity] || SEVERITY_STYLES.Unknown;
-  const Icon = SEVERITY_ICONS[severity] || Info;
-  const accentColor = nwsAlertColor(alert.type);
-  const category = nwsAlertCategory(alert.type);
-
-  const handleClick = () => {
-    selectFire({ ...alert, type: 'weather-alert', eventType: alert.type });
-    const center = getAlertCenter(alert);
-    if (center) {
-      setViewport({ longitude: center.lng, latitude: center.lat, zoom: 7 });
-    }
-    setExpanded((e) => !e);
-  };
+function SelectedAlertBanner({ alert, onClear }) {
+  const bg = CATEGORY_CARD_BG[nwsAlertCategory(alert.type)] || CATEGORY_CARD_BG.other;
+  const pop = firstPopulation(alert.parameters);
+  const state = firstStateCode(alert.geocodes || alert.geocode?.UGC);
+  const office = issuingOfficeCode(alert);
 
   return (
-    <div className={`rounded-lg border p-2.5 ${styles}`}>
+    <div
+      className="mx-2 mb-2 rounded-xl px-3 py-2.5 border border-black/5 shadow-sm"
+      style={{ backgroundColor: bg }}
+    >
+      <div className="flex items-start justify-between gap-2">
+        <p className="text-xs font-bold leading-snug pr-1" style={{ color: MAROON }}>
+          {alert.headline || alert.type}
+        </p>
+        {onClear && (
+          <button
+            type="button"
+            onClick={onClear}
+            className="shrink-0 text-[10px] font-semibold uppercase tracking-wide opacity-70 hover:opacity-100"
+            style={{ color: NAVY }}
+          >
+            List
+          </button>
+        )}
+      </div>
+      <div className="flex flex-wrap gap-1.5 mt-2">
+        {pop != null && (
+          <span
+            className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-[10px] font-bold text-white"
+            style={{ backgroundColor: NAVY }}
+          >
+            <span aria-hidden="true">👤</span>
+            {pop.toLocaleString()}
+          </span>
+        )}
+        {state && (
+          <span
+            className="px-2 py-0.5 rounded-full text-[10px] font-bold text-white"
+            style={{ backgroundColor: NAVY }}
+          >
+            {state}
+          </span>
+        )}
+        {office && (
+          <span
+            className="px-2 py-0.5 rounded-full text-[10px] font-bold text-white"
+            style={{ backgroundColor: NAVY }}
+          >
+            {office}
+          </span>
+        )}
+      </div>
+      {alert.response && (
+        <p className="text-[11px] mt-2 leading-snug" style={{ color: NAVY }}>
+          {alert.type}: <span className="font-bold">{alert.response}</span>
+        </p>
+      )}
+      {alert.expires && (
+        <p className="text-[11px] mt-1 font-medium" style={{ color: MAROON }}>
+          Expires {formatRelativeTime(alert.expires)}
+        </p>
+      )}
+    </div>
+  );
+}
+
+function AlertTypeRow({
+  eventType,
+  count,
+  alertsInType,
+  categoryKey,
+  expanded,
+  onToggle,
+  accentColor,
+  selectedId,
+  onSelectAlert,
+}) {
+  const Icon = SEVERITY_ICONS[alertsInType[0]?.severity] || Info;
+
+  return (
+    <div className="ml-1">
       <button
         type="button"
-        onClick={handleClick}
-        className="w-full text-left"
+        onClick={onToggle}
+        className="w-full flex items-center gap-2 py-1.5 px-1 rounded-lg hover:bg-white/5 transition-colors text-left"
       >
-        <div className="flex items-start gap-2">
-          <span
-            aria-hidden="true"
-            className="mt-1 w-1.5 h-1.5 rounded-full shrink-0"
-            style={{ backgroundColor: accentColor }}
-          />
-          <Icon size={14} className="shrink-0 mt-0.5" />
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-1.5 flex-wrap">
-              <div className="text-xs font-semibold leading-tight truncate">{alert.type}</div>
-              {alert.source === 'fema' && (
-                <span className="text-[9px] font-bold px-1 py-0 rounded bg-orange-800/60 text-orange-200 shrink-0 uppercase tracking-wide">
-                  FEMA
-                </span>
-              )}
-            </div>
-            {alert.headline && (
-              <div className="text-[11px] opacity-80 mt-0.5 line-clamp-2">{alert.headline}</div>
-            )}
-            {alert.affectedArea && (
-              <div className="text-[10px] opacity-70 mt-0.5 truncate">{alert.affectedArea}</div>
-            )}
-          </div>
-          <span className="text-[10px] font-medium opacity-70 shrink-0 capitalize">{category}</span>
-        </div>
+        <span className="flex items-center justify-center w-7 h-7 rounded-full shrink-0" style={{ backgroundColor: accentColor }}>
+          <Icon size={14} className="text-white drop-shadow-sm" strokeWidth={2.5} />
+        </span>
+        <span className="flex-1 min-w-0 font-bold text-sm truncate" style={{ color: NAVY }}>
+          {eventType}
+        </span>
+        <span
+          className="shrink-0 px-2 py-0.5 rounded-full text-[10px] font-bold text-white"
+          style={{ backgroundColor: NAVY }}
+        >
+          {count}
+        </span>
+        <span className="shrink-0 p-0.5 rounded-full hover:bg-white/10" style={{ color: NAVY }} title="NWS event type">
+          <HelpCircle size={16} strokeWidth={2} />
+        </span>
+        {expanded ? (
+          <ChevronDown size={16} className="shrink-0 opacity-60" style={{ color: NAVY }} />
+        ) : (
+          <ChevronRight size={16} className="shrink-0 opacity-60" style={{ color: NAVY }} />
+        )}
       </button>
 
       {expanded && (
-        <div className="mt-2 pt-2 border-t border-white/10 space-y-1.5">
-          {alert.affectedArea && (
-            <div className="text-[11px]">
-              <span className="font-semibold">Area:</span> {alert.affectedArea}
-            </div>
-          )}
-          {alert.senderName && (
-            <div className="text-[11px]">
-              <span className="font-semibold">Source:</span> {alert.senderName}
-            </div>
-          )}
-          {alert.instruction && (
-            <div className="text-[11px]">
-              <span className="font-semibold">Instructions:</span> {alert.instruction}
-            </div>
-          )}
-          <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[10px] opacity-70">
-            <span>Severity: {severity}</span>
-            {alert.urgency && <span>Urgency: {alert.urgency}</span>}
-            {alert.certainty && <span>Certainty: {alert.certainty}</span>}
-          </div>
-          {alert.expires && (
-            <div className="text-[10px] opacity-70">
-              Expires: {new Date(alert.expires).toLocaleString()}
-            </div>
-          )}
+        <div className="pl-1 pb-2 space-y-2">
+          {alertsInType.map((alert) => (
+            <CompactAlertCard
+              key={alert.id}
+              alert={alert}
+              categoryKey={categoryKey}
+              selected={selectedId === alert.id}
+              onSelect={() => onSelectAlert(alert)}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CompactAlertCard({ alert, categoryKey, selected, onSelect }) {
+  const bg = CATEGORY_CARD_BG[categoryKey] || CATEGORY_CARD_BG.other;
+  const pop = firstPopulation(alert.parameters);
+  const state = firstStateCode(alert.geocodes || alert.geocode?.UGC);
+  const office = issuingOfficeCode(alert);
+
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      className={`w-full text-left rounded-xl px-3 py-2.5 border transition-shadow ${
+        selected ? 'ring-2 ring-sky-400 ring-offset-2 ring-offset-sentinel-900' : 'border-black/5'
+      } shadow-sm hover:shadow`}
+      style={{ backgroundColor: bg }}
+    >
+      <p className="text-xs font-bold leading-snug" style={{ color: MAROON }}>
+        {alert.headline || alert.type}
+      </p>
+      <div className="flex flex-wrap gap-1.5 mt-2">
+        {pop != null && (
+          <span
+            className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-[10px] font-bold text-white"
+            style={{ backgroundColor: NAVY }}
+          >
+            <span aria-hidden="true">👤</span>
+            {pop.toLocaleString()}
+          </span>
+        )}
+        {state && (
+          <span
+            className="px-2 py-0.5 rounded-full text-[10px] font-bold text-white"
+            style={{ backgroundColor: NAVY }}
+          >
+            {state}
+          </span>
+        )}
+        {office && (
+          <span
+            className="px-2 py-0.5 rounded-full text-[10px] font-bold text-white"
+            style={{ backgroundColor: NAVY }}
+          >
+            {office}
+          </span>
+        )}
+      </div>
+      {alert.response && (
+        <p className="text-[11px] mt-2 leading-snug" style={{ color: NAVY }}>
+          {alert.type}: <span className="font-bold">{alert.response}</span>
+        </p>
+      )}
+      {alert.expires && (
+        <p className="text-[11px] mt-1 font-medium" style={{ color: MAROON }}>
+          Expires {formatRelativeTime(alert.expires)}
+        </p>
+      )}
+    </button>
+  );
+}
+
+function CategorySection({
+  categoryKey,
+  alerts: sectionAlerts,
+  expandedCategory,
+  onToggleCategory,
+  expandedTypes,
+  toggleType,
+  selectedId,
+  onSelectAlert,
+}) {
+  const total = sectionAlerts.length;
+  const m = new Map();
+  for (const a of sectionAlerts) {
+    const t = a.type || 'Unknown';
+    if (!m.has(t)) m.set(t, []);
+    m.get(t).push(a);
+  }
+  const byType = [...m.entries()].sort(
+    (a, b) => b[1].length - a[1].length || a[0].localeCompare(b[0])
+  );
+
+  const open = expandedCategory;
+
+  return (
+    <div className="mb-1">
+      <button
+        type="button"
+        onClick={() => onToggleCategory(categoryKey)}
+        className="w-full flex items-center gap-2 py-2 px-1 rounded-lg hover:bg-white/5 transition-colors"
+      >
+        <span className="flex-1 text-left font-bold text-sm" style={{ color: NAVY }}>
+          {categoryLabel(categoryKey)}
+        </span>
+        <span
+          className="shrink-0 px-2 py-0.5 rounded-full text-[10px] font-bold text-white"
+          style={{ backgroundColor: NAVY }}
+        >
+          {total}
+        </span>
+        <span className="shrink-0 p-1 rounded-md hover:bg-white/10" style={{ color: NAVY }} title="Alert count in this category">
+          <Eye size={18} strokeWidth={2} />
+        </span>
+        {open ? (
+          <ChevronDown size={18} className="shrink-0 opacity-50" style={{ color: NAVY }} />
+        ) : (
+          <ChevronRight size={18} className="shrink-0 opacity-50" style={{ color: NAVY }} />
+        )}
+      </button>
+
+      {open && (
+        <div className="border-l-2 border-white/10 ml-2 pl-1 space-y-0.5">
+          {byType.map(([eventType, list]) => (
+            <AlertTypeRow
+              key={eventType}
+              eventType={eventType}
+              count={list.length}
+              alertsInType={list}
+              categoryKey={categoryKey}
+              expanded={expandedTypes.has(eventType)}
+              onToggle={() => toggleType(eventType)}
+              accentColor={nwsAlertColor(eventType)}
+              selectedId={selectedId}
+              onSelectAlert={onSelectAlert}
+            />
+          ))}
         </div>
       )}
     </div>
@@ -134,35 +355,46 @@ function AlertRow({ alert }) {
 }
 
 const FILTER_OPTIONS = [
-  { key: 'all',       label: 'All' },
-  { key: 'warning',   label: 'Warnings' },
-  { key: 'watch',     label: 'Watches' },
-  { key: 'advisory',  label: 'Advisories' },
+  { key: 'all', label: 'All' },
+  { key: 'warning', label: 'Warnings' },
+  { key: 'watch', label: 'Watches' },
+  { key: 'advisory', label: 'Advisories' },
   { key: 'statement', label: 'Statements' },
 ];
 
 const FILTER_COLORS = {
-  all:       'bg-sentinel-700 text-white border-sentinel-500',
-  warning:   'bg-red-700/70 text-red-100 border-red-500/60',
-  watch:     'bg-orange-700/70 text-orange-100 border-orange-500/60',
-  advisory:  'bg-yellow-700/70 text-yellow-100 border-yellow-500/60',
+  all: 'bg-sentinel-700 text-white border-sentinel-500',
+  warning: 'bg-red-700/70 text-red-100 border-red-500/60',
+  watch: 'bg-orange-700/70 text-orange-100 border-orange-500/60',
+  advisory: 'bg-yellow-700/70 text-yellow-100 border-yellow-500/60',
   statement: 'bg-sky-700/70 text-sky-100 border-sky-500/60',
 };
 
 const FILTER_COLORS_INACTIVE = {
-  all:       'text-sentinel-300 border-sentinel-600 hover:bg-sentinel-700/50',
-  warning:   'text-red-300 border-red-800/50 hover:bg-red-900/30',
-  watch:     'text-orange-300 border-orange-800/50 hover:bg-orange-900/30',
-  advisory:  'text-yellow-300 border-yellow-800/50 hover:bg-yellow-900/30',
+  all: 'text-sentinel-300 border-sentinel-600 hover:bg-sentinel-700/50',
+  warning: 'text-red-300 border-red-800/50 hover:bg-red-900/30',
+  watch: 'text-orange-300 border-orange-800/50 hover:bg-orange-900/30',
+  advisory: 'text-yellow-300 border-yellow-800/50 hover:bg-yellow-900/30',
   statement: 'text-sky-300 border-sky-800/50 hover:bg-sky-900/30',
 };
 
-export default function WeatherAlertsFeed({ alerts = [], loading, error, activeFilter = 'all', onFilterChange }) {
+export default function WeatherAlertsFeed({
+  alerts = [],
+  loading,
+  error,
+  activeFilter = 'all',
+  onFilterChange,
+}) {
+  const { selectFire, setViewport, selectedFire, clearSelected } = useApp();
+
+  const [expandedCategories, setExpandedCategories] = useState(() => new Set(['warning']));
+  const [expandedTypes, setExpandedTypes] = useState(() => new Set());
 
   const sorted = useMemo(() => {
+    const rank = { Extreme: 0, Severe: 1, Moderate: 2, Minor: 3, Unknown: 4 };
     return [...alerts].sort((a, b) => {
-      const ra = SEVERITY_RANK[a.severity] ?? SEVERITY_RANK.Unknown;
-      const rb = SEVERITY_RANK[b.severity] ?? SEVERITY_RANK.Unknown;
+      const ra = rank[a.severity] ?? rank.Unknown;
+      const rb = rank[b.severity] ?? rank.Unknown;
       if (ra !== rb) return ra - rb;
       const ta = a.onset ? new Date(a.onset).getTime() : 0;
       const tb = b.onset ? new Date(b.onset).getTime() : 0;
@@ -183,9 +415,56 @@ export default function WeatherAlertsFeed({ alerts = [], loading, error, activeF
     return c;
   }, [alerts]);
 
+  const byCategory = useMemo(() => {
+    const m = new Map();
+    for (const key of CATEGORY_ORDER) m.set(key, []);
+    for (const a of filtered) {
+      const cat = nwsAlertCategory(a.type);
+      const bucket = m.has(cat) ? cat : 'other';
+      m.get(bucket).push(a);
+    }
+    return m;
+  }, [filtered]);
+
+  const selectedWeather =
+    selectedFire?.type === 'weather-alert' ? alerts.find((a) => a.id === selectedFire.id) || selectedFire : null;
+
+  const onSelectAlert = useCallback(
+    (alert) => {
+      selectFire({ ...alert, type: 'weather-alert', eventType: alert.type });
+      const center = getAlertCenter(alert);
+      if (center) {
+        setViewport({ longitude: center.lng, latitude: center.lat, zoom: 7 });
+      }
+    },
+    [selectFire, setViewport]
+  );
+
+  const toggleCategory = useCallback((key) => {
+    setExpandedCategories((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }, []);
+
+  const toggleType = useCallback((eventType) => {
+    setExpandedTypes((prev) => {
+      const next = new Set(prev);
+      if (next.has(eventType)) next.delete(eventType);
+      else next.add(eventType);
+      return next;
+    });
+  }, []);
+
+  const categoriesToShow = useMemo(() => {
+    if (activeFilter === 'all') return CATEGORY_ORDER.filter((k) => (byCategory.get(k) || []).length > 0);
+    return [activeFilter].filter((k) => (byCategory.get(k) || []).length > 0);
+  }, [activeFilter, byCategory]);
+
   return (
     <div className="flex flex-col h-full">
-      {/* Filter buttons */}
       <div className="px-2 pt-2 pb-1 shrink-0">
         <div className="flex gap-1 flex-wrap">
           {FILTER_OPTIONS.map(({ key, label }) => {
@@ -201,16 +480,14 @@ export default function WeatherAlertsFeed({ alerts = [], loading, error, activeF
                 }`}
               >
                 {label}
-                <span className={`text-[10px] font-bold ${isActive ? 'opacity-90' : 'opacity-60'}`}>
-                  {count}
-                </span>
+                <span className={`text-[10px] font-bold ${isActive ? 'opacity-90' : 'opacity-60'}`}>{count}</span>
               </button>
             );
           })}
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-2 space-y-2">
+      <div className="flex-1 overflow-y-auto pb-2">
         {loading && (
           <div className="flex items-center justify-center gap-2 py-8 text-sentinel-200">
             <Loader2 size={18} className="animate-spin" />
@@ -219,7 +496,7 @@ export default function WeatherAlertsFeed({ alerts = [], loading, error, activeF
         )}
 
         {error && !loading && (
-          <div className="flex items-start gap-2 p-3 bg-red-950/40 border border-red-800/50 rounded-lg text-red-300 text-sm">
+          <div className="flex items-start gap-2 p-3 mx-2 bg-red-950/40 border border-red-800/50 rounded-lg text-red-300 text-sm">
             <AlertCircle size={15} className="shrink-0 mt-0.5" />
             <span>Could not load active NWS/FEMA alerts.</span>
           </div>
@@ -232,9 +509,25 @@ export default function WeatherAlertsFeed({ alerts = [], loading, error, activeF
           </div>
         )}
 
-        {!loading && !error && filtered.map((alert) => (
-          <AlertRow key={alert.id} alert={alert} />
-        ))}
+        {!loading && !error && selectedWeather && (
+          <SelectedAlertBanner alert={selectedWeather} onClear={clearSelected} />
+        )}
+
+        {!loading &&
+          !error &&
+          categoriesToShow.map((catKey) => (
+            <CategorySection
+              key={catKey}
+              categoryKey={catKey}
+              alerts={byCategory.get(catKey) || []}
+              expandedCategory={expandedCategories.has(catKey)}
+              onToggleCategory={toggleCategory}
+              expandedTypes={expandedTypes}
+              toggleType={toggleType}
+              selectedId={selectedFire?.type === 'weather-alert' ? selectedFire.id : null}
+              onSelectAlert={onSelectAlert}
+            />
+          ))}
       </div>
     </div>
   );
