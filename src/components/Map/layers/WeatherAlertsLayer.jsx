@@ -1,20 +1,23 @@
 /**
  * WeatherAlertsLayer.jsx
  * Combined NOAA/NWS active alerts and SPC Mesoscale Discussion polygons
- * in one control: NWS zones use the official color palette; SPC MDs use
+ * in one control: NWS zones use WWA-aware styles where defined (see getNWSWWAStyle),
+ * then the official NWS palette for color; SPC MDs use
  * the classic red-dash / white outline with no fill, matching the SPC map.
  */
 
 import { memo, Fragment } from 'react';
 import { Source, Layer } from 'react-map-gl';
-import { nwsColorMatchExpression } from '../../../utils/nwsColors';
+import {
+  nwsWwaAwareColorMatchExpression,
+  nwsWwaStyleMatchExpression,
+} from '../../../utils/nwsColors';
 
 const EMPTY_GEOJSON = { type: 'FeatureCollection', features: [] };
-const COLOR_EXPR = nwsColorMatchExpression();
-
-// NWS: Feature is considered a "watch" if the alert type string contains "Watch".
-const IS_WATCH = ['in', 'Watch', ['get', 'type']];
-const IS_NOT_WATCH = ['!', IS_WATCH];
+const COLOR_EXPR = nwsWwaAwareColorMatchExpression();
+const FILL_OPACITY_EXPR = nwsWwaStyleMatchExpression('fill');
+const LINE_OPACITY_EXPR = nwsWwaStyleMatchExpression('stroke');
+const LINE_WIDTH_EXPR = nwsWwaStyleMatchExpression('width');
 
 const WeatherAlertsLayer = memo(function WeatherAlertsLayer({
   geoJSON,
@@ -34,31 +37,18 @@ const WeatherAlertsLayer = memo(function WeatherAlertsLayer({
           layout={{ visibility: vis }}
           paint={{
             'fill-color': COLOR_EXPR,
-            'fill-opacity': ['case', IS_WATCH, 0.2, 0.35],
+            'fill-opacity': FILL_OPACITY_EXPR,
           }}
         />
         <Layer
           id="weather-alerts-line"
           type="line"
           source="weather-alerts"
-          filter={IS_NOT_WATCH}
           layout={{ visibility: vis }}
           paint={{
             'line-color': COLOR_EXPR,
-            'line-width': 2,
-            'line-opacity': 0.9,
-          }}
-        />
-        <Layer
-          id="weather-alerts-line-watch"
-          type="line"
-          source="weather-alerts"
-          filter={IS_WATCH}
-          layout={{ visibility: vis }}
-          paint={{
-            'line-color': COLOR_EXPR,
-            'line-width': 1.5,
-            'line-opacity': 0.9,
+            'line-width': LINE_WIDTH_EXPR,
+            'line-opacity': LINE_OPACITY_EXPR,
           }}
         />
       </Source>

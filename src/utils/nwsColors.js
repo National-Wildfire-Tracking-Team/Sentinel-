@@ -181,6 +181,86 @@ export function nwsAlertColor(event) {
 }
 
 /**
+ * Per-event map styling for WWA polygons (fill/stroke opacity and line width).
+ * Keys match the `event` / feature `type` string from NOAA alerts.
+ */
+const NWS_WWA_DEFAULT_STYLE = {
+  color: '#808080',
+  fill: 0.15,
+  stroke: 0.6,
+  width: 1.2,
+};
+
+export const NWS_WWA_STYLES = {
+  /* PRIORITY 1 */
+  'Tornado Warning': { color: '#FF0000', fill: 0.5, stroke: 1.0, width: 2.5 },
+  'Tsunami Warning': { color: '#FD6347', fill: 0.5, stroke: 1.0, width: 2.5 },
+
+  /* SEVERE WARNINGS */
+  'Extreme Wind Warning': { color: '#FF8C00', fill: 0.42, stroke: 0.95, width: 2.2 },
+  'Severe Thunderstorm Warning': { color: '#FFA500', fill: 0.36, stroke: 0.9, width: 2.0 },
+  'Flash Flood Warning': { color: '#8B0000', fill: 0.38, stroke: 0.95, width: 2.2 },
+  'Hurricane Warning': { color: '#DC143C', fill: 0.4, stroke: 0.95, width: 2.2 },
+  'Typhoon Warning': { color: '#DC143C', fill: 0.4, stroke: 0.95, width: 2.2 },
+
+  'Special Marine Warning': { color: '#FFA500', fill: 0.34, stroke: 0.9, width: 2.0 },
+  'Blizzard Warning': { color: '#FF4500', fill: 0.34, stroke: 0.9, width: 2.0 },
+  'Ice Storm Warning': { color: '#8B008B', fill: 0.34, stroke: 0.9, width: 2.0 },
+  'Snow Squall Warning': { color: '#C71585', fill: 0.32, stroke: 0.9, width: 2.0 },
+  'High Wind Warning': { color: '#DAA520', fill: 0.32, stroke: 0.85, width: 1.8 },
+  'Fire Warning': { color: '#A0522D', fill: 0.32, stroke: 0.85, width: 1.8 },
+
+  /* FLOOD / WATER */
+  'Flood Warning': { color: '#00FF00', fill: 0.32, stroke: 0.85, width: 1.8 },
+  'Coastal Flood Warning': { color: '#228B22', fill: 0.32, stroke: 0.85, width: 1.8 },
+  'Lakeshore Flood Warning': { color: '#228B22', fill: 0.32, stroke: 0.85, width: 1.8 },
+  'Storm Surge Warning': { color: '#B524F7', fill: 0.36, stroke: 0.9, width: 2.0 },
+
+  /* WATCHES */
+  'Tornado Watch': { color: '#FFFF00', fill: 0.18, stroke: 0.7, width: 1.5 },
+  'Severe Thunderstorm Watch': { color: '#DB7093', fill: 0.18, stroke: 0.7, width: 1.5 },
+  'Flash Flood Watch': { color: '#2E8B57', fill: 0.18, stroke: 0.7, width: 1.5 },
+
+  /* SPECIAL / STATEMENTS */
+  'Severe Weather Statement': { color: '#00FFFF', fill: 0.14, stroke: 0.6, width: 1.2 },
+
+  default: NWS_WWA_DEFAULT_STYLE,
+};
+
+/**
+ * Returns fill color, opacities, and line width for a WWA event type.
+ */
+export function getNWSWWAStyle(event) {
+  if (event == null || event === '') return NWS_WWA_STYLES.default;
+  return NWS_WWA_STYLES[event] || NWS_WWA_STYLES.default;
+}
+
+function nwsWwaStyleMatchPairs(prop) {
+  return Object.entries(NWS_WWA_STYLES)
+    .filter(([key]) => key !== 'default')
+    .flatMap(([key, style]) => [key, style[prop]]);
+}
+
+/**
+ * Mapbox `match` on feature property `type` for WWA-aware paint props.
+ */
+export function nwsWwaStyleMatchExpression(prop) {
+  const fallback =
+    prop === 'color' ? NWS_WWA_DEFAULT_STYLE.color : NWS_WWA_DEFAULT_STYLE[prop];
+  return ['match', ['get', 'type'], ...nwsWwaStyleMatchPairs(prop), fallback];
+}
+
+/**
+ * Feature `type` → color: WWA overrides first, then the full NWS palette.
+ */
+export function nwsWwaAwareColorMatchExpression() {
+  const wwaColorPairs = Object.entries(NWS_WWA_STYLES)
+    .filter(([key]) => key !== 'default')
+    .flatMap(([key, style]) => [key, style.color]);
+  return ['match', ['get', 'type'], ...wwaColorPairs, nwsColorMatchExpression()];
+}
+
+/**
  * Builds a Mapbox GL `match` expression that maps the feature's `type`
  * property to its official NWS color. Use as fill-color / line-color.
  */
