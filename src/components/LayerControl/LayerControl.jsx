@@ -29,7 +29,7 @@ const LAYER_DEFS = {
   goesEast:          { label: 'GOES East Imagery',   sublabel: 'NOAA GOES East · visible',    icon: Eye,           color: '#8b5cf6' },
   goesWest:          { label: 'GOES West Imagery',   sublabel: 'NOAA GOES West · visible',    icon: Eye,           color: '#7c3aed' },
   radar:             { label: 'NEXRAD Reflectivity', sublabel: 'NEXRAD Level 2 composite',     icon: Radar,        color: '#10b981' },
-  aqi:               { label: 'AQI Overlay',         sublabel: 'EPA AirNow + heatmap',        icon: Wind,         color: '#3b82f6' },
+  aqi:               { label: 'AQI Heatmap',          sublabel: 'EPA AirNow gradient overlay',  icon: Wind,         color: '#3b82f6' },
   smoke:             { label: 'Smoke Forecast',      sublabel: 'NOAA HRRR',                   icon: CloudRain,    color: '#94a3b8' },
   flights:           { label: 'Live Flight Tracking', sublabel: 'OpenSky Network ADS-B',      icon: PlaneTakeoff, color: '#ff5a00' },
 };
@@ -68,11 +68,15 @@ const TAB_SECTIONS = {
     {
       id: 'wf-monitor',
       title: 'Monitoring',
-      subtitle: 'Stations and sensors',
+      subtitle: 'Stations, sensors, and air quality',
       groups: [
         {
           label: 'Stations',
           layers: ['rawsStations', 'airNowMonitors'],
+        },
+        {
+          label: 'Overlays',
+          layers: ['aqi'],
         },
       ],
     },

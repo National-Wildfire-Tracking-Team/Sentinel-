@@ -79,15 +79,20 @@ export const AQI_COLOR_EXPRESSION = [
 ];
 
 
-/** Mapbox GL expression for AQI heatmap color ramp */
+/** Mapbox GL expression for AQI heatmap color ramp — Apple Weather style.
+ *  Uses softer, more saturated tones with gradual opacity build-up
+ *  to produce a smooth painted-wash effect across the map. */
 export const AQI_HEATMAP_COLOR_EXPRESSION = [
   'interpolate', ['linear'], ['heatmap-density'],
-  0,   'rgba(0, 228, 0, 0)',
-  0.2, 'rgba(255, 255, 0, 0.35)',
-  0.4, 'rgba(255, 126, 0, 0.45)',
-  0.6, 'rgba(255, 0, 0, 0.55)',
-  0.8, 'rgba(143, 63, 151, 0.65)',
-  1,   'rgba(126, 0, 35, 0.75)',
+  0,    'rgba(78, 207, 80, 0)',
+  0.08, 'rgba(78, 207, 80, 0.25)',
+  0.22, 'rgba(172, 210, 58, 0.40)',
+  0.35, 'rgba(254, 216, 56, 0.48)',
+  0.48, 'rgba(248, 164, 48, 0.55)',
+  0.60, 'rgba(238, 80, 50, 0.60)',
+  0.74, 'rgba(176, 60, 132, 0.65)',
+  0.88, 'rgba(142, 48, 110, 0.70)',
+  1,    'rgba(112, 20, 42, 0.75)',
 ];
 
 /** Mapbox GL step expression for AQI circle radius */
