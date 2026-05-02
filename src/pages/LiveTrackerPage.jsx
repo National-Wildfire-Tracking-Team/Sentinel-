@@ -187,6 +187,15 @@ export default function LiveTrackerPage() {
     }
   }, [criticalInfraEntitled, layers.schoolsUniversities, setLayer]);
 
+  // Weather tab: dark streets map by default; wildfire tab keeps satellite as default.
+  useEffect(() => {
+    if (activeMapTab === MAP_TABS.weather) {
+      setMapType('rendered');
+    } else if (activeMapTab === MAP_TABS.wildfire) {
+      setMapType('satellite');
+    }
+  }, [activeMapTab]);
+
   // Apply layer presets only when switching between wildfire/weather tabs.
   // The locations tab keeps whatever layers were already active.
   useEffect(() => {

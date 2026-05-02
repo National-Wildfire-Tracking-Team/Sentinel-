@@ -261,6 +261,73 @@ const LayerControl = memo(function LayerControl({
       ? 'from-sky-600/40 to-black'
       : 'from-fire-600/35 to-black';
 
+  const isWeatherTab = activeMapTab === 'weather';
+  const mapTypeActiveClass = isWeatherTab
+    ? 'bg-sky-600 text-white shadow'
+    : 'bg-fire-600 text-white shadow';
+
+  const mapTypeButtons = isWeatherTab
+    ? (
+      <>
+        <button
+          type="button"
+          onClick={() => onMapTypeChange?.('rendered')}
+          className={`flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-semibold transition-all ${
+            mapType === 'rendered'
+              ? mapTypeActiveClass
+              : 'text-zinc-300 hover:text-white'
+          }`}
+          title="Dark streets map"
+        >
+          <MapIcon size={11} />
+          <span>MAP</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => onMapTypeChange?.('satellite')}
+          className={`flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-semibold transition-all ${
+            mapType === 'satellite'
+              ? mapTypeActiveClass
+              : 'text-zinc-300 hover:text-white'
+          }`}
+          title="Satellite view"
+        >
+          <Satellite size={11} />
+          <span>SAT</span>
+        </button>
+      </>
+    )
+    : (
+      <>
+        <button
+          type="button"
+          onClick={() => onMapTypeChange?.('satellite')}
+          className={`flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-semibold transition-all ${
+            mapType === 'satellite'
+              ? mapTypeActiveClass
+              : 'text-zinc-300 hover:text-white'
+          }`}
+          title="Satellite view"
+        >
+          <Satellite size={11} />
+          <span>SAT</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => onMapTypeChange?.('rendered')}
+          className={`flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-semibold transition-all ${
+            mapType === 'rendered'
+              ? mapTypeActiveClass
+              : 'text-zinc-300 hover:text-white'
+          }`}
+          title="Map view"
+        >
+          <MapIcon size={11} />
+          <span>MAP</span>
+        </button>
+      </>
+    );
+
   return (
     <div className="absolute top-4 right-4 z-20 flex flex-col items-end gap-2">
       <button
@@ -293,32 +360,7 @@ const LayerControl = memo(function LayerControl({
                 </p>
               </div>
               <div className="flex items-center shrink-0 bg-zinc-900 border border-zinc-700 rounded-lg p-0.5">
-                <button
-                  type="button"
-                  onClick={() => onMapTypeChange?.('satellite')}
-                  className={`flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-semibold transition-all ${
-                    mapType === 'satellite'
-                      ? 'bg-fire-600 text-white shadow'
-                      : 'text-zinc-300 hover:text-white'
-                  }`}
-                  title="Satellite view"
-                >
-                  <Satellite size={11} />
-                  <span>SAT</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onMapTypeChange?.('rendered')}
-                  className={`flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-semibold transition-all ${
-                    mapType === 'rendered'
-                      ? 'bg-fire-600 text-white shadow'
-                      : 'text-zinc-300 hover:text-white'
-                  }`}
-                  title="Map view"
-                >
-                  <MapIcon size={11} />
-                  <span>MAP</span>
-                </button>
+                {mapTypeButtons}
               </div>
             </div>
 
