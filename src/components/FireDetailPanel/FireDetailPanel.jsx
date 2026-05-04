@@ -23,12 +23,22 @@ import IncidentTimeline from '../IncidentTimeline/IncidentTimeline';
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function formatConfidence(raw) {
-  if (!raw) return 'Unknown';
+  if (raw == null || raw === '') return 'Unknown';
   const s = String(raw).toLowerCase();
   if (s === 'h' || s === 'high') return 'High';
   if (s === 'l' || s === 'low')  return 'Low';
   if (s === 'n' || s === 'nominal') return 'Nominal';
-  return raw.charAt(0).toUpperCase() + raw.slice(1);
+  // Use string form: GeoJSON often sends numeric confidence (e.g. 85) — raw.charAt would throw.
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+/** FIRMS acq_time may be a string ("1430") or a number from GeoJSON; avoid calling .slice on numbers. */
+function formatAcqTimeUtcLabel(acq_time) {
+  if (acq_time == null || acq_time === '') return null;
+  const t = String(acq_time).replace(/\D/g, '');
+  const padded = t.length <= 4 ? t.padStart(4, '0') : t;
+  if (padded.length >= 4) return `${padded.slice(0, 2)}:${padded.slice(2, 4)}`;
+  return String(acq_time);
 }
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
@@ -60,11 +70,12 @@ function HotspotDetail({ fire }) {
   const frpColor = fire.frp >= 200 ? 'text-red-400' : fire.frp >= 100 ? 'text-orange-400' : 'text-yellow-400';
   const detections = fire.detection_count || 1;
   const isConsolidated = detections > 1;
+  const acqTimeLabel = formatAcqTimeUtcLabel(fire.acq_time);
 
   // Format source labels – may contain comma-separated values when consolidated
   const formatSourceLabel = (src) => {
-    if (!src) return 'Unknown feed';
-    return src.split(', ').map(s =>
+    if (src == null || src === '') return 'Unknown feed';
+    return String(src).split(', ').map(s =>
       s === 'VIIRS_SNPP_NRT' ? 'VIIRS SNPP' :
       s === 'VIIRS_NOAA20_NRT' ? 'VIIRS NOAA-20' :
       s === 'MODIS_NRT' ? 'MODIS' : s
@@ -113,7 +124,10 @@ function HotspotDetail({ fire }) {
         </div>
         <div className="flex items-center gap-2">
           <Calendar size={12} />
-          <span>Detected: {fire.acq_date} at {fire.acq_time?.slice(0, 2)}:{fire.acq_time?.slice(2)} UTC</span>
+          <span>
+            Detected: {fire.acq_date}
+            {acqTimeLabel ? ` at ${acqTimeLabel} UTC` : ''}
+          </span>
         </div>
         <div className="flex items-center gap-2">
           <Wind size={12} />
