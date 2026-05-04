@@ -259,7 +259,6 @@ export default function LiveTrackerPage() {
   const {
     incidents: calFireIncidents,
     loading: calFireLoading,
-    error: calFireError,
     refresh: refreshCalFireIncidents,
   } = useCalFireIncidents(true, wildfireDataEnabled);
 
@@ -291,8 +290,6 @@ export default function LiveTrackerPage() {
     error: incidentsError,
     refresh: refreshIncidents,
   } = useIncidents(0.1, wildfireDataEnabled);
-
-  const combinedIncidentsError = incidentsError || calFireError || null;
 
   const mergedIncidentsList = useMemo(
     () => mergeIrwinAndCalFireIncidents(incidents, calFireIncidents),
@@ -734,7 +731,7 @@ const flightBounds = useMemo(() => {
         <Sidebar
           incidents={mergedIncidents}
           loading={incidentsLoading}
-          error={combinedIncidentsError}
+          error={incidentsError}
           activeMapTab={activeMapTab}
           onTabChange={setActiveMapTab}
           weatherAlertsLoading={alertsLoading}

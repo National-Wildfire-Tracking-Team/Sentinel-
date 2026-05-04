@@ -30,7 +30,9 @@ export function useCalFireIncidents(includeInactive = false, enabled = true) {
       setIncidents(sorted);
     } catch (err) {
       if (!mountedRef.current) return;
-      setError(err.message);
+      // CAL FIRE may fail from the browser (CORS) while IRWIN still loads; treat as optional.
+      console.warn('[CAL FIRE] GeoJsonList unavailable:', err.message);
+      setError(null);
       setIncidents([]);
     } finally {
       if (mountedRef.current) setLoading(false);
