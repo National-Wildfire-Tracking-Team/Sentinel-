@@ -5,7 +5,7 @@
  */
 
 import { useState } from 'react';
-import { ChevronDown, ChevronUp, Rss } from 'lucide-react';
+import { ChevronDown, ChevronUp, RefreshCw } from 'lucide-react';
 import { useRecentUpdates } from '../../hooks/useRecentUpdates';
 
 function formatTimestamp(iso) {
@@ -63,7 +63,7 @@ export default function UpdatesFeed() {
         className="w-full flex items-center justify-between px-3 py-2 hover:bg-sentinel-800/50 transition-colors"
       >
         <div className="flex items-center gap-1.5">
-          <Rss size={12} className="text-fire-400" />
+          <RefreshCw size={12} className="text-fire-400" />
           <span className="text-sentinel-100 text-xs font-semibold uppercase tracking-wider">
             Updates
           </span>
