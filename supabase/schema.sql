@@ -174,6 +174,7 @@ create policy "reports delete own"
 create table if not exists public.incident_updates (
   id            uuid primary key default gen_random_uuid(),
   incident_id   text not null,
+  incident_name text,
   content       text not null,
   source_type   text not null default 'reporter'
                   check (source_type in ('reporter','automated')),
