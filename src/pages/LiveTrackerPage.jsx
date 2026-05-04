@@ -17,6 +17,7 @@ import { useMergedFireData, getFireMatchKey } from '../hooks/useMergedFireData';
 import { useAQIData } from '../hooks/useAQIData';
 import { useWeatherAlerts } from '../hooks/useWeatherAlerts';
 import { useIncidents } from '../hooks/useIncidents';
+import { useCalFireIncidents } from '../hooks/useCalFireIncidents';
 import { useNwsLsrMapServer } from '../hooks/useNwsLsrMapServer';
 import { useSpcOutlooks } from '../hooks/useSpcOutlooks';
 import { useSpcMesoscaleDiscussion } from '../hooks/useSpcMesoscaleDiscussion';
@@ -33,6 +34,7 @@ import { useCriticalInfrastructure } from '../hooks/useCriticalInfrastructure';
 import { useNationalMapColleges } from '../hooks/useNationalMapColleges';
 import { usePlan } from '../hooks/usePlan';
 import { polygonCentroid } from '../utils/geoUtils';
+import { incidentsToGeoJSON } from '../api/inciweb';
 
 // Components
 import Header from '../components/Header/Header';
@@ -144,6 +146,27 @@ function filterActiveFiresGeoJSON(geoJSON, { containedKey }) {
   };
 }
 
+/**
+ * Combine IRWIN national incidents with CAL FIRE GeoJsonList.
+ * When both list the same fire (normalized name), IRWIN wins for authoritative stats.
+ */
+function mergeIrwinAndCalFireIncidents(irwinIncidents, calFireIncidents) {
+  const seen = new Set();
+  const out = [];
+  irwinIncidents.forEach(inc => {
+    const key = getFireMatchKey(inc.name);
+    if (key) seen.add(key);
+    out.push(inc);
+  });
+  calFireIncidents.forEach(inc => {
+    const key = getFireMatchKey(inc.name);
+    if (key && seen.has(key)) return;
+    if (key) seen.add(key);
+    out.push(inc);
+  });
+  return out.sort((a, b) => b.acres - a.acres);
+}
+
 // RAWS stations load once the map is zoomed in to roughly county scale
 const RAWS_MIN_ZOOM = 9;
 
@@ -231,7 +254,14 @@ export default function LiveTrackerPage() {
     perimetersCount,
     dotsCount,
     refresh: refreshPerimeters,
-  } = useMergedFireData(5, wildfireDataEnabled);
+  } = useMergedFireData(5, wildfireDataEnabled, true);
+
+  const {
+    incidents: calFireIncidents,
+    loading: calFireLoading,
+    error: calFireError,
+    refresh: refreshCalFireIncidents,
+  } = useCalFireIncidents(true, wildfireDataEnabled);
 
   const {
     geoJSON: aqiGeoJSON,
@@ -257,11 +287,22 @@ export default function LiveTrackerPage() {
 
   const {
     incidents,
-    geoJSON: incidentsGeoJSON,
     loading: incidentsLoading,
     error: incidentsError,
     refresh: refreshIncidents,
   } = useIncidents(0.1, wildfireDataEnabled);
+
+  const combinedIncidentsError = incidentsError || calFireError || null;
+
+  const mergedIncidentsList = useMemo(
+    () => mergeIrwinAndCalFireIncidents(incidents, calFireIncidents),
+    [incidents, calFireIncidents]
+  );
+
+  const mergedIncidentsGeoJSON = useMemo(
+    () => incidentsToGeoJSON(mergedIncidentsList),
+    [mergedIncidentsList]
+  );
 
   const {
     geoJSON: stormReportsGeoJSON,
@@ -410,13 +451,13 @@ const flightBounds = useMemo(() => {
 
   // ── Remove stale fully-contained fires (100% contained, no update in 3+ days) ──
   const freshIncidents = useMemo(
-    () => filterStaleContainedIncidents(incidents),
-    [incidents]
+    () => filterStaleContainedIncidents(mergedIncidentsList),
+    [mergedIncidentsList]
   );
 
   const freshIncidentsGeoJSON = useMemo(
-    () => filterStaleContainedGeoJSON(incidentsGeoJSON, 'contained', 'updated'),
-    [incidentsGeoJSON]
+    () => filterStaleContainedGeoJSON(mergedIncidentsGeoJSON, 'contained', 'updated'),
+    [mergedIncidentsGeoJSON]
   );
 
   const freshPerimetersGeoJSON = useMemo(
@@ -449,11 +490,11 @@ const flightBounds = useMemo(() => {
   // still appear in the sidebar feed.
   const perimeterOnlyIncidents = useMemo(() => {
     if (!filteredPerimetersGeoJSON?.features?.length) return [];
-    const irwinKeys = new Set(incidents.map(i => getFireMatchKey(i.name)).filter(Boolean));
+    const existingNameKeys = new Set(mergedIncidentsList.map(i => getFireMatchKey(i.name)).filter(Boolean));
     return filteredPerimetersGeoJSON.features
       .filter(f => {
         const key = getFireMatchKey(f.properties.IncidentName);
-        return key && !irwinKeys.has(key);
+        return key && !existingNameKeys.has(key);
       })
       .map(f => {
         const p = f.properties;
@@ -480,7 +521,7 @@ const flightBounds = useMemo(() => {
           source: p.Source || 'NIFC_WFIGS',
         };
       });
-  }, [filteredPerimetersGeoJSON, incidents]);
+  }, [filteredPerimetersGeoJSON, mergedIncidentsList]);
 
   const filteredIncidentDotsGeoJSON = useMemo(() => {
     if (!isFocused) return freshIncidentDotsGeoJSON;
@@ -502,8 +543,8 @@ const flightBounds = useMemo(() => {
   // ── Combine IRWIN incidents with perimeter-only fires for sidebar ──
   // Perimeter-only fires have no IRWIN record; add them so they appear in the feed.
   const allIncidents = useMemo(
-    () => [...incidents, ...perimeterOnlyIncidents],
-    [incidents, perimeterOnlyIncidents]
+    () => [...mergedIncidentsList, ...perimeterOnlyIncidents],
+    [mergedIncidentsList, perimeterOnlyIncidents]
   );
 
   // ── Reporter incidents replace matching external data incidents ──
@@ -635,7 +676,7 @@ const flightBounds = useMemo(() => {
   }, [deduplicatedIncidentDotsGeoJSON, deduplicatedIncidentsGeoJSON, filteredPerimetersGeoJSON]);
 
   // ── Global loading state ──
-  const anyLoading = hotspotsLoading || perimetersLoading || incidentsLoading;
+  const anyLoading = hotspotsLoading || perimetersLoading || incidentsLoading || calFireLoading;
   useEffect(() => { setLoading(anyLoading); }, [anyLoading, setLoading]);
   useEffect(() => {
     if (!anyLoading) setRefreshed(new Date());
@@ -647,6 +688,7 @@ const flightBounds = useMemo(() => {
     refreshPerimeters();
     refreshAlerts();
     refreshIncidents();
+    refreshCalFireIncidents();
     if (activeMapTab === MAP_TABS.weather && layers.stormReports) {
       refreshStormReports();
     }
@@ -667,7 +709,7 @@ const flightBounds = useMemo(() => {
       refreshFireWeatherOutlooks();
     }
   }, [
-    refreshHotspots, refreshPerimeters, refreshAlerts, refreshIncidents, refreshStormReports,
+    refreshHotspots, refreshPerimeters, refreshAlerts, refreshIncidents, refreshCalFireIncidents, refreshStormReports,
     refreshSpcMd, refreshSpcOutlooks, refreshUserReports, refreshEvacZones, refreshReporterEvacZones,
     refreshAQI, refreshFlights, refreshRAWS, refreshAirNowMonitors, refreshDroughtOutlook, refreshNdgdSmokeForecast, refreshFireWeatherOutlooks,
     refreshCriticalInfrastructure,
@@ -692,7 +734,7 @@ const flightBounds = useMemo(() => {
         <Sidebar
           incidents={mergedIncidents}
           loading={incidentsLoading}
-          error={incidentsError}
+          error={combinedIncidentsError}
           activeMapTab={activeMapTab}
           onTabChange={setActiveMapTab}
           weatherAlertsLoading={alertsLoading}

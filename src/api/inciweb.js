@@ -187,6 +187,7 @@ export function incidentsToGeoJSON(incidents) {
           started:   inc.started,
           updated:   inc.updated,
           cause:     inc.cause,
+          source:    inc.source,
           url:       inc.url,
           created_by: inc.created_by,
           createdAt: inc.createdAt,

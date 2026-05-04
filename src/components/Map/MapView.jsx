@@ -1079,6 +1079,7 @@ export default function MapView({
         personnel: num(p.personnel),
         status:    p.status,
         cause:     p.cause || 'Under Investigation',
+        source:    p.source,
         started:   p.started,
         updated:   p.updated,
         url:       p.url,

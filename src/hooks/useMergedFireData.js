@@ -12,6 +12,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { fetchFirePerimeters } from '../api/nifc';
 import { fetchIncidentLocationsGeoJSON } from '../api/inciweb';
+import { fetchCalFireGeoJsonList, calFireFeatureToIncident } from '../api/calFire';
 
 const REFRESH_MS = parseInt(import.meta.env.VITE_REFRESH_INTERVAL || '300000', 10);
 
@@ -68,8 +69,10 @@ function pointInGeometry(point, geometry) {
 /**
  * Merge perimeter GeoJSON with incident GeoJSON.
  * Returns enriched perimeters and a dot GeoJSON for unmatched incidents.
+ *
+ * @param {object} calFireDotsGeoJSON  Optional CAL FIRE incident dots (CA); merged into incidents before matching.
  */
-function mergeFireData(perimeters, incidents) {
+function mergeFireData(perimeters, incidents, calFireDotsGeoJSON = null) {
   // Index incidents by match key
   const incidentsByKey = new Map();
   incidents.features.forEach(f => {
@@ -77,7 +80,56 @@ function mergeFireData(perimeters, incidents) {
     if (key) incidentsByKey.set(key, f.properties);
   });
 
+  // CAL FIRE features for California — merge as extra incident dots (deduped below).
+  const calFeatures = calFireDotsGeoJSON?.features?.length
+    ? calFireDotsGeoJSON.features.map((f, i) => {
+        const inc = calFireFeatureToIncident(f, i);
+        return {
+          type: 'Feature',
+          geometry: f.geometry,
+          properties: {
+            UniqueFireIdentifier: inc.id,
+            IncidentName: inc.name,
+            GISAcres: inc.acres,
+            PercentContained: inc.contained,
+            FireDiscoveryDateTime: inc.started,
+            ModifiedOnDateTime: inc.updated,
+            POOState: 'CA',
+            POOCounty: inc.county,
+            TotalIncidentPersonnel: 0,
+            FireCause: inc.cause,
+            _source: 'CAL_FIRE',
+            _detailUrl: inc.url || '',
+          },
+        };
+      })
+    : [];
+
+  const mergedIncidentFeatures = [...incidents.features, ...calFeatures];
+
+  // Dedupe: IRWIN + CAL FIRE often share the same fire name — keep IRWIN (first wins).
+  const seenKeys = new Set();
+  const dedupedFeatures = [];
+  mergedIncidentFeatures.forEach(f => {
+    const key = getFireMatchKey(f.properties.IncidentName);
+    if (key) {
+      if (seenKeys.has(key)) return;
+      seenKeys.add(key);
+    }
+    dedupedFeatures.push(f);
+  });
+
+  const mergedIncidents = { ...incidents, features: dedupedFeatures };
+
   const usedKeys = new Set();
+
+  // Re-index merged incidents (includes CAL FIRE) for matching
+  mergedIncidents.features.forEach(f => {
+    const key = getFireMatchKey(f.properties.IncidentName);
+    if (key && !incidentsByKey.has(key)) {
+      incidentsByKey.set(key, f.properties);
+    }
+  });
 
   // Pass 1: name-based matching
   const enrichedFeatures = perimeters.features.map(f => {
@@ -104,7 +156,7 @@ function mergeFireData(perimeters, incidents) {
   const finalFeatures = enrichedFeatures.map(f => {
     if (getFireMatchKey(f.properties.IncidentName) !== null) return f;
 
-    const match = incidents.features.find(dot => {
+    const match = mergedIncidents.features.find(dot => {
       const dotKey = getFireMatchKey(dot.properties.IncidentName);
       if (!dotKey || usedKeys.has(dotKey)) return false;
       const coords = dot.geometry?.coordinates;
@@ -130,7 +182,7 @@ function mergeFireData(perimeters, incidents) {
   });
 
   // Dot markers: incidents that have no matching perimeter
-  const dotFeatures = incidents.features.filter(f => {
+  const dotFeatures = mergedIncidents.features.filter(f => {
     const key = getFireMatchKey(f.properties.IncidentName);
     return key && !usedKeys.has(key);
   });
@@ -153,7 +205,7 @@ function mergeFireData(perimeters, incidents) {
  *   refresh: function,
  * }}
  */
-export function useMergedFireData(minAcres = 100, enabled = true) {
+export function useMergedFireData(minAcres = 100, enabled = true, calFireIncludeInactive = false) {
   const [perimetersGeoJSON,   setPerimetersGeoJSON]   = useState(null);
   const [incidentDotsGeoJSON, setIncidentDotsGeoJSON] = useState(null);
   const [loading,             setLoading]             = useState(true);
@@ -166,12 +218,24 @@ export function useMergedFireData(minAcres = 100, enabled = true) {
     if (!enabled) return;
     try {
       setError(null);
-      const [perimeters, incidents] = await Promise.all([
+      const [perimeters, incidents, calFireGeoJSON] = await Promise.all([
         fetchFirePerimeters({ minAcres }),
         fetchIncidentLocationsGeoJSON({ minAcres }),
+        fetchCalFireGeoJsonList({ includeInactive: calFireIncludeInactive }).catch(() => ({
+          type: 'FeatureCollection',
+          features: [],
+        })),
       ]);
 
-      const { perimeters: merged, dots } = mergeFireData(perimeters, incidents);
+      const calFiltered = {
+        ...calFireGeoJSON,
+        features: (calFireGeoJSON.features || []).filter(f => {
+          const acres = Number(f.properties?.AcresBurned) || 0;
+          return acres >= minAcres;
+        }),
+      };
+
+      const { perimeters: merged, dots } = mergeFireData(perimeters, incidents, calFiltered);
       setPerimetersGeoJSON(merged);
       setIncidentDotsGeoJSON(dots);
       setPerimetersCount(merged.features.length);
@@ -181,7 +245,7 @@ export function useMergedFireData(minAcres = 100, enabled = true) {
     } finally {
       setLoading(false);
     }
-  }, [minAcres, enabled]);
+  }, [minAcres, enabled, calFireIncludeInactive]);
 
   useEffect(() => {
     if (!enabled) {
