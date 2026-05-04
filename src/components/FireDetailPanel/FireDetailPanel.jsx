@@ -216,6 +216,7 @@ function IncidentDetail({ fire }) {
   const containment = Number(fire.contained) || 0;
   const containColor = containmentToColor(containment);
   const statusLabel = fire.status ? String(fire.status) : (containment >= 100 ? 'Controlled' : 'Active');
+  const isActive = containment < 100 && String(fire.status).toLowerCase() !== 'controlled';
   const createdAt = fire.started || fire.createdAt;
   const evacuationOrderLines = Array.isArray(fire.evacuation_order_lines) ? fire.evacuation_order_lines : [];
   const locationLine = fire.location_description || `${fire.county || 'Unknown County'} County, ${fire.state || ''}`.trim();
