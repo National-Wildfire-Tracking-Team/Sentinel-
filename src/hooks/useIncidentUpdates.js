@@ -164,16 +164,17 @@ export async function insertReporterUpdate({ incidentId, content, sourceName, us
 }
 
 /**
- * Insert an automated update (for WildCAD, FIRMS, or other system sources).
- * Intended to be called from backend/edge functions or admin tools.
+ * Insert an automated update (for WildCAD, FIRMS, IRWIN data changes, etc.).
+ * Intended to be called from backend/edge functions or the data-refresh pipeline.
  */
-export async function insertAutomatedUpdate({ incidentId, content, sourceName }) {
+export async function insertAutomatedUpdate({ incidentId, incidentName, content, sourceName }) {
   if (!isSupabaseConfigured) throw new Error('Supabase is not configured');
 
   const { data, error } = await supabase
     .from('incident_updates')
     .insert({
       incident_id: incidentId,
+      incident_name: incidentName ?? null,
       content,
       source_type: 'automated',
       source_name: sourceName,
