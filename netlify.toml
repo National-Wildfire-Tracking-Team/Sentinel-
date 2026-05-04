@@ -18,6 +18,10 @@
   function = "fema-proxy"
   path = "/api/fema"
 
+[[edge_functions]]
+  function = "calfire-proxy"
+  path = "/api/calfire"
+
 # ✅ HOME REDIRECT (MUST be above fallback)
 [[redirects]]
   from = "/"

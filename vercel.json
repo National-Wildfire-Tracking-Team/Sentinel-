@@ -1,5 +1,9 @@
 {
   "rewrites": [
+    {
+      "source": "/api/calfire",
+      "destination": "https://incidents.fire.ca.gov/umbraco/api/IncidentApi/GeoJsonList"
+    },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
 }

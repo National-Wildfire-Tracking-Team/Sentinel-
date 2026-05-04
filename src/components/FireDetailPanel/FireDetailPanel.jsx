@@ -219,13 +219,17 @@ function IncidentDetail({ fire }) {
   const createdAt = fire.started || fire.createdAt;
   const evacuationOrderLines = Array.isArray(fire.evacuation_order_lines) ? fire.evacuation_order_lines : [];
   const locationLine = fire.location_description || `${fire.county || 'Unknown County'} County, ${fire.state || ''}`.trim();
-  const isActive = statusLabel.toLowerCase() === 'active';
+  const isCalFire = fire.source === 'CAL_FIRE';
+  const dataSourceLine = isCalFire
+    ? 'CAL FIRE (fire.ca.gov)'
+    : 'NIFC / IRWIN';
 
   return (
     <>
       {/* Title block */}
       <div className="mb-4">
         <h3 className="font-bold text-white text-lg leading-tight">{fire.name}</h3>
+        <p className="text-sentinel-500 text-[11px] mt-0.5">Source: {dataSourceLine}</p>
         <p className="text-sentinel-300 text-xs mt-1 leading-relaxed">{locationLine}</p>
         <p className="text-sentinel-400 text-[11px] mt-0.5">{fire.county} County, {fire.state}</p>
       </div>
@@ -270,8 +274,16 @@ function IncidentDetail({ fire }) {
         )}
       </div>
       <p className="text-[11px] text-sentinel-500 mb-4">
-        Created by <span className="font-semibold text-sentinel-400">National Wildfire Tracking Team</span>
-        {createdAt ? <> • {formatDateTime(createdAt)}</> : ''}
+        {isCalFire ? (
+          <>Official incident data from <span className="font-semibold text-sentinel-400">CAL FIRE</span>
+            {createdAt ? <> · Reported start {formatDateTime(createdAt)}</> : ''}
+          </>
+        ) : (
+          <>
+            Created by <span className="font-semibold text-sentinel-400">National Wildfire Tracking Team</span>
+            {createdAt ? <> • {formatDateTime(createdAt)}</> : ''}
+          </>
+        )}
       </p>
 
       {/* Evacuation notice */}
@@ -317,7 +329,12 @@ function IncidentDetail({ fire }) {
         ))}
       </div>
 
-      {tab === 'updates' && <IncidentTimeline incidentId={fire.id} dataSource="NIFC / IRWIN" />}
+      {tab === 'updates' && (
+        <IncidentTimeline
+          incidentId={fire.id}
+          dataSource={dataSourceLine}
+        />
+      )}
 
       {tab === 'info' && (
         <div className="space-y-2 text-xs text-sentinel-400">
@@ -377,7 +394,7 @@ function IncidentDetail({ fire }) {
                          hover:bg-fire-600/30 hover:text-fire-300 transition-colors"
             >
               <ExternalLink size={13} />
-              View on InciWeb
+              {fire.source === 'CAL_FIRE' ? 'View on fire.ca.gov' : 'View on InciWeb'}
             </a>
           )}
         </div>
