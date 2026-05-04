@@ -10,7 +10,7 @@
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { fetchFirePerimeters } from '../api/nifc';
+import { fetchFirePerimeters, fetchFIRISPerimeters } from '../api/nifc';
 import { fetchIncidentLocationsGeoJSON } from '../api/inciweb';
 import { fetchCalFireGeoJsonList, calFireFeatureToIncident } from '../api/calFire';
 
@@ -64,6 +64,29 @@ function pointInGeometry(point, geometry) {
     return geometry.coordinates.some(poly => pointInRing(point, poly[0]));
   }
   return false;
+}
+
+/**
+ * Merge two perimeter FeatureCollections. Primary (WFIGS) features take priority;
+ * secondary (FIRIS) features are added only when their incident_name doesn't
+ * already appear in the primary set.
+ */
+function mergePerimeterSources(primary, secondary) {
+  const primaryKeys = new Set();
+  primary.features.forEach(f => {
+    const key = getFireMatchKey(f.properties.IncidentName);
+    if (key) primaryKeys.add(key);
+  });
+
+  const addedFeatures = (secondary.features || []).filter(f => {
+    const key = getFireMatchKey(f.properties.IncidentName);
+    return key && !primaryKeys.has(key);
+  });
+
+  return {
+    ...primary,
+    features: [...primary.features, ...addedFeatures],
+  };
 }
 
 /**
@@ -218,14 +241,19 @@ export function useMergedFireData(minAcres = 100, enabled = true, calFireInclude
     if (!enabled) return;
     try {
       setError(null);
-      const [perimeters, incidents, calFireGeoJSON] = await Promise.all([
+      const [perimeters, firisPerimeters, incidents, calFireGeoJSON] = await Promise.all([
         fetchFirePerimeters({ minAcres }),
+        fetchFIRISPerimeters({ minAcres }),
         fetchIncidentLocationsGeoJSON({ minAcres }),
         fetchCalFireGeoJsonList({ includeInactive: calFireIncludeInactive }).catch(() => ({
           type: 'FeatureCollection',
           features: [],
         })),
       ]);
+
+      // Merge NIFC WFIGS + FIRIS perimeters. WFIGS takes priority for duplicates
+      // (matched by normalized incident name); FIRIS adds CA-only fires not in WFIGS.
+      const mergedPerimeters = mergePerimeterSources(perimeters, firisPerimeters);
 
       const calFiltered = {
         ...calFireGeoJSON,
@@ -235,7 +263,7 @@ export function useMergedFireData(minAcres = 100, enabled = true, calFireInclude
         }),
       };
 
-      const { perimeters: merged, dots } = mergeFireData(perimeters, incidents, calFiltered);
+      const { perimeters: merged, dots } = mergeFireData(mergedPerimeters, incidents, calFiltered);
       setPerimetersGeoJSON(merged);
       setIncidentDotsGeoJSON(dots);
       setPerimetersCount(merged.features.length);
