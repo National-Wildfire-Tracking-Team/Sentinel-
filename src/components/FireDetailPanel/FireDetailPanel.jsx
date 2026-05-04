@@ -215,8 +215,9 @@ function IncidentDetail({ fire }) {
   const [tab, setTab] = useState('updates');
   const containment = Number(fire.contained) || 0;
   const containColor = containmentToColor(containment);
-  const statusLabel = fire.status ? String(fire.status) : (containment >= 100 ? 'Controlled' : 'Active');
-  const isActive = containment < 100 && String(fire.status).toLowerCase() !== 'controlled';
+  const STATUS_LABEL = { active: 'Active', controlled: 'Controlled', containment: 'Contained' };
+  const statusLabel = STATUS_LABEL[fire.status] ?? (containment >= 100 ? 'Controlled' : 'Active');
+  const isActive = containment < 100 && fire.status !== 'controlled';
   const createdAt = fire.started || fire.createdAt;
   const evacuationOrderLines = Array.isArray(fire.evacuation_order_lines) ? fire.evacuation_order_lines : [];
   const locationLine = fire.location_description || `${fire.county || 'Unknown County'} County, ${fire.state || ''}`.trim();
@@ -281,8 +282,8 @@ function IncidentDetail({ fire }) {
           </>
         ) : (
           <>
-            Created by <span className="font-semibold text-sentinel-400">National Wildfire Tracking Team</span>
-            {createdAt ? <> • {formatDateTime(createdAt)}</> : ''}
+            Data from <span className="font-semibold text-sentinel-400">NIFC / IRWIN</span>
+            {createdAt ? <> · Started {formatDateTime(createdAt)}</> : ''}
           </>
         )}
       </p>

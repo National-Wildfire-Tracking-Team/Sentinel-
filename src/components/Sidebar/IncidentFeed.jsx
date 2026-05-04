@@ -24,11 +24,12 @@ export default function IncidentFeed({ incidents, loading, error }) {
   const now = Date.now();
 
   // Filter by search term and feed mode
+  const searchLower = search.toLowerCase();
   const filtered = incidents.filter(inc => {
     const matchesSearch =
-      inc.name.toLowerCase().includes(search.toLowerCase()) ||
-      inc.state.toLowerCase().includes(search.toLowerCase()) ||
-      inc.county.toLowerCase().includes(search.toLowerCase());
+      (inc.name  ?? '').toLowerCase().includes(searchLower) ||
+      (inc.state ?? '').toLowerCase().includes(searchLower) ||
+      (inc.county ?? '').toLowerCase().includes(searchLower);
 
     if (!matchesSearch) return false;
 
