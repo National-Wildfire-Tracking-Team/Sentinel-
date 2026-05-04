@@ -869,7 +869,7 @@ export default function MapView({
     }
     if (isWildfireTab && layers.incidentLocations && incidentsGeoJSON)   ids.push('incident-locations-circle');
     if (isWildfireTab && layers.incidentLocations && userReportsGeoJSON)  ids.push('user-reports-circle');
-    if (isWeatherTab && layers.aqi && aqiGeoJSON)                        ids.push('aqi-stations-circle');
+    if (layers.aqi && aqiGeoJSON)                                         ids.push('aqi-stations-circle');
     if (isWeatherTab && layers.weatherAlerts && alertsGeoJSON) ids.push('weather-alerts-fill');
     if (isWeatherTab && layers.spcWeatherOutlooks && spcWeatherOutlookMode === 'convective' && spcOutlooksGeoJSON) {
       ids.push('spc-outlook-fill');
@@ -1352,10 +1352,10 @@ export default function MapView({
           visible={isWildfireTab && layers.incidentLocations}
         />
 
-        {/* AQI monitoring stations */}
+        {/* AQI heatmap + stations — available on both wildfire and weather tabs */}
         <AQILayer
           geoJSON={aqiGeoJSON}
-          visible={isWeatherTab && layers.aqi}
+          visible={layers.aqi}
         />
 
         <StormReportsLayer

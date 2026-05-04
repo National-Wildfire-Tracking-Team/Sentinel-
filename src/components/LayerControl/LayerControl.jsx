@@ -29,7 +29,7 @@ const LAYER_DEFS = {
   goesEast:          { label: 'GOES East Imagery',   sublabel: 'NOAA GOES East · visible',    icon: Eye,           color: '#8b5cf6' },
   goesWest:          { label: 'GOES West Imagery',   sublabel: 'NOAA GOES West · visible',    icon: Eye,           color: '#7c3aed' },
   radar:             { label: 'NEXRAD Reflectivity', sublabel: 'NEXRAD Level 2 composite',     icon: Radar,        color: '#10b981' },
-  aqi:               { label: 'AQI Overlay',         sublabel: 'EPA AirNow + heatmap',        icon: Wind,         color: '#3b82f6' },
+  aqi:               { label: 'AQI Heatmap',          sublabel: 'EPA AirNow gradient overlay',  icon: Wind,         color: '#3b82f6' },
   smoke:             { label: 'Smoke Forecast',      sublabel: 'NOAA HRRR',                   icon: CloudRain,    color: '#94a3b8' },
   flights:           { label: 'Live Flight Tracking', sublabel: 'OpenSky Network ADS-B',      icon: PlaneTakeoff, color: '#ff5a00' },
 };
@@ -68,11 +68,15 @@ const TAB_SECTIONS = {
     {
       id: 'wf-monitor',
       title: 'Monitoring',
-      subtitle: 'Stations and sensors',
+      subtitle: 'Stations, sensors, and air quality',
       groups: [
         {
           label: 'Stations',
           layers: ['rawsStations', 'airNowMonitors'],
+        },
+        {
+          label: 'Overlays',
+          layers: ['aqi'],
         },
       ],
     },
@@ -261,6 +265,73 @@ const LayerControl = memo(function LayerControl({
       ? 'from-sky-600/40 to-black'
       : 'from-fire-600/35 to-black';
 
+  const isWeatherTab = activeMapTab === 'weather';
+  const mapTypeActiveClass = isWeatherTab
+    ? 'bg-sky-600 text-white shadow'
+    : 'bg-fire-600 text-white shadow';
+
+  const mapTypeButtons = isWeatherTab
+    ? (
+      <>
+        <button
+          type="button"
+          onClick={() => onMapTypeChange?.('rendered')}
+          className={`flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-semibold transition-all ${
+            mapType === 'rendered'
+              ? mapTypeActiveClass
+              : 'text-zinc-300 hover:text-white'
+          }`}
+          title="Dark streets map"
+        >
+          <MapIcon size={11} />
+          <span>MAP</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => onMapTypeChange?.('satellite')}
+          className={`flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-semibold transition-all ${
+            mapType === 'satellite'
+              ? mapTypeActiveClass
+              : 'text-zinc-300 hover:text-white'
+          }`}
+          title="Satellite view"
+        >
+          <Satellite size={11} />
+          <span>SAT</span>
+        </button>
+      </>
+    )
+    : (
+      <>
+        <button
+          type="button"
+          onClick={() => onMapTypeChange?.('satellite')}
+          className={`flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-semibold transition-all ${
+            mapType === 'satellite'
+              ? mapTypeActiveClass
+              : 'text-zinc-300 hover:text-white'
+          }`}
+          title="Satellite view"
+        >
+          <Satellite size={11} />
+          <span>SAT</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => onMapTypeChange?.('rendered')}
+          className={`flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-semibold transition-all ${
+            mapType === 'rendered'
+              ? mapTypeActiveClass
+              : 'text-zinc-300 hover:text-white'
+          }`}
+          title="Map view"
+        >
+          <MapIcon size={11} />
+          <span>MAP</span>
+        </button>
+      </>
+    );
+
   return (
     <div className="absolute top-4 right-4 z-20 flex flex-col items-end gap-2">
       <button
@@ -293,32 +364,7 @@ const LayerControl = memo(function LayerControl({
                 </p>
               </div>
               <div className="flex items-center shrink-0 bg-zinc-900 border border-zinc-700 rounded-lg p-0.5">
-                <button
-                  type="button"
-                  onClick={() => onMapTypeChange?.('satellite')}
-                  className={`flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-semibold transition-all ${
-                    mapType === 'satellite'
-                      ? 'bg-fire-600 text-white shadow'
-                      : 'text-zinc-300 hover:text-white'
-                  }`}
-                  title="Satellite view"
-                >
-                  <Satellite size={11} />
-                  <span>SAT</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onMapTypeChange?.('rendered')}
-                  className={`flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-semibold transition-all ${
-                    mapType === 'rendered'
-                      ? 'bg-fire-600 text-white shadow'
-                      : 'text-zinc-300 hover:text-white'
-                  }`}
-                  title="Map view"
-                >
-                  <MapIcon size={11} />
-                  <span>MAP</span>
-                </button>
+                {mapTypeButtons}
               </div>
             </div>
 
