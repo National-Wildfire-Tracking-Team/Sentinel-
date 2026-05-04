@@ -74,7 +74,14 @@ export async function fetchCalFireGeoJsonList({ includeInactive = false } = {}) 
 
   attempts.push({
     label: 'direct incidents.fire.ca.gov',
-    run: () => fetchJson(directUrl, { headers: { Accept: 'application/json' } }),
+    run: () =>
+      fetchJson(directUrl, {
+        headers: {
+          Accept: 'application/json',
+          'User-Agent': 'Mozilla/5.0 (compatible; SentinelWildfireTracker/1.0)',
+          Referer: 'https://incidents.fire.ca.gov/',
+        },
+      }),
   });
 
   let lastErr = null;

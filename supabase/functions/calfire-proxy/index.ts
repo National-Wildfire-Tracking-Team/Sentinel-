@@ -36,7 +36,11 @@ Deno.serve(async (req: Request) => {
     });
     const target = `${UPSTREAM}?${params}`;
     const resp = await fetch(target, {
-      headers: { Accept: 'application/json' },
+      headers: {
+        Accept: 'application/json',
+        'User-Agent': 'Mozilla/5.0 (compatible; SentinelWildfireTracker/1.0)',
+        Referer: 'https://incidents.fire.ca.gov/',
+      },
     });
     const text = await resp.text();
 
