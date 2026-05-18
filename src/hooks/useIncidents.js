@@ -7,6 +7,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { fetchIncidents, incidentsToGeoJSON } from '../api/inciweb';
 import { insertAutomatedUpdate } from './useIncidentUpdates';
+import { publishIncidentChange } from '../utils/incidentChangeBus';
 
 const REFRESH_MS = parseInt(import.meta.env.VITE_REFRESH_INTERVAL || '300000', 10);
 
@@ -46,6 +47,19 @@ export function useIncidents(minAcres = 0.1, enabled = true) {
           if (old.personnel !== inc.personnel && inc.personnel > 0)
             changes.push(`Personnel: ${old.personnel.toLocaleString()} → ${inc.personnel.toLocaleString()}`);
           if (changes.length > 0) {
+            const localUpdate = {
+              id:           `local-${Date.now()}-${inc.id}`,
+              incident_id:  inc.id,
+              incident_name: inc.name,
+              content:      changes.join('\n'),
+              source_type:  'automated',
+              source_name:  'IRWIN / WFIGS',
+              created_at:   new Date().toISOString(),
+            };
+            // Publish immediately so the sidebar updates without waiting for Supabase.
+            publishIncidentChange(inc.id, localUpdate);
+            // Also persist to Supabase so updates survive page reloads and appear
+            // for other users. On success the realtime event replaces the local entry.
             insertAutomatedUpdate({
               incidentId:   inc.id,
               incidentName: inc.name,
