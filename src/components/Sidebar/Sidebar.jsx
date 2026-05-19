@@ -41,7 +41,7 @@ function SelectedFireUpdates({ fire }) {
 
         {recent.map(update => {
           const isAutomated = update.source_type === 'automated';
-          const lines = (update.content || '').split('\n').filter(Boolean);
+          const lines = String(update.content ?? '').split('\n').filter(Boolean);
           return (
             <div key={update.id} className="rounded-lg border border-sentinel-700 bg-sentinel-800/60 px-2.5 py-2">
               <div className="flex items-center gap-1 mb-1">

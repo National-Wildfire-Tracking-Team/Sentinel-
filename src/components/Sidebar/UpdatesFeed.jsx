@@ -20,7 +20,7 @@ function UpdateCard({ update }) {
   const label = update.incident_name || update.source_name || 'Incident';
 
   // Parse multi-line content into individual change lines
-  const lines = (update.content || '').split('\n').filter(Boolean);
+  const lines = String(update.content ?? '').split('\n').filter(Boolean);
 
   return (
     <div className="rounded-lg border border-sentinel-700 bg-sentinel-800/70 overflow-hidden">
