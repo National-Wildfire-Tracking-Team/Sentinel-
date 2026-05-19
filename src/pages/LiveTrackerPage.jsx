@@ -9,7 +9,7 @@ import { nwsAlertCategory } from '../utils/nwsColors';
 import { useSavedLocations } from '../hooks/useSavedLocations';
 import { useAuth } from '../context/AuthContext';
 import AddressSetupScreen from '../components/Auth/AddressSetupScreen';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 // Data hooks
 import { useFireHotspots } from '../hooks/useFireHotspots';
@@ -172,6 +172,8 @@ const RAWS_MIN_ZOOM = 9;
 
 export default function LiveTrackerPage() {
   const { layers, setLayer, setRefreshed, setLoading, feedFilter, viewport, selectedFire, selectFire } = useApp();
+  const selectedFireRef = useRef(selectedFire);
+  selectedFireRef.current = selectedFire;
   const { hasProInfrastructureAccess } = usePlan();
   const criticalInfraEntitled = hasProInfrastructureAccess;
   const { locations: savedLocations } = useSavedLocations();
@@ -297,18 +299,22 @@ export default function LiveTrackerPage() {
   );
 
   // Keep the open incident detail panel aligned with the latest IRWIN / Cal Fire feed.
+  // Use a ref + depend only on incident id (not the whole selectedFire object). Otherwise
+  // each selectFire() creates a new object reference, retriggering this effect and can
+  // exceed React's max update depth.
   useEffect(() => {
-    if (selectedFire?.type !== 'incident' || !selectedFire.id) return;
-    const fresh = mergedIncidentsList.find((i) => i.id === selectedFire.id);
+    const sf = selectedFireRef.current;
+    if (sf?.type !== 'incident' || !sf.id) return;
+    const fresh = mergedIncidentsList.find((i) => i.id === sf.id);
     if (!fresh) return;
     const keys = ['acres', 'contained', 'status', 'personnel', 'updated', 'name', 'county', 'state', 'lat', 'lng'];
     const patch = {};
     keys.forEach((k) => {
-      if (fresh[k] !== selectedFire[k]) patch[k] = fresh[k];
+      if (fresh[k] !== sf[k]) patch[k] = fresh[k];
     });
     if (Object.keys(patch).length === 0) return;
-    selectFire({ ...selectedFire, ...patch, type: 'incident' });
-  }, [mergedIncidentsList, selectedFire, selectFire]);
+    selectFire({ ...sf, ...patch, type: 'incident' });
+  }, [mergedIncidentsList, selectedFire?.id, selectFire]);
 
   const mergedIncidentsGeoJSON = useMemo(
     () => incidentsToGeoJSON(mergedIncidentsList),
