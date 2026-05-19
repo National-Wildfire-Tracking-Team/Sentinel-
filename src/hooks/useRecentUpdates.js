@@ -1,8 +1,9 @@
 /**
  * useRecentUpdates.js
- * Fetches the most recent incident_updates across ALL incidents for the
- * sidebar "Updates" feed. Subscribes to realtime inserts so new entries
- * appear immediately without a page reload.
+ * Fetches the most recent **reporter** incident_updates across all incidents
+ * for the map sidebar "Updates" strip. Automated IRWIN/WFIGS data-change
+ * rows are excluded here so they only appear on each fire’s detail panel
+ * (timeline + latest update banner). Subscribes to realtime reporter inserts.
  */
 
 import { useEffect, useState } from 'react';
@@ -26,6 +27,7 @@ export function useRecentUpdates() {
       const { data } = await supabase
         .from('incident_updates')
         .select('id, incident_id, incident_name, content, source_type, source_name, created_at')
+        .eq('source_type', 'reporter')
         .order('created_at', { ascending: false })
         .limit(LIMIT);
 
@@ -42,9 +44,15 @@ export function useRecentUpdates() {
       .channel('recent_updates_feed')
       .on(
         'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'incident_updates' },
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'incident_updates',
+          filter: 'source_type=eq.reporter',
+        },
         (payload) => {
           if (!payload.new) return;
+          if (payload.new.source_type !== 'reporter') return;
           setUpdates(prev => {
             if (prev.some(u => u.id === payload.new.id)) return prev;
             return [payload.new, ...prev].slice(0, LIMIT);

@@ -1,7 +1,8 @@
 /**
  * UpdatesFeed.jsx
- * Sidebar section showing recent incident updates (data changes + reporter posts)
- * across all active incidents, in reverse-chronological order.
+ * Map sidebar strip for recent **reporter** posts across incidents. Automated
+ * data-feed updates (acres/containment/personnel deltas) are shown only on
+ * the selected fire’s detail panel, not here.
  */
 
 import { useState } from 'react';
