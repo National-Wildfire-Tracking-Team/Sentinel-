@@ -11,6 +11,12 @@ import {
 import { useIncidentUpdates } from '../../hooks/useIncidentUpdates';
 import { useAuth } from '../../context/AuthContext';
 
+/** Coerce DB/API values so .trim() / .split never throw (e.g. numeric JSON fields). */
+function safeText(value) {
+  if (value == null) return '';
+  return String(value);
+}
+
 function formatUpdateCardTimestamp(iso) {
   if (!iso) return '';
   try {
@@ -25,8 +31,8 @@ function formatUpdateCardTimestamp(iso) {
 
 function badgeLabelForUpdate(update, dataSource) {
   const isAutomated = update.source_type === 'automated';
-  const name = (update.source_name || '').trim();
-  const fallback = (dataSource || '').trim();
+  const name = safeText(update.source_name).trim();
+  const fallback = safeText(dataSource).trim();
   if (!isAutomated) {
     return name ? name.toUpperCase().slice(0, 18) : 'NWTT';
   }
@@ -38,7 +44,7 @@ function badgeLabelForUpdate(update, dataSource) {
 }
 
 function officialFeedLinkLabel(sourceLabel) {
-  const s = (sourceLabel || '').trim();
+  const s = safeText(sourceLabel).trim();
   if (/cal\s*fire|fire\.ca\.gov/i.test(s)) return { href: 'https://www.fire.ca.gov/', text: 'CAL FIRE (fire.ca.gov)' };
   if (/inciweb/i.test(s)) return { href: 'https://inciweb.nwcg.gov/', text: s.includes('http') ? s : 'InciWeb' };
   if (/irwin|nifc/i.test(s)) return { href: 'https://www.nifc.gov/fire-information/nifc-large-fire', text: 'NIFC / IRWIN' };
@@ -50,7 +56,8 @@ function officialFeedLinkLabel(sourceLabel) {
 function UpdateCard({ update, currentUserId, onEdit, onDelete, dataSource }) {
   const isOwn = currentUserId && update.user_id === currentUserId;
   const isAutomated = update.source_type === 'automated';
-  const lines = (update.content || '').split('\n').filter(Boolean);
+  const contentStr = safeText(update.content);
+  const lines = contentStr.split('\n').filter(Boolean);
   const badge = badgeLabelForUpdate(update, dataSource);
   const ts = formatUpdateCardTimestamp(update.created_at);
 
@@ -112,8 +119,8 @@ function UpdateCard({ update, currentUserId, onEdit, onDelete, dataSource }) {
             lines.map((line, i) => (
               <p key={i} className="text-sentinel-100 text-xs leading-snug">{line}</p>
             ))
-          ) : update.content ? (
-            <p className="text-sentinel-100 text-xs leading-snug whitespace-pre-wrap">{update.content}</p>
+          ) : contentStr ? (
+            <p className="text-sentinel-100 text-xs leading-snug whitespace-pre-wrap">{contentStr}</p>
           ) : (
             <p className="text-sentinel-500 text-xs italic">No details</p>
           )}
@@ -174,7 +181,7 @@ function ComposeBox({ onSubmit, disabled }) {
 // ─── Edit modal (inline) ─────────────────────────────────────────────────────
 
 function EditBox({ update, onSave, onCancel }) {
-  const [text, setText] = useState(update.content);
+  const [text, setText] = useState(() => safeText(update.content));
   const [saving, setSaving] = useState(false);
 
   const handleSave = async () => {
@@ -267,7 +274,7 @@ export default function IncidentTimeline({
     await deleteUpdate(updateId);
   };
 
-  const legacyTrimmed = (legacyInitialSubmission || '').trim();
+  const legacyTrimmed = safeText(legacyInitialSubmission).trim();
 
   const displayUpdates = useMemo(() => {
     const synthetic =
@@ -294,9 +301,12 @@ export default function IncidentTimeline({
   // falling back to the dataSource prop when there are no updates yet.
   const automatedSourceLabel = (() => {
     const names = [...new Set(
-      updates.filter((u) => u.source_type === 'automated').map((u) => u.source_name).filter(Boolean)
+      updates
+        .filter((u) => u.source_type === 'automated')
+        .map((u) => safeText(u.source_name).trim())
+        .filter(Boolean),
     )];
-    return names.length > 0 ? names.join(', ') : dataSource;
+    return names.length > 0 ? names.join(', ') : safeText(dataSource);
   })();
 
   if (!incidentId) return null;
