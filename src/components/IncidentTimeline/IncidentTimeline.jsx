@@ -10,80 +10,115 @@ import {
 } from 'lucide-react';
 import { useIncidentUpdates } from '../../hooks/useIncidentUpdates';
 import { useAuth } from '../../context/AuthContext';
-import { formatRelativeTime, formatDateTime } from '../../utils/formatUtils';
+
+function formatUpdateCardTimestamp(iso) {
+  if (!iso) return '';
+  try {
+    const d = new Date(iso);
+    return d.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' })
+      + ' '
+      + d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+  } catch {
+    return '';
+  }
+}
+
+function badgeLabelForUpdate(update, dataSource) {
+  const isAutomated = update.source_type === 'automated';
+  const name = (update.source_name || '').trim();
+  const fallback = (dataSource || '').trim();
+  if (!isAutomated) {
+    return name ? name.toUpperCase().slice(0, 18) : 'NWTT';
+  }
+  const src = name || fallback;
+  if (/cal\s*fire/i.test(src)) return 'CAL FIRE';
+  if (/irwin|nifc/i.test(src)) return 'IRWIN';
+  if (/inciweb/i.test(src)) return 'INCIWEB';
+  return src ? src.toUpperCase().slice(0, 14) : 'OFFICIAL';
+}
+
+function officialFeedLinkLabel(sourceLabel) {
+  const s = (sourceLabel || '').trim();
+  if (/cal\s*fire|fire\.ca\.gov/i.test(s)) return { href: 'https://www.fire.ca.gov/', text: 'CAL FIRE (fire.ca.gov)' };
+  if (/inciweb/i.test(s)) return { href: 'https://inciweb.nwcg.gov/', text: s.includes('http') ? s : 'InciWeb' };
+  if (/irwin|nifc/i.test(s)) return { href: 'https://www.nifc.gov/fire-information/nifc-large-fire', text: 'NIFC / IRWIN' };
+  return { href: null, text: s || 'official sources' };
+}
 
 // ─── Single update card ──────────────────────────────────────────────────────
 
-function UpdateCard({ update, currentUserId, onEdit, onDelete }) {
+function UpdateCard({ update, currentUserId, onEdit, onDelete, dataSource }) {
   const isOwn = currentUserId && update.user_id === currentUserId;
   const isAutomated = update.source_type === 'automated';
-
-  // Build a human-readable absolute timestamp matching the reference image style:
-  // "Apr 22 at 9:02 AM"
-  const absTime = (() => {
-    try {
-      const d = new Date(update.created_at);
-      return d.toLocaleString('en-US', {
-        month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit',
-      });
-    } catch { return ''; }
-  })();
+  const lines = (update.content || '').split('\n').filter(Boolean);
+  const badge = badgeLabelForUpdate(update, dataSource);
+  const ts = formatUpdateCardTimestamp(update.created_at);
 
   return (
-    <div className="pb-5 border-b border-sentinel-800 last:border-0 last:pb-0 group">
-      {/* Header: name • role badge | edit controls */}
-      <div className="flex items-start justify-between gap-2 mb-1">
-        <div className="min-w-0 flex items-start gap-1.5 flex-wrap">
-          <span className="text-[12px] font-bold text-white leading-tight">
-            {update.source_name}
-          </span>
-          <span className="text-sentinel-500 text-[12px] leading-tight">•</span>
-          <span className={`text-[11px] font-medium leading-tight flex items-center gap-0.5
-            ${isAutomated ? 'text-blue-400' : 'text-amber-400'}`}>
-            {isAutomated ? 'Automated Feed' : 'Field Reporter'}
-            {!isAutomated && (
-              <svg viewBox="0 0 16 16" className="w-3 h-3 fill-amber-400 shrink-0" aria-label="Verified">
-                <path d="M8 0l1.9 2.5L13 1.5l.5 3.2L16 6.4l-1.5 2.6 1.5 2.6-2.5 1.7-.5 3.2-3.1-1-1.9 2.5L6.1 16l-1.9-2.5-3.1 1-.5-3.2L0 9.6l1.5-2.6L0 4.4l2.5-1.7.5-3.2 3.1 1z"/>
-              </svg>
-            )}
-            {isAutomated && <Bot size={10} className="shrink-0" />}
-          </span>
+    <div
+      className={`rounded-lg overflow-hidden group mb-2 last:mb-0 border
+        ${isAutomated
+          ? 'border-red-950/90 bg-sentinel-800/85'
+          : 'border-amber-900/70 bg-sentinel-800/85'}`}
+    >
+      {/* Top: source pill | timestamp + edit */}
+      <div className="flex items-center justify-between gap-2 px-3 py-2 border-b border-sentinel-700/50">
+        <span
+          className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide truncate max-w-[58%]
+            ${isAutomated
+              ? 'bg-red-600 text-white'
+              : 'bg-amber-700/90 text-amber-50 border border-amber-600/50'}`}
+        >
+          {badge}
+        </span>
+        <div className="flex items-center gap-1 shrink-0">
+          {isOwn && (
+            <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity mr-0.5">
+              <button
+                type="button"
+                onClick={() => onEdit(update)}
+                className="p-0.5 text-sentinel-500 hover:text-sentinel-200 transition-colors"
+                title="Edit update"
+              >
+                <Pencil size={10} />
+              </button>
+              <button
+                type="button"
+                onClick={() => onDelete(update.id)}
+                className="p-0.5 text-sentinel-500 hover:text-red-400 transition-colors"
+                title="Delete update"
+              >
+                <Trash2 size={10} />
+              </button>
+            </div>
+          )}
+          <span className="text-sentinel-400 text-[10px] tabular-nums">{ts}</span>
         </div>
-        {isOwn && (
-          <div className="flex items-center gap-0.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-            <button
-              onClick={() => onEdit(update)}
-              className="p-0.5 text-sentinel-500 hover:text-sentinel-200 transition-colors"
-              title="Edit update"
-            >
-              <Pencil size={10} />
-            </button>
-            <button
-              onClick={() => onDelete(update.id)}
-              className="p-0.5 text-sentinel-500 hover:text-red-400 transition-colors"
-              title="Delete update"
-            >
-              <Trash2 size={10} />
-            </button>
-          </div>
-        )}
       </div>
 
-      {/* Timestamp row: relative • absolute */}
-      <div className="flex items-center gap-1 mb-2">
-        <span className="text-[10px] text-sentinel-500">{formatRelativeTime(update.created_at)}</span>
-        {absTime && (
-          <>
-            <span className="text-sentinel-700 text-[10px]">•</span>
-            <span className="text-[10px] text-sentinel-500">{absTime}</span>
-          </>
-        )}
+      <div className="px-3 py-2.5">
+        <p className="text-white text-xs font-bold mb-1.5">
+          {isAutomated ? 'Data Updated' : (
+            <span className="inline-flex items-center gap-1">
+              Reporter Update
+              <svg viewBox="0 0 16 16" className="w-3 h-3 fill-amber-400 shrink-0" aria-hidden>
+                <path d="M8 0l1.9 2.5L13 1.5l.5 3.2L16 6.4l-1.5 2.6 1.5 2.6-2.5 1.7-.5 3.2-3.1-1-1.9 2.5L6.1 16l-1.9-2.5-3.1 1-.5-3.2L0 9.6l1.5-2.6L0 4.4l2.5-1.7.5-3.2 3.1 1z" />
+              </svg>
+            </span>
+          )}
+        </p>
+        <div className="space-y-0.5">
+          {lines.length > 0 ? (
+            lines.map((line, i) => (
+              <p key={i} className="text-sentinel-100 text-xs leading-snug">{line}</p>
+            ))
+          ) : update.content ? (
+            <p className="text-sentinel-100 text-xs leading-snug whitespace-pre-wrap">{update.content}</p>
+          ) : (
+            <p className="text-sentinel-500 text-xs italic">No details</p>
+          )}
+        </div>
       </div>
-
-      {/* Content */}
-      <p className="text-xs text-sentinel-300 leading-relaxed whitespace-pre-wrap">
-        {update.content}
-      </p>
     </div>
   );
 }
@@ -267,8 +302,8 @@ export default function IncidentTimeline({
   if (!incidentId) return null;
 
   return (
-    <div className="mt-4">
-      <div className="text-[10px] font-bold text-sentinel-500 uppercase tracking-widest mb-3">
+    <div className="mt-1">
+      <div className="text-[10px] font-bold text-sentinel-500 uppercase tracking-widest mb-2">
         Live Updates
       </div>
 
@@ -294,17 +329,31 @@ export default function IncidentTimeline({
         </div>
       )}
 
-      {/* Automated-only notice — shown whenever there are no reporter updates */}
-      {automatedOnly && (
-        <div className="mb-4 p-3 rounded-lg bg-blue-950/30 border border-blue-800/40 flex items-start gap-2.5">
-          <Bot size={14} className="text-blue-400 shrink-0 mt-0.5" />
-          <p className="text-[11px] text-blue-200/80 leading-relaxed">
-            All updates for this incident are automated and provided by:{' '}
-            <span className="font-semibold text-blue-300">{automatedSourceLabel}</span>.
-            NWTT reporters are not monitoring this incident at this time.
-          </p>
-        </div>
-      )}
+      {/* Automated-only notice — navy card, bot icon, primary source link */}
+      {automatedOnly && (() => {
+        const { href, text } = officialFeedLinkLabel(automatedSourceLabel);
+        return (
+          <div className="mb-4 p-3.5 rounded-xl bg-[#0c1524] border border-sky-500/30 flex items-start gap-3 shadow-inner">
+            <Bot size={18} className="text-sky-400 shrink-0 mt-0.5" aria-hidden />
+            <p className="text-[12px] text-sentinel-300 leading-relaxed">
+              All updates for this incident are automated and provided by:{' '}
+              {href ? (
+                <a
+                  href={href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-semibold text-sky-400 hover:text-sky-300 underline-offset-2 hover:underline"
+                >
+                  {text}
+                </a>
+              ) : (
+                <span className="font-semibold text-sky-400">{text}</span>
+              )}
+              . NWTT reporters are not monitoring this incident at this time.
+            </p>
+          </div>
+        );
+      })()}
 
       {/* Empty state (no updates at all) */}
       {!loading && !error && displayUpdates.length === 0 && (
@@ -321,7 +370,7 @@ export default function IncidentTimeline({
 
       {/* Update feed */}
       {!loading && displayUpdates.length > 0 && (
-        <div>
+        <div className="space-y-0">
           {displayUpdates.map((u) =>
             editing?.id === u.id ? (
               <EditBox
@@ -337,6 +386,7 @@ export default function IncidentTimeline({
                 currentUserId={user?.id}
                 onEdit={setEditing}
                 onDelete={handleDelete}
+                dataSource={dataSource}
               />
             )
           )}
