@@ -171,7 +171,7 @@ function mergeIrwinAndCalFireIncidents(irwinIncidents, calFireIncidents) {
 const RAWS_MIN_ZOOM = 9;
 
 export default function LiveTrackerPage() {
-  const { layers, setLayer, setRefreshed, setLoading, feedFilter, viewport } = useApp();
+  const { layers, setLayer, setRefreshed, setLoading, feedFilter, viewport, selectedFire, selectFire } = useApp();
   const { hasProInfrastructureAccess } = usePlan();
   const criticalInfraEntitled = hasProInfrastructureAccess;
   const { locations: savedLocations } = useSavedLocations();
@@ -295,6 +295,20 @@ export default function LiveTrackerPage() {
     () => mergeIrwinAndCalFireIncidents(incidents, calFireIncidents),
     [incidents, calFireIncidents]
   );
+
+  // Keep the open incident detail panel aligned with the latest IRWIN / Cal Fire feed.
+  useEffect(() => {
+    if (selectedFire?.type !== 'incident' || !selectedFire.id) return;
+    const fresh = mergedIncidentsList.find((i) => i.id === selectedFire.id);
+    if (!fresh) return;
+    const keys = ['acres', 'contained', 'status', 'personnel', 'updated', 'name', 'county', 'state', 'lat', 'lng'];
+    const patch = {};
+    keys.forEach((k) => {
+      if (fresh[k] !== selectedFire[k]) patch[k] = fresh[k];
+    });
+    if (Object.keys(patch).length === 0) return;
+    selectFire({ ...selectedFire, ...patch, type: 'incident' });
+  }, [mergedIncidentsList, selectedFire, selectFire]);
 
   const mergedIncidentsGeoJSON = useMemo(
     () => incidentsToGeoJSON(mergedIncidentsList),

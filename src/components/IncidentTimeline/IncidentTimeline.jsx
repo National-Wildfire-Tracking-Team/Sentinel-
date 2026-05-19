@@ -191,6 +191,37 @@ function EditBox({ update, onSave, onCancel }) {
 // ─── Main component ──────────────────────────────────────────────────────────
 
 /**
+ * Newest item to show in a compact “latest update” preview (matches timeline ordering).
+ * When the database has no rows yet, falls back to the legacy initial submission for community reports.
+ */
+export function pickLatestDisplayUpdate(
+  updates,
+  {
+    incidentId,
+    legacyInitialSubmission = '',
+    legacySubmittedAt = null,
+    loading = false,
+    error = null,
+  } = {},
+) {
+  if (loading || error) return null;
+  if (updates?.length > 0) return updates[0];
+  const legacyTrimmed = (legacyInitialSubmission || '').trim();
+  if (!legacyTrimmed) return null;
+  return {
+    id: '__legacy_initial_submission__',
+    incident_id: incidentId,
+    content: legacyTrimmed,
+    source_type: 'reporter',
+    source_name: 'NWTT Reporter',
+    user_id: null,
+    created_at: legacySubmittedAt || new Date(0).toISOString(),
+  };
+}
+
+/**
+ * Timeline UI driven by an existing useIncidentUpdates() result (avoids duplicate subscriptions).
+ *
  * @param {string}  incidentId   Incident identifier used to query updates.
  * @param {boolean} allowPost    Show the compose box (reporter portal only).
  * @param {string}  dataSource   Fallback source label shown in the automated-only
@@ -203,15 +234,21 @@ function EditBox({ update, onSave, onCancel }) {
  * @param {string} [legacySubmittedAt]       ISO timestamp for the synthetic update
  *                               (e.g. fire_reports.created_at).
  */
-export default function IncidentTimeline({
+export function IncidentTimelineContent({
   incidentId,
+  updates,
+  loading,
+  error,
+  addUpdate,
+  editUpdate,
+  deleteUpdate,
   allowPost = false,
   dataSource = 'NIFC / IRWIN',
   sourceVariant = 'fed',
   legacyInitialSubmission = '',
   legacySubmittedAt = null,
+  rootClassName = 'mt-4',
 }) {
-  const { updates, loading, error, addUpdate, editUpdate, deleteUpdate } = useIncidentUpdates(incidentId);
   const { user, profile, isAuthenticated, isReporter, isAdmin } = useAuth();
   const [editing, setEditing] = useState(null);
 
@@ -267,7 +304,7 @@ export default function IncidentTimeline({
   if (!incidentId) return null;
 
   return (
-    <div className="mt-4">
+    <div className={rootClassName}>
       <div className="text-[10px] font-bold text-sentinel-500 uppercase tracking-widest mb-3">
         Live Updates
       </div>
@@ -343,5 +380,27 @@ export default function IncidentTimeline({
         </div>
       )}
     </div>
+  );
+}
+
+export default function IncidentTimeline({
+  incidentId,
+  allowPost = false,
+  dataSource = 'NIFC / IRWIN',
+  sourceVariant = 'fed',
+  legacyInitialSubmission = '',
+  legacySubmittedAt = null,
+}) {
+  const hook = useIncidentUpdates(incidentId);
+  return (
+    <IncidentTimelineContent
+      incidentId={incidentId}
+      allowPost={allowPost}
+      dataSource={dataSource}
+      sourceVariant={sourceVariant}
+      legacyInitialSubmission={legacyInitialSubmission}
+      legacySubmittedAt={legacySubmittedAt}
+      {...hook}
+    />
   );
 }

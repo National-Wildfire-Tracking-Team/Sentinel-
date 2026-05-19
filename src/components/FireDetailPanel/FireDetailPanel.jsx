@@ -4,12 +4,12 @@
  * fire perimeter, AQI station, or NOAA weather alert.
  */
 
-import { memo, useState } from 'react';
+import { memo, useMemo, useState } from 'react';
 import {
   X, Flame, MapPin, Users, Home, Calendar, Thermometer,
   AlertTriangle, Wind, ExternalLink, TrendingUp, ShieldAlert,
   CloudRain, Clock, Info, Share2, ShieldCheck, Zap, Fuel,
-  GraduationCap, FileText, Copy,
+  GraduationCap, FileText, Copy, Bot, Loader2,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import {
@@ -18,7 +18,11 @@ import {
 } from '../../utils/formatUtils';
 import { frpToLabel, containmentToColor, aqiToColor, getAQICategory } from '../../utils/colorUtils';
 import { nwsAlertColor } from '../../utils/nwsColors';
-import IncidentTimeline from '../IncidentTimeline/IncidentTimeline';
+import IncidentTimeline, {
+  IncidentTimelineContent,
+  pickLatestDisplayUpdate,
+} from '../IncidentTimeline/IncidentTimeline';
+import { useIncidentUpdates } from '../../hooks/useIncidentUpdates';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -50,6 +54,41 @@ function UpdateEntry({ update }) {
     <div className="border-l-2 border-sentinel-700 pl-3 py-0.5">
       <div className="text-[10px] text-sentinel-500 mb-0.5">{formatRelativeTime(update.time)}</div>
       <div className="text-xs text-sentinel-300 leading-relaxed">{update.text}</div>
+    </div>
+  );
+}
+
+/** Newest timeline row at the top of the incident detail panel (visible on every tab). */
+function IncidentLatestUpdateBanner({ latest, loading }) {
+  if (loading) {
+    return (
+      <div className="mb-4 flex items-center justify-center gap-2 rounded-lg border border-sentinel-700 bg-sentinel-800/40 px-3 py-3">
+        <Loader2 size={14} className="animate-spin text-sentinel-500" />
+        <span className="text-sentinel-500 text-xs">Loading updates…</span>
+      </div>
+    );
+  }
+  if (!latest) return null;
+
+  const isAutomated = latest.source_type === 'automated';
+  const lines = (latest.content || '').split('\n').filter(Boolean);
+  return (
+    <div className="mb-4 rounded-lg border border-sentinel-700 bg-sentinel-800/60 px-3 py-2.5">
+      <div className="text-[10px] font-bold text-sentinel-500 uppercase tracking-widest mb-2">Latest update</div>
+      <div className="flex items-center gap-1 mb-1">
+        {isAutomated && <Bot size={11} className="text-blue-400 shrink-0" />}
+        <span className={`text-[10px] font-semibold ${isAutomated ? 'text-blue-400' : 'text-amber-400'}`}>
+          {isAutomated ? 'Data updated' : 'Reporter update'}
+        </span>
+        <span className="text-sentinel-600 text-[10px] ml-auto shrink-0">
+          {formatRelativeTime(latest.created_at)}
+        </span>
+      </div>
+      <div className="space-y-0.5">
+        {lines.map((line, i) => (
+          <p key={i} className="text-sentinel-200 text-[11px] leading-snug">{line}</p>
+        ))}
+      </div>
     </div>
   );
 }
@@ -213,6 +252,17 @@ function PerimeterDetail({ fire }) {
 
 function IncidentDetail({ fire }) {
   const [tab, setTab] = useState('updates');
+  const timelineId = fire.id;
+  const timelineHook = useIncidentUpdates(timelineId);
+  const latestDisplayUpdate = useMemo(
+    () =>
+      pickLatestDisplayUpdate(timelineHook.updates, {
+        incidentId: timelineId,
+        loading: timelineHook.loading,
+        error: timelineHook.error,
+      }),
+    [timelineHook.updates, timelineHook.loading, timelineHook.error, timelineId],
+  );
   const containment = Number(fire.contained) || 0;
   const containColor = containmentToColor(containment);
   const statusLabel = fire.status ? String(fire.status) : (containment >= 100 ? 'Controlled' : 'Active');
@@ -313,6 +363,8 @@ function IncidentDetail({ fire }) {
         </div>
       )}
 
+      <IncidentLatestUpdateBanner latest={latestDisplayUpdate} loading={timelineHook.loading} />
+
       {/* UPDATES / INFO tabs */}
       <div className="border-b border-sentinel-700 mb-4 flex gap-0">
         {['updates', 'info'].map((t) => (
@@ -331,9 +383,11 @@ function IncidentDetail({ fire }) {
       </div>
 
       {tab === 'updates' && (
-        <IncidentTimeline
-          incidentId={fire.id}
+        <IncidentTimelineContent
+          incidentId={timelineId}
           dataSource={dataSourceLine}
+          rootClassName="mt-0"
+          {...timelineHook}
         />
       )}
 
@@ -659,6 +713,19 @@ function UserReportDetail({ fire }) {
   const containColor = containmentToColor(containment);
   const incidentNotesPreview = extractIncidentNotesFromDescription(fire.description);
 
+  const timelineHook = useIncidentUpdates(fire.id);
+  const latestDisplayUpdate = useMemo(
+    () =>
+      pickLatestDisplayUpdate(timelineHook.updates, {
+        incidentId: fire.id,
+        legacyInitialSubmission: incidentNotesPreview,
+        legacySubmittedAt: fire.created_at,
+        loading: timelineHook.loading,
+        error: timelineHook.error,
+      }),
+    [timelineHook.updates, timelineHook.loading, timelineHook.error, fire.id, incidentNotesPreview, fire.created_at],
+  );
+
   // Extract a clean location from the structured description if present
   const locationMatch = fire.description?.match(/^ADDRESS:\s*(.+)$/m);
   const locationLine = locationMatch ? locationMatch[1].trim() : null;
@@ -718,6 +785,8 @@ function UserReportDetail({ fire }) {
         {fire.created_at ? <> • {formatDateTime(fire.created_at)}</> : ''}
       </p>
 
+      <IncidentLatestUpdateBanner latest={latestDisplayUpdate} loading={timelineHook.loading} />
+
       {/* UPDATES / INFO tabs */}
       <div className="border-b border-sentinel-700 mb-4 flex gap-0">
         {['updates', 'info'].map((t) => (
@@ -736,12 +805,14 @@ function UserReportDetail({ fire }) {
       </div>
 
       {tab === 'updates' && (
-        <IncidentTimeline
+        <IncidentTimelineContent
           incidentId={fire.id}
           dataSource="NWTT reporter"
           sourceVariant="community"
           legacyInitialSubmission={incidentNotesPreview}
           legacySubmittedAt={fire.created_at}
+          rootClassName="mt-0"
+          {...timelineHook}
         />
       )}
 
