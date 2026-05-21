@@ -12,7 +12,7 @@
  */
 
 import { fetchWithCache } from '../utils/dataCache';
-import { MOCK_INCIDENTS } from '../data/mockData';
+import { fetchCalFireGeoJsonList, normalizeCalFireIncidents } from './calFire';
 
 const IRWIN_BASE =
   'https://services3.arcgis.com/T4QMspbfLg3qTGWY/ArcGIS/rest/services' +
@@ -56,9 +56,19 @@ export async function fetchIncidents({ minAcres = 10 } = {}) {
     if (data?.features) return normalizeIncidents(data.features);
     throw new Error('Unexpected response format');
   } catch (err) {
-    console.warn('[InciWeb/IRWIN] Using fallback incidents:', err.message);
-    // Filter mock data by minAcres too
-    return MOCK_INCIDENTS.filter(i => (i.acres || 0) >= minAcres);
+    console.warn('[InciWeb/IRWIN] Primary source unavailable, trying CAL FIRE incidents:', err.message);
+    try {
+      const calFireGeoJSON = await fetchCalFireGeoJsonList({ includeInactive: false });
+      const calFireIncidents = normalizeCalFireIncidents(calFireGeoJSON)
+        .filter(i => (i.acres || 0) >= minAcres)
+        .sort((a, b) => b.acres - a.acres);
+      console.info(`[InciWeb/IRWIN] Using live CAL FIRE incidents fallback (${calFireIncidents.length})`);
+      return calFireIncidents;
+    } catch (calFireErr) {
+      throw new Error(
+        `IRWIN and CAL FIRE incidents unavailable: ${calFireErr instanceof Error ? calFireErr.message : String(calFireErr)}`
+      );
+    }
   }
 }
 

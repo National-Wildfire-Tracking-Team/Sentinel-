@@ -124,7 +124,7 @@ export default function IncidentFeed({ incidents, loading, error }) {
         {error && !loading && (
           <div className="flex items-start gap-2 p-3 bg-red-950/40 border border-red-800/50 rounded-lg text-red-300 text-sm">
             <AlertCircle size={15} className="shrink-0 mt-0.5" />
-            <span>Could not load live data. Showing demo incidents.</span>
+            <span>Could not load live incident feeds right now.</span>
           </div>
         )}
 
