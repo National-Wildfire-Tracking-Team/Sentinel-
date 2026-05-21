@@ -49,6 +49,11 @@ const LOCATION_PROMPT_KEY = 'sentinel-live-location-choice';
 
 // Quick helper if you don't already have one exported from utils
 const num = (val) => Number(val);
+const toIsoOrNull = (value) => {
+  if (!value) return null;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date.toISOString();
+};
 
 /** NDGD GeoJSON uses epoch ms in `todate` / `Todate` for the valid forecast hour */
 function ndgdFeatureToDateMs(feature) {
@@ -931,7 +936,7 @@ export default function MapView({
     }
 
     const feature = features[0];
-    const p = feature.properties;
+    const p = feature.properties ?? {};
 
     if (feature.layer.id === 'flights-symbol') {
       setSelectedFlight(feature.properties);
@@ -1046,12 +1051,8 @@ export default function MapView({
         county:     p.POOCounty,
         personnel:  p.TotalIncidentPersonnel,
         cause:      p.FireCause,
-        started:    p.FireDiscoveryDateTime
-                      ? new Date(p.FireDiscoveryDateTime).toISOString()
-                      : null,
-        updated:    p.ModifiedOnDateTime
-                      ? new Date(p.ModifiedOnDateTime).toISOString()
-                      : null,
+        started:    toIsoOrNull(p.FireDiscoveryDateTime),
+        updated:    toIsoOrNull(p.ModifiedOnDateTime),
       });
     } else if (feature.layer.id === 'incident-locations-circle') {
       let updates = [];
