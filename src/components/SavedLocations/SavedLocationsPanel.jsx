@@ -19,19 +19,47 @@ import { supabase, isSupabaseConfigured } from '../../api/supabaseClient';
 import { acquireSlot } from '../../utils/mapboxRateLimiter';
 
 // ── Geocoding helper ──────────────────────────────────────────────────────────
+const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN || '';
+
+async function geocodeViaDirect(address) {
+  if (!MAPBOX_TOKEN) throw new Error('Geocoding unavailable. Configure Supabase or VITE_MAPBOX_TOKEN.');
+  const params = new URLSearchParams({
+    access_token: MAPBOX_TOKEN,
+    country: 'us',
+    limit: '1',
+    types: 'address,place,postcode,neighborhood,locality',
+  });
+  const encoded = encodeURIComponent(address.trim());
+  const resp = await fetch(
+    `https://api.mapbox.com/geocoding/v5/mapbox.places/${encoded}.json?${params}`
+  );
+  if (!resp.ok) throw new Error(`Geocoding failed (${resp.status})`);
+  const data = await resp.json();
+  if (!data?.features?.length) throw new Error('Address not found');
+  const [lng, lat] = data.features[0].center;
+  return { lat, lng, placeName: data.features[0].place_name };
+}
 
 async function geocodeAddress(address) {
-  if (!isSupabaseConfigured) throw new Error('Geocoding unavailable – Supabase not configured');
+  if (!isSupabaseConfigured) return geocodeViaDirect(address);
   await acquireSlot();
   const { data, error } = await supabase.functions.invoke('mapbox-geocoding', {
     body: { query: address, country: 'us', limit: 1, types: 'address,place,postcode,neighborhood,locality' },
   });
-  if (error) throw new Error('Geocoding failed');
+  if (error) {
+    if (MAPBOX_TOKEN) return geocodeViaDirect(address);
+    throw new Error('Geocoding is temporarily unavailable. Please try again in a moment.');
+  }
   if (!data?.features?.length) throw new Error('Address not found');
   const first = data.features[0];
-  if (!Array.isArray(first?.geometry?.coordinates)) throw new Error('Address not found');
-  const [lng, lat] = first.geometry.coordinates;
-  return { lat, lng, placeName: first.properties?.full_address ?? first.properties?.name ?? '' };
+  const coords = first?.geometry?.coordinates ?? first?.center;
+  if (!Array.isArray(coords)) throw new Error('Address not found');
+  const [lng, lat] = coords;
+  return {
+    lat,
+    lng,
+    placeName: first.properties?.full_address ?? first.place_name ?? first.properties?.name ?? '',
+  };
 }
 
 // ── Severity styling ──────────────────────────────────────────────────────────
