@@ -147,7 +147,7 @@ function filterActiveFiresGeoJSON(geoJSON, { containedKey }) {
 }
 
 /**
- * Combine IRWIN national incidents with CAL FIRE GeoJsonList.
+ * Combine IRWIN national incidents with CAL FIRE incidents feed.
  * When both list the same fire (normalized name), IRWIN wins for authoritative stats.
  */
 function mergeIrwinAndCalFireIncidents(irwinIncidents, calFireIncidents) {

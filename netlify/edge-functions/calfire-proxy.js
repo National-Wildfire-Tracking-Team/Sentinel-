@@ -1,5 +1,6 @@
 /**
- * Netlify Edge Function – proxy CAL FIRE IncidentApi (browser CORS bypass).
+ * Netlify Edge Function – proxy CAL FIRE incidents (browser CORS bypass).
+ * Prefers /api/v1/incidents and falls back to legacy GeoJsonList.
  */
 
 const CORS_HEADERS = {
@@ -15,23 +16,47 @@ export default async (request) => {
 
   const url = new URL(request.url);
   const inactive = url.searchParams.get('inactive') ?? 'false';
-  const target = `https://incidents.fire.ca.gov/umbraco/api/IncidentApi/GeoJsonList?inactive=${inactive}`;
+  const preferred = url.searchParams.get('upstream')?.toLowerCase() === 'legacy' ? 'legacy' : 'v1';
+  const v1Target =
+    `https://incidents.fire.ca.gov/api/v1/incidents?inactive=${inactive}` +
+    `&includeInactive=${inactive}`;
+  const legacyTarget =
+    `https://incidents.fire.ca.gov/umbraco/api/IncidentApi/GeoJsonList?inactive=${inactive}`;
+  const targets = preferred === 'legacy' ? [legacyTarget, v1Target] : [v1Target, legacyTarget];
 
   try {
-    const resp = await fetch(target, {
-      headers: {
-        Accept: 'application/json',
-        'User-Agent': 'Mozilla/5.0 (compatible; SentinelWildfireTracker/1.0)',
-        Referer: 'https://incidents.fire.ca.gov/',
-      },
-    });
+    let lastError = null;
+    for (const target of targets) {
+      try {
+        const resp = await fetch(target, {
+          headers: {
+            Accept: 'application/json',
+            'User-Agent': 'Mozilla/5.0 (compatible; SentinelWildfireTracker/1.0)',
+            Referer: 'https://incidents.fire.ca.gov/',
+          },
+        });
 
-    return new Response(resp.body, {
-      status: resp.status,
-      headers: {
-        ...CORS_HEADERS,
-        'Content-Type': resp.headers.get('Content-Type') || 'application/json',
-      },
+        const body = await resp.text();
+        if (!resp.ok) {
+          lastError = `Upstream ${target} failed (${resp.status})`;
+          continue;
+        }
+
+        return new Response(body, {
+          status: resp.status,
+          headers: {
+            ...CORS_HEADERS,
+            'Content-Type': resp.headers.get('Content-Type') || 'application/json',
+          },
+        });
+      } catch (err) {
+        lastError = err?.message || String(err);
+      }
+    }
+
+    return new Response(JSON.stringify({ error: lastError || 'CAL FIRE upstream unavailable' }), {
+      status: 502,
+      headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
     });
   } catch (err) {
     return new Response(JSON.stringify({ error: err.message }), {

@@ -1,5 +1,5 @@
 /**
- * Fetches California wildfire incidents from CAL FIRE GeoJsonList.
+ * Fetches California wildfire incidents from CAL FIRE incidents API.
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
@@ -31,7 +31,7 @@ export function useCalFireIncidents(includeInactive = false, enabled = true) {
     } catch (err) {
       if (!mountedRef.current) return;
       // CAL FIRE may fail from the browser (CORS) while IRWIN still loads; treat as optional.
-      console.warn('[CAL FIRE] GeoJsonList unavailable:', err.message);
+      console.warn('[CAL FIRE] incidents feed unavailable:', err.message);
       setError(null);
       setIncidents([]);
     } finally {

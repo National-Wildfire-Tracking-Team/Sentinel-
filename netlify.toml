@@ -22,6 +22,10 @@
   function = "calfire-proxy"
   path = "/api/calfire"
 
+[[edge_functions]]
+  function = "calfire-proxy"
+  path = "/api/calfire-v1"
+
 # ✅ HOME REDIRECT (MUST be above fallback)
 [[redirects]]
   from = "/"

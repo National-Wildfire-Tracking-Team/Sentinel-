@@ -1,7 +1,8 @@
 /**
  * calfire-proxy – Supabase Edge Function
  *
- * Proxies CAL FIRE IncidentApi GeoJsonList so the browser avoids CORS blocks.
+ * Proxies CAL FIRE incidents so the browser avoids CORS blocks.
+ * Prefers /api/v1/incidents and falls back to legacy GeoJsonList.
  * No API key required (public feed).
  *
  * POST body (JSON): { inactive?: boolean }  — matches ?inactive= query on upstream
@@ -13,7 +14,9 @@ const CORS_HEADERS = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const UPSTREAM =
+const UPSTREAM_V1 =
+  'https://incidents.fire.ca.gov/api/v1/incidents';
+const UPSTREAM_LEGACY =
   'https://incidents.fire.ca.gov/umbraco/api/IncidentApi/GeoJsonList';
 
 Deno.serve(async (req: Request) => {
@@ -34,23 +37,43 @@ Deno.serve(async (req: Request) => {
     const params = new URLSearchParams({
       inactive: inactive ? 'true' : 'false',
     });
-    const target = `${UPSTREAM}?${params}`;
-    const resp = await fetch(target, {
-      headers: {
-        Accept: 'application/json',
-        'User-Agent': 'Mozilla/5.0 (compatible; SentinelWildfireTracker/1.0)',
-        Referer: 'https://incidents.fire.ca.gov/',
-      },
-    });
-    const text = await resp.text();
+    const targets = [
+      `${UPSTREAM_V1}?${new URLSearchParams({
+        ...Object.fromEntries(params.entries()),
+        includeInactive: inactive ? 'true' : 'false',
+      }).toString()}`,
+      `${UPSTREAM_LEGACY}?${params.toString()}`,
+    ];
 
-    return new Response(text, {
-      status: resp.status,
-      headers: {
-        ...CORS_HEADERS,
-        'Content-Type': resp.headers.get('Content-Type') || 'application/json',
-      },
-    });
+    let lastError = 'CAL FIRE upstream unavailable';
+    for (const target of targets) {
+      try {
+        const resp = await fetch(target, {
+          headers: {
+            Accept: 'application/json',
+            'User-Agent': 'Mozilla/5.0 (compatible; SentinelWildfireTracker/1.0)',
+            Referer: 'https://incidents.fire.ca.gov/',
+          },
+        });
+        const text = await resp.text();
+        if (!resp.ok) {
+          lastError = `Upstream ${target} failed (${resp.status})`;
+          continue;
+        }
+
+        return new Response(text, {
+          status: resp.status,
+          headers: {
+            ...CORS_HEADERS,
+            'Content-Type': resp.headers.get('Content-Type') || 'application/json',
+          },
+        });
+      } catch (err) {
+        lastError = err instanceof Error ? err.message : String(err);
+      }
+    }
+
+    return jsonResponse({ error: lastError }, 502);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     return jsonResponse({ error: message }, 500);

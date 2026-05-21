@@ -30,6 +30,15 @@ export default defineConfig({
         rewrite: () => '/api/alerts',
       },
       // CAL FIRE blocks cross-origin browser requests; dev server proxies same path as Netlify
+      '/api/calfire-v1': {
+        target: 'https://incidents.fire.ca.gov',
+        changeOrigin: true,
+        secure: true,
+        rewrite: path => {
+          const qs = path.includes('?') ? path.slice(path.indexOf('?')) : '';
+          return `/api/v1/incidents${qs}`;
+        },
+      },
       '/api/calfire': {
         target: 'https://incidents.fire.ca.gov',
         changeOrigin: true,
@@ -56,6 +65,15 @@ export default defineConfig({
         rewrite: path => {
           const qs = path.includes('?') ? path.slice(path.indexOf('?')) : '';
           return `/umbraco/api/IncidentApi/GeoJsonList${qs}`;
+        },
+      },
+      '/api/calfire-v1': {
+        target: 'https://incidents.fire.ca.gov',
+        changeOrigin: true,
+        secure: true,
+        rewrite: path => {
+          const qs = path.includes('?') ? path.slice(path.indexOf('?')) : '';
+          return `/api/v1/incidents${qs}`;
         },
       },
     },
