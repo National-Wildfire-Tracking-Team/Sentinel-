@@ -5,7 +5,7 @@
 
 import { memo } from 'react';
 import { Link } from 'react-router-dom';
-import { Flame, TrendingUp, Wind, ChevronLeft, CloudSun, ShieldAlert, TriangleAlert, ArrowLeft, Bot, MessageSquare, Loader2 } from 'lucide-react';
+import { Flame, TrendingUp, Wind, ChevronLeft, CloudSun, ShieldAlert, AlertTriangle, ArrowLeft, Bot, MessageSquare, Loader2 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { useIncidentUpdates } from '../../hooks/useIncidentUpdates';
 import { formatRelativeTime } from '../../utils/formatUtils';
@@ -189,7 +189,7 @@ const Sidebar = memo(function Sidebar({
               }`}
               aria-pressed={activeMapTab === 'allHazard'}
             >
-              <TriangleAlert size={13} />
+              <AlertTriangle size={13} />
               All Hazard
             </button>
 
@@ -201,7 +201,7 @@ const Sidebar = memo(function Sidebar({
           <div className="flex items-center gap-2">
             {isAllHazardTab ? (
               <>
-                <TriangleAlert size={16} className="text-amber-400" />
+                <AlertTriangle size={16} className="text-amber-400" />
                 <h2 className="font-semibold text-white text-sm">All Hazards</h2>
               </>
             ) : isWeatherTab ? (
@@ -237,7 +237,7 @@ const Sidebar = memo(function Sidebar({
             {isAllHazardTab ? (
               <>
                 <StatPill icon={Flame}        label="Active Fires"  value={activeCount}  color="text-fire-400"   className="flex-1" />
-                <StatPill icon={TriangleAlert} label="Alerts"        value={alertsCount}  color="text-amber-400" className="flex-1" />
+                <StatPill icon={AlertTriangle} label="Alerts"        value={alertsCount}  color="text-amber-400" className="flex-1" />
                 <StatPill icon={Wind}          label="Red Flags"     value={rfwCount}     color="text-red-400"   className="flex-1" onClick={rfwCount > 0 ? onReopenBanner : undefined} />
               </>
             ) : isWeatherTab ? (
