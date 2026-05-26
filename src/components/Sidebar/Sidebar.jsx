@@ -5,7 +5,7 @@
 
 import { memo } from 'react';
 import { Link } from 'react-router-dom';
-import { Flame, TrendingUp, Wind, ChevronLeft, CloudSun, ShieldAlert, ArrowLeft, Bot, MessageSquare, Loader2 } from 'lucide-react';
+import { Flame, TrendingUp, Wind, ChevronLeft, CloudSun, ShieldAlert, TriangleAlert, ArrowLeft, Bot, MessageSquare, Loader2 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { useIncidentUpdates } from '../../hooks/useIncidentUpdates';
 import { formatRelativeTime } from '../../utils/formatUtils';
@@ -100,6 +100,7 @@ const Sidebar = memo(function Sidebar({
   const { sidebarOpen, toggleSidebar, alerts, selectedFire } = useApp();
   const selectedIncident = selectedFire?.type === 'incident' ? selectedFire : null;
   const isWeatherTab = activeMapTab === 'weather';
+  const isAllHazardTab = activeMapTab === 'allHazard';
 
   const activeCount  = incidents.filter(i => i.status === 'active').length;
   const rfwCount     = alerts.filter(a => a.type === 'Red Flag Warning').length;
@@ -178,13 +179,32 @@ const Sidebar = memo(function Sidebar({
               Weather
             </button>
 
+            <button
+              type="button"
+              onClick={() => onTabChange?.('allHazard')}
+              className={`flex-1 inline-flex items-center justify-center gap-1.5 px-2 py-1.5 text-xs font-semibold rounded-lg transition-colors ${
+                activeMapTab === 'allHazard'
+                  ? 'bg-amber-600 text-white'
+                  : 'text-sentinel-200 hover:bg-sentinel-700'
+              }`}
+              aria-pressed={activeMapTab === 'allHazard'}
+            >
+              <TriangleAlert size={13} />
+              All Hazard
+            </button>
+
           </div>
         </div>
 
         {/* Sidebar header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-sentinel-700 shrink-0">
           <div className="flex items-center gap-2">
-            {isWeatherTab ? (
+            {isAllHazardTab ? (
+              <>
+                <TriangleAlert size={16} className="text-amber-400" />
+                <h2 className="font-semibold text-white text-sm">All Hazards</h2>
+              </>
+            ) : isWeatherTab ? (
               <>
                 <CloudSun size={16} className="text-sky-400" />
                 <h2 className="font-semibold text-white text-sm">Weather &amp; Radar</h2>
@@ -214,7 +234,13 @@ const Sidebar = memo(function Sidebar({
         {/* Summary stats strip */}
         <div className="px-3 py-2 border-b border-sentinel-700 shrink-0">
           <div className="flex justify-center gap-2 overflow-x-auto pb-1 scrollbar-none">
-            {isWeatherTab ? (
+            {isAllHazardTab ? (
+              <>
+                <StatPill icon={Flame}        label="Active Fires"  value={activeCount}  color="text-fire-400"   className="flex-1" />
+                <StatPill icon={TriangleAlert} label="Alerts"        value={alertsCount}  color="text-amber-400" className="flex-1" />
+                <StatPill icon={Wind}          label="Red Flags"     value={rfwCount}     color="text-red-400"   className="flex-1" onClick={rfwCount > 0 ? onReopenBanner : undefined} />
+              </>
+            ) : isWeatherTab ? (
               <>
                 <StatPill icon={CloudSun}    label="Active Alerts" value={alertsCount}  color="text-sky-300"   className="flex-1" />
                 <StatPill icon={ShieldAlert} label="Severe"        value={severeCount}  color="text-red-300"   className="flex-1" />
@@ -233,7 +259,7 @@ const Sidebar = memo(function Sidebar({
         {/* Address alert search – weather tab only */}
         {isWeatherTab && <AddressAlertSearch />}
 
-        {/* Selected incident updates – shown in wildfire tab when a fire is selected */}
+        {/* Selected incident updates – shown in wildfire and allHazard tabs when a fire is selected */}
         {!isWeatherTab && selectedIncident && (
           <SelectedFireUpdates fire={selectedIncident} />
         )}

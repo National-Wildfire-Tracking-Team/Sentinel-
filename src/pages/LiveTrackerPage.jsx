@@ -51,6 +51,7 @@ const US_BOUNDS = { west: -130, south: 24, east: -65, north: 50 };
 const MAP_TABS = {
   wildfire:  'wildfire',
   weather:   'weather',
+  allHazard: 'allHazard',
   locations: 'locations',
 };
 
@@ -73,6 +74,28 @@ const WILDFIRE_LAYER_PRESET = {
   fireWeatherOutlooks: false,
   stormReports: false,
   criticalInfrastructure: false,
+  schoolsUniversities: false,
+};
+
+const ALL_HAZARD_LAYER_PRESET = {
+  fireHotspots: false,
+  firePerimeters: true,
+  incidentLocations: true,
+  weatherAlerts: true,
+  smoke: false,
+  goesEast: false,
+  goesWest: false,
+  spcWeatherOutlooks: false,
+  stormReports: false,
+  radar: false,
+  criticalInfrastructure: false,
+  evacZones: false,
+  reporterEvacZones: true,
+  rawsStations: false,
+  flights: false,
+  airNowMonitors: false,
+  ndgdSmokeForecast: false,
+  fireWeatherOutlooks: false,
   schoolsUniversities: false,
 };
 
@@ -208,22 +231,23 @@ export default function LiveTrackerPage() {
     }
   }, [criticalInfraEntitled, layers.schoolsUniversities, setLayer]);
 
-  // Weather tab: dark streets map by default; wildfire tab keeps satellite as default.
+  // Weather tab: dark streets map by default; wildfire + allHazard keep satellite as default.
   useEffect(() => {
     if (activeMapTab === MAP_TABS.weather) {
       setMapType('rendered');
-    } else if (activeMapTab === MAP_TABS.wildfire) {
+    } else if (activeMapTab === MAP_TABS.wildfire || activeMapTab === MAP_TABS.allHazard) {
       setMapType('satellite');
     }
   }, [activeMapTab]);
 
-  // Apply layer presets only when switching between wildfire/weather tabs.
+  // Apply layer presets only when switching between wildfire/weather/allHazard tabs.
   // The locations tab keeps whatever layers were already active.
   useEffect(() => {
     if (activeMapTab === MAP_TABS.locations) return;
     const presets = {
-      [MAP_TABS.wildfire]: WILDFIRE_LAYER_PRESET,
-      [MAP_TABS.weather]:  WEATHER_LAYER_PRESET,
+      [MAP_TABS.wildfire]:  WILDFIRE_LAYER_PRESET,
+      [MAP_TABS.weather]:   WEATHER_LAYER_PRESET,
+      [MAP_TABS.allHazard]: ALL_HAZARD_LAYER_PRESET,
     };
     const preset = presets[activeMapTab];
     if (!preset) return;
@@ -304,7 +328,7 @@ export default function LiveTrackerPage() {
   const {
     geoJSON: stormReportsGeoJSON,
     refresh: refreshStormReports,
-  } = useNwsLsrMapServer(activeMapTab === MAP_TABS.weather && layers.stormReports);
+  } = useNwsLsrMapServer((activeMapTab === MAP_TABS.weather || activeMapTab === MAP_TABS.allHazard) && layers.stormReports);
 
   const [spcOutlookType, setSpcOutlookType] = useState('categorical');
   const [spcActiveDay,   setSpcActiveDay]   = useState('day1');
@@ -316,7 +340,7 @@ export default function LiveTrackerPage() {
     validTime: spcValidTime,
     refresh:   refreshSpcOutlooks,
   } = useSpcOutlooks(
-    layers.spcWeatherOutlooks && spcWeatherOutlookMode === 'convective' && activeMapTab === MAP_TABS.weather,
+    layers.spcWeatherOutlooks && spcWeatherOutlookMode === 'convective' && (activeMapTab === MAP_TABS.weather || activeMapTab === MAP_TABS.allHazard),
     spcActiveDay,
     spcOutlookType
   );
@@ -324,7 +348,7 @@ export default function LiveTrackerPage() {
   const {
     geoJSON:  spcMdGeoJSON,
     refresh:  refreshSpcMd,
-  } = useSpcMesoscaleDiscussion(activeMapTab === MAP_TABS.weather && layers.weatherAlerts);
+  } = useSpcMesoscaleDiscussion((activeMapTab === MAP_TABS.weather || activeMapTab === MAP_TABS.allHazard) && layers.weatherAlerts);
 
   // California evacuation zones – combined CalOES hosted-view + PROD feed
   const {
@@ -396,7 +420,7 @@ const flightBounds = useMemo(() => {
   const {
     geoJSON: ndgdSmokeForecastGeoJSON,
     refresh: refreshNdgdSmokeForecast,
-  } = useNdgdSmokeForecast(layers.ndgdSmokeForecast && activeMapTab === MAP_TABS.wildfire);
+  } = useNdgdSmokeForecast(layers.ndgdSmokeForecast && (activeMapTab === MAP_TABS.wildfire || activeMapTab === MAP_TABS.allHazard));
 
   const criticalInfraEnabled = Boolean(layers.criticalInfrastructure && criticalInfraEntitled);
   const {
@@ -408,7 +432,7 @@ const flightBounds = useMemo(() => {
   const schoolsLayerEnabled = Boolean(
     layers.schoolsUniversities
     && criticalInfraEntitled
-    && (activeMapTab === MAP_TABS.wildfire || activeMapTab === MAP_TABS.weather)
+    && (activeMapTab === MAP_TABS.wildfire || activeMapTab === MAP_TABS.weather || activeMapTab === MAP_TABS.allHazard)
   );
   const {
     geoJSON: nationalMapCollegesGeoJSON,
@@ -425,8 +449,8 @@ const flightBounds = useMemo(() => {
     validTime: fireWxValidTime,
     refresh:   refreshFireWeatherOutlooks,
   } = useFireWeatherOutlooks(
-    (layers.fireWeatherOutlooks && activeMapTab === MAP_TABS.wildfire)
-      || (layers.spcWeatherOutlooks && spcWeatherOutlookMode === 'fireWx' && activeMapTab === MAP_TABS.weather),
+    (layers.fireWeatherOutlooks && (activeMapTab === MAP_TABS.wildfire || activeMapTab === MAP_TABS.allHazard))
+      || (layers.spcWeatherOutlooks && spcWeatherOutlookMode === 'fireWx' && (activeMapTab === MAP_TABS.weather || activeMapTab === MAP_TABS.allHazard)),
     fireWxActiveDay,
     fireWxOutlookType
   );
@@ -438,7 +462,7 @@ const flightBounds = useMemo(() => {
   // Community-submitted reports – only approved ones, realtime-subscribed
   const { reports: approvedReports, refresh: refreshUserReports } = useFireReports('approved');
   const reporterReports = useMemo(
-    () => (activeMapTab === MAP_TABS.wildfire ? approvedReports : []),
+    () => (activeMapTab === MAP_TABS.wildfire || activeMapTab === MAP_TABS.allHazard ? approvedReports : []),
     [activeMapTab, approvedReports]
   );
   const userReportsGeoJSON = useMemo(
@@ -686,7 +710,7 @@ const flightBounds = useMemo(() => {
     refreshAlerts();
     refreshIncidents();
     refreshCalFireIncidents();
-    if (activeMapTab === MAP_TABS.weather && layers.stormReports) {
+    if ((activeMapTab === MAP_TABS.weather || activeMapTab === MAP_TABS.allHazard) && layers.stormReports) {
       refreshStormReports();
     }
     refreshSpcOutlooks();
@@ -699,7 +723,7 @@ const flightBounds = useMemo(() => {
     if (rawsEnabled) refreshRAWS();
     if (layers.airNowMonitors) refreshAirNowMonitors();
     if (layers.droughtOutlook) refreshDroughtOutlook();
-    if (layers.ndgdSmokeForecast && activeMapTab === MAP_TABS.wildfire) refreshNdgdSmokeForecast();
+    if (layers.ndgdSmokeForecast && (activeMapTab === MAP_TABS.wildfire || activeMapTab === MAP_TABS.allHazard)) refreshNdgdSmokeForecast();
     if (criticalInfraEnabled) refreshCriticalInfrastructure();
     if (schoolsLayerEnabled) refreshNationalMapColleges();
     if (layers.fireWeatherOutlooks || (layers.spcWeatherOutlooks && spcWeatherOutlookMode === 'fireWx')) {

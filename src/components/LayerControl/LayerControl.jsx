@@ -131,6 +131,56 @@ const TAB_SECTIONS = {
       ],
     },
   ],
+  allHazard: [
+    {
+      id: 'ah-fire',
+      title: 'Fire activity',
+      subtitle: 'Perimeters, hotspots, and incidents',
+      groups: [
+        {
+          label: 'Core layers',
+          layers: ['fireHotspots', 'firePerimeters', 'incidentLocations'],
+        },
+      ],
+    },
+    {
+      id: 'ah-weather',
+      title: 'Weather hazards',
+      subtitle: 'Alerts, reports, and radar',
+      groups: [
+        {
+          label: 'Active weather',
+          layers: ['weatherAlerts', 'stormReports', 'spcWeatherOutlooks', 'radar'],
+        },
+      ],
+    },
+    {
+      id: 'ah-evac',
+      title: 'Evacuation',
+      subtitle: 'Zones and emergency boundaries',
+      groups: [
+        {
+          label: 'Evac zones',
+          layers: ['evacZones', 'reporterEvacZones'],
+        },
+      ],
+    },
+    {
+      id: 'ah-outlook',
+      title: 'Outlooks & smoke',
+      subtitle: 'Fire weather, smoke, and drought',
+      groups: [
+        {
+          label: 'Outlooks',
+          layers: ['fireWeatherOutlooks', 'ndgdSmokeForecast', 'droughtOutlook'],
+        },
+        {
+          label: 'Imagery',
+          layers: ['goesEast', 'goesWest'],
+        },
+      ],
+    },
+  ],
 };
 
 function LayerToggle({ layerKey, label, sublabel, icon: Icon, color, locked }) {
@@ -236,8 +286,12 @@ const LayerControl = memo(function LayerControl({
   ], [infrastructureLayersEntitled]);
 
   const sections = useMemo(() => {
-    const base = TAB_SECTIONS[activeMapTab === 'weather' ? 'weather' : 'wildfire'] || TAB_SECTIONS.wildfire;
-    if (activeMapTab !== 'wildfire' && activeMapTab !== 'weather') {
+    let tabKey;
+    if (activeMapTab === 'weather') tabKey = 'weather';
+    else if (activeMapTab === 'allHazard') tabKey = 'allHazard';
+    else tabKey = 'wildfire';
+    const base = TAB_SECTIONS[tabKey] || TAB_SECTIONS.wildfire;
+    if (activeMapTab !== 'wildfire' && activeMapTab !== 'weather' && activeMapTab !== 'allHazard') {
       return base;
     }
     return [
@@ -252,9 +306,12 @@ const LayerControl = memo(function LayerControl({
     ];
   }, [activeMapTab, infraLayers]);
 
-  // When switching Wildfire / Weather, reset accordion and expand the first section
+  // When switching tabs, reset accordion and expand the first section
   useEffect(() => {
-    const firstId = activeMapTab === 'weather' ? 'wx-hazards' : 'wf-activity';
+    let firstId;
+    if (activeMapTab === 'weather') firstId = 'wx-hazards';
+    else if (activeMapTab === 'allHazard') firstId = 'ah-fire';
+    else firstId = 'wf-activity';
     setCollapsed({ [firstId]: false });
   }, [activeMapTab]);
 
@@ -263,11 +320,16 @@ const LayerControl = memo(function LayerControl({
   const tabAccent =
     activeMapTab === 'weather'
       ? 'from-sky-600/40 to-black'
+      : activeMapTab === 'allHazard'
+      ? 'from-amber-600/35 to-black'
       : 'from-fire-600/35 to-black';
 
   const isWeatherTab = activeMapTab === 'weather';
+  const isAllHazardTab = activeMapTab === 'allHazard';
   const mapTypeActiveClass = isWeatherTab
     ? 'bg-sky-600 text-white shadow'
+    : isAllHazardTab
+    ? 'bg-amber-600 text-white shadow'
     : 'bg-fire-600 text-white shadow';
 
   const mapTypeButtons = isWeatherTab
@@ -360,6 +422,8 @@ const LayerControl = memo(function LayerControl({
                 <p className="text-[10px] text-zinc-400 mt-0.5 truncate">
                   {activeMapTab === 'weather'
                     ? 'Weather, radar, and air quality'
+                    : activeMapTab === 'allHazard'
+                    ? 'Fire, weather, evacuation, and multi-hazard layers'
                     : 'Wildfire activity, evacuation zones (California + IPAWS polygons), and outlook data'}
                 </p>
               </div>
