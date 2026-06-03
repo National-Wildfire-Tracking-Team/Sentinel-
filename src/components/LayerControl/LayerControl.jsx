@@ -270,67 +270,32 @@ const LayerControl = memo(function LayerControl({
     ? 'bg-sky-600 text-white shadow'
     : 'bg-fire-600 text-white shadow';
 
-  const mapTypeButtons = isWeatherTab
-    ? (
-      <>
-        <button
-          type="button"
-          onClick={() => onMapTypeChange?.('rendered')}
-          className={`flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-semibold transition-all ${
-            mapType === 'rendered'
-              ? mapTypeActiveClass
-              : 'text-zinc-300 hover:text-white'
-          }`}
-          title="Dark streets map"
-        >
-          <MapIcon size={11} />
-          <span>MAP</span>
-        </button>
-        <button
-          type="button"
-          onClick={() => onMapTypeChange?.('satellite')}
-          className={`flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-semibold transition-all ${
-            mapType === 'satellite'
-              ? mapTypeActiveClass
-              : 'text-zinc-300 hover:text-white'
-          }`}
-          title="Satellite view"
-        >
-          <Satellite size={11} />
-          <span>SAT</span>
-        </button>
-      </>
-    )
-    : (
-      <>
-        <button
-          type="button"
-          onClick={() => onMapTypeChange?.('satellite')}
-          className={`flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-semibold transition-all ${
-            mapType === 'satellite'
-              ? mapTypeActiveClass
-              : 'text-zinc-300 hover:text-white'
-          }`}
-          title="Satellite view"
-        >
-          <Satellite size={11} />
-          <span>SAT</span>
-        </button>
-        <button
-          type="button"
-          onClick={() => onMapTypeChange?.('rendered')}
-          className={`flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-semibold transition-all ${
-            mapType === 'rendered'
-              ? mapTypeActiveClass
-              : 'text-zinc-300 hover:text-white'
-          }`}
-          title="Map view"
-        >
-          <MapIcon size={11} />
-          <span>MAP</span>
-        </button>
-      </>
-    );
+  const mapTypeOptions = isWeatherTab
+    ? [
+        { value: 'rendered', label: 'Map',       Icon: MapIcon,   title: 'Dark streets map' },
+        { value: 'satellite', label: 'Satellite', Icon: Satellite, title: 'Satellite view' },
+      ]
+    : [
+        { value: 'satellite', label: 'Satellite', Icon: Satellite, title: 'Satellite view' },
+        { value: 'rendered',  label: 'Map',       Icon: MapIcon,   title: 'Map view' },
+      ];
+
+  const mapTypeButtons = mapTypeOptions.map(({ value, label, Icon, title }) => (
+    <button
+      key={value}
+      type="button"
+      onClick={() => onMapTypeChange?.(value)}
+      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+        mapType === value
+          ? mapTypeActiveClass
+          : 'text-zinc-400 hover:text-white hover:bg-white/10'
+      }`}
+      title={title}
+    >
+      <Icon size={13} />
+      <span>{label}</span>
+    </button>
+  ));
 
   return (
     <div className="absolute top-4 right-4 z-20 flex flex-col items-end gap-2">
@@ -363,7 +328,7 @@ const LayerControl = memo(function LayerControl({
                     : 'Wildfire activity, evacuation zones (California + IPAWS polygons), and outlook data'}
                 </p>
               </div>
-              <div className="flex items-center shrink-0 bg-zinc-900 border border-zinc-700 rounded-lg p-0.5">
+              <div className="flex items-center shrink-0 bg-[#0f1623] border border-zinc-700/60 rounded-xl p-1 gap-0.5">
                 {mapTypeButtons}
               </div>
             </div>
