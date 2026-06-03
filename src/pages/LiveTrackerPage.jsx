@@ -99,6 +99,22 @@ const WEATHER_LAYER_PRESET = {
   schoolsUniversities: false,
 };
 
+const WEATHER_SUB_PRESETS = {
+  home:      { weatherAlerts: true,  radar: true,  goesEast: false, goesWest: false, spcWeatherOutlooks: false, smoke: false, stormReports: false, ndgdSmokeForecast: false },
+  radar:     { weatherAlerts: false, radar: true,  goesEast: false, goesWest: false, spcWeatherOutlooks: false, smoke: false, stormReports: false },
+  composite: { weatherAlerts: true,  radar: true,  goesEast: true,  goesWest: false, spcWeatherOutlooks: false, smoke: false, stormReports: false },
+  satellite: { weatherAlerts: false, radar: false, goesEast: true,  goesWest: true,  spcWeatherOutlooks: false, smoke: false },
+  models:    { weatherAlerts: false, radar: false, goesEast: false, goesWest: false, spcWeatherOutlooks: false, smoke: true,  ndgdSmokeForecast: true },
+  outlooks:  { weatherAlerts: true,  radar: false, goesEast: false, goesWest: false, spcWeatherOutlooks: true,  smoke: false, stormReports: true },
+};
+
+const WILDFIRE_SUB_PRESETS = {
+  overview:  { firePerimeters: true,  incidentLocations: true,  fireHotspots: false, fireWeatherOutlooks: false, evacZones: false },
+  hotspots:  { firePerimeters: true,  incidentLocations: false, fireHotspots: true,  fireWeatherOutlooks: false },
+  satellite: { firePerimeters: true,  incidentLocations: true,  fireHotspots: false, fireWeatherOutlooks: false },
+  outlooks:  { firePerimeters: false, incidentLocations: true,  fireHotspots: false, fireWeatherOutlooks: true  },
+};
+
 const THREE_DAYS_MS = 3 * 24 * 60 * 60 * 1000;
 
 /**
@@ -182,6 +198,7 @@ export default function LiveTrackerPage() {
   const [measureActive, setMeasureActive] = useState(false);
   const [measureMode, setMeasureMode] = useState('distance');
   const [precipRingActive, setPrecipRingActive] = useState(false);
+  const [activeSubTab, setActiveSubTab] = useState('overview');
 
   const onMeasureActivate = useCallback((mode) => {
     setMeasureMode(mode);
@@ -195,6 +212,22 @@ export default function LiveTrackerPage() {
   const onPrecipRingToggle = useCallback(() => {
     setPrecipRingActive(v => !v);
   }, []);
+
+  const handleSubTabChange = useCallback((tabId) => {
+    setActiveSubTab(tabId);
+    const presets = activeMapTab === MAP_TABS.weather ? WEATHER_SUB_PRESETS : WILDFIRE_SUB_PRESETS;
+    const preset = presets[tabId];
+    if (!preset) return;
+    Object.entries(preset).forEach(([layer, value]) => setLayer(layer, value));
+    if (activeMapTab === MAP_TABS.weather && tabId === 'satellite') {
+      setMapType('satellite');
+    }
+  }, [activeMapTab, setLayer]);
+
+  // Reset sub-tab when the main map tab changes
+  useEffect(() => {
+    setActiveSubTab(activeMapTab === MAP_TABS.weather ? 'home' : 'overview');
+  }, [activeMapTab]);
 
   useEffect(() => {
     if (!criticalInfraEntitled && layers.criticalInfrastructure) {
@@ -720,7 +753,14 @@ const flightBounds = useMemo(() => {
   return (
     <div className="h-screen w-screen flex flex-col bg-sentinel-900 text-white overflow-hidden select-none">
       {/* ── Top bar ── */}
-      <Header onRefresh={handleRefresh} />
+      <Header
+        onRefresh={handleRefresh}
+        activeMapTab={activeMapTab}
+        onTabChange={setActiveMapTab}
+        activeSubTab={activeSubTab}
+        onSubTabChange={handleSubTabChange}
+        alertCount={alertsGeoJSON?.features?.length ?? 0}
+      />
 
       {/* ── Active alert banner ── */}
       <AlertBanner dismissed={bannerDismissed} onDismiss={() => setBannerDismissed(true)} />

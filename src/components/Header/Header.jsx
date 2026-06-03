@@ -1,7 +1,8 @@
 /**
  * Header.jsx
- * Top navigation bar with logo, title, status, last-updated indicator,
- * and a login/user button that opens the auth modal flow.
+ * Floating white pill navigation bar styled after WeatherWise.
+ * Left: amber hamburger circle. Center: white pill with logo + tabs.
+ * Right: alert count badge + auth.
  */
 
 import { useEffect, useMemo, useRef, useState, memo } from 'react';
@@ -9,7 +10,11 @@ import { Link } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
 import { useAuth } from '../../context/AuthContext';
 import { formatRelativeTime } from '../../utils/formatUtils';
-import { Flame, LogOut, MapPin, Menu, RefreshCw, Settings, User } from 'lucide-react';
+import {
+  Flame, LogOut, MapPin, Menu, RefreshCw, Settings, User,
+  Search, Radar, Satellite, Globe, BarChart2, Layers,
+  Home as HomeIcon, AlertTriangle, CloudLightning,
+} from 'lucide-react';
 import LoginModal from '../Auth/LoginModal';
 import MapAddressSearchPanel from '../Auth/MapAddressSearchPanel';
 
@@ -17,7 +22,30 @@ const ONE_MINUTE_MS = 60_000;
 const JUST_NOW_VISIBLE_MS = 5_000;
 const GIVEBUTTER_WIDGET_SRC = 'https://widgets.givebutter.com/latest.umd.cjs?acct=Or6BK2q5Cpxxn9Xl&p=other';
 
-const Header = memo(function Header({ onRefresh }) {
+const WEATHER_TABS = [
+  { id: 'home',      label: 'Home',      Icon: HomeIcon   },
+  { id: 'radar',     label: 'Radar',     Icon: Radar      },
+  { id: 'composite', label: 'Composite', Icon: Layers     },
+  { id: 'satellite', label: 'Satellite', Icon: Satellite  },
+  { id: 'models',    label: 'Models',    Icon: BarChart2  },
+  { id: 'outlooks',  label: 'Outlooks',  Icon: Globe      },
+];
+
+const WILDFIRE_TABS = [
+  { id: 'overview',  label: 'Overview',  Icon: HomeIcon       },
+  { id: 'hotspots',  label: 'Hotspots',  Icon: Flame          },
+  { id: 'satellite', label: 'Satellite', Icon: Satellite      },
+  { id: 'outlooks',  label: 'Outlooks',  Icon: CloudLightning },
+];
+
+const Header = memo(function Header({
+  onRefresh,
+  activeMapTab = 'wildfire',
+  onTabChange,
+  activeSubTab = 'overview',
+  onSubTabChange,
+  alertCount = 0,
+}) {
   const { toggleSidebar, lastRefreshed, isLoading } = useApp();
   const { isAuthenticated, user, signOut } = useAuth();
 
@@ -25,7 +53,6 @@ const Header = memo(function Header({ onRefresh }) {
   const [showRecentRefreshIndicator, setShowRecentRefreshIndicator] = useState(false);
   const hideRecentIndicatorTimeoutRef = useRef(null);
 
-  // Auth modal state
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [showAddressSetup, setShowAddressSetup] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
@@ -39,7 +66,6 @@ const Header = memo(function Header({ onRefresh }) {
   useEffect(() => {
     const existingScript = document.querySelector(`script[src="${GIVEBUTTER_WIDGET_SRC}"]`);
     if (existingScript) return;
-
     const script = document.createElement('script');
     script.src = GIVEBUTTER_WIDGET_SRC;
     script.async = true;
@@ -49,15 +75,12 @@ const Header = memo(function Header({ onRefresh }) {
 
   useEffect(() => {
     if (!lastRefreshed) return;
-
     const refreshedMs = new Date(lastRefreshed).getTime();
     if (Number.isNaN(refreshedMs)) return;
-
     if (hideRecentIndicatorTimeoutRef.current) {
       window.clearTimeout(hideRecentIndicatorTimeoutRef.current);
       hideRecentIndicatorTimeoutRef.current = null;
     }
-
     if (Date.now() - refreshedMs < ONE_MINUTE_MS) {
       setShowRecentRefreshIndicator(true);
       hideRecentIndicatorTimeoutRef.current = window.setTimeout(() => {
@@ -73,7 +96,6 @@ const Header = memo(function Header({ onRefresh }) {
     }
   }, []);
 
-  // Close user menu on outside click
   useEffect(() => {
     if (!showUserMenu) return;
     const handler = (e) => {
@@ -94,23 +116,19 @@ const Header = memo(function Header({ onRefresh }) {
 
   const isUpdatedOneMinuteOrLater = refreshAgeMs !== null && refreshAgeMs >= ONE_MINUTE_MS;
   const shouldShowIndicator = Boolean(lastRefreshed) && (isUpdatedOneMinuteOrLater || showRecentRefreshIndicator);
-
   const indicatorText = isUpdatedOneMinuteOrLater
     ? `Updated ${formatRelativeTime(lastRefreshed)}`
     : 'Updated just now';
 
   const handleRefreshClick = () => {
     if (!shouldShowIndicator) {
-      if (hideRecentIndicatorTimeoutRef.current) {
-        window.clearTimeout(hideRecentIndicatorTimeoutRef.current);
-      }
+      if (hideRecentIndicatorTimeoutRef.current) window.clearTimeout(hideRecentIndicatorTimeoutRef.current);
       setShowRecentRefreshIndicator(true);
       hideRecentIndicatorTimeoutRef.current = window.setTimeout(() => {
         setShowRecentRefreshIndicator(false);
         hideRecentIndicatorTimeoutRef.current = null;
       }, JUST_NOW_VISIBLE_MS);
     }
-
     onRefresh?.();
   };
 
@@ -119,78 +137,101 @@ const Header = memo(function Header({ onRefresh }) {
     setShowAddressSetup(true);
   };
 
-  const handleAddressSetupReturn = () => {
-    setShowAddressSetup(false);
-  };
-
-const userInitial = user?.email ? user.email[0].toUpperCase() : '?';
+  const userInitial = user?.email ? user.email[0].toUpperCase() : '?';
+  const isWeatherMode = activeMapTab === 'weather';
+  const tabs = isWeatherMode ? WEATHER_TABS : WILDFIRE_TABS;
+  const activeAccent = isWeatherMode ? 'bg-sky-600 text-white shadow-sm' : 'bg-orange-600 text-white shadow-sm';
+  const displayAlertCount = alertCount > 99 ? '99+' : alertCount;
 
   return (
     <>
-      <header className="relative z-40 flex items-center justify-between h-14 px-4 bg-sentinel-900/95 backdrop-blur-sm border-b border-sentinel-700 shrink-0">
-        {/* Left – Logo + title */}
-        <div className="flex items-center gap-3">
-          <button
-            onClick={toggleSidebar}
-            className="p-1.5 rounded-md text-sentinel-300 hover:text-white hover:bg-sentinel-700 transition-colors"
-            aria-label="Toggle sidebar"
-          >
-            <Menu size={20} />
-          </button>
+      <header className="relative z-40 flex items-center justify-between h-[60px] px-3 bg-[#0d1520] shrink-0">
 
-          <div className="flex items-center gap-2">
-            <div className="relative">
-              <Flame size={22} className="text-fire-600" />
-              {/* pulsing dot for active status */}
-              <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-fire-500 rounded-full animate-pulse" />
+        {/* Amber hamburger circle */}
+        <button
+          onClick={toggleSidebar}
+          className="shrink-0 w-10 h-10 rounded-full bg-amber-500 hover:bg-amber-400 flex items-center justify-center transition-colors shadow-lg"
+          aria-label="Toggle sidebar"
+        >
+          <Menu size={18} className="text-white" />
+        </button>
+
+        {/* Centered white pill */}
+        <div className="flex-1 flex justify-center px-3 min-w-0">
+          <nav className="flex items-center bg-white rounded-2xl shadow-xl px-2 py-1.5 gap-0.5 max-w-3xl min-w-0">
+
+            {/* Logo */}
+            <div className="flex items-center gap-1.5 pr-3 mr-1 border-r border-gray-200 shrink-0">
+              <Flame size={17} className="text-orange-500" />
+              <span className="font-bold text-gray-900 text-sm tracking-tight">Sentinel</span>
+              <span className="text-[8px] bg-orange-100 text-orange-600 font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wide">
+                BETA
+              </span>
             </div>
-            <span className="inline-flex items-center font-bold text-white text-lg tracking-tight">
-              Sentinel
-              <span className="self-start ml-0.5 mt-0.5 text-[0.45em] font-bold tracking-wider text-fire-400">BETA</span>
-            </span>
-            <span className="hidden sm:inline text-sentinel-400 text-sm font-light">
-              All Hazard Intelligence
-            </span>
-          </div>
+
+            {/* Search */}
+            <button
+              className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors shrink-0"
+              aria-label="Search"
+            >
+              <Search size={14} />
+            </button>
+
+            {/* Mode + sub-tabs */}
+            {tabs.map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => onSubTabChange?.(tab.id)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-semibold transition-all whitespace-nowrap ${
+                  activeSubTab === tab.id
+                    ? activeAccent
+                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                }`}
+              >
+                <tab.Icon size={13} />
+                <span className="hidden md:inline">{tab.label}</span>
+              </button>
+            ))}
+
+            {/* Refresh — tucked inside pill on the right */}
+            <button
+              onClick={handleRefreshClick}
+              disabled={isLoading}
+              className="ml-1 pl-2 border-l border-gray-200 p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors shrink-0 disabled:opacity-40"
+              aria-label="Refresh data"
+              title={shouldShowIndicator ? indicatorText : 'Refresh'}
+            >
+              <RefreshCw size={13} className={isLoading ? 'animate-spin' : ''} />
+            </button>
+          </nav>
         </div>
 
-        {/* Right – Status indicators */}
-        <div className="flex items-center gap-2 sm:gap-3">
+        {/* Right side: alert badge + auth */}
+        <div className="shrink-0 flex items-center gap-2">
           {/* Donation widget */}
-          <div className="hidden sm:block">
+          <div className="hidden lg:block">
             <givebutter-widget id="g6WWrD"></givebutter-widget>
           </div>
 
-          {/* Last updated */}
-          <span
-            className={`hidden md:inline text-xs text-sentinel-400 whitespace-nowrap overflow-hidden transition-all duration-300 ${
-              shouldShowIndicator ? 'max-w-40 opacity-100 ml-1' : 'max-w-0 opacity-0 ml-0'
-            }`}
-            aria-hidden={!shouldShowIndicator}
-          >
-            {indicatorText}
-          </span>
+          {/* Alert count badge */}
+          {alertCount > 0 && (
+            <button
+              onClick={() => onTabChange?.('weather')}
+              className="relative w-10 h-10 rounded-full bg-red-500 hover:bg-red-400 flex flex-col items-center justify-center transition-colors shadow-lg gap-0.5"
+              title={`${alertCount} active weather alert${alertCount !== 1 ? 's' : ''}`}
+            >
+              <AlertTriangle size={12} className="text-white" />
+              <span className="text-white text-[10px] font-bold leading-none">{displayAlertCount}</span>
+            </button>
+          )}
 
-          {/* Manual refresh button */}
-          <button
-            onClick={handleRefreshClick}
-            disabled={isLoading}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium
-                       text-sentinel-300 hover:text-white hover:bg-sentinel-700
-                       disabled:opacity-50 disabled:cursor-not-allowed
-                       transition-colors"
-            aria-label="Refresh data"
-          >
-            <RefreshCw size={13} className={isLoading ? 'animate-spin' : ''} />
-            <span className="hidden sm:inline">Refresh</span>
-          </button>
-
-          {/* Auth button */}
+          {/* Auth */}
           {isAuthenticated ? (
             <div className="relative" ref={userMenuRef}>
               <button
                 onClick={() => setShowUserMenu(v => !v)}
-                className="flex items-center justify-center w-8 h-8 rounded-full bg-fire-600 hover:bg-fire-500 text-white text-xs font-bold transition-colors"
+                className="flex items-center justify-center w-9 h-9 rounded-full bg-orange-600 hover:bg-orange-500 text-white text-xs font-bold transition-colors shadow"
                 aria-label="User menu"
                 title={user?.email}
               >
@@ -234,9 +275,7 @@ const userInitial = user?.email ? user.email[0].toUpperCase() : '?';
           ) : (
             <button
               onClick={() => setShowLoginModal(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium
-                         bg-fire-600 hover:bg-fire-500 text-white
-                         transition-colors"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-orange-600 hover:bg-orange-500 text-white transition-colors shadow"
             >
               <User size={13} />
               <span>Sign In</span>
@@ -245,7 +284,6 @@ const userInitial = user?.email ? user.email[0].toUpperCase() : '?';
         </div>
       </header>
 
-      {/* Login modal */}
       {showLoginModal && (
         <LoginModal
           onClose={() => setShowLoginModal(false)}
@@ -253,11 +291,8 @@ const userInitial = user?.email ? user.email[0].toUpperCase() : '?';
         />
       )}
 
-      {/* Address search panel (shown after login on the live map) */}
       {showAddressSetup && (
-        <MapAddressSearchPanel
-          onClose={handleAddressSetupReturn}
-        />
+        <MapAddressSearchPanel onClose={() => setShowAddressSetup(false)} />
       )}
     </>
   );
