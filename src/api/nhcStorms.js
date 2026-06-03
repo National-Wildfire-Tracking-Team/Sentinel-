@@ -13,8 +13,10 @@
 
 import { getCached, setCached } from '../utils/dataCache';
 
-const NHC_STORMS_URL = 'https://www.nhc.noaa.gov/CurrentStorms.json';
-const NHC_GIS_ARCHIVE = 'https://www.nhc.noaa.gov/gis/forecast/archive';
+// Requests go through the server-side proxy (Netlify edge fn / Vite dev proxy)
+// to work around nhc.noaa.gov's missing CORS headers for cross-origin requests.
+const NHC_STORMS_URL = '/api/nhc/current';
+const NHC_GIS_PROXY  = '/api/nhc/gis';
 const CACHE_TTL = 10 * 60 * 1000; // 10 minutes – advisories issued every 3-6 h
 
 /**
@@ -138,11 +140,12 @@ async function tryFetchGeoJSON(url) {
  */
 export async function fetchNhcForecastData(stormId, advNum) {
   if (!stormId || !advNum) return { cone: null, track: null };
-  const pad  = String(advNum).padStart(3, '0');
-  const base = `${NHC_GIS_ARCHIVE}/${stormId}_${pad}_5day`;
+  const pad = String(advNum).padStart(3, '0');
+  const makeUrl = (type) =>
+    `${NHC_GIS_PROXY}?file=${stormId}_${pad}_5day_${type}.json`;
   const [cone, track] = await Promise.all([
-    tryFetchGeoJSON(`${base}_pgn.json`),
-    tryFetchGeoJSON(`${base}_lin.json`),
+    tryFetchGeoJSON(makeUrl('pgn')),
+    tryFetchGeoJSON(makeUrl('lin')),
   ]);
   return { cone, track };
 }

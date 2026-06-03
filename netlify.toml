@@ -11,6 +11,10 @@
 
 # Edge functions
 [[edge_functions]]
+  function = "nhc-proxy"
+  path = "/api/nhc/*"
+
+[[edge_functions]]
   function = "firms-proxy"
   path = "/api/firms/*"
 
