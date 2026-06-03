@@ -42,6 +42,7 @@ import FireWeatherOutlookLayer from './layers/FireWeatherOutlookLayer';
 import FireWeatherOutlookSelector from './FireWeatherOutlookSelector';
 import CriticalInfrastructureLayer from './layers/CriticalInfrastructureLayer';
 import NationalMapCollegesLayer from './layers/NationalMapCollegesLayer';
+import NhcStormsLayer from './layers/NhcStormsLayer';
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN || '';
 const HAS_MAPBOX_TOKEN = Boolean(MAPBOX_TOKEN.trim());
@@ -542,6 +543,44 @@ function HoverTooltip({ feature, lngLat }) {
       );
       break;
     }
+    case 'nhc-centers-circle': {
+      const windMph  = p.intensityMph ? `${p.intensityMph} mph` : null;
+      const windKts  = p.intensityKts ? `${p.intensityKts} kt`  : null;
+      const pressStr = p.pressure     ? `${p.pressure} mb`      : null;
+      content = (
+        <>
+          <div className="font-semibold text-sky-300">{p.name}</div>
+          <div className={`text-xs font-medium mt-0.5 ${
+            p.category?.includes('5') ? 'text-fuchsia-400' :
+            p.category?.includes('4') ? 'text-red-400' :
+            p.category?.includes('3') ? 'text-orange-400' :
+            p.category?.includes('2') ? 'text-amber-400' :
+            p.category?.includes('1') ? 'text-yellow-300' :
+            p.category?.includes('Storm') ? 'text-sky-300' :
+            'text-slate-400'
+          }`}>{p.category}</div>
+          {(windMph || windKts) && (
+            <div className="text-gray-300 text-xs mt-0.5">
+              Winds: <span className="text-white font-medium">{windMph}</span>
+              {windKts && <span className="text-gray-400"> ({windKts})</span>}
+            </div>
+          )}
+          {pressStr && (
+            <div className="text-gray-300 text-xs">
+              Pressure: <span className="text-white font-medium">{pressStr}</span>
+            </div>
+          )}
+          {p.movement && (
+            <div className="text-gray-400 text-xs">Movement: {p.movement}</div>
+          )}
+          {p.lastUpdate && (
+            <div className="text-gray-500 text-[10px] mt-1">{p.lastUpdate}</div>
+          )}
+          <div className="text-sky-500 text-[10px] mt-0.5 uppercase tracking-wide">NHC · nhc.noaa.gov</div>
+        </>
+      );
+      break;
+    }
     case 'national-map-colleges-circle': {
       const name = p.NAME || p.name || 'School / university';
       content = (
@@ -665,6 +704,9 @@ function FlightDetailPopup({ flight, lngLat, onClose }) {
  * @param {boolean}     [props.criticalInfrastructureVisible]
  * @param {object|null} props.nationalMapCollegesGeoJSON
  * @param {boolean}     [props.nationalMapCollegesVisible]
+ * @param {object|null} props.nhcCentersGeoJSON
+ * @param {object|null} props.nhcConesGeoJSON
+ * @param {object|null} props.nhcTracksGeoJSON
  * @param {object|null} props.fireWeatherOutlooksGeoJSON
  * @param {string}      [props.fireWxOutlookType]
  * @param {string}      [props.fireWxActiveDay]
@@ -708,6 +750,9 @@ export default function MapView({
   criticalInfrastructureVisible = false,
   nationalMapCollegesGeoJSON,
   nationalMapCollegesVisible = false,
+  nhcCentersGeoJSON,
+  nhcConesGeoJSON,
+  nhcTracksGeoJSON,
   fireWeatherOutlooksGeoJSON,
   fireWxOutlookType = 'winds_low_humidity',
   fireWxActiveDay = 'day1',
@@ -898,6 +943,9 @@ export default function MapView({
     if (isWeatherTab && layers.spcWeatherOutlooks && spcWeatherOutlookMode === 'fireWx' && fireWeatherOutlooksGeoJSON) {
       ids.push('fire-weather-outlook-fill');
     }
+    if (isWeatherTab && layers.nhcStorms && nhcCentersGeoJSON?.features?.length) {
+      ids.push('nhc-centers-circle');
+    }
     return ids;
   }, [measureActive, isWildfireTab, isWeatherTab, layers.fireHotspots, layers.firePerimeters, layers.incidentLocations, layers.aqi,
       layers.weatherAlerts, layers.spcWeatherOutlooks, spcWeatherOutlookMode, layers.stormReports, layers.evacZones, layers.reporterEvacZones, spcMdGeoJSON,
@@ -906,7 +954,8 @@ export default function MapView({
       stormReportsGeoJSON, userReportsGeoJSON, evacZonesGeoJSON, reporterEvacZonesGeoJSON,
       flightsGeoJSON, rawsGeoJSON, airNowMonitorsGeoJSON, droughtOutlookGeoJSON, ndgdSmokeFilteredGeoJSON, fireWeatherOutlooksGeoJSON,
       criticalInfrastructureVisible, criticalInfrastructureTransGeoJSON, criticalInfrastructureGasGeoJSON,
-      nationalMapCollegesVisible, nationalMapCollegesGeoJSON]);
+      nationalMapCollegesVisible, nationalMapCollegesGeoJSON,
+      layers.nhcStorms, nhcCentersGeoJSON]);
 
   // Clear stale hover when layers change
   useEffect(() => {
@@ -1327,6 +1376,14 @@ export default function MapView({
           geoJSON={alertsGeoJSON}
           spcMdGeoJSON={spcMdGeoJSON}
           visible={isWeatherTab && layers.weatherAlerts}
+        />
+
+        {/* NHC tropical storm / hurricane centres, forecast cone, and track */}
+        <NhcStormsLayer
+          centersGeoJSON={nhcCentersGeoJSON}
+          conesGeoJSON={nhcConesGeoJSON}
+          tracksGeoJSON={nhcTracksGeoJSON}
+          visible={isWeatherTab && layers.nhcStorms}
         />
 
         {/* SPC convective outlook polygons */}

@@ -25,6 +25,7 @@ const LAYER_DEFS = {
   airNowMonitors:    { label: 'Air Quality Monitors', sublabel: 'EPA AirNow sensor network',  icon: Activity,     color: '#38bdf8' },
   weatherAlerts:     { label: 'NWS & mesoscale',     sublabel: 'NWS active alerts + SPC MDs', icon: Wind,         color: '#ef4444' },
   stormReports:      { label: 'Storm reports',       sublabel: 'NWS LSR · last 24 hours',     icon: CloudLightning, color: '#7c3aed' },
+  nhcStorms:         { label: 'Tropical Storms',     sublabel: 'NHC active storms + forecast cone', icon: Wind,        color: '#38bdf8' },
   spcWeatherOutlooks: { label: 'SPC outlooks',     sublabel: 'Convective + fire weather',    icon: AlertTriangle, color: '#f59e0b' },
   goesEast:          { label: 'GOES East Imagery',   sublabel: 'NOAA GOES East · visible',    icon: Eye,           color: '#8b5cf6' },
   goesWest:          { label: 'GOES West Imagery',   sublabel: 'NOAA GOES West · visible',    icon: Eye,           color: '#7c3aed' },
@@ -89,7 +90,7 @@ const TAB_SECTIONS = {
       groups: [
         {
           label: 'Active weather',
-          layers: ['weatherAlerts', 'stormReports', 'spcWeatherOutlooks'],
+          layers: ['weatherAlerts', 'stormReports', 'nhcStorms', 'spcWeatherOutlooks'],
         },
         {
           label: 'Stations',
