@@ -433,7 +433,8 @@ const flightBounds = useMemo(() => {
   );
 
   const {
-    geoJSON: nhcTropicalWeatherGeoJSON,
+    trackGeoJSON: nhcTrackGeoJSON,
+    coneGeoJSON:  nhcConeGeoJSON,
   } = useNhcTropicalWeather(
     layers.nhcTropicalWeather && activeMapTab === MAP_TABS.weather
   );
@@ -781,7 +782,8 @@ const flightBounds = useMemo(() => {
             criticalInfrastructureVisible={criticalInfraEnabled}
             nationalMapCollegesGeoJSON={nationalMapCollegesGeoJSON}
             nationalMapCollegesVisible={schoolsLayerEnabled}
-            nhcTropicalWeatherGeoJSON={nhcTropicalWeatherGeoJSON}
+            nhcTrackGeoJSON={nhcTrackGeoJSON}
+            nhcConeGeoJSON={nhcConeGeoJSON}
             fireWeatherOutlooksGeoJSON={fireWeatherOutlooksGeoJSON}
             fireWxOutlookType={fireWxOutlookType}
             fireWxActiveDay={fireWxActiveDay}

@@ -73,7 +73,7 @@ const MAP_STYLES = {
 /**
  * Tooltip shown on hover
  */
-const OUTLOOK_LAYER_IDS = new Set(['spc-outlook-fill', 'drought-outlook-fill', 'fire-weather-outlook-fill', 'nhc-tropical-fill']);
+const OUTLOOK_LAYER_IDS = new Set(['spc-outlook-fill', 'drought-outlook-fill', 'fire-weather-outlook-fill', 'nhc-track-circle']);
 
 function HoverTooltip({ feature, lngLat }) {
   if (!feature || !lngLat) return null;
@@ -503,20 +503,30 @@ function HoverTooltip({ feature, lngLat }) {
       );
       break;
     }
-    case 'nhc-tropical-fill': {
-      const chanceColors = {
-        LOW:    'text-yellow-300',
-        MEDIUM: 'text-orange-400',
-        HIGH:   'text-red-400',
+    case 'nhc-track-circle': {
+      const catColors = {
+        'Tropical Depression': 'text-sky-300',
+        'Tropical Storm':      'text-cyan-300',
+        'Category 1':          'text-yellow-200',
+        'Category 2':          'text-yellow-300',
+        'Category 3':          'text-orange-300',
+        'Category 4':          'text-orange-400',
+        'Category 5':          'text-red-400',
       };
-      const chanceClass = chanceColors[p.formationChance] || 'text-sky-300';
+      const catClass = catColors[p.category] || 'text-sky-300';
       content = (
         <>
-          <div className="font-semibold text-sky-300">NHC Tropical Weather Outlook</div>
-          {p.formationChance && (
-            <div className={`text-xs mt-0.5 font-medium ${chanceClass}`}>
-              {p.formationChance} formation chance
+          <div className="font-semibold text-sky-300">
+            {p.stormName ? `${p.stormName} — ` : ''}{p.stormType || 'Tropical System'}
+          </div>
+          <div className={`text-xs mt-0.5 font-medium ${catClass}`}>{p.category}</div>
+          {p.maxWind > 0 && (
+            <div className="text-zinc-300 text-xs mt-0.5">
+              Max wind: {p.maxWind} mph · Gusts: {p.gust} mph
             </div>
+          )}
+          {p.dateLabel && (
+            <div className="text-zinc-400 text-[10px] mt-0.5">{p.dateLabel}</div>
           )}
         </>
       );
@@ -685,7 +695,8 @@ function FlightDetailPopup({ flight, lngLat, onClose }) {
  * @param {boolean}     [props.criticalInfrastructureVisible]
  * @param {object|null} props.nationalMapCollegesGeoJSON
  * @param {boolean}     [props.nationalMapCollegesVisible]
- * @param {object|null} props.nhcTropicalWeatherGeoJSON
+ * @param {object|null} props.nhcTrackGeoJSON
+ * @param {object|null} props.nhcConeGeoJSON
  * @param {object|null} props.fireWeatherOutlooksGeoJSON
  * @param {string}      [props.fireWxOutlookType]
  * @param {string}      [props.fireWxActiveDay]
@@ -738,7 +749,8 @@ export default function MapView({
   onFireWxActiveDayChange,
   spcWeatherOutlookMode = 'convective',
   onSpcWeatherOutlookModeChange,
-  nhcTropicalWeatherGeoJSON,
+  nhcTrackGeoJSON,
+  nhcConeGeoJSON,
   savedLocations = [],
   measureActive = false,
   measureMode = 'distance',
@@ -920,7 +932,7 @@ export default function MapView({
     if (isWeatherTab && layers.spcWeatherOutlooks && spcWeatherOutlookMode === 'fireWx' && fireWeatherOutlooksGeoJSON) {
       ids.push('fire-weather-outlook-fill');
     }
-    if (isWeatherTab && layers.nhcTropicalWeather && nhcTropicalWeatherGeoJSON) ids.push('nhc-tropical-fill');
+    if (isWeatherTab && layers.nhcTropicalWeather && nhcTrackGeoJSON) ids.push('nhc-track-circle');
     return ids;
   }, [measureActive, isWildfireTab, isWeatherTab, layers.fireHotspots, layers.firePerimeters, layers.incidentLocations, layers.aqi,
       layers.weatherAlerts, layers.spcWeatherOutlooks, spcWeatherOutlookMode, layers.stormReports, layers.evacZones, layers.reporterEvacZones, spcMdGeoJSON,
@@ -929,7 +941,7 @@ export default function MapView({
       hotspotsGeoJSON, perimetersGeoJSON, incidentsGeoJSON, aqiGeoJSON, alertsGeoJSON, spcOutlooksGeoJSON,
       stormReportsGeoJSON, userReportsGeoJSON, evacZonesGeoJSON, reporterEvacZonesGeoJSON,
       flightsGeoJSON, rawsGeoJSON, airNowMonitorsGeoJSON, droughtOutlookGeoJSON, ndgdSmokeFilteredGeoJSON, fireWeatherOutlooksGeoJSON,
-      nhcTropicalWeatherGeoJSON,
+      nhcTrackGeoJSON,
       criticalInfrastructureVisible, criticalInfrastructureTransGeoJSON, criticalInfrastructureGasGeoJSON,
       nationalMapCollegesVisible, nationalMapCollegesGeoJSON]);
 
@@ -1445,9 +1457,10 @@ export default function MapView({
           outlookType={fireWxOutlookType}
         />
 
-        {/* NHC Tropical Weather Outlook – weather tab */}
+        {/* NHC active hurricane track + error cone – weather tab */}
         <NHCTropicalWeatherLayer
-          geoJSON={nhcTropicalWeatherGeoJSON}
+          trackGeoJSON={nhcTrackGeoJSON}
+          coneGeoJSON={nhcConeGeoJSON}
           visible={isWeatherTab && layers.nhcTropicalWeather}
         />
 
