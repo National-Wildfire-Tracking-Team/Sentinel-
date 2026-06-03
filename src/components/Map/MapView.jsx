@@ -42,6 +42,7 @@ import FireWeatherOutlookLayer from './layers/FireWeatherOutlookLayer';
 import FireWeatherOutlookSelector from './FireWeatherOutlookSelector';
 import CriticalInfrastructureLayer from './layers/CriticalInfrastructureLayer';
 import NationalMapCollegesLayer from './layers/NationalMapCollegesLayer';
+import NHCTropicalWeatherLayer from './layers/NHCTropicalWeatherLayer';
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN || '';
 const HAS_MAPBOX_TOKEN = Boolean(MAPBOX_TOKEN.trim());
@@ -72,7 +73,7 @@ const MAP_STYLES = {
 /**
  * Tooltip shown on hover
  */
-const OUTLOOK_LAYER_IDS = new Set(['spc-outlook-fill', 'drought-outlook-fill', 'fire-weather-outlook-fill']);
+const OUTLOOK_LAYER_IDS = new Set(['spc-outlook-fill', 'drought-outlook-fill', 'fire-weather-outlook-fill', 'nhc-tropical-fill']);
 
 function HoverTooltip({ feature, lngLat }) {
   if (!feature || !lngLat) return null;
@@ -502,6 +503,25 @@ function HoverTooltip({ feature, lngLat }) {
       );
       break;
     }
+    case 'nhc-tropical-fill': {
+      const chanceColors = {
+        LOW:    'text-yellow-300',
+        MEDIUM: 'text-orange-400',
+        HIGH:   'text-red-400',
+      };
+      const chanceClass = chanceColors[p.formationChance] || 'text-sky-300';
+      content = (
+        <>
+          <div className="font-semibold text-sky-300">NHC Tropical Weather Outlook</div>
+          {p.formationChance && (
+            <div className={`text-xs mt-0.5 font-medium ${chanceClass}`}>
+              {p.formationChance} formation chance
+            </div>
+          )}
+        </>
+      );
+      break;
+    }
     case 'cmra-transmission-lines': {
       const kv = (label, val) => (val != null && String(val).trim() !== '' ? (
         <div className="text-gray-300 text-xs">
@@ -665,6 +685,7 @@ function FlightDetailPopup({ flight, lngLat, onClose }) {
  * @param {boolean}     [props.criticalInfrastructureVisible]
  * @param {object|null} props.nationalMapCollegesGeoJSON
  * @param {boolean}     [props.nationalMapCollegesVisible]
+ * @param {object|null} props.nhcTropicalWeatherGeoJSON
  * @param {object|null} props.fireWeatherOutlooksGeoJSON
  * @param {string}      [props.fireWxOutlookType]
  * @param {string}      [props.fireWxActiveDay]
@@ -717,6 +738,7 @@ export default function MapView({
   onFireWxActiveDayChange,
   spcWeatherOutlookMode = 'convective',
   onSpcWeatherOutlookModeChange,
+  nhcTropicalWeatherGeoJSON,
   savedLocations = [],
   measureActive = false,
   measureMode = 'distance',
@@ -898,13 +920,16 @@ export default function MapView({
     if (isWeatherTab && layers.spcWeatherOutlooks && spcWeatherOutlookMode === 'fireWx' && fireWeatherOutlooksGeoJSON) {
       ids.push('fire-weather-outlook-fill');
     }
+    if (isWeatherTab && layers.nhcTropicalWeather && nhcTropicalWeatherGeoJSON) ids.push('nhc-tropical-fill');
     return ids;
   }, [measureActive, isWildfireTab, isWeatherTab, layers.fireHotspots, layers.firePerimeters, layers.incidentLocations, layers.aqi,
       layers.weatherAlerts, layers.spcWeatherOutlooks, spcWeatherOutlookMode, layers.stormReports, layers.evacZones, layers.reporterEvacZones, spcMdGeoJSON,
       layers.flights, layers.rawsStations, layers.airNowMonitors, layers.droughtOutlook, layers.ndgdSmokeForecast, layers.fireWeatherOutlooks,
+      layers.nhcTropicalWeather,
       hotspotsGeoJSON, perimetersGeoJSON, incidentsGeoJSON, aqiGeoJSON, alertsGeoJSON, spcOutlooksGeoJSON,
       stormReportsGeoJSON, userReportsGeoJSON, evacZonesGeoJSON, reporterEvacZonesGeoJSON,
       flightsGeoJSON, rawsGeoJSON, airNowMonitorsGeoJSON, droughtOutlookGeoJSON, ndgdSmokeFilteredGeoJSON, fireWeatherOutlooksGeoJSON,
+      nhcTropicalWeatherGeoJSON,
       criticalInfrastructureVisible, criticalInfrastructureTransGeoJSON, criticalInfrastructureGasGeoJSON,
       nationalMapCollegesVisible, nationalMapCollegesGeoJSON]);
 
@@ -1418,6 +1443,12 @@ export default function MapView({
           geoJSON={fireWeatherOutlooksGeoJSON}
           visible={layers.fireWeatherOutlooks || (isWeatherTab && layers.spcWeatherOutlooks && spcWeatherOutlookMode === 'fireWx')}
           outlookType={fireWxOutlookType}
+        />
+
+        {/* NHC Tropical Weather Outlook – weather tab */}
+        <NHCTropicalWeatherLayer
+          geoJSON={nhcTropicalWeatherGeoJSON}
+          visible={isWeatherTab && layers.nhcTropicalWeather}
         />
 
         {/* Fire hotspot points – rendered last (top) */}
