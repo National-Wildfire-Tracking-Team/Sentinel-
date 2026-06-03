@@ -13,7 +13,7 @@ import { formatRelativeTime } from '../../utils/formatUtils';
 import {
   Flame, LogOut, MapPin, Menu, RefreshCw, Settings, User,
   Search, Radar, Satellite, Globe, BarChart2, Layers,
-  Home as HomeIcon, AlertTriangle, CloudLightning,
+  Home as HomeIcon, AlertTriangle, CloudLightning, SlidersHorizontal,
 } from 'lucide-react';
 import LoginModal from '../Auth/LoginModal';
 import MapAddressSearchPanel from '../Auth/MapAddressSearchPanel';
@@ -46,7 +46,7 @@ const Header = memo(function Header({
   onSubTabChange,
   alertCount = 0,
 }) {
-  const { toggleSidebar, lastRefreshed, isLoading } = useApp();
+  const { toggleSidebar, lastRefreshed, isLoading, layerPanelOpen, toggleLayerPanel } = useApp();
   const { isAuthenticated, user, signOut } = useAuth();
 
   const [nowMs, setNowMs] = useState(() => Date.now());
@@ -193,6 +193,21 @@ const Header = memo(function Header({
                 <span className="hidden md:inline">{tab.label}</span>
               </button>
             ))}
+
+            {/* Layers toggle */}
+            <button
+              type="button"
+              onClick={toggleLayerPanel}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-semibold transition-all whitespace-nowrap ${
+                layerPanelOpen
+                  ? 'bg-gray-900 text-white shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+              }`}
+              aria-label="Toggle map layers"
+            >
+              <SlidersHorizontal size={13} />
+              <span className="hidden md:inline">Layers</span>
+            </button>
 
             {/* Refresh — tucked inside pill on the right */}
             <button

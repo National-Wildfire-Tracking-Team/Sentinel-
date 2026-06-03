@@ -297,25 +297,14 @@ const LayerControl = memo(function LayerControl({
     </button>
   ));
 
-  return (
-    <div className="absolute top-4 right-4 z-20 flex flex-col items-end gap-2">
-      <button
-        onClick={toggleLayerPanel}
-        className="flex items-center gap-2 px-3 py-2 bg-black/95 backdrop-blur-sm
-                   border border-zinc-700 rounded-xl shadow-xl
-                   text-white text-sm font-medium
-                   hover:bg-zinc-950 hover:border-zinc-500 transition-colors"
-        aria-label="Toggle layer control"
-      >
-        <Layers size={15} />
-        <span className="hidden sm:inline">Layers</span>
-      </button>
+  if (!layerPanelOpen) return null;
 
-      {layerPanelOpen && (
-        <div
-          className="w-[17.5rem] sm:w-72 bg-black backdrop-blur-md border border-zinc-700
-                        rounded-xl shadow-2xl shadow-black/60 overflow-hidden animate-fade-in"
-        >
+  return (
+    <div className="absolute top-4 right-4 z-20">
+      <div
+        className="w-[17.5rem] sm:w-72 bg-black backdrop-blur-md border border-zinc-700
+                      rounded-xl shadow-2xl shadow-black/60 overflow-hidden animate-fade-in"
+      >
           <div className={`px-3 pt-3 pb-2 border-b border-zinc-800 bg-gradient-to-b ${tabAccent}`}>
             <div className="flex items-center justify-between gap-2">
               <div className="min-w-0">
@@ -439,8 +428,7 @@ const LayerControl = memo(function LayerControl({
             })}
           </div>
         </div>
-      )}
-    </div>
+      </div>
   );
 });
 export default LayerControl;
