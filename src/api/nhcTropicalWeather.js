@@ -1,9 +1,11 @@
 /**
  * nhcTropicalWeather.js
- * Fetches active hurricane forecast data from the NHC/Esri ArcGIS Feature
- * Service used by the vannizhang/hurricane reference implementation.
+ * Fetches active hurricane data from the NHC/Esri ArcGIS Feature Service
+ * used by the vannizhang/hurricane reference implementation.
  *
- * FeatureServer/0 – Forecast track positions (points)
+ * FeatureServer/0 – Forecast track positions (points, future)
+ * FeatureServer/2 – Observed track positions (points, past)
+ * FeatureServer/3 – Observed track line
  * FeatureServer/4 – Forecast error cone (polygon)
  *
  * Key fields: STORMNAME, TCDVLP, MAXWIND, GUST, DATELBL, FLDATELBL, BASIN, TIMEZONE
@@ -46,7 +48,7 @@ function normalizeTrackFeature(feature, idx) {
     ...feature,
     properties: {
       ...p,
-      id: p.OBJECTID != null ? `nhc-track-${p.OBJECTID}` : `nhc-track-${idx}`,
+      id:          p.OBJECTID != null ? `nhc-track-${p.OBJECTID}` : `nhc-track-${idx}`,
       stormName:   p.STORMNAME  || '',
       stormType:   p.TCDVLP    || '',
       maxWind:     p.MAXWIND    || 0,
@@ -60,13 +62,32 @@ function normalizeTrackFeature(feature, idx) {
   };
 }
 
+function normalizeObservedFeature(feature, idx) {
+  const p = feature?.properties || {};
+  const category = getHurricaneCategory(p.MAXWIND);
+  return {
+    ...feature,
+    properties: {
+      ...p,
+      id:        p.OBJECTID != null ? `nhc-obs-${p.OBJECTID}` : `nhc-obs-${idx}`,
+      stormName: p.STORMNAME || '',
+      stormType: p.TCDVLP   || '',
+      maxWind:   p.MAXWIND   || 0,
+      gust:      p.GUST      || 0,
+      dateLabel: p.DATELBL   || p.FLDATELBL || '',
+      category,
+      observed:  true,
+    },
+  };
+}
+
 function normalizeConeFeature(feature, idx) {
   const p = feature?.properties || {};
   return {
     ...feature,
     properties: {
       ...p,
-      id: p.OBJECTID != null ? `nhc-cone-${p.OBJECTID}` : `nhc-cone-${idx}`,
+      id:        p.OBJECTID != null ? `nhc-cone-${p.OBJECTID}` : `nhc-cone-${idx}`,
       stormName: p.STORMNAME || '',
     },
   };
@@ -95,14 +116,52 @@ export async function fetchNhcTrack() {
   return ensureFC(data, normalizeTrackFeature);
 }
 
+/** Observed (past) track positions (points) – FeatureServer/2 */
+export async function fetchNhcObservedTrack() {
+  const data = await fetchWithCache(buildQuery(2), 'nhc:observed', {}, 5 * 60 * 1000);
+  return ensureFC(data, normalizeObservedFeature);
+}
+
+/**
+ * Build a label GeoJSON from track points: one Point feature per storm
+ * at the first forecast position (current location), carrying the name.
+ */
+export function buildStormLabels(trackFC) {
+  if (!trackFC?.features?.length) return { type: 'FeatureCollection', features: [] };
+
+  const storms = {};
+  for (const f of trackFC.features) {
+    const name = f.properties?.stormName || '';
+    if (!name || !f.geometry?.coordinates) continue;
+    if (!storms[name]) storms[name] = f; // first occurrence = earliest forecast point
+  }
+
+  return {
+    type: 'FeatureCollection',
+    features: Object.values(storms).map(f => ({
+      type: 'Feature',
+      geometry: { type: 'Point', coordinates: f.geometry.coordinates },
+      properties: {
+        stormName: f.properties.stormName,
+        stormType: f.properties.stormType,
+        category:  f.properties.category,
+      },
+    })),
+  };
+}
+
 /** Forecast error cone (polygon) – FeatureServer/4 */
 export async function fetchNhcCone() {
   const data = await fetchWithCache(buildQuery(4), 'nhc:cone', {}, 5 * 60 * 1000);
   return ensureFC(data, normalizeConeFeature);
 }
 
-/** Fetch track + cone together */
+/** Fetch all layers together */
 export async function fetchNhcTropicalWeather() {
-  const [track, cone] = await Promise.all([fetchNhcTrack(), fetchNhcCone()]);
-  return { track, cone };
+  const [track, observedTrack, cone] = await Promise.all([
+    fetchNhcTrack(),
+    fetchNhcObservedTrack(),
+    fetchNhcCone(),
+  ]);
+  return { track, observedTrack, cone };
 }

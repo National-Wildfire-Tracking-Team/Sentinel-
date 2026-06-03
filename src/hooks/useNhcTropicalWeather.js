@@ -1,20 +1,20 @@
 /**
  * useNhcTropicalWeather.js
- * Loads NHC active hurricane forecast track and error cone.
+ * Loads NHC active hurricane forecast track, observed past track, and error cone.
  * Auto-refreshes every 5 minutes when enabled.
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { fetchNhcTropicalWeather } from '../api/nhcTropicalWeather';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { fetchNhcTropicalWeather, buildStormLabels } from '../api/nhcTropicalWeather';
 
 const REFRESH_MS = 5 * 60 * 1000;
-const EMPTY_FC = { type: 'FeatureCollection', features: [] };
 
 export function useNhcTropicalWeather(enabled = false) {
-  const [trackGeoJSON, setTrackGeoJSON] = useState(null);
-  const [coneGeoJSON,  setConeGeoJSON]  = useState(null);
-  const [loading,      setLoading]      = useState(false);
-  const [error,        setError]        = useState(null);
+  const [trackGeoJSON,         setTrackGeoJSON]         = useState(null);
+  const [observedTrackGeoJSON, setObservedTrackGeoJSON] = useState(null);
+  const [coneGeoJSON,          setConeGeoJSON]          = useState(null);
+  const [loading,              setLoading]              = useState(false);
+  const [error,                setError]                = useState(null);
   const intervalRef = useRef(null);
   const mountedRef  = useRef(true);
 
@@ -23,9 +23,10 @@ export function useNhcTropicalWeather(enabled = false) {
     try {
       setLoading(true);
       setError(null);
-      const { track, cone } = await fetchNhcTropicalWeather();
+      const { track, observedTrack, cone } = await fetchNhcTropicalWeather();
       if (!mountedRef.current) return;
       setTrackGeoJSON(track);
+      setObservedTrackGeoJSON(observedTrack);
       setConeGeoJSON(cone);
     } catch (err) {
       if (!mountedRef.current) return;
@@ -45,5 +46,11 @@ export function useNhcTropicalWeather(enabled = false) {
     };
   }, [enabled, load]);
 
-  return { trackGeoJSON, coneGeoJSON, loading, error, refresh: load };
+  // Derive storm name label points from forecast track
+  const stormLabelsGeoJSON = useMemo(
+    () => buildStormLabels(trackGeoJSON),
+    [trackGeoJSON]
+  );
+
+  return { trackGeoJSON, observedTrackGeoJSON, coneGeoJSON, stormLabelsGeoJSON, loading, error, refresh: load };
 }

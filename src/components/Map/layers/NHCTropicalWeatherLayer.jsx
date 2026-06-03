@@ -1,40 +1,53 @@
 /**
  * NHCTropicalWeatherLayer.jsx
- * Renders NHC active hurricane forecast data:
- *   - Error cone polygon (grey fill)
- *   - Forecast track line connecting positions
- *   - Track position points color-coded by SSHWS category
+ * Renders NHC active hurricane data with four visual sub-layers:
+ *   1. Forecast error cone (grey polygon)
+ *   2. Observed (past) track line + muted points
+ *   3. Forecast track line + SSHWS category-colored circles
+ *   4. Storm name labels at the current position
  *
- * Data from vannizhang/hurricane: Active_Hurricanes_v1 FeatureServer/0 + /4
+ * Data: Active_Hurricanes_v1 FeatureServer (vannizhang/hurricane pattern)
  */
 
-import { memo } from 'react';
+import { memo, useMemo } from 'react';
 import { Source, Layer } from 'react-map-gl';
 
 const EMPTY_FC = { type: 'FeatureCollection', features: [] };
 
-// Cone: subtle grey polygon with dashed outline (standard NHC cone styling)
+// ─── Error cone ───────────────────────────────────────────────────────────────
 const CONE_FILL_PAINT = {
   'fill-color': '#c0c0c0',
-  'fill-opacity': 0.25,
+  'fill-opacity': 0.2,
 };
-
 const CONE_LINE_PAINT = {
-  'line-color': '#888888',
-  'line-opacity': 0.7,
+  'line-color': '#999999',
+  'line-opacity': 0.6,
   'line-width': 1.5,
   'line-dasharray': [3, 2],
 };
 
-// Track: line through forecast positions
-const TRACK_LINE_PAINT = {
+// ─── Observed (past) track ────────────────────────────────────────────────────
+const OBS_LINE_PAINT = {
+  'line-color': '#aaaaaa',
+  'line-opacity': 0.7,
+  'line-width': 2,
+};
+const OBS_CIRCLE_PAINT = {
+  'circle-radius': ['interpolate', ['linear'], ['zoom'], 3, 3, 7, 4, 10, 6],
+  'circle-color': '#888888',
+  'circle-stroke-color': '#555555',
+  'circle-stroke-width': 1,
+  'circle-opacity': 0.7,
+};
+
+// ─── Forecast track ───────────────────────────────────────────────────────────
+const FORECAST_LINE_PAINT = {
   'line-color': '#ffffff',
-  'line-opacity': 0.6,
+  'line-opacity': 0.55,
   'line-width': 1.5,
   'line-dasharray': [4, 3],
 };
 
-// Track points: circles color-coded by SSHWS category
 const CATEGORY_FILL = [
   'match', ['get', 'category'],
   'Tropical Depression', '#5ebaff',
@@ -46,7 +59,6 @@ const CATEGORY_FILL = [
   'Category 5',          '#ff6060',
   '#5ebaff',
 ];
-
 const CATEGORY_STROKE = [
   'match', ['get', 'category'],
   'Tropical Depression', '#2e8fbf',
@@ -58,8 +70,7 @@ const CATEGORY_STROKE = [
   'Category 5',          '#cc0000',
   '#2e8fbf',
 ];
-
-const TRACK_CIRCLE_PAINT = {
+const FORECAST_CIRCLE_PAINT = {
   'circle-radius': ['interpolate', ['linear'], ['zoom'], 3, 4, 7, 6, 10, 9],
   'circle-color': CATEGORY_FILL,
   'circle-stroke-color': CATEGORY_STROKE,
@@ -67,74 +78,89 @@ const TRACK_CIRCLE_PAINT = {
   'circle-opacity': 0.95,
 };
 
-// Build a line GeoJSON from point features to draw the forecast track
-function buildTrackLine(trackFC) {
-  if (!trackFC?.features?.length) return EMPTY_FC;
+// ─── Storm name labels ────────────────────────────────────────────────────────
+const LABEL_LAYOUT = {
+  'text-field': ['concat', ['get', 'stormName'], '\n', ['get', 'category']],
+  'text-font': ['DIN Offc Pro Medium', 'Arial Unicode MS Bold'],
+  'text-size': 12,
+  'text-anchor': 'top',
+  'text-offset': [0, 0.8],
+  'text-allow-overlap': false,
+  'text-ignore-placement': false,
+};
+const LABEL_PAINT = {
+  'text-color': '#ffffff',
+  'text-halo-color': '#000000',
+  'text-halo-width': 1.5,
+};
 
-  // Group by storm name and connect positions in order
+// Build a LineString GeoJSON connecting points for each storm
+function buildLine(fc) {
+  if (!fc?.features?.length) return EMPTY_FC;
   const storms = {};
-  for (const f of trackFC.features) {
+  for (const f of fc.features) {
     const name = f.properties?.stormName || 'unknown';
-    if (!storms[name]) storms[name] = [];
-    if (f.geometry?.type === 'Point') storms[name].push(f.geometry.coordinates);
+    if (f.geometry?.type === 'Point') {
+      if (!storms[name]) storms[name] = [];
+      storms[name].push(f.geometry.coordinates);
+    }
   }
-
-  const lineFeatures = Object.entries(storms).map(([name, coords]) => ({
-    type: 'Feature',
-    properties: { stormName: name },
-    geometry: { type: 'LineString', coordinates: coords },
-  }));
-
-  return { type: 'FeatureCollection', features: lineFeatures };
+  return {
+    type: 'FeatureCollection',
+    features: Object.entries(storms)
+      .filter(([, coords]) => coords.length > 1)
+      .map(([name, coords]) => ({
+        type: 'Feature',
+        properties: { stormName: name },
+        geometry: { type: 'LineString', coordinates: coords },
+      })),
+  };
 }
 
 const NHCTropicalWeatherLayer = memo(function NHCTropicalWeatherLayer({
   trackGeoJSON,
+  observedTrackGeoJSON,
   coneGeoJSON,
+  stormLabelsGeoJSON,
   visible,
 }) {
   const vis = visible ? 'visible' : 'none';
-  const trackLine = buildTrackLine(trackGeoJSON);
+
+  const forecastLine  = useMemo(() => buildLine(trackGeoJSON),         [trackGeoJSON]);
+  const observedLine  = useMemo(() => buildLine(observedTrackGeoJSON), [observedTrackGeoJSON]);
 
   return (
     <>
-      {/* Error cone polygon */}
+      {/* 1. Error cone */}
       <Source id="nhc-cone" type="geojson" data={coneGeoJSON || EMPTY_FC}>
-        <Layer
-          id="nhc-cone-fill"
-          type="fill"
-          source="nhc-cone"
-          layout={{ visibility: vis }}
-          paint={CONE_FILL_PAINT}
-        />
-        <Layer
-          id="nhc-cone-line"
-          type="line"
-          source="nhc-cone"
-          layout={{ visibility: vis }}
-          paint={CONE_LINE_PAINT}
-        />
+        <Layer id="nhc-cone-fill" type="fill"   source="nhc-cone" layout={{ visibility: vis }} paint={CONE_FILL_PAINT} />
+        <Layer id="nhc-cone-line" type="line"   source="nhc-cone" layout={{ visibility: vis }} paint={CONE_LINE_PAINT} />
       </Source>
 
-      {/* Forecast track line */}
-      <Source id="nhc-track-line" type="geojson" data={trackLine}>
-        <Layer
-          id="nhc-track-line-layer"
-          type="line"
-          source="nhc-track-line"
-          layout={{ visibility: vis }}
-          paint={TRACK_LINE_PAINT}
-        />
+      {/* 2. Observed (past) track */}
+      <Source id="nhc-obs-line" type="geojson" data={observedLine}>
+        <Layer id="nhc-obs-track-line" type="line" source="nhc-obs-line" layout={{ visibility: vis }} paint={OBS_LINE_PAINT} />
+      </Source>
+      <Source id="nhc-obs" type="geojson" data={observedTrackGeoJSON || EMPTY_FC}>
+        <Layer id="nhc-obs-circle" type="circle" source="nhc-obs" layout={{ visibility: vis }} paint={OBS_CIRCLE_PAINT} />
       </Source>
 
-      {/* Forecast track position points */}
+      {/* 3. Forecast track */}
+      <Source id="nhc-forecast-line" type="geojson" data={forecastLine}>
+        <Layer id="nhc-forecast-track-line" type="line" source="nhc-forecast-line" layout={{ visibility: vis }} paint={FORECAST_LINE_PAINT} />
+      </Source>
       <Source id="nhc-track" type="geojson" data={trackGeoJSON || EMPTY_FC}>
+        <Layer id="nhc-track-circle" type="circle" source="nhc-track" layout={{ visibility: vis }} paint={FORECAST_CIRCLE_PAINT} />
+      </Source>
+
+      {/* 4. Storm name labels */}
+      <Source id="nhc-labels" type="geojson" data={stormLabelsGeoJSON || EMPTY_FC}>
         <Layer
-          id="nhc-track-circle"
-          type="circle"
-          source="nhc-track"
-          layout={{ visibility: vis }}
-          paint={TRACK_CIRCLE_PAINT}
+          id="nhc-storm-labels"
+          type="symbol"
+          source="nhc-labels"
+          layout={{ ...LABEL_LAYOUT, visibility: vis }}
+          paint={LABEL_PAINT}
         />
       </Source>
     </>
