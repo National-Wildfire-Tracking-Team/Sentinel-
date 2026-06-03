@@ -73,7 +73,7 @@ const MAP_STYLES = {
 /**
  * Tooltip shown on hover
  */
-const OUTLOOK_LAYER_IDS = new Set(['spc-outlook-fill', 'drought-outlook-fill', 'fire-weather-outlook-fill', 'nhc-track-circle', 'nhc-obs-circle']);
+const OUTLOOK_LAYER_IDS = new Set(['spc-outlook-fill', 'drought-outlook-fill', 'fire-weather-outlook-fill', 'nhc-disturbance-fill', 'nhc-track-circle', 'nhc-obs-circle']);
 
 function HoverTooltip({ feature, lngLat }) {
   if (!feature || !lngLat) return null;
@@ -503,6 +503,22 @@ function HoverTooltip({ feature, lngLat }) {
       );
       break;
     }
+    case 'nhc-disturbance-fill': {
+      const chanceColors = { HIGH: 'text-red-400', MEDIUM: 'text-orange-400', LOW: 'text-yellow-300' };
+      const chanceClass  = chanceColors[p.formationChance] || 'text-yellow-300';
+      content = (
+        <>
+          <div className="font-semibold text-sky-300">NHC Tropical Disturbance</div>
+          {p.formationChance && (
+            <div className={`text-xs mt-0.5 font-medium ${chanceClass}`}>
+              {p.formationChance} formation probability
+            </div>
+          )}
+          <div className="text-zinc-400 text-[10px] mt-0.5">2–5 day outlook area</div>
+        </>
+      );
+      break;
+    }
     case 'nhc-obs-circle':
     case 'nhc-track-circle': {
       const catColors = {
@@ -702,6 +718,7 @@ function FlightDetailPopup({ flight, lngLat, onClose }) {
  * @param {object|null} props.nhcTrackGeoJSON
  * @param {object|null} props.nhcObservedTrackGeoJSON
  * @param {object|null} props.nhcConeGeoJSON
+ * @param {object|null} props.nhcDisturbanceGeoJSON
  * @param {object|null} props.nhcStormLabelsGeoJSON
  * @param {object|null} props.fireWeatherOutlooksGeoJSON
  * @param {string}      [props.fireWxOutlookType]
@@ -758,6 +775,7 @@ export default function MapView({
   nhcTrackGeoJSON,
   nhcObservedTrackGeoJSON,
   nhcConeGeoJSON,
+  nhcDisturbanceGeoJSON,
   nhcStormLabelsGeoJSON,
   savedLocations = [],
   measureActive = false,
@@ -940,6 +958,7 @@ export default function MapView({
     if (isWeatherTab && layers.spcWeatherOutlooks && spcWeatherOutlookMode === 'fireWx' && fireWeatherOutlooksGeoJSON) {
       ids.push('fire-weather-outlook-fill');
     }
+    if (isWeatherTab && layers.nhcTropicalWeather && nhcDisturbanceGeoJSON) ids.push('nhc-disturbance-fill');
     if (isWeatherTab && layers.nhcTropicalWeather && nhcTrackGeoJSON) ids.push('nhc-track-circle');
     if (isWeatherTab && layers.nhcTropicalWeather && nhcObservedTrackGeoJSON) ids.push('nhc-obs-circle');
     return ids;
@@ -950,7 +969,7 @@ export default function MapView({
       hotspotsGeoJSON, perimetersGeoJSON, incidentsGeoJSON, aqiGeoJSON, alertsGeoJSON, spcOutlooksGeoJSON,
       stormReportsGeoJSON, userReportsGeoJSON, evacZonesGeoJSON, reporterEvacZonesGeoJSON,
       flightsGeoJSON, rawsGeoJSON, airNowMonitorsGeoJSON, droughtOutlookGeoJSON, ndgdSmokeFilteredGeoJSON, fireWeatherOutlooksGeoJSON,
-      nhcTrackGeoJSON, nhcObservedTrackGeoJSON,
+      nhcTrackGeoJSON, nhcObservedTrackGeoJSON, nhcDisturbanceGeoJSON,
       criticalInfrastructureVisible, criticalInfrastructureTransGeoJSON, criticalInfrastructureGasGeoJSON,
       nationalMapCollegesVisible, nationalMapCollegesGeoJSON]);
 
@@ -1466,11 +1485,12 @@ export default function MapView({
           outlookType={fireWxOutlookType}
         />
 
-        {/* NHC active hurricane track + error cone – weather tab */}
+        {/* NHC hurricane tracks + disturbance outlook – weather tab */}
         <NHCTropicalWeatherLayer
           trackGeoJSON={nhcTrackGeoJSON}
           observedTrackGeoJSON={nhcObservedTrackGeoJSON}
           coneGeoJSON={nhcConeGeoJSON}
+          disturbanceGeoJSON={nhcDisturbanceGeoJSON}
           stormLabelsGeoJSON={nhcStormLabelsGeoJSON}
           visible={isWeatherTab && layers.nhcTropicalWeather}
         />

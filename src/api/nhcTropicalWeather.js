@@ -1,20 +1,25 @@
 /**
  * nhcTropicalWeather.js
- * Fetches active hurricane data from the NHC/Esri ArcGIS Feature Service
- * used by the vannizhang/hurricane reference implementation.
+ * Fetches NHC hurricane data from two complementary sources:
  *
- * FeatureServer/0 – Forecast track positions (points, future)
- * FeatureServer/2 – Observed track positions (points, past)
- * FeatureServer/3 – Observed track line
- * FeatureServer/4 – Forecast error cone (polygon)
+ * SOURCE A – Esri Active_Hurricanes_v1 FeatureServer (vannizhang/hurricane)
+ *   FeatureServer/0 – Forecast track positions (future, points)
+ *   FeatureServer/2 – Observed track positions (past, points)
+ *   FeatureServer/4 – Forecast error cone (polygon)
  *
- * Key fields: STORMNAME, TCDVLP, MAXWIND, GUST, DATELBL, FLDATELBL, BASIN, TIMEZONE
+ * SOURCE B – NOAA NHC tropical weather MapServer
+ *   Layer 320       – Tropical disturbance outlook areas (pre-named-storm)
+ *
+ * Each source fails independently; the other still renders.
  */
 
 import { fetchWithCache } from '../utils/dataCache';
 
-const FEATURE_SERVICE =
+const ESRI_SERVICE =
   'https://services9.arcgis.com/RHVPKKiFTONKtxq3/arcgis/rest/services/Active_Hurricanes_v1/FeatureServer';
+
+const NOAA_MAPSERVER =
+  'https://mapservices.weather.noaa.gov/tropical/rest/services/tropical/NHC_tropical_weather/MapServer';
 
 // Standard NHC/SSHWS category colors
 export const HURRICANE_CATEGORY_COLORS = {
@@ -27,20 +32,70 @@ export const HURRICANE_CATEGORY_COLORS = {
   'Category 5':          { fill: '#ff6060', stroke: '#cc0000' },
 };
 
-// Wind speed thresholds from vannizhang/hurricane HurricaneData.js
+// NHC disturbance formation probability colors
+export const DISTURBANCE_COLORS = {
+  HIGH:   { fill: '#FF4444', stroke: '#BB0000' },
+  MEDIUM: { fill: '#FFA040', stroke: '#CC5500' },
+  LOW:    { fill: '#FFE566', stroke: '#CCAA00' },
+};
+
+const EMPTY_FC = { type: 'FeatureCollection', features: [] };
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
 export function getHurricaneCategory(maxWindMph) {
   const w = Number(maxWindMph);
-  if (isNaN(w))   return 'Tropical Depression';
-  if (w > 136)    return 'Category 5';
-  if (w > 112)    return 'Category 4';
-  if (w > 95)     return 'Category 3';
-  if (w > 82)     return 'Category 2';
-  if (w > 63)     return 'Category 1';
-  if (w > 33)     return 'Tropical Storm';
+  if (isNaN(w))  return 'Tropical Depression';
+  if (w > 136)   return 'Category 5';
+  if (w > 112)   return 'Category 4';
+  if (w > 95)    return 'Category 3';
+  if (w > 82)    return 'Category 2';
+  if (w > 63)    return 'Category 1';
+  if (w > 33)    return 'Tropical Storm';
   return 'Tropical Depression';
 }
 
-function normalizeTrackFeature(feature, idx) {
+function detectFormationChance(p = {}) {
+  const raw = [p.PROB2DAY, p.PROB5DAY, p.FormationChance, p.label, p.LABEL]
+    .filter(Boolean).map(v => String(v).toUpperCase()).join(' ');
+  if (raw.includes('HIGH'))   return 'HIGH';
+  if (raw.includes('MEDIUM')) return 'MEDIUM';
+  if (raw.includes('LOW'))    return 'LOW';
+  return 'LOW';
+}
+
+function ensureFC(data, normalizeFn) {
+  if (data?.type === 'FeatureCollection' && Array.isArray(data.features)) {
+    return { ...data, features: data.features.map((f, i) => normalizeFn(f, i)) };
+  }
+  return EMPTY_FC;
+}
+
+function buildEsriQuery(layerId) {
+  return `${ESRI_SERVICE}/${layerId}/query?${new URLSearchParams({
+    where: '1=1', outFields: '*', f: 'geojson', resultRecordCount: '500',
+  })}`;
+}
+
+function buildNoaaQuery(layerId) {
+  return `${NOAA_MAPSERVER}/${layerId}/query?${new URLSearchParams({
+    where: '1=1', outFields: '*', f: 'geojson', resultRecordCount: '500',
+  })}`;
+}
+
+// Wrap fetch so a single layer failure returns EMPTY_FC instead of throwing
+async function safeFetch(url, cacheKey, ttlMs = 5 * 60 * 1000) {
+  try {
+    const data = await fetchWithCache(url, cacheKey, {}, ttlMs);
+    return data;
+  } catch {
+    return EMPTY_FC;
+  }
+}
+
+// ─── Normalizers ──────────────────────────────────────────────────────────────
+
+function normalizeForecast(feature, idx) {
   const p = feature?.properties || {};
   const category = getHurricaneCategory(p.MAXWIND);
   const colors = HURRICANE_CATEGORY_COLORS[category];
@@ -49,12 +104,12 @@ function normalizeTrackFeature(feature, idx) {
     properties: {
       ...p,
       id:          p.OBJECTID != null ? `nhc-track-${p.OBJECTID}` : `nhc-track-${idx}`,
-      stormName:   p.STORMNAME  || '',
-      stormType:   p.TCDVLP    || '',
-      maxWind:     p.MAXWIND    || 0,
-      gust:        p.GUST       || 0,
-      basin:       p.BASIN      || '',
-      dateLabel:   p.DATELBL    || p.FLDATELBL || '',
+      stormName:   p.STORMNAME || '',
+      stormType:   p.TCDVLP   || '',
+      maxWind:     p.MAXWIND   || 0,
+      gust:        p.GUST      || 0,
+      basin:       p.BASIN     || '',
+      dateLabel:   p.DATELBL   || p.FLDATELBL || '',
       category,
       fillColor:   colors.fill,
       strokeColor: colors.stroke,
@@ -62,7 +117,7 @@ function normalizeTrackFeature(feature, idx) {
   };
 }
 
-function normalizeObservedFeature(feature, idx) {
+function normalizeObserved(feature, idx) {
   const p = feature?.properties || {};
   const category = getHurricaneCategory(p.MAXWIND);
   return {
@@ -81,7 +136,7 @@ function normalizeObservedFeature(feature, idx) {
   };
 }
 
-function normalizeConeFeature(feature, idx) {
+function normalizeCone(feature, idx) {
   const p = feature?.properties || {};
   return {
     ...feature,
@@ -93,49 +148,33 @@ function normalizeConeFeature(feature, idx) {
   };
 }
 
-function ensureFC(data, normalizeFn) {
-  if (data?.type === 'FeatureCollection' && Array.isArray(data.features)) {
-    return { ...data, features: data.features.map((f, i) => normalizeFn(f, i)) };
-  }
-  return { type: 'FeatureCollection', features: [] };
+function normalizeDisturbance(feature, idx) {
+  const p = feature?.properties || {};
+  const formationChance = detectFormationChance(p);
+  const colors = DISTURBANCE_COLORS[formationChance];
+  return {
+    ...feature,
+    properties: {
+      ...p,
+      id:             p.OBJECTID != null ? `nhc-dist-${p.OBJECTID}` : `nhc-dist-${idx}`,
+      formationChance,
+      fillColor:      colors.fill,
+      strokeColor:    colors.stroke,
+    },
+  };
 }
 
-function buildQuery(layerId) {
-  const params = new URLSearchParams({
-    where: '1=1',
-    outFields: '*',
-    f: 'geojson',
-    resultRecordCount: '500',
-  });
-  return `${FEATURE_SERVICE}/${layerId}/query?${params}`;
-}
+// ─── Exports ──────────────────────────────────────────────────────────────────
 
-/** Forecast track positions (points) – FeatureServer/0 */
-export async function fetchNhcTrack() {
-  const data = await fetchWithCache(buildQuery(0), 'nhc:track', {}, 5 * 60 * 1000);
-  return ensureFC(data, normalizeTrackFeature);
-}
-
-/** Observed (past) track positions (points) – FeatureServer/2 */
-export async function fetchNhcObservedTrack() {
-  const data = await fetchWithCache(buildQuery(2), 'nhc:observed', {}, 5 * 60 * 1000);
-  return ensureFC(data, normalizeObservedFeature);
-}
-
-/**
- * Build a label GeoJSON from track points: one Point feature per storm
- * at the first forecast position (current location), carrying the name.
- */
+/** Derive one label point per storm from forecast track features */
 export function buildStormLabels(trackFC) {
-  if (!trackFC?.features?.length) return { type: 'FeatureCollection', features: [] };
-
+  if (!trackFC?.features?.length) return EMPTY_FC;
   const storms = {};
   for (const f of trackFC.features) {
     const name = f.properties?.stormName || '';
     if (!name || !f.geometry?.coordinates) continue;
-    if (!storms[name]) storms[name] = f; // first occurrence = earliest forecast point
+    if (!storms[name]) storms[name] = f;
   }
-
   return {
     type: 'FeatureCollection',
     features: Object.values(storms).map(f => ({
@@ -150,18 +189,46 @@ export function buildStormLabels(trackFC) {
   };
 }
 
-/** Forecast error cone (polygon) – FeatureServer/4 */
-export async function fetchNhcCone() {
-  const data = await fetchWithCache(buildQuery(4), 'nhc:cone', {}, 5 * 60 * 1000);
-  return ensureFC(data, normalizeConeFeature);
+/** Forecast track – FeatureServer/0 */
+export async function fetchNhcTrack() {
+  const data = await safeFetch(buildEsriQuery(0), 'nhc:track');
+  return ensureFC(data, normalizeForecast);
 }
 
-/** Fetch all layers together */
+/** Observed (past) track – FeatureServer/2 */
+export async function fetchNhcObservedTrack() {
+  const data = await safeFetch(buildEsriQuery(2), 'nhc:observed');
+  return ensureFC(data, normalizeObserved);
+}
+
+/** Forecast error cone – FeatureServer/4 */
+export async function fetchNhcCone() {
+  const data = await safeFetch(buildEsriQuery(4), 'nhc:cone');
+  return ensureFC(data, normalizeCone);
+}
+
+/** Tropical disturbance outlook – NOAA MapServer layer 320 */
+export async function fetchNhcDisturbanceOutlook() {
+  const data = await safeFetch(buildNoaaQuery(320), 'nhc:disturbance', 10 * 60 * 1000);
+  return ensureFC(data, normalizeDisturbance);
+}
+
+/**
+ * Fetch all four NHC layers. Each resolves independently — a failure in
+ * one source never prevents the others from rendering.
+ */
 export async function fetchNhcTropicalWeather() {
-  const [track, observedTrack, cone] = await Promise.all([
+  const [trackRes, observedRes, coneRes, disturbanceRes] = await Promise.allSettled([
     fetchNhcTrack(),
     fetchNhcObservedTrack(),
     fetchNhcCone(),
+    fetchNhcDisturbanceOutlook(),
   ]);
-  return { track, observedTrack, cone };
+
+  return {
+    track:       trackRes.status       === 'fulfilled' ? trackRes.value       : EMPTY_FC,
+    observedTrack: observedRes.status  === 'fulfilled' ? observedRes.value     : EMPTY_FC,
+    cone:        coneRes.status        === 'fulfilled' ? coneRes.value         : EMPTY_FC,
+    disturbance: disturbanceRes.status === 'fulfilled' ? disturbanceRes.value  : EMPTY_FC,
+  };
 }
