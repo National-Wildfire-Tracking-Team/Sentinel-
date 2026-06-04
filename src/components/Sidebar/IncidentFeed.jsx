@@ -36,6 +36,9 @@ export default function IncidentFeed({ incidents, loading, error }) {
     if ((inc.contained ?? 0) >= 95) return false;
     if (inc.updated && (now - new Date(inc.updated).getTime()) > THREE_DAYS_MS) return false;
 
+    // 'focused' mode hides controlled fires
+    if (feedFilter === 'focused' && inc.status === 'controlled') return false;
+
     return true;
   });
 
