@@ -1020,7 +1020,7 @@ export default function ReporterDashboardPage() {
           </div>
           <div className="bg-[#0d1117] border border-[#30363d] rounded-2xl p-6 shadow-2xl text-left">
             <p className="text-[#8b949e] text-sm mb-4">
-              Your account (<span className="text-white font-medium">{profile.email ?? user.email}</span>)
+              Your account (<span className="text-white font-medium">{profile?.email ?? user.email}</span>)
               does not have reporter access. This area is restricted to users with the{' '}
               <span className="text-[#0096ff] font-medium">reporter</span> role.
             </p>

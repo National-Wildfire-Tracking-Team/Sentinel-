@@ -36,6 +36,8 @@ const initialState = {
     schoolsUniversities: false,
     /** NHC active tropical storms / hurricanes */
     nhcStorms: false,
+    /** NHC tropical tracks, cone, and disturbances */
+    nhcTropicalWeather: false,
   },
   // Currently clicked/selected fire feature (hotspot or perimeter)
   selectedFire: null,

@@ -42,6 +42,7 @@ import FireWeatherOutlookLayer from './layers/FireWeatherOutlookLayer';
 import FireWeatherOutlookSelector from './FireWeatherOutlookSelector';
 import CriticalInfrastructureLayer from './layers/CriticalInfrastructureLayer';
 import NationalMapCollegesLayer from './layers/NationalMapCollegesLayer';
+import NhcStormsLayer from './layers/NhcStormsLayer';
 import NHCTropicalWeatherLayer from './layers/NHCTropicalWeatherLayer';
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN || '';
@@ -1000,6 +1001,11 @@ export default function MapView({
     if (isWeatherTab && layers.nhcStorms && nhcCentersGeoJSON?.features?.length) {
       ids.push('nhc-centers-circle');
     }
+    if (isWeatherTab && layers.nhcTropicalWeather) {
+      if (nhcDisturbanceGeoJSON?.features?.length) ids.push('nhc-disturbance-fill');
+      if (nhcTrackGeoJSON?.features?.length) ids.push('nhc-track-circle');
+      if (nhcObservedTrackGeoJSON?.features?.length) ids.push('nhc-obs-circle');
+    }
     return ids;
   }, [measureActive, isWildfireTab, isWeatherTab, layers.fireHotspots, layers.firePerimeters, layers.incidentLocations, layers.aqi,
       layers.weatherAlerts, layers.spcWeatherOutlooks, spcWeatherOutlookMode, layers.stormReports, layers.evacZones, layers.reporterEvacZones, spcMdGeoJSON,
@@ -1558,7 +1564,7 @@ export default function MapView({
         {/* Live flight tracking – always on top of all fire/weather layers */}
         <FlightLayer
           geoJSON={flightsGeoJSON}
-          visible={false}
+          visible={layers.flights}
         />
 
         {/* User live location marker */}

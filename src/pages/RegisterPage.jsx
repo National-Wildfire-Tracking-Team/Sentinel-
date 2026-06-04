@@ -88,6 +88,7 @@ export default function RegisterPage() {
               </div>
               <Link
                 to="/login"
+                state={upgradeAfterSignup ? { from: '/pricing' } : undefined}
                 className="mt-2 w-full py-3 rounded-lg font-bold text-sm tracking-widest uppercase text-white bg-[#0096ff] hover:brightness-110 transition-all block"
               >
                 Go to Sign In

@@ -19,7 +19,7 @@ import { useSavedLocations } from '../hooks/useSavedLocations';
 import { usePlan, PLANS } from '../hooks/usePlan';
 
 export default function AccountPage() {
-  const { user, profile, isAuthenticated, loading, signOut } = useAuth();
+  const { user, profile, isAuthenticated, loading, profileLoading, signOut } = useAuth();
   const { planId, plan, subscription, isPaid, cancelAtPeriodEnd, currentPeriodEnd } = usePlan();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -34,7 +34,7 @@ export default function AccountPage() {
 
   const checkoutResult = searchParams.get('checkout');
 
-  if (loading) {
+  if (loading || profileLoading) {
     return (
       <div className="min-h-screen bg-[#0a0c0e] flex items-center justify-center text-sentinel-400 text-sm">
         Loading…
@@ -47,7 +47,7 @@ export default function AccountPage() {
   }
 
   const email = profile?.email || user?.email || '—';
-  const role = profile?.role || 'reporter';
+  const role = profile?.role || 'public';
   const memberSince = user?.created_at
     ? new Date(user.created_at).toLocaleDateString('en-US', {
         year: 'numeric', month: 'long', day: 'numeric',
