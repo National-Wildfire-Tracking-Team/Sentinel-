@@ -30,6 +30,7 @@ import { useAirNowMonitors } from '../hooks/useAirNowMonitors';
 import { useDroughtOutlook } from '../hooks/useDroughtOutlook';
 import { useNdgdSmokeForecast } from '../hooks/useNdgdSmokeForecast';
 import { useFireWeatherOutlooks } from '../hooks/useFireWeatherOutlooks';
+import { useNhcTropicalWeather } from '../hooks/useNhcTropicalWeather';
 import { useCriticalInfrastructure } from '../hooks/useCriticalInfrastructure';
 import { useNationalMapColleges } from '../hooks/useNationalMapColleges';
 import { usePlan } from '../hooks/usePlan';
@@ -431,6 +432,16 @@ const flightBounds = useMemo(() => {
     fireWxOutlookType
   );
 
+  const {
+    trackGeoJSON:         nhcTrackGeoJSON,
+    observedTrackGeoJSON: nhcObservedTrackGeoJSON,
+    coneGeoJSON:          nhcConeGeoJSON,
+    disturbanceGeoJSON:   nhcDisturbanceGeoJSON,
+    stormLabelsGeoJSON:   nhcStormLabelsGeoJSON,
+  } = useNhcTropicalWeather(
+    layers.nhcTropicalWeather && activeMapTab === MAP_TABS.weather
+  );
+
   useEffect(() => {
     if (flightsError) console.error('[FlightTracking] Error:', flightsError);
   }, [flightsError]);
@@ -774,6 +785,11 @@ const flightBounds = useMemo(() => {
             criticalInfrastructureVisible={criticalInfraEnabled}
             nationalMapCollegesGeoJSON={nationalMapCollegesGeoJSON}
             nationalMapCollegesVisible={schoolsLayerEnabled}
+            nhcTrackGeoJSON={nhcTrackGeoJSON}
+            nhcObservedTrackGeoJSON={nhcObservedTrackGeoJSON}
+            nhcConeGeoJSON={nhcConeGeoJSON}
+            nhcDisturbanceGeoJSON={nhcDisturbanceGeoJSON}
+            nhcStormLabelsGeoJSON={nhcStormLabelsGeoJSON}
             fireWeatherOutlooksGeoJSON={fireWeatherOutlooksGeoJSON}
             fireWxOutlookType={fireWxOutlookType}
             fireWxActiveDay={fireWxActiveDay}
