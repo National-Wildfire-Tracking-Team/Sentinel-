@@ -34,6 +34,7 @@ const initialState = {
     criticalInfrastructure: false,
     /** USGS National Map — colleges/universities (structures layer 56); Pro */
     schoolsUniversities: false,
+    tropicalStorms: true,
   },
   // Currently clicked/selected fire feature (hotspot or perimeter)
   selectedFire: null,

@@ -42,6 +42,7 @@ import FireWeatherOutlookLayer from './layers/FireWeatherOutlookLayer';
 import FireWeatherOutlookSelector from './FireWeatherOutlookSelector';
 import CriticalInfrastructureLayer from './layers/CriticalInfrastructureLayer';
 import NationalMapCollegesLayer from './layers/NationalMapCollegesLayer';
+import TropicalStormsLayer from './layers/TropicalStormsLayer';
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN || '';
 const HAS_MAPBOX_TOKEN = Boolean(MAPBOX_TOKEN.trim());
@@ -712,6 +713,7 @@ export default function MapView({
   fireWxOutlookType = 'winds_low_humidity',
   fireWxActiveDay = 'day1',
   fireWeatherOutlooksLoading = false,
+  tropicalStormsGeoJSON,
   fireWxValidTime = null,
   onFireWxOutlookTypeChange,
   onFireWxActiveDayChange,
@@ -1424,6 +1426,12 @@ export default function MapView({
         <FireHotspotsLayer
           geoJSON={hotspotsGeoJSON}
           visible={isWildfireTab && layers.fireHotspots}
+        />
+
+        {/* Tropical storms – NHC active storm positions; visible on any tab */}
+        <TropicalStormsLayer
+          geoJSON={tropicalStormsGeoJSON}
+          visible={layers.tropicalStorms}
         />
 
         {/* Community-submitted reports (rendered on top of official data) */}

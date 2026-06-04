@@ -7,7 +7,7 @@
 import { useState, memo, useMemo, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  Layers, Flame, MapPin, Wind, CloudRain, CloudLightning, Eye, ChevronDown, ChevronRight, Radar, AlertTriangle, Ruler, Hexagon, PlaneTakeoff, Satellite, Map as MapIcon, Thermometer, Activity, Droplets, Zap, Lock, Users, GraduationCap,
+  Layers, Flame, MapPin, Wind, CloudRain, CloudLightning, Eye, ChevronDown, ChevronRight, Radar, AlertTriangle, Ruler, Hexagon, PlaneTakeoff, Satellite, Map as MapIcon, Thermometer, Activity, Droplets, Zap, Lock, Users, GraduationCap, Waves,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 
@@ -32,6 +32,7 @@ const LAYER_DEFS = {
   aqi:               { label: 'AQI Heatmap',          sublabel: 'EPA AirNow gradient overlay',  icon: Wind,         color: '#3b82f6' },
   smoke:             { label: 'Smoke Forecast',      sublabel: 'NOAA HRRR',                   icon: CloudRain,    color: '#94a3b8' },
   flights:           { label: 'Live Flight Tracking', sublabel: 'OpenSky Network ADS-B',      icon: PlaneTakeoff, color: '#ff5a00' },
+  tropicalStorms:    { label: 'Tropical Storms',      sublabel: 'NOAA NHC active storms',      icon: Waves,        color: '#c026d3' },
 };
 
 /**
@@ -89,7 +90,7 @@ const TAB_SECTIONS = {
       groups: [
         {
           label: 'Active weather',
-          layers: ['weatherAlerts', 'stormReports', 'spcWeatherOutlooks'],
+          layers: ['tropicalStorms', 'weatherAlerts', 'stormReports', 'spcWeatherOutlooks'],
         },
         {
           label: 'Stations',

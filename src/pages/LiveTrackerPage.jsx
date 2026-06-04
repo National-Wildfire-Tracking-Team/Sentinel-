@@ -31,6 +31,7 @@ import { useDroughtOutlook } from '../hooks/useDroughtOutlook';
 import { useNdgdSmokeForecast } from '../hooks/useNdgdSmokeForecast';
 import { useFireWeatherOutlooks } from '../hooks/useFireWeatherOutlooks';
 import { useCriticalInfrastructure } from '../hooks/useCriticalInfrastructure';
+import { useTropicalStorms } from '../hooks/useTropicalStorms';
 import { useNationalMapColleges } from '../hooks/useNationalMapColleges';
 import { usePlan } from '../hooks/usePlan';
 import { polygonCentroid } from '../utils/geoUtils';
@@ -97,6 +98,7 @@ const WEATHER_LAYER_PRESET = {
   airNowMonitors: false,
   ndgdSmokeForecast: false,
   schoolsUniversities: false,
+  tropicalStorms: true,
 };
 
 const WEATHER_SUB_PRESETS = {
@@ -406,6 +408,12 @@ const flightBounds = useMemo(() => {
     error: flightsError,
     refresh: refreshFlights,
 } = useFlightData(flightBounds, layers.flights);
+
+  // Tropical storms – NOAA NHC active storms (on any tab when layer enabled)
+  const {
+    geoJSON: tropicalStormsGeoJSON,
+    refresh: refreshTropicalStorms,
+  } = useTropicalStorms(layers.tropicalStorms);
 
   // RAWS weather stations – only fetch when layer is on AND zoomed in enough
   const rawsEnabled = layers.rawsStations && (viewport?.zoom ?? 0) >= RAWS_MIN_ZOOM;
@@ -728,6 +736,7 @@ const flightBounds = useMemo(() => {
     refreshEvacZones();
     refreshReporterEvacZones();
     if (layers.aqi) refreshAQI();
+    if (layers.tropicalStorms) refreshTropicalStorms();
     if (layers.flights) refreshFlights();
     if (rawsEnabled) refreshRAWS();
     if (layers.airNowMonitors) refreshAirNowMonitors();
@@ -741,10 +750,10 @@ const flightBounds = useMemo(() => {
   }, [
     refreshHotspots, refreshPerimeters, refreshAlerts, refreshIncidents, refreshCalFireIncidents, refreshStormReports,
     refreshSpcMd, refreshSpcOutlooks, refreshUserReports, refreshEvacZones, refreshReporterEvacZones,
-    refreshAQI, refreshFlights, refreshRAWS, refreshAirNowMonitors, refreshDroughtOutlook, refreshNdgdSmokeForecast, refreshFireWeatherOutlooks,
+    refreshAQI, refreshFlights, refreshRAWS, refreshAirNowMonitors, refreshDroughtOutlook, refreshNdgdSmokeForecast, refreshFireWeatherOutlooks, refreshTropicalStorms,
     refreshCriticalInfrastructure,
     refreshNationalMapColleges,
-    activeMapTab, layers.aqi, layers.flights, rawsEnabled, layers.airNowMonitors, layers.droughtOutlook, layers.ndgdSmokeForecast,
+    activeMapTab, layers.aqi, layers.flights, rawsEnabled, layers.airNowMonitors, layers.droughtOutlook, layers.ndgdSmokeForecast, layers.tropicalStorms,
     layers.fireWeatherOutlooks, layers.spcWeatherOutlooks, spcWeatherOutlookMode, layers.stormReports,
     criticalInfraEnabled,
     schoolsLayerEnabled,
@@ -817,6 +826,7 @@ const flightBounds = useMemo(() => {
             fireWeatherOutlooksGeoJSON={fireWeatherOutlooksGeoJSON}
             fireWxOutlookType={fireWxOutlookType}
             fireWxActiveDay={fireWxActiveDay}
+            tropicalStormsGeoJSON={tropicalStormsGeoJSON}
             fireWeatherOutlooksLoading={fireWeatherOutlooksLoading}
             fireWxValidTime={fireWxValidTime}
             onFireWxOutlookTypeChange={setFireWxOutlookType}
