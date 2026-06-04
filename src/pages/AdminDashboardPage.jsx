@@ -12,7 +12,7 @@ import { useAuth } from '../context/AuthContext';
 import { useFireReports } from '../hooks/useFireReports';
 
 export default function AdminDashboardPage() {
-  const { isAdmin, loading, user } = useAuth();
+  const { isAdmin, loading, profileLoading, user } = useAuth();
 
   const { reports, loading: reportsLoading } = useFireReports('all');
   const formatCoordinate = (value) => {
@@ -20,7 +20,7 @@ export default function AdminDashboardPage() {
     return Number.isFinite(numericValue) ? numericValue.toFixed(4) : '—';
   };
 
-  if (loading) {
+  if (loading || profileLoading) {
     return <div className="max-w-5xl mx-auto px-4 py-16 text-sentinel-300">Loading…</div>;
   }
   if (!user) {

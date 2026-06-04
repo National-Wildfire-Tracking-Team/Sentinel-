@@ -75,6 +75,7 @@ export function useIncidentUpdates(incidentId) {
               const withoutLocal = prev.filter(
                 (u) =>
                   !(
+                    typeof u.id === 'string' &&
                     u.id.startsWith('local-') &&
                     u.source_type === 'automated' &&
                     u.content === row.content &&
@@ -108,7 +109,7 @@ export function useIncidentUpdates(incidentId) {
         // Also skip if a real Supabase row with the same content arrived recently.
         const isDupe = prev.some(
           (u) =>
-            !u.id.startsWith('local-') &&
+            !(typeof u.id === 'string' && u.id.startsWith('local-')) &&
             u.source_type === 'automated' &&
             u.content === localUpdate.content &&
             Math.abs(new Date(u.created_at) - new Date(localUpdate.created_at)) < 10_000,

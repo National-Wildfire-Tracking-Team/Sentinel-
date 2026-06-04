@@ -32,7 +32,7 @@ export default function ManageZipcodesPage() {
             Back to Account
           </button>
           <button
-            onClick={() => navigate('/')}
+            onClick={() => navigate('/sentinel')}
             className="inline-flex items-center gap-1.5 text-xs text-sentinel-400 hover:text-white transition-colors"
           >
             Back to Sentinel

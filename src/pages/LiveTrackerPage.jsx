@@ -7,8 +7,6 @@
 import { useApp } from '../context/AppContext';
 import { nwsAlertCategory } from '../utils/nwsColors';
 import { useSavedLocations } from '../hooks/useSavedLocations';
-import { useAuth } from '../context/AuthContext';
-import AddressSetupScreen from '../components/Auth/AddressSetupScreen';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 // Data hooks
@@ -76,6 +74,7 @@ const WILDFIRE_LAYER_PRESET = {
   stormReports: false,
   criticalInfrastructure: false,
   schoolsUniversities: false,
+  nhcTropicalWeather: false,
 };
 
 // Weather tab: only auto-enable NWS alerts (includes SPC MDs on map), and NEXRAD;
@@ -99,6 +98,7 @@ const WEATHER_LAYER_PRESET = {
   airNowMonitors: false,
   ndgdSmokeForecast: false,
   schoolsUniversities: false,
+  nhcTropicalWeather: false,
 };
 
 const THREE_DAYS_MS = 3 * 24 * 60 * 60 * 1000;
@@ -440,6 +440,16 @@ const flightBounds = useMemo(() => {
     refresh:        refreshNhcStorms,
   } = useNhcStorms(activeMapTab === MAP_TABS.weather && layers.nhcStorms);
 
+  const nhcTropicalWeatherEnabled = activeMapTab === MAP_TABS.weather && layers.nhcTropicalWeather;
+  const {
+    trackGeoJSON: nhcTrackGeoJSON,
+    observedTrackGeoJSON: nhcObservedTrackGeoJSON,
+    coneGeoJSON: nhcConeGeoJSON,
+    disturbanceGeoJSON: nhcDisturbanceGeoJSON,
+    stormLabelsGeoJSON: nhcStormLabelsGeoJSON,
+    refresh: refreshNhcTropicalWeather,
+  } = useNhcTropicalWeather(nhcTropicalWeatherEnabled);
+
   useEffect(() => {
     if (flightsError) console.error('[FlightTracking] Error:', flightsError);
   }, [flightsError]);
@@ -715,6 +725,7 @@ const flightBounds = useMemo(() => {
       refreshFireWeatherOutlooks();
     }
     if (activeMapTab === MAP_TABS.weather && layers.nhcStorms) refreshNhcStorms();
+    if (nhcTropicalWeatherEnabled) refreshNhcTropicalWeather();
   }, [
     refreshHotspots, refreshPerimeters, refreshAlerts, refreshIncidents, refreshCalFireIncidents, refreshStormReports,
     refreshSpcMd, refreshSpcOutlooks, refreshUserReports, refreshEvacZones, refreshReporterEvacZones,
@@ -722,9 +733,11 @@ const flightBounds = useMemo(() => {
     refreshCriticalInfrastructure,
     refreshNationalMapColleges,
     refreshNhcStorms,
+    refreshNhcTropicalWeather,
     activeMapTab, layers.aqi, layers.flights, rawsEnabled, layers.airNowMonitors, layers.droughtOutlook, layers.ndgdSmokeForecast,
     layers.fireWeatherOutlooks, layers.spcWeatherOutlooks, spcWeatherOutlookMode, layers.stormReports,
     layers.nhcStorms,
+    nhcTropicalWeatherEnabled,
     criticalInfraEnabled,
     schoolsLayerEnabled,
   ]);
@@ -789,6 +802,11 @@ const flightBounds = useMemo(() => {
             nhcCentersGeoJSON={nhcCentersGeoJSON}
             nhcConesGeoJSON={nhcConesGeoJSON}
             nhcTracksGeoJSON={nhcTracksGeoJSON}
+            nhcTrackGeoJSON={nhcTrackGeoJSON}
+            nhcObservedTrackGeoJSON={nhcObservedTrackGeoJSON}
+            nhcConeGeoJSON={nhcConeGeoJSON}
+            nhcDisturbanceGeoJSON={nhcDisturbanceGeoJSON}
+            nhcStormLabelsGeoJSON={nhcStormLabelsGeoJSON}
             fireWeatherOutlooksGeoJSON={fireWeatherOutlooksGeoJSON}
             fireWxOutlookType={fireWxOutlookType}
             fireWxActiveDay={fireWxActiveDay}
