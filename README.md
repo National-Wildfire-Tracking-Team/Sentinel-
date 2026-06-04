@@ -13,7 +13,7 @@ Built with React + Mapbox GL + Tailwind CSS.
 | Weather Alerts | NOAA NWS | No |
 | Drought Monitor | USDA/UNL USDM | No |
 | Smoke Forecast | NOAA HRRR-Smoke WMS | No |
-| GOES Satellite | NOAA GOES East + West (Esri tiles) | No |
+| GOES Satellite | NOAA GOES East + West (Iowa Environmental Mesonet WMS, configurable) | No |
 
 ## Quick Start
 
@@ -43,6 +43,20 @@ Open http://localhost:3000
 3. Add to `.env`: `VITE_AIRNOW_API_KEY=your_key`
 
 > Without API keys, the app runs in **demo mode** with realistic mock data for all layers.
+
+## Optional: GOES-DL-backed satellite pipeline
+
+If you want to use your own GOES tile infrastructure, you can point Sentinel to
+custom GOES tile templates via environment variables in `.env`:
+
+- `VITE_GOES_EAST_VISIBLE_TILE_URL`
+- `VITE_GOES_WEST_VISIBLE_TILE_URL`
+- `VITE_GOES_EAST_FIRE_RGB_TILE_URL`
+- `VITE_GOES_WEST_FIRE_RGB_TILE_URL`
+
+This is compatible with endpoints produced by a pipeline built with
+[GOES-DL](https://github.com/wvenialbo/GOES-DL), as long as your service
+exposes web map raster tiles (XYZ or WMS template).
 
 ## Tech Stack
 
