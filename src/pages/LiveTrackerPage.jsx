@@ -412,6 +412,7 @@ const flightBounds = useMemo(() => {
   // Tropical storms – NOAA NHC active storms (on any tab when layer enabled)
   const {
     geoJSON: tropicalStormsGeoJSON,
+    stormCount: tropicalStormCount,
     refresh: refreshTropicalStorms,
   } = useTropicalStorms(layers.tropicalStorms);
 
@@ -852,6 +853,7 @@ const flightBounds = useMemo(() => {
             onMeasureClose={onMeasureClose}
             precipRingActive={precipRingActive}
             onPrecipRingToggle={onPrecipRingToggle}
+            tropicalStormCount={tropicalStormCount}
           />
 
           <Legend

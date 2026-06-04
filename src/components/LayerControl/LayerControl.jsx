@@ -213,6 +213,7 @@ const LayerControl = memo(function LayerControl({
   onMeasureClose,
   precipRingActive = false,
   onPrecipRingToggle,
+  tropicalStormCount = null,
 }) {
   const { layerPanelOpen, toggleLayerPanel } = useApp();
   const [collapsed, setCollapsed] = useState({});
@@ -408,12 +409,18 @@ const LayerControl = memo(function LayerControl({
                               }
                               const def = LAYER_DEFS[layerRef];
                               if (!def) return null;
+                              let sublabel = def.sublabel;
+                              if (layerRef === 'tropicalStorms') {
+                                if (tropicalStormCount === null) sublabel = 'NOAA NHC · loading…';
+                                else if (tropicalStormCount === 0) sublabel = 'NOAA NHC · no active storms';
+                                else sublabel = `NOAA NHC · ${tropicalStormCount} active storm${tropicalStormCount !== 1 ? 's' : ''}`;
+                              }
                               return (
                                 <LayerToggle
                                   key={layerRef}
                                   layerKey={layerRef}
                                   label={def.label}
-                                  sublabel={def.sublabel}
+                                  sublabel={sublabel}
                                   icon={def.icon}
                                   color={def.color}
                                 />
