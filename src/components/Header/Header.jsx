@@ -145,7 +145,7 @@ const Header = memo(function Header({
 
   return (
     <>
-      <header className="relative z-40 flex items-center justify-between h-[60px] px-3 bg-[#0d1520] shrink-0">
+      <header className="relative z-40 flex items-center justify-between h-[60px] px-3 bg-sentinel-900 shrink-0">
 
         {/* Amber hamburger circle */}
         <button
