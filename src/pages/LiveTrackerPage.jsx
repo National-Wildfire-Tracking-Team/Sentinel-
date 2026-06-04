@@ -32,6 +32,7 @@ import { useNdgdSmokeForecast } from '../hooks/useNdgdSmokeForecast';
 import { useFireWeatherOutlooks } from '../hooks/useFireWeatherOutlooks';
 import { useNhcTropicalWeather } from '../hooks/useNhcTropicalWeather';
 import { useCriticalInfrastructure } from '../hooks/useCriticalInfrastructure';
+import { useNhcStorms } from '../hooks/useNhcStorms';
 import { useNationalMapColleges } from '../hooks/useNationalMapColleges';
 import { usePlan } from '../hooks/usePlan';
 import { polygonCentroid } from '../utils/geoUtils';
@@ -433,14 +434,11 @@ const flightBounds = useMemo(() => {
   );
 
   const {
-    trackGeoJSON:         nhcTrackGeoJSON,
-    observedTrackGeoJSON: nhcObservedTrackGeoJSON,
-    coneGeoJSON:          nhcConeGeoJSON,
-    disturbanceGeoJSON:   nhcDisturbanceGeoJSON,
-    stormLabelsGeoJSON:   nhcStormLabelsGeoJSON,
-  } = useNhcTropicalWeather(
-    layers.nhcTropicalWeather && activeMapTab === MAP_TABS.weather
-  );
+    centersGeoJSON: nhcCentersGeoJSON,
+    conesGeoJSON:   nhcConesGeoJSON,
+    tracksGeoJSON:  nhcTracksGeoJSON,
+    refresh:        refreshNhcStorms,
+  } = useNhcStorms(activeMapTab === MAP_TABS.weather && layers.nhcStorms);
 
   useEffect(() => {
     if (flightsError) console.error('[FlightTracking] Error:', flightsError);
@@ -716,14 +714,17 @@ const flightBounds = useMemo(() => {
     if (layers.fireWeatherOutlooks || (layers.spcWeatherOutlooks && spcWeatherOutlookMode === 'fireWx')) {
       refreshFireWeatherOutlooks();
     }
+    if (activeMapTab === MAP_TABS.weather && layers.nhcStorms) refreshNhcStorms();
   }, [
     refreshHotspots, refreshPerimeters, refreshAlerts, refreshIncidents, refreshCalFireIncidents, refreshStormReports,
     refreshSpcMd, refreshSpcOutlooks, refreshUserReports, refreshEvacZones, refreshReporterEvacZones,
     refreshAQI, refreshFlights, refreshRAWS, refreshAirNowMonitors, refreshDroughtOutlook, refreshNdgdSmokeForecast, refreshFireWeatherOutlooks,
     refreshCriticalInfrastructure,
     refreshNationalMapColleges,
+    refreshNhcStorms,
     activeMapTab, layers.aqi, layers.flights, rawsEnabled, layers.airNowMonitors, layers.droughtOutlook, layers.ndgdSmokeForecast,
     layers.fireWeatherOutlooks, layers.spcWeatherOutlooks, spcWeatherOutlookMode, layers.stormReports,
+    layers.nhcStorms,
     criticalInfraEnabled,
     schoolsLayerEnabled,
   ]);
@@ -785,11 +786,9 @@ const flightBounds = useMemo(() => {
             criticalInfrastructureVisible={criticalInfraEnabled}
             nationalMapCollegesGeoJSON={nationalMapCollegesGeoJSON}
             nationalMapCollegesVisible={schoolsLayerEnabled}
-            nhcTrackGeoJSON={nhcTrackGeoJSON}
-            nhcObservedTrackGeoJSON={nhcObservedTrackGeoJSON}
-            nhcConeGeoJSON={nhcConeGeoJSON}
-            nhcDisturbanceGeoJSON={nhcDisturbanceGeoJSON}
-            nhcStormLabelsGeoJSON={nhcStormLabelsGeoJSON}
+            nhcCentersGeoJSON={nhcCentersGeoJSON}
+            nhcConesGeoJSON={nhcConesGeoJSON}
+            nhcTracksGeoJSON={nhcTracksGeoJSON}
             fireWeatherOutlooksGeoJSON={fireWeatherOutlooksGeoJSON}
             fireWxOutlookType={fireWxOutlookType}
             fireWxActiveDay={fireWxActiveDay}

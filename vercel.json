@@ -4,6 +4,10 @@
       "source": "/api/calfire",
       "destination": "https://incidents.fire.ca.gov/umbraco/api/IncidentApi/GeoJsonList"
     },
+    {
+      "source": "/api/nhc/current",
+      "destination": "https://www.nhc.noaa.gov/CurrentStorms.json"
+    },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
 }
