@@ -6,7 +6,6 @@
 import { useState } from 'react';
 import { Search, SortDesc, Loader2, AlertCircle } from 'lucide-react';
 import IncidentCard from './IncidentCard';
-import UpdatesFeed from './UpdatesFeed';
 import { useApp } from '../../context/AppContext';
 
 const SORT_OPTIONS = [
@@ -36,6 +35,9 @@ export default function IncidentFeed({ incidents, loading, error }) {
     if ((inc.contained ?? 0) >= 95) return false;
     if (inc.updated && (now - new Date(inc.updated).getTime()) > THREE_DAYS_MS) return false;
 
+    // 'focused' mode hides controlled fires
+    if (feedFilter === 'focused' && inc.status === 'controlled') return false;
+
     return true;
   });
 
@@ -53,9 +55,6 @@ export default function IncidentFeed({ incidents, loading, error }) {
 
   return (
     <div className="flex flex-col h-full">
-      {/* Recent updates across all incidents */}
-      <UpdatesFeed />
-
       {/* Search + sort bar */}
       <div className="p-3 border-b border-sentinel-700 space-y-2 shrink-0">
         <div className="relative">

@@ -5,66 +5,11 @@
 
 import { memo } from 'react';
 import { Link } from 'react-router-dom';
-import { Flame, TrendingUp, Wind, ChevronLeft, CloudSun, ShieldAlert, ArrowLeft, Bot, MessageSquare, Loader2 } from 'lucide-react';
+import { Flame, TrendingUp, Wind, ChevronLeft, CloudSun, ShieldAlert, ArrowLeft } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
-import { useIncidentUpdates } from '../../hooks/useIncidentUpdates';
-import { formatRelativeTime } from '../../utils/formatUtils';
 import IncidentFeed from './IncidentFeed';
 import WeatherAlertsFeed from './WeatherAlertsFeed';
 import AddressAlertSearch from './AddressAlertSearch';
-
-function SelectedFireUpdates({ fire }) {
-  const { updates, loading } = useIncidentUpdates(fire.id);
-  const recent = updates.slice(0, 5);
-
-  return (
-    <div className="border-b border-sentinel-700 shrink-0">
-      <div className="px-3 py-2 bg-fire-950/30 border-b border-sentinel-700/50">
-        <p className="text-[10px] font-bold text-fire-400 uppercase tracking-wider mb-0.5">Selected Incident</p>
-        <p className="text-white text-xs font-semibold truncate">{fire.name}</p>
-      </div>
-
-      <div className="px-2 py-2 space-y-1.5 max-h-52 overflow-y-auto scrollbar-thin">
-        {loading && (
-          <div className="flex items-center justify-center py-3 gap-1.5">
-            <Loader2 size={13} className="animate-spin text-sentinel-500" />
-            <span className="text-sentinel-500 text-xs">Loading updates…</span>
-          </div>
-        )}
-
-        {!loading && recent.length === 0 && (
-          <div className="flex flex-col items-center py-3 gap-1">
-            <MessageSquare size={14} className="text-sentinel-600" />
-            <p className="text-sentinel-500 text-xs">No updates yet.</p>
-          </div>
-        )}
-
-        {recent.map(update => {
-          const isAutomated = update.source_type === 'automated';
-          const lines = (update.content || '').split('\n').filter(Boolean);
-          return (
-            <div key={update.id} className="rounded-lg border border-sentinel-700 bg-sentinel-800/60 px-2.5 py-2">
-              <div className="flex items-center gap-1 mb-1">
-                {isAutomated && <Bot size={10} className="text-blue-400 shrink-0" />}
-                <span className={`text-[10px] font-semibold ${isAutomated ? 'text-blue-400' : 'text-amber-400'}`}>
-                  {isAutomated ? 'Data Updated' : 'Reporter Update'}
-                </span>
-                <span className="text-sentinel-600 text-[10px] ml-auto shrink-0">
-                  {formatRelativeTime(update.created_at)}
-                </span>
-              </div>
-              <div className="space-y-0.5">
-                {lines.map((line, i) => (
-                  <p key={i} className="text-sentinel-200 text-[11px] leading-snug">{line}</p>
-                ))}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
 
 function StatPill({ icon: Icon, label, value, color = 'text-white', onClick, className = '' }) {
   const base = `flex flex-col items-center gap-0.5 px-3 py-2 bg-sentinel-800 rounded-lg border border-sentinel-700 min-w-[70px] ${className}`;
@@ -97,8 +42,7 @@ const Sidebar = memo(function Sidebar({
   weatherAlertFilter = 'all',
   onWeatherAlertFilterChange,
 }) {
-  const { sidebarOpen, toggleSidebar, alerts, selectedFire } = useApp();
-  const selectedIncident = selectedFire?.type === 'incident' ? selectedFire : null;
+  const { sidebarOpen, toggleSidebar, alerts } = useApp();
   const isWeatherTab = activeMapTab === 'weather';
 
   const activeCount  = incidents.filter(i => i.status === 'active').length;
@@ -232,11 +176,6 @@ const Sidebar = memo(function Sidebar({
 
         {/* Address alert search – weather tab only */}
         {isWeatherTab && <AddressAlertSearch />}
-
-        {/* Selected incident updates – shown in wildfire tab when a fire is selected */}
-        {!isWeatherTab && selectedIncident && (
-          <SelectedFireUpdates fire={selectedIncident} />
-        )}
 
         {/* Feed – takes remaining height */}
         <div className="flex-1 overflow-hidden flex flex-col">

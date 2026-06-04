@@ -30,6 +30,7 @@ import { useAirNowMonitors } from '../hooks/useAirNowMonitors';
 import { useDroughtOutlook } from '../hooks/useDroughtOutlook';
 import { useNdgdSmokeForecast } from '../hooks/useNdgdSmokeForecast';
 import { useFireWeatherOutlooks } from '../hooks/useFireWeatherOutlooks';
+import { useNhcTropicalWeather } from '../hooks/useNhcTropicalWeather';
 import { useCriticalInfrastructure } from '../hooks/useCriticalInfrastructure';
 import { useNhcStorms } from '../hooks/useNhcStorms';
 import { useNationalMapColleges } from '../hooks/useNationalMapColleges';
