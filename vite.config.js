@@ -23,13 +23,11 @@ export default defineConfig({
   server: {
     port: 3000,
     proxy: {
-      // IPAWS backend (run `npm run ipaws-server`); avoids clashing with SPA routes
       '/alerts': {
         target: 'http://127.0.0.1:3847',
         changeOrigin: true,
         rewrite: () => '/api/alerts',
       },
-      // CAL FIRE blocks cross-origin browser requests; dev server proxies same path as Netlify
       '/api/calfire': {
         target: 'https://incidents.fire.ca.gov',
         changeOrigin: true,
@@ -37,6 +35,21 @@ export default defineConfig({
         rewrite: path => {
           const qs = path.includes('?') ? path.slice(path.indexOf('?')) : '';
           return `/umbraco/api/IncidentApi/GeoJsonList${qs}`;
+        },
+      },
+      // NHC – nhc.noaa.gov lacks CORS headers; dev server proxies same paths as Netlify edge fn
+      '/api/nhc/current': {
+        target: 'https://www.nhc.noaa.gov',
+        changeOrigin: true,
+        rewrite: () => '/CurrentStorms.json',
+      },
+      '/api/nhc/gis': {
+        target: 'https://www.nhc.noaa.gov',
+        changeOrigin: true,
+        rewrite: (path) => {
+          const qs = path.includes('?') ? path.slice(path.indexOf('?') + 1) : '';
+          const file = new URLSearchParams(qs).get('file') || '';
+          return `/gis/forecast/archive/${file}`;
         },
       },
     },
@@ -56,6 +69,20 @@ export default defineConfig({
         rewrite: path => {
           const qs = path.includes('?') ? path.slice(path.indexOf('?')) : '';
           return `/umbraco/api/IncidentApi/GeoJsonList${qs}`;
+        },
+      },
+      '/api/nhc/current': {
+        target: 'https://www.nhc.noaa.gov',
+        changeOrigin: true,
+        rewrite: () => '/CurrentStorms.json',
+      },
+      '/api/nhc/gis': {
+        target: 'https://www.nhc.noaa.gov',
+        changeOrigin: true,
+        rewrite: (path) => {
+          const qs = path.includes('?') ? path.slice(path.indexOf('?') + 1) : '';
+          const file = new URLSearchParams(qs).get('file') || '';
+          return `/gis/forecast/archive/${file}`;
         },
       },
     },

@@ -35,6 +35,8 @@ const initialState = {
     /** USGS National Map — colleges/universities (structures layer 56); Pro */
     schoolsUniversities: false,
     tropicalStorms: true,
+    /** NHC active tropical storms / hurricanes */
+    nhcStorms: false,
   },
   // Currently clicked/selected fire feature (hotspot or perimeter)
   selectedFire: null,

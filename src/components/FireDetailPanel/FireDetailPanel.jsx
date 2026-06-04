@@ -109,7 +109,7 @@ function HotspotDetail({ fire }) {
       <div className="space-y-2 text-xs text-sentinel-400">
         <div className="flex items-center gap-2">
           <MapPin size={12} />
-          <span>{fire.lat?.toFixed(4)}°N, {Math.abs(fire.lng)?.toFixed(4)}°W</span>
+          <span>{fire.lat?.toFixed(4)}°N, {fire.lng != null ? Math.abs(fire.lng).toFixed(4) : '?'}°W</span>
         </div>
         <div className="flex items-center gap-2">
           <Calendar size={12} />
@@ -206,7 +206,10 @@ function PerimeterDetail({ fire }) {
       </div>
 
       {/* Live incident timeline */}
-      <IncidentTimeline incidentId={fire.id || fire.name} dataSource="NIFC / IRWIN" />
+      <IncidentTimeline
+        incidentId={fire.id || fire.name}
+        dataSource={fire._source === 'FIRIS' ? 'NIFC / FIRIS CA' : 'NIFC / IRWIN'}
+      />
     </>
   );
 }
@@ -216,7 +219,7 @@ function IncidentDetail({ fire }) {
   const containment = Number(fire.contained) || 0;
   const containColor = containmentToColor(containment);
   const statusLabel = fire.status ? String(fire.status) : (containment >= 100 ? 'Controlled' : 'Active');
-  const isActive = containment < 100 && String(fire.status).toLowerCase() !== 'controlled';
+  const isActive = containment < 100 && (fire.status ?? '').toLowerCase() !== 'controlled';
   const createdAt = fire.started || fire.createdAt;
   const evacuationOrderLines = Array.isArray(fire.evacuation_order_lines) ? fire.evacuation_order_lines : [];
   const locationLine = fire.location_description || `${fire.county || 'Unknown County'} County, ${fire.state || ''}`.trim();
@@ -1375,6 +1378,16 @@ const FireDetailPanel = memo(function FireDetailPanel() {
           {selectedFire.type === 'transmission-line'       && <TransmissionLineDetail fire={selectedFire} />}
           {selectedFire.type === 'gas-pipeline'            && <GasPipelineDetail     fire={selectedFire} />}
           {selectedFire.type === 'national-map-college'    && <NationalMapCollegeDetail fire={selectedFire} />}
+          {![
+            'hotspot', 'perimeter', 'incident', 'aqi', 'weather-alert', 'user-report',
+            'evacuation-zone', 'reporter-evacuation-zone', 'transmission-line',
+            'gas-pipeline', 'national-map-college',
+          ].includes(selectedFire.type) && (
+            <div className="flex flex-col items-center justify-center py-10 text-center gap-3">
+              <Info size={24} className="text-sentinel-600" />
+              <p className="text-sm text-sentinel-400">No detail view for type <span className="font-mono text-sentinel-300">{selectedFire.type}</span>.</p>
+            </div>
+          )}
         </div>
       </div>
     </>

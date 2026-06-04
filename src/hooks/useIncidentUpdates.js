@@ -7,6 +7,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { supabase, isSupabaseConfigured } from '../api/supabaseClient';
+import { subscribeToIncidentChanges } from '../utils/incidentChangeBus';
 
 /**
  * Subscribe to the live update feed for an incident.
@@ -70,7 +71,17 @@ export function useIncidentUpdates(incidentId) {
             }
             if (payload.eventType === 'INSERT') {
               if (prev.some((u) => u.id === row.id)) return prev;
-              return [row, ...prev];
+              // Remove any matching local placeholder for this automated update.
+              const withoutLocal = prev.filter(
+                (u) =>
+                  !(
+                    u.id.startsWith('local-') &&
+                    u.source_type === 'automated' &&
+                    u.content === row.content &&
+                    Math.abs(new Date(u.created_at) - new Date(row.created_at)) < 10_000
+                  ),
+              );
+              return [row, ...withoutLocal];
             }
             if (payload.eventType === 'UPDATE') {
               return prev.map((u) => (u.id === row.id ? { ...u, ...row } : u));
@@ -82,6 +93,32 @@ export function useIncidentUpdates(incidentId) {
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
+  }, [incidentId]);
+
+  // ── Local change bus ───────────────────────────────────────────────────
+  // Receives updates published by useIncidents immediately on detection,
+  // before (or instead of) the Supabase round-trip completes.
+  useEffect(() => {
+    if (!incidentId) return undefined;
+
+    const unsubscribe = subscribeToIncidentChanges(incidentId, (localUpdate) => {
+      setUpdates((prev) => {
+        // Skip if already present (Supabase realtime may have delivered it first).
+        if (prev.some((u) => u.id === localUpdate.id)) return prev;
+        // Also skip if a real Supabase row with the same content arrived recently.
+        const isDupe = prev.some(
+          (u) =>
+            !u.id.startsWith('local-') &&
+            u.source_type === 'automated' &&
+            u.content === localUpdate.content &&
+            Math.abs(new Date(u.created_at) - new Date(localUpdate.created_at)) < 10_000,
+        );
+        if (isDupe) return prev;
+        return [localUpdate, ...prev];
+      });
+    });
+
+    return unsubscribe;
   }, [incidentId]);
 
   // ── CRUD helpers ───────────────────────────────────────────────────────

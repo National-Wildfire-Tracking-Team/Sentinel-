@@ -130,7 +130,8 @@ const Legend = memo(function Legend({
 
   const anyActive = layers.fireHotspots || layers.aqi || layers.firePerimeters || layers.spcWeatherOutlooks
     || layers.weatherAlerts || layers.radar || layers.incidentLocations
-    || layers.stormReports || layers.fireWeatherOutlooks || layers.ndgdSmokeForecast;
+    || layers.stormReports || layers.fireWeatherOutlooks || layers.ndgdSmokeForecast
+    || layers.nhcTropicalWeather;
   if (!anyActive) return null;
 
   const spcScale = SPC_SCALES[spcOutlookType] || SPC_SCALES.categorical;
@@ -223,6 +224,27 @@ const Legend = memo(function Legend({
               <Section title="NOAA Smoke Forecast (NDGD)">
                 <div className="text-sentinel-300 text-[10px] mb-1">Hourly surface smoke · µg/m³</div>
                 {NDGD_SMOKE_SCALE.map(row => <ColorRow key={row.label} {...row} />)}
+              </Section>
+            )}
+
+            {layers.nhcTropicalWeather && (
+              <Section title="NHC Tropical Weather">
+                <div className="text-sentinel-300 text-[10px] mb-1">Disturbance outlook</div>
+                <ColorRow color="#FFE566" label="Low formation chance" />
+                <ColorRow color="#FFA040" label="Medium formation chance" />
+                <ColorRow color="#FF4444" label="High formation chance" />
+                <div className="pt-1 mt-1 border-t border-sentinel-700" />
+                <div className="text-sentinel-300 text-[10px] mb-1">Active storms (SSHWS)</div>
+                <ColorRow color="#5ebaff" label="Tropical Depression" />
+                <ColorRow color="#00faf4" label="Tropical Storm" />
+                <ColorRow color="#ffffcc" label="Category 1" />
+                <ColorRow color="#ffe775" label="Category 2" />
+                <ColorRow color="#ffc140" label="Category 3" />
+                <ColorRow color="#ff8f20" label="Category 4" />
+                <ColorRow color="#ff6060" label="Category 5" />
+                <div className="pt-1 mt-1 border-t border-sentinel-700" />
+                <ColorRow color="#888888" label="Past track (observed)" />
+                <ColorRow color="#c0c0c0" label="Forecast cone" />
               </Section>
             )}
 
