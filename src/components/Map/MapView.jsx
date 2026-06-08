@@ -13,6 +13,7 @@ import { useApp } from '../../context/AppContext';
 import { formatAcres, formatContainment, formatFRP } from '../../utils/formatUtils';
 import { frpToLabel } from '../../utils/colorUtils';
 import * as hrrRateLimiter from '../../utils/hrrRateLimiter';
+import { loadHazardMapIcons } from '../../utils/loadHazardMapIcons';
 
 // Data layer components
 import FireHotspotsLayer  from './layers/FireHotspotsLayer';
@@ -44,6 +45,7 @@ import CriticalInfrastructureLayer from './layers/CriticalInfrastructureLayer';
 import NationalMapCollegesLayer from './layers/NationalMapCollegesLayer';
 import NhcStormsLayer from './layers/NhcStormsLayer';
 import NHCTropicalWeatherLayer from './layers/NHCTropicalWeatherLayer';
+import HazardCategoryMarkersLayer from './layers/HazardCategoryMarkersLayer';
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN || '';
 const HAS_MAPBOX_TOKEN = Boolean(MAPBOX_TOKEN.trim());
@@ -838,6 +840,12 @@ export default function MapView({
   const isWeatherTab    = activeMapTab === 'weather';
   const isAllHazardTab  = activeMapTab === 'allhazard';
 
+  const [hazardIconsLoaded, setHazardIconsLoaded] = useState(false);
+
+  const handleMapLoad = useCallback((evt) => {
+    loadHazardMapIcons(evt.target, () => setHazardIconsLoaded(true));
+  }, []);
+
   // Hover tooltip state
   const [hoverFeature, setHoverFeature] = useState(null);
   const [hoverLngLat,  setHoverLngLat]  = useState(null);
@@ -1405,6 +1413,7 @@ export default function MapView({
         onMouseMove={handleMouseMove}
         onMouseLeave={handleMouseLeave}
         onMove={handleMove}
+        onLoad={handleMapLoad}
         transformRequest={transformRequest}
         attributionControl={false}
         maxTileCacheSize={150}
@@ -1560,6 +1569,13 @@ export default function MapView({
         <UserReportsLayer
           geoJSON={userReportsGeoJSON}
           visible={(isWildfireTab || isAllHazardTab) && layers.incidentLocations}
+        />
+
+        {/* Hazard category pin icons – wildfire + flood/weather on all-hazards tab */}
+        <HazardCategoryMarkersLayer
+          iconsLoaded={hazardIconsLoaded}
+          fireVisible={(isWildfireTab || isAllHazardTab) && layers.incidentLocations}
+          weatherVisible={(isWeatherTab || isAllHazardTab) && layers.weatherAlerts}
         />
 
         {/* Live flight tracking – always on top of all fire/weather layers */}

@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 80" width="60" height="80">
+  <defs>
+    <clipPath id="pin-sar">
+      <path d="M30 2C14.5 2 2 14.5 2 30c0 17.5 28 48 28 48s28-30.5 28-48C58 14.5 45.5 2 30 2z"/>
+    </clipPath>
+    <radialGradient id="sar-bg" cx="50%" cy="55%" r="60%">
+      <stop offset="0%" stop-color="#484848"/>
+      <stop offset="100%" stop-color="#1e1e1e"/>
+    </radialGradient>
+    <radialGradient id="sar-glow" cx="50%" cy="42%" r="55%">
+      <stop offset="0%" stop-color="#00e5ff" stop-opacity="0.5"/>
+      <stop offset="100%" stop-color="#00e5ff" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <!-- Outer glow -->
+  <ellipse cx="30" cy="34" rx="33" ry="36" fill="url(#sar-glow)"/>
+  <g clip-path="url(#pin-sar)">
+    <!-- Background -->
+    <rect width="60" height="80" fill="url(#sar-bg)"/>
+    <!-- Rubble layer -->
+    <polygon points="0,52 10,47 18,54 28,46 38,53 48,46 58,52 60,56 0,56" fill="#3a3a3a"/>
+    <polygon points="0,58 12,52 22,58 32,52 42,58 52,52 60,56 60,62 0,62" fill="#2e2e2e"/>
+    <polygon points="0,64 10,60 20,66 30,60 40,66 50,60 60,64 60,80 0,80" fill="#262626"/>
+    <!-- Rebar cross-hatch -->
+    <line x1="8"  y1="46" x2="16" y2="64" stroke="#1a1a1a" stroke-width="1.2"/>
+    <line x1="22" y1="45" x2="30" y2="63" stroke="#1a1a1a" stroke-width="1.2"/>
+    <line x1="36" y1="45" x2="44" y2="63" stroke="#1a1a1a" stroke-width="1.2"/>
+    <line x1="50" y1="46" x2="56" y2="62" stroke="#1a1a1a" stroke-width="1.2"/>
+    <!-- Hard hat - brim -->
+    <ellipse cx="22" cy="34" rx="13" ry="3.5" fill="#cc4400"/>
+    <!-- Hard hat - dome -->
+    <path d="M10 34C10 24 15 18 22 17C29 16 34 21 34 28L34 34Z" fill="#ff6600"/>
+    <!-- Hard hat highlight -->
+    <path d="M14 27C15 22 18 19 22 18C20 23 17 25 14 27Z" fill="#ff9944" opacity="0.55"/>
+    <!-- Hard hat stripe -->
+    <rect x="10" y="30" width="24" height="2" fill="#cc4400" opacity=".4"/>
+    <!-- Paw print - main pad -->
+    <ellipse cx="42" cy="36" rx="6.5" ry="5.5" fill="#e05000"/>
+    <!-- Paw print - toe pads -->
+    <ellipse cx="35"   cy="28.5" rx="2.8" ry="2.2" fill="#e05000"/>
+    <ellipse cx="40.5" cy="27"   rx="2.8" ry="2.2" fill="#e05000"/>
+    <ellipse cx="46"   cy="27"   rx="2.8" ry="2.2" fill="#e05000"/>
+    <ellipse cx="50.5" cy="29"   rx="2.8" ry="2.2" fill="#e05000"/>
+  </g>
+  <!-- Cyan border -->
+  <path d="M30 2C14.5 2 2 14.5 2 30c0 17.5 28 48 28 48s28-30.5 28-48C58 14.5 45.5 2 30 2z" fill="none" stroke="#00d9d9" stroke-width="2.5"/>
+  <!-- Inner glow stroke -->
+  <path d="M30 2C14.5 2 2 14.5 2 30c0 17.5 28 48 28 48s28-30.5 28-48C58 14.5 45.5 2 30 2z" fill="none" stroke="#00d9d9" stroke-width="7" stroke-opacity="0.18" clip-path="url(#pin-sar)"/>
+</svg>
