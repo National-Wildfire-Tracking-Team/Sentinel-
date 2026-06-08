@@ -29,21 +29,25 @@ const CONTAINMENT_COLOR = [
 const DOT_RADIUS = 7;
 const DOT_GLOW_RADIUS = 14;
 
-const IncidentLocationsLayer = memo(function IncidentLocationsLayer({ geoJSON, visible }) {
+/**
+ * @param {boolean} props.useIconMarkers  When true, hides circle dots (pin icons shown instead)
+ */
+const IncidentLocationsLayer = memo(function IncidentLocationsLayer({ geoJSON, visible, useIconMarkers }) {
   const vis = visible ? 'visible' : 'none';
+  const circleVis = (visible && !useIconMarkers) ? 'visible' : 'none';
 
   // Hide fire dots below 0.4 acres
   const sizeFilter = ['>=', ['get', 'acres'], 0.4];
 
   return (
     <Source id="incident-locations" type="geojson" data={geoJSON || EMPTY_GEOJSON}>
-      {/* Outer glow ring */}
+      {/* Outer glow ring – hidden when pin icons are active */}
       <Layer
         id="incident-locations-glow"
         type="circle"
         source="incident-locations"
         filter={sizeFilter}
-        layout={{ visibility: vis }}
+        layout={{ visibility: circleVis }}
         paint={{
           'circle-radius': DOT_GLOW_RADIUS,
           'circle-color': CONTAINMENT_COLOR,
@@ -51,13 +55,13 @@ const IncidentLocationsLayer = memo(function IncidentLocationsLayer({ geoJSON, v
           'circle-stroke-width': 0,
         }}
       />
-      {/* Main marker circle */}
+      {/* Main marker circle – hidden when pin icons are active */}
       <Layer
         id="incident-locations-circle"
         type="circle"
         source="incident-locations"
         filter={sizeFilter}
-        layout={{ visibility: vis }}
+        layout={{ visibility: circleVis }}
         paint={{
           'circle-radius': DOT_RADIUS,
           'circle-color': CONTAINMENT_COLOR,
@@ -67,13 +71,13 @@ const IncidentLocationsLayer = memo(function IncidentLocationsLayer({ geoJSON, v
           'circle-stroke-opacity': 0.6,
         }}
       />
-      {/* Name labels at higher zoom */}
+      {/* Name labels – always shown when layer is visible (pin icon layer handles labels too) */}
       <Layer
         id="incident-locations-label"
         type="symbol"
         source="incident-locations"
         filter={sizeFilter}
-        minzoom={7}
+        minzoom={useIconMarkers ? 99 : 7}
         layout={{
           visibility: vis,
           'text-field': ['get', 'name'],
