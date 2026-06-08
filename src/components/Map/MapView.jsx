@@ -834,8 +834,9 @@ export default function MapView({
     }, 310);
     return () => clearTimeout(timer);
   }, [sidebarOpen]);
-  const isWildfireTab = activeMapTab === 'wildfire';
-  const isWeatherTab  = activeMapTab === 'weather';
+  const isWildfireTab   = activeMapTab === 'wildfire';
+  const isWeatherTab    = activeMapTab === 'weather';
+  const isAllHazardTab  = activeMapTab === 'allhazard';
 
   // Hover tooltip state
   const [hoverFeature, setHoverFeature] = useState(null);
@@ -962,27 +963,27 @@ export default function MapView({
   const interactiveLayerIds = useMemo(() => {
     if (measureActive) return [];
     const ids = [];
-    if (isWildfireTab && layers.fireHotspots && hotspotsGeoJSON)        ids.push('fire-hotspots-circle');
-    if (isWildfireTab && layers.firePerimeters && perimetersGeoJSON) {
+    if ((isWildfireTab || isAllHazardTab) && layers.fireHotspots && hotspotsGeoJSON)        ids.push('fire-hotspots-circle');
+    if ((isWildfireTab || isAllHazardTab) && layers.firePerimeters && perimetersGeoJSON) {
       ids.push('fire-perimeters-fill');
       ids.push('fire-perimeter-centroids-circle');
     }
-    if (isWildfireTab && layers.incidentLocations && incidentsGeoJSON)   ids.push('incident-locations-circle');
-    if (isWildfireTab && layers.incidentLocations && userReportsGeoJSON)  ids.push('user-reports-circle');
-    if (layers.aqi && aqiGeoJSON)                                         ids.push('aqi-stations-circle');
-    if (isWeatherTab && layers.weatherAlerts && alertsGeoJSON) ids.push('weather-alerts-fill');
-    if (isWeatherTab && layers.spcWeatherOutlooks && spcWeatherOutlookMode === 'convective' && spcOutlooksGeoJSON) {
+    if ((isWildfireTab || isAllHazardTab) && layers.incidentLocations && incidentsGeoJSON)   ids.push('incident-locations-circle');
+    if ((isWildfireTab || isAllHazardTab) && layers.incidentLocations && userReportsGeoJSON)  ids.push('user-reports-circle');
+    if (layers.aqi && aqiGeoJSON)                                                             ids.push('aqi-stations-circle');
+    if ((isWeatherTab || isAllHazardTab) && layers.weatherAlerts && alertsGeoJSON) ids.push('weather-alerts-fill');
+    if ((isWeatherTab || isAllHazardTab) && layers.spcWeatherOutlooks && spcWeatherOutlookMode === 'convective' && spcOutlooksGeoJSON) {
       ids.push('spc-outlook-fill');
     }
-    if (isWeatherTab && layers.weatherAlerts && spcMdGeoJSON) ids.push('spc-md-fill');
-    if (isWeatherTab && layers.stormReports && stormReportsGeoJSON)     ids.push('nws-lsr-reports-circle');
-    if (isWildfireTab && layers.evacZones && evacZonesGeoJSON)                        ids.push('evac-zones-fill');
-    if (isWildfireTab && layers.reporterEvacZones && reporterEvacZonesGeoJSON)        ids.push('reporter-evac-zones-fill');
-    if (layers.flights && flightsGeoJSON)                                             ids.push('flights-symbol');
-    if (layers.rawsStations && rawsGeoJSON)                                           ids.push('raws-stations-circle');
-    if (isWildfireTab && layers.airNowMonitors && airNowMonitorsGeoJSON)              ids.push('airnow-monitors-circle');
-    if (isWildfireTab && layers.droughtOutlook && droughtOutlookGeoJSON)              ids.push('drought-outlook-fill');
-    if (isWildfireTab && layers.ndgdSmokeForecast && ndgdSmokeFilteredGeoJSON?.features?.length) {
+    if ((isWeatherTab || isAllHazardTab) && layers.weatherAlerts && spcMdGeoJSON) ids.push('spc-md-fill');
+    if ((isWeatherTab || isAllHazardTab) && layers.stormReports && stormReportsGeoJSON)     ids.push('nws-lsr-reports-circle');
+    if ((isWildfireTab || isAllHazardTab) && layers.evacZones && evacZonesGeoJSON)                        ids.push('evac-zones-fill');
+    if ((isWildfireTab || isAllHazardTab) && layers.reporterEvacZones && reporterEvacZonesGeoJSON)        ids.push('reporter-evac-zones-fill');
+    if (layers.flights && flightsGeoJSON)                                                                 ids.push('flights-symbol');
+    if (layers.rawsStations && rawsGeoJSON)                                                               ids.push('raws-stations-circle');
+    if ((isWildfireTab || isAllHazardTab) && layers.airNowMonitors && airNowMonitorsGeoJSON)              ids.push('airnow-monitors-circle');
+    if ((isWildfireTab || isAllHazardTab) && layers.droughtOutlook && droughtOutlookGeoJSON)              ids.push('drought-outlook-fill');
+    if ((isWildfireTab || isAllHazardTab) && layers.ndgdSmokeForecast && ndgdSmokeFilteredGeoJSON?.features?.length) {
       ids.push('ndgd-smoke-forecast-fill');
     }
     if (criticalInfrastructureVisible && criticalInfrastructureTransGeoJSON?.features?.length) {
@@ -998,16 +999,16 @@ export default function MapView({
     if (isWeatherTab && layers.spcWeatherOutlooks && spcWeatherOutlookMode === 'fireWx' && fireWeatherOutlooksGeoJSON) {
       ids.push('fire-weather-outlook-fill');
     }
-    if (isWeatherTab && layers.nhcStorms && nhcCentersGeoJSON?.features?.length) {
+    if ((isWeatherTab || isAllHazardTab) && layers.nhcStorms && nhcCentersGeoJSON?.features?.length) {
       ids.push('nhc-centers-circle');
     }
-    if (isWeatherTab && layers.nhcTropicalWeather) {
+    if ((isWeatherTab || isAllHazardTab) && layers.nhcTropicalWeather) {
       if (nhcDisturbanceGeoJSON?.features?.length) ids.push('nhc-disturbance-fill');
       if (nhcTrackGeoJSON?.features?.length) ids.push('nhc-track-circle');
       if (nhcObservedTrackGeoJSON?.features?.length) ids.push('nhc-obs-circle');
     }
     return ids;
-  }, [measureActive, isWildfireTab, isWeatherTab, layers.fireHotspots, layers.firePerimeters, layers.incidentLocations, layers.aqi,
+  }, [measureActive, isWildfireTab, isWeatherTab, isAllHazardTab, layers.fireHotspots, layers.firePerimeters, layers.incidentLocations, layers.aqi,
       layers.weatherAlerts, layers.spcWeatherOutlooks, spcWeatherOutlookMode, layers.stormReports, layers.evacZones, layers.reporterEvacZones, spcMdGeoJSON,
       layers.flights, layers.rawsStations, layers.airNowMonitors, layers.droughtOutlook, layers.ndgdSmokeForecast, layers.fireWeatherOutlooks,
       layers.nhcTropicalWeather,
@@ -1421,23 +1422,23 @@ export default function MapView({
         {/* GOES satellite imagery – visible/weather bands on weather tab;
             ABI-L2-MCMIP Day Land Cloud Fire RGB on wildfire tab */}
         <GOESLayer
-          eastVisible={isWeatherTab && layers.goesEast}
-          westVisible={isWeatherTab && layers.goesWest}
-          fire16Visible={isWildfireTab && layers.goesFire16}
-          fire18Visible={isWildfireTab && layers.goesFire18}
+          eastVisible={(isWeatherTab || isAllHazardTab) && layers.goesEast}
+          westVisible={(isWeatherTab || isAllHazardTab) && layers.goesWest}
+          fire16Visible={(isWildfireTab || isAllHazardTab) && layers.goesFire16}
+          fire18Visible={(isWildfireTab || isAllHazardTab) && layers.goesFire18}
         />
 
         {/* NEXRAD radar reflectivity */}
-        <RadarLayer visible={isWeatherTab && layers.radar} />
+        <RadarLayer visible={(isWeatherTab || isAllHazardTab) && layers.radar} />
 
         {/* Smoke forecast */}
-        <SmokeLayer visible={isWeatherTab && layers.smoke} />
+        <SmokeLayer visible={(isWeatherTab || isAllHazardTab) && layers.smoke} />
 
         {/* Weather alert zones */}
         <WeatherAlertsLayer
           geoJSON={alertsGeoJSON}
           spcMdGeoJSON={spcMdGeoJSON}
-          visible={isWeatherTab && layers.weatherAlerts}
+          visible={(isWeatherTab || isAllHazardTab) && layers.weatherAlerts}
         />
 
         {/* NHC tropical storm / hurricane centres, forecast cone, and track */}
@@ -1445,31 +1446,31 @@ export default function MapView({
           centersGeoJSON={nhcCentersGeoJSON}
           conesGeoJSON={nhcConesGeoJSON}
           tracksGeoJSON={nhcTracksGeoJSON}
-          visible={isWeatherTab && layers.nhcStorms}
+          visible={(isWeatherTab || isAllHazardTab) && layers.nhcStorms}
         />
 
         {/* SPC convective outlook polygons */}
         <SPCOutlookLayer
           geoJSON={spcOutlooksGeoJSON}
-          visible={isWeatherTab && layers.spcWeatherOutlooks && spcWeatherOutlookMode === 'convective'}
+          visible={(isWeatherTab || isAllHazardTab) && layers.spcWeatherOutlooks && spcWeatherOutlookMode === 'convective'}
         />
 
         {/* Fire perimeter polygons */}
         <FirePerimetersLayer
           geoJSON={perimetersGeoJSON}
-          visible={isWildfireTab && layers.firePerimeters}
+          visible={(isWildfireTab || isAllHazardTab) && layers.firePerimeters}
         />
 
         {/* WFIGS incident location markers */}
         <IncidentLocationsLayer
           geoJSON={incidentsGeoJSON}
-          visible={isWildfireTab && layers.incidentLocations}
+          visible={(isWildfireTab || isAllHazardTab) && layers.incidentLocations}
         />
 
         {/* Incident dot markers – fires with no matching perimeter */}
         <FireIncidentsLayer
           geoJSON={incidentDotsGeoJSON}
-          visible={isWildfireTab && layers.incidentLocations}
+          visible={(isWildfireTab || isAllHazardTab) && layers.incidentLocations}
         />
 
         {/* AQI heatmap + stations — available on both wildfire and weather tabs */}
@@ -1481,20 +1482,20 @@ export default function MapView({
         <StormReportsLayer
           idPrefix="nws-lsr"
           geoJSON={stormReportsGeoJSON}
-          visible={isWeatherTab && layers.stormReports}
+          visible={(isWeatherTab || isAllHazardTab) && layers.stormReports}
           opacity={0.9}
         />
 
         {/* California evacuation zones (official Cal OES feed) */}
         <EvacZonesLayer
           geoJSON={evacZonesGeoJSON}
-          visible={isWildfireTab && layers.evacZones}
+          visible={(isWildfireTab || isAllHazardTab) && layers.evacZones}
         />
 
         {/* Reporter-drawn evacuation zones */}
         <ReporterEvacZonesLayer
           geoJSON={reporterEvacZonesGeoJSON}
-          visible={isWildfireTab && layers.reporterEvacZones}
+          visible={(isWildfireTab || isAllHazardTab) && layers.reporterEvacZones}
         />
 
         <CriticalInfrastructureLayer
@@ -1517,25 +1518,25 @@ export default function MapView({
         {/* AirNow monitor stations – individual sensor readings (wildfire tab) */}
         <AirNowMonitorsLayer
           geoJSON={airNowMonitorsGeoJSON}
-          visible={isWildfireTab && layers.airNowMonitors}
+          visible={(isWildfireTab || isAllHazardTab) && layers.airNowMonitors}
         />
 
         {/* NOAA CPC Monthly Drought Outlook polygons */}
         <DroughtOutlookLayer
           geoJSON={droughtOutlookGeoJSON}
-          visible={isWildfireTab && layers.droughtOutlook}
+          visible={(isWildfireTab || isAllHazardTab) && layers.droughtOutlook}
         />
 
         {/* NOAA NDGD hourly smoke concentration (48h CONUS) */}
         <NdgdSmokeForecastLayer
           geoJSON={ndgdSmokeFilteredGeoJSON}
-          visible={isWildfireTab && layers.ndgdSmokeForecast}
+          visible={(isWildfireTab || isAllHazardTab) && layers.ndgdSmokeForecast}
         />
 
         {/* SPC Fire Weather Outlook polygons – visible on wildfire tab */}
         <FireWeatherOutlookLayer
           geoJSON={fireWeatherOutlooksGeoJSON}
-          visible={layers.fireWeatherOutlooks || (isWeatherTab && layers.spcWeatherOutlooks && spcWeatherOutlookMode === 'fireWx')}
+          visible={layers.fireWeatherOutlooks || ((isWeatherTab || isAllHazardTab) && layers.spcWeatherOutlooks && spcWeatherOutlookMode === 'fireWx')}
           outlookType={fireWxOutlookType}
         />
 
@@ -1546,19 +1547,19 @@ export default function MapView({
           coneGeoJSON={nhcConeGeoJSON}
           disturbanceGeoJSON={nhcDisturbanceGeoJSON}
           stormLabelsGeoJSON={nhcStormLabelsGeoJSON}
-          visible={isWeatherTab && layers.nhcTropicalWeather}
+          visible={(isWeatherTab || isAllHazardTab) && layers.nhcTropicalWeather}
         />
 
         {/* Fire hotspot points – rendered last (top) */}
         <FireHotspotsLayer
           geoJSON={hotspotsGeoJSON}
-          visible={isWildfireTab && layers.fireHotspots}
+          visible={(isWildfireTab || isAllHazardTab) && layers.fireHotspots}
         />
 
         {/* Community-submitted reports (rendered on top of official data) */}
         <UserReportsLayer
           geoJSON={userReportsGeoJSON}
-          visible={isWildfireTab && layers.incidentLocations}
+          visible={(isWildfireTab || isAllHazardTab) && layers.incidentLocations}
         />
 
         {/* Live flight tracking – always on top of all fire/weather layers */}
