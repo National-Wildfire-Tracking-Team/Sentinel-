@@ -40,6 +40,72 @@ const LAYER_DEFS = {
  * Sections shown per map tab. Order matches visual stack top → bottom.
  */
 const TAB_SECTIONS = {
+  allhazard: [
+    {
+      id: 'ah-fire',
+      title: 'Fire activity',
+      subtitle: 'Perimeters, hotspots, and incidents',
+      groups: [
+        {
+          label: 'Core layers',
+          layers: ['fireHotspots', 'firePerimeters', 'incidentLocations'],
+        },
+        {
+          label: 'Evacuation',
+          layers: ['evacZones', 'reporterEvacZones'],
+        },
+      ],
+    },
+    {
+      id: 'ah-weather',
+      title: 'Weather hazards',
+      subtitle: 'Alerts, radar, and storm data',
+      groups: [
+        {
+          label: 'Active weather',
+          layers: ['weatherAlerts', 'stormReports', 'radar'],
+        },
+        {
+          label: 'Tropical',
+          layers: ['nhcStorms', 'nhcTropicalWeather'],
+        },
+        {
+          label: 'Outlooks',
+          layers: ['spcWeatherOutlooks', 'fireWeatherOutlooks'],
+        },
+      ],
+    },
+    {
+      id: 'ah-monitoring',
+      title: 'Monitoring & imagery',
+      subtitle: 'Smoke, air quality, and satellite',
+      groups: [
+        {
+          label: 'Smoke & drought',
+          layers: ['ndgdSmokeForecast', 'smoke', 'droughtOutlook'],
+        },
+        {
+          label: 'Air quality',
+          layers: ['airNowMonitors', 'aqi'],
+        },
+        {
+          label: 'Satellite & stations',
+          layers: ['goesEast', 'goesWest', 'rawsStations'],
+        },
+      ],
+    },
+    {
+      id: 'ah-other',
+      title: 'Aviation',
+      subtitle: 'ADS-B live traffic',
+      groups: [
+        {
+          label: 'Traffic',
+          layers: ['flights'],
+        },
+      ],
+    },
+  ],
   wildfire: [
     {
       id: 'wf-activity',
@@ -242,8 +308,9 @@ const LayerControl = memo(function LayerControl({
   ], [infrastructureLayersEntitled]);
 
   const sections = useMemo(() => {
-    const base = TAB_SECTIONS[activeMapTab === 'weather' ? 'weather' : 'wildfire'] || TAB_SECTIONS.wildfire;
-    if (activeMapTab !== 'wildfire' && activeMapTab !== 'weather') {
+    const tabKey = activeMapTab === 'weather' ? 'weather' : activeMapTab === 'allhazard' ? 'allhazard' : 'wildfire';
+    const base = TAB_SECTIONS[tabKey] || TAB_SECTIONS.wildfire;
+    if (activeMapTab !== 'wildfire' && activeMapTab !== 'weather' && activeMapTab !== 'allhazard') {
       return base;
     }
     return [
@@ -258,85 +325,54 @@ const LayerControl = memo(function LayerControl({
     ];
   }, [activeMapTab, infraLayers]);
 
-  // When switching Wildfire / Weather, reset accordion and expand the first section
+  // When switching tabs, reset accordion and expand the first section
   useEffect(() => {
-    const firstId = activeMapTab === 'weather' ? 'wx-hazards' : 'wf-activity';
+    const firstId =
+      activeMapTab === 'weather'   ? 'wx-hazards'  :
+      activeMapTab === 'allhazard' ? 'ah-fire'     : 'wf-activity';
     setCollapsed({ [firstId]: false });
   }, [activeMapTab]);
 
   const toggleGroup = (key) => setCollapsed((c) => ({ ...c, [key]: !c[key] }));
 
   const tabAccent =
-    activeMapTab === 'weather'
-      ? 'from-sky-600/40 to-black'
-      : 'from-fire-600/35 to-black';
+    activeMapTab === 'weather'   ? 'from-sky-600/40 to-black'           :
+    activeMapTab === 'allhazard' ? 'from-red-700/40 via-fire-700/20 to-black' :
+                                   'from-fire-600/35 to-black';
 
   const isWeatherTab = activeMapTab === 'weather';
-  const mapTypeActiveClass = isWeatherTab
-    ? 'bg-sky-600 text-white shadow'
-    : 'bg-fire-600 text-white shadow';
+  const isAllHazardTab = activeMapTab === 'allhazard';
+  const mapTypeActiveClass =
+    isWeatherTab   ? 'bg-sky-600 text-white shadow'  :
+    isAllHazardTab ? 'bg-red-600 text-white shadow'   :
+                     'bg-fire-600 text-white shadow';
 
-  const mapTypeButtons = isWeatherTab
-    ? (
-      <>
-        <button
-          type="button"
-          onClick={() => onMapTypeChange?.('rendered')}
-          className={`flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-semibold transition-all ${
-            mapType === 'rendered'
-              ? mapTypeActiveClass
-              : 'text-zinc-300 hover:text-white'
-          }`}
-          title="Dark streets map"
-        >
-          <MapIcon size={11} />
-          <span>MAP</span>
-        </button>
-        <button
-          type="button"
-          onClick={() => onMapTypeChange?.('satellite')}
-          className={`flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-semibold transition-all ${
-            mapType === 'satellite'
-              ? mapTypeActiveClass
-              : 'text-zinc-300 hover:text-white'
-          }`}
-          title="Satellite view"
-        >
-          <Satellite size={11} />
-          <span>SAT</span>
-        </button>
-      </>
-    )
-    : (
-      <>
-        <button
-          type="button"
-          onClick={() => onMapTypeChange?.('satellite')}
-          className={`flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-semibold transition-all ${
-            mapType === 'satellite'
-              ? mapTypeActiveClass
-              : 'text-zinc-300 hover:text-white'
-          }`}
-          title="Satellite view"
-        >
-          <Satellite size={11} />
-          <span>SAT</span>
-        </button>
-        <button
-          type="button"
-          onClick={() => onMapTypeChange?.('rendered')}
-          className={`flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-semibold transition-all ${
-            mapType === 'rendered'
-              ? mapTypeActiveClass
-              : 'text-zinc-300 hover:text-white'
-          }`}
-          title="Map view"
-        >
-          <MapIcon size={11} />
-          <span>MAP</span>
-        </button>
-      </>
-    );
+  const mapTypeButtons = (
+    <>
+      <button
+        type="button"
+        onClick={() => onMapTypeChange?.('satellite')}
+        className={`flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-semibold transition-all ${
+          mapType === 'satellite' ? mapTypeActiveClass : 'text-zinc-300 hover:text-white'
+        }`}
+        title="Satellite view"
+      >
+        <Satellite size={11} />
+        <span>SAT</span>
+      </button>
+      <button
+        type="button"
+        onClick={() => onMapTypeChange?.('rendered')}
+        className={`flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-semibold transition-all ${
+          mapType === 'rendered' ? mapTypeActiveClass : 'text-zinc-300 hover:text-white'
+        }`}
+        title="Dark streets map"
+      >
+        <MapIcon size={11} />
+        <span>MAP</span>
+      </button>
+    </>
+  );
 
   return (
     <div className="absolute top-4 right-4 z-20 flex flex-col items-end gap-2">
@@ -364,9 +400,9 @@ const LayerControl = memo(function LayerControl({
                   Map layers
                 </span>
                 <p className="text-[10px] text-zinc-400 mt-0.5 truncate">
-                  {activeMapTab === 'weather'
-                    ? 'Weather, radar, and air quality'
-                    : 'Wildfire activity, evacuation zones (California + IPAWS polygons), and outlook data'}
+                  {activeMapTab === 'weather'   ? 'Weather, radar, and air quality' :
+                   activeMapTab === 'allhazard' ? 'All hazards — fire, weather, smoke, and more' :
+                   'Wildfire activity, evacuation zones (California + IPAWS polygons), and outlook data'}
                 </p>
               </div>
               <div className="flex items-center shrink-0 bg-zinc-900 border border-zinc-700 rounded-lg p-0.5">

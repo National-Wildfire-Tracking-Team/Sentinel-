@@ -3,9 +3,9 @@
  * Collapsible left panel housing the incident feed and summary stats.
  */
 
-import { memo } from 'react';
+import { memo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Flame, TrendingUp, Wind, ChevronLeft, CloudSun, ShieldAlert, ArrowLeft } from 'lucide-react';
+import { Flame, TrendingUp, Wind, ChevronLeft, CloudSun, ShieldAlert, ArrowLeft, AlertTriangle } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import IncidentFeed from './IncidentFeed';
 import WeatherAlertsFeed from './WeatherAlertsFeed';
@@ -43,7 +43,9 @@ const Sidebar = memo(function Sidebar({
   onWeatherAlertFilterChange,
 }) {
   const { sidebarOpen, toggleSidebar, alerts } = useApp();
+  const [allHazardFeedTab, setAllHazardFeedTab] = useState('fires');
   const isWeatherTab = activeMapTab === 'weather';
+  const isAllHazardTab = activeMapTab === 'allhazard';
 
   const activeCount  = incidents.filter(i => i.status === 'active').length;
   const rfwCount     = alerts.filter(a => a.type === 'Red Flag Warning').length;
@@ -93,6 +95,27 @@ const Sidebar = memo(function Sidebar({
 
         {/* Map mode tabs */}
         <div className="px-3 pt-1 pb-2 border-b border-sentinel-700/70 shrink-0">
+          {/* All Hazard featured tab */}
+          <button
+            type="button"
+            onClick={() => onTabChange?.('allhazard')}
+            className={`w-full mb-1.5 inline-flex items-center justify-center gap-2 px-3 py-2 text-xs font-bold rounded-xl transition-all duration-200 border ${
+              isAllHazardTab
+                ? 'bg-gradient-to-r from-fire-600 via-red-600 to-sky-700 text-white border-red-500/50 shadow-lg shadow-red-900/30'
+                : 'text-sentinel-200 hover:text-white border-sentinel-700 hover:border-red-600/50 hover:bg-sentinel-700/60'
+            }`}
+            aria-pressed={isAllHazardTab}
+          >
+            <AlertTriangle size={13} className={isAllHazardTab ? 'text-yellow-300' : 'text-sentinel-400'} />
+            <span>All Hazards</span>
+            {isAllHazardTab && (
+              <span className="ml-auto px-1.5 py-0.5 rounded-md text-[9px] font-black uppercase tracking-widest bg-white/20 text-white">
+                LIVE
+              </span>
+            )}
+          </button>
+
+          {/* Wildfire + Weather row */}
           <div className="inline-flex w-full rounded-xl border border-sentinel-700 bg-sentinel-800 p-1 gap-1">
             <button
               type="button"
@@ -121,14 +144,24 @@ const Sidebar = memo(function Sidebar({
               <CloudSun size={13} />
               Weather
             </button>
-
           </div>
         </div>
 
         {/* Sidebar header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-sentinel-700 shrink-0">
+        <div className={`flex items-center justify-between px-4 py-3 border-b shrink-0 ${isAllHazardTab ? 'border-red-900/60 bg-gradient-to-r from-fire-900/30 to-sky-900/20' : 'border-sentinel-700'}`}>
           <div className="flex items-center gap-2">
-            {isWeatherTab ? (
+            {isAllHazardTab ? (
+              <>
+                <div className="relative">
+                  <AlertTriangle size={16} className="text-yellow-400" />
+                  <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+                </div>
+                <h2 className="font-bold text-white text-sm tracking-wide">All Hazards</h2>
+                <span className="px-1.5 py-0.5 bg-red-600/30 text-red-300 text-[10px] font-bold rounded-full border border-red-700/40">
+                  {activeCount + alertsCount}
+                </span>
+              </>
+            ) : isWeatherTab ? (
               <>
                 <CloudSun size={16} className="text-sky-400" />
                 <h2 className="font-semibold text-white text-sm">Weather &amp; Radar</h2>
@@ -156,9 +189,16 @@ const Sidebar = memo(function Sidebar({
         </div>
 
         {/* Summary stats strip */}
-        <div className="px-3 py-2 border-b border-sentinel-700 shrink-0">
+        <div className={`px-3 py-2 border-b shrink-0 ${isAllHazardTab ? 'border-red-900/50' : 'border-sentinel-700'}`}>
           <div className="flex justify-center gap-2 overflow-x-auto pb-1 scrollbar-none">
-            {isWeatherTab ? (
+            {isAllHazardTab ? (
+              <>
+                <StatPill icon={Flame}       label="Fires"     value={activeCount}   color="text-fire-400"   className="flex-1" />
+                <StatPill icon={TrendingUp}  label="Acres"     value={acresDisplay}  color="text-orange-400" className="flex-1" />
+                <StatPill icon={CloudSun}    label="Alerts"    value={alertsCount}   color="text-sky-300"    className="flex-1" />
+                <StatPill icon={ShieldAlert} label="Severe"    value={severeCount}   color="text-red-300"    className="flex-1" />
+              </>
+            ) : isWeatherTab ? (
               <>
                 <StatPill icon={CloudSun}    label="Active Alerts" value={alertsCount}  color="text-sky-300"   className="flex-1" />
                 <StatPill icon={ShieldAlert} label="Severe"        value={severeCount}  color="text-red-300"   className="flex-1" />
@@ -174,12 +214,56 @@ const Sidebar = memo(function Sidebar({
           </div>
         </div>
 
-        {/* Address alert search – weather tab only */}
-        {isWeatherTab && <AddressAlertSearch />}
+        {/* Address alert search – weather and all-hazard tabs */}
+        {(isWeatherTab || isAllHazardTab) && <AddressAlertSearch />}
+
+        {/* All Hazard sub-feed tabs */}
+        {isAllHazardTab && (
+          <div className="px-3 pt-2 pb-1 shrink-0">
+            <div className="inline-flex w-full rounded-lg border border-sentinel-700 bg-sentinel-800/70 p-0.5 gap-0.5">
+              <button
+                type="button"
+                onClick={() => setAllHazardFeedTab('fires')}
+                className={`flex-1 inline-flex items-center justify-center gap-1.5 px-2 py-1.5 text-[11px] font-semibold rounded-md transition-colors ${
+                  allHazardFeedTab === 'fires'
+                    ? 'bg-fire-700 text-white'
+                    : 'text-sentinel-300 hover:bg-sentinel-700'
+                }`}
+              >
+                <Flame size={11} />
+                Fires {activeCount > 0 && <span className="opacity-70">({activeCount})</span>}
+              </button>
+              <button
+                type="button"
+                onClick={() => setAllHazardFeedTab('alerts')}
+                className={`flex-1 inline-flex items-center justify-center gap-1.5 px-2 py-1.5 text-[11px] font-semibold rounded-md transition-colors ${
+                  allHazardFeedTab === 'alerts'
+                    ? 'bg-sky-700 text-white'
+                    : 'text-sentinel-300 hover:bg-sentinel-700'
+                }`}
+              >
+                <ShieldAlert size={11} />
+                Alerts {alertsCount > 0 && <span className="opacity-70">({alertsCount})</span>}
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Feed – takes remaining height */}
         <div className="flex-1 overflow-hidden flex flex-col">
-          {isWeatherTab ? (
+          {isAllHazardTab ? (
+            allHazardFeedTab === 'fires' ? (
+              <IncidentFeed incidents={incidents} loading={loading} error={error} />
+            ) : (
+              <WeatherAlertsFeed
+                alerts={alerts}
+                loading={weatherAlertsLoading}
+                error={weatherAlertsError}
+                activeFilter={weatherAlertFilter}
+                onFilterChange={onWeatherAlertFilterChange}
+              />
+            )
+          ) : isWeatherTab ? (
             <WeatherAlertsFeed
               alerts={alerts}
               loading={weatherAlertsLoading}
