@@ -29,8 +29,12 @@ const CONTAINMENT_COLOR = [
 const DOT_RADIUS = 7;
 const DOT_GLOW_RADIUS = 14;
 
-const IncidentLocationsLayer = memo(function IncidentLocationsLayer({ geoJSON, visible }) {
+/**
+ * @param {boolean} props.useIconMarkers  When true, hides circle dots (pin icons shown instead)
+ */
+const IncidentLocationsLayer = memo(function IncidentLocationsLayer({ geoJSON, visible, useIconMarkers }) {
   const vis = visible ? 'visible' : 'none';
+  const circleVis = (visible && !useIconMarkers) ? 'visible' : 'none';
 
   // Hide fire dots below 0.4 acres
   const sizeFilter = ['>=', ['get', 'acres'], 0.4];
@@ -43,7 +47,7 @@ const IncidentLocationsLayer = memo(function IncidentLocationsLayer({ geoJSON, v
         type="circle"
         source="incident-locations"
         filter={sizeFilter}
-        layout={{ visibility: vis }}
+        layout={{ visibility: circleVis }}
         paint={{
           'circle-radius': DOT_GLOW_RADIUS,
           'circle-color': CONTAINMENT_COLOR,
@@ -57,7 +61,7 @@ const IncidentLocationsLayer = memo(function IncidentLocationsLayer({ geoJSON, v
         type="circle"
         source="incident-locations"
         filter={sizeFilter}
-        layout={{ visibility: vis }}
+        layout={{ visibility: circleVis }}
         paint={{
           'circle-radius': DOT_RADIUS,
           'circle-color': CONTAINMENT_COLOR,

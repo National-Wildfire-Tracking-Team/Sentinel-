@@ -38,11 +38,20 @@ const incidentGlowLayer = {
 };
 
 /**
- * @param {object}       props.geoJSON   GeoJSON FeatureCollection from useMergedFireData
- * @param {boolean}      props.visible
+ * @param {object}  props.geoJSON        GeoJSON FeatureCollection from useMergedFireData
+ * @param {boolean} props.visible
+ * @param {boolean} props.useIconMarkers  When true, hides circles (pin icons shown instead)
  */
-const FireIncidentsLayer = memo(function FireIncidentsLayer({ geoJSON, visible }) {
+const FireIncidentsLayer = memo(function FireIncidentsLayer({ geoJSON, visible, useIconMarkers }) {
   if (!visible || !geoJSON?.features?.length) return null;
+  if (useIconMarkers) {
+    return (
+      <Source id="fire-incidents" type="geojson" data={geoJSON}>
+        <Layer {...incidentGlowLayer}   layout={{ visibility: 'none' }} />
+        <Layer {...incidentCircleLayer} layout={{ visibility: 'none' }} />
+      </Source>
+    );
+  }
 
   return (
     <Source id="fire-incidents" type="geojson" data={geoJSON}>

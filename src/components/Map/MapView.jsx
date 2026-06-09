@@ -1474,12 +1474,14 @@ export default function MapView({
         <IncidentLocationsLayer
           geoJSON={incidentsGeoJSON}
           visible={(isWildfireTab || isAllHazardTab) && layers.incidentLocations}
+          useIconMarkers={isAllHazardTab && hazardIconsLoaded}
         />
 
         {/* Incident dot markers – fires with no matching perimeter */}
         <FireIncidentsLayer
           geoJSON={incidentDotsGeoJSON}
           visible={(isWildfireTab || isAllHazardTab) && layers.incidentLocations}
+          useIconMarkers={isAllHazardTab && hazardIconsLoaded}
         />
 
         {/* AQI heatmap + stations — available on both wildfire and weather tabs */}
