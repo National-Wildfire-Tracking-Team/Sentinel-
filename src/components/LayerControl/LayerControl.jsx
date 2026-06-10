@@ -92,7 +92,7 @@ const TAB_SECTIONS = {
         },
         {
           label: 'Satellite & stations',
-          layers: ['goesEast', 'goesWest', 'rawsStations'],
+          layers: ['goesEast', 'goesWest', 'goesFire16', 'goesFire18', 'rawsStations'],
         },
       ],
     },

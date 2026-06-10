@@ -88,6 +88,8 @@ const ALL_HAZARD_LAYER_PRESET = {
   smoke: false,
   goesEast: false,
   goesWest: false,
+  goesFire16: false,
+  goesFire18: false,
   spcWeatherOutlooks: false,
   radar: true,
   evacZones: false,
