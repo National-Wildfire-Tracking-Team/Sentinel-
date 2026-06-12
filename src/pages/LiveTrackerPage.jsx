@@ -33,6 +33,7 @@ import { useCriticalInfrastructure } from '../hooks/useCriticalInfrastructure';
 import { useNhcStorms } from '../hooks/useNhcStorms';
 import { useNationalMapColleges } from '../hooks/useNationalMapColleges';
 import { usePlan } from '../hooks/usePlan';
+import { useRiverGauges } from '../hooks/useRiverGauges';
 import { polygonCentroid } from '../utils/geoUtils';
 import { incidentsToGeoJSON } from '../api/inciweb';
 
@@ -102,6 +103,7 @@ const ALL_HAZARD_LAYER_PRESET = {
   schoolsUniversities: false,
   nhcTropicalWeather: false,
   nhcStorms: false,
+  riverGauges: false,
 };
 
 // Weather tab: only auto-enable NWS alerts (includes SPC MDs on map), and NEXRAD;
@@ -128,6 +130,7 @@ const WEATHER_LAYER_PRESET = {
   ndgdSmokeForecast: false,
   schoolsUniversities: false,
   nhcTropicalWeather: false,
+  riverGauges: false,
 };
 
 const THREE_DAYS_MS = 3 * 24 * 60 * 60 * 1000;
@@ -481,6 +484,14 @@ const flightBounds = useMemo(() => {
     refresh: refreshNhcTropicalWeather,
   } = useNhcTropicalWeather(nhcTropicalWeatherEnabled);
 
+  // NOAA NWPS river gauges — always enabled so the sidebar feed is populated
+  const {
+    gauges: riverGaugesData,
+    geoJSON: riverGaugesGeoJSON,
+    loading: riverGaugesLoading,
+    error: riverGaugesError,
+  } = useRiverGauges(weatherDataEnabled || activeMapTab === MAP_TABS.allhazard);
+
   useEffect(() => {
     if (flightsError) console.error('[FlightTracking] Error:', flightsError);
   }, [flightsError]);
@@ -795,6 +806,9 @@ const flightBounds = useMemo(() => {
           onReopenBanner={() => setBannerDismissed(false)}
           weatherAlertFilter={weatherAlertFilter}
           onWeatherAlertFilterChange={setWeatherAlertFilter}
+          riverGauges={riverGaugesData}
+          riverGaugesLoading={riverGaugesLoading}
+          riverGaugesError={riverGaugesError}
         />
 
         {/* Map area */}
@@ -847,6 +861,7 @@ const flightBounds = useMemo(() => {
             onFireWxActiveDayChange={setFireWxActiveDay}
             spcWeatherOutlookMode={spcWeatherOutlookMode}
             onSpcWeatherOutlookModeChange={setSpcWeatherOutlookMode}
+            riverGaugesGeoJSON={riverGaugesGeoJSON}
             savedLocations={savedLocations}
             measureActive={measureActive}
             measureMode={measureMode}

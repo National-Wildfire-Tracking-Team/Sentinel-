@@ -5,10 +5,11 @@
 
 import { memo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Flame, TrendingUp, Wind, ChevronLeft, CloudSun, ShieldAlert, ArrowLeft, AlertTriangle } from 'lucide-react';
+import { Flame, TrendingUp, Wind, ChevronLeft, CloudSun, ShieldAlert, ArrowLeft, AlertTriangle, Droplets } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import IncidentFeed from './IncidentFeed';
 import WeatherAlertsFeed from './WeatherAlertsFeed';
+import RiverGaugesFeed from './RiverGaugesFeed';
 import AddressAlertSearch from './AddressAlertSearch';
 
 function StatPill({ icon: Icon, label, value, color = 'text-white', onClick, className = '' }) {
@@ -41,9 +42,13 @@ const Sidebar = memo(function Sidebar({
   onReopenBanner,
   weatherAlertFilter = 'all',
   onWeatherAlertFilterChange,
+  riverGauges = [],
+  riverGaugesLoading = false,
+  riverGaugesError = null,
 }) {
   const { sidebarOpen, toggleSidebar, alerts } = useApp();
   const [allHazardFeedTab, setAllHazardFeedTab] = useState('fires');
+  const [weatherFeedTab, setWeatherFeedTab] = useState('alerts');
   const isWeatherTab = activeMapTab === 'weather';
   const isAllHazardTab = activeMapTab === 'allhazard';
 
@@ -249,6 +254,38 @@ const Sidebar = memo(function Sidebar({
           </div>
         )}
 
+        {/* Weather tab sub-tabs */}
+        {isWeatherTab && (
+          <div className="px-3 pt-2 pb-1 shrink-0">
+            <div className="inline-flex w-full rounded-lg border border-sentinel-700 bg-sentinel-800/70 p-0.5 gap-0.5">
+              <button
+                type="button"
+                onClick={() => setWeatherFeedTab('alerts')}
+                className={`flex-1 inline-flex items-center justify-center gap-1.5 px-2 py-1.5 text-[11px] font-semibold rounded-md transition-colors ${
+                  weatherFeedTab === 'alerts'
+                    ? 'bg-sky-700 text-white'
+                    : 'text-sentinel-300 hover:bg-sentinel-700'
+                }`}
+              >
+                <CloudSun size={11} />
+                Alerts {alerts.length > 0 && <span className="opacity-70">({alerts.length})</span>}
+              </button>
+              <button
+                type="button"
+                onClick={() => setWeatherFeedTab('gauges')}
+                className={`flex-1 inline-flex items-center justify-center gap-1.5 px-2 py-1.5 text-[11px] font-semibold rounded-md transition-colors ${
+                  weatherFeedTab === 'gauges'
+                    ? 'bg-blue-700 text-white'
+                    : 'text-sentinel-300 hover:bg-sentinel-700'
+                }`}
+              >
+                <Droplets size={11} />
+                Gauges {riverGauges.length > 0 && <span className="opacity-70">({riverGauges.length})</span>}
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Feed – takes remaining height */}
         <div className="flex-1 overflow-hidden flex flex-col">
           {isAllHazardTab ? (
@@ -264,13 +301,21 @@ const Sidebar = memo(function Sidebar({
               />
             )
           ) : isWeatherTab ? (
-            <WeatherAlertsFeed
-              alerts={alerts}
-              loading={weatherAlertsLoading}
-              error={weatherAlertsError}
-              activeFilter={weatherAlertFilter}
-              onFilterChange={onWeatherAlertFilterChange}
-            />
+            weatherFeedTab === 'gauges' ? (
+              <RiverGaugesFeed
+                gauges={riverGauges}
+                loading={riverGaugesLoading}
+                error={riverGaugesError}
+              />
+            ) : (
+              <WeatherAlertsFeed
+                alerts={alerts}
+                loading={weatherAlertsLoading}
+                error={weatherAlertsError}
+                activeFilter={weatherAlertFilter}
+                onFilterChange={onWeatherAlertFilterChange}
+              />
+            )
           ) : (
             <IncidentFeed incidents={incidents} loading={loading} error={error} />
           )}

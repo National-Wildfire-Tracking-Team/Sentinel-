@@ -38,6 +38,8 @@ const initialState = {
     nhcStorms: false,
     /** NHC tropical tracks, cone, and disturbances */
     nhcTropicalWeather: false,
+    /** NOAA NWPS river gauge flood markers */
+    riverGauges: false,
   },
   // Currently clicked/selected fire feature (hotspot or perimeter)
   selectedFire: null,

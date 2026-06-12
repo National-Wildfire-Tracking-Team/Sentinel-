@@ -44,6 +44,7 @@ import CriticalInfrastructureLayer from './layers/CriticalInfrastructureLayer';
 import NationalMapCollegesLayer from './layers/NationalMapCollegesLayer';
 import NhcStormsLayer from './layers/NhcStormsLayer';
 import NHCTropicalWeatherLayer from './layers/NHCTropicalWeatherLayer';
+import RiverGaugesLayer from './layers/RiverGaugesLayer';
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN || '';
 const HAS_MAPBOX_TOKEN = Boolean(MAPBOX_TOKEN.trim());
@@ -268,6 +269,28 @@ function HoverTooltip({ feature, lngLat }) {
           </div>
           <div className="text-gray-400 text-xs">Hdg: {hdg} · {p.origin_country}</div>
           <div className="text-gray-500 text-[10px] mt-0.5">Click for full details</div>
+        </>
+      );
+      break;
+    }
+    case 'river-gauges-circle': {
+      const statusColors = { major: '#7c3aed', moderate: '#dc2626', minor: '#f97316', action: '#eab308', normal: '#22c55e' };
+      const dotColor = statusColors[p.status] || '#6b7280';
+      content = (
+        <>
+          <div className="font-semibold" style={{ color: dotColor }}>
+            {p.name}
+          </div>
+          <div className="text-gray-300 text-xs mt-0.5">
+            Stage: <span className="text-white font-medium">
+              {p.currentStage != null ? `${parseFloat(p.currentStage).toFixed(1)} ft` : '—'}
+            </span>
+            {' '}· {p.status ? p.status.charAt(0).toUpperCase() + p.status.slice(1) : 'Unknown'}
+          </div>
+          {p.actionStage != null && (
+            <div className="text-gray-400 text-xs">Action stage: {p.actionStage} ft</div>
+          )}
+          {p.state && <div className="text-gray-500 text-xs">{p.state} · NOAA NWPS</div>}
         </>
       );
       break;
@@ -817,6 +840,7 @@ export default function MapView({
   nhcConeGeoJSON,
   nhcDisturbanceGeoJSON,
   nhcStormLabelsGeoJSON,
+  riverGaugesGeoJSON,
   savedLocations = [],
   measureActive = false,
   measureMode = 'distance',
@@ -1007,18 +1031,19 @@ export default function MapView({
       if (nhcTrackGeoJSON?.features?.length) ids.push('nhc-track-circle');
       if (nhcObservedTrackGeoJSON?.features?.length) ids.push('nhc-obs-circle');
     }
+    if (layers.riverGauges && riverGaugesGeoJSON?.features?.length) ids.push('river-gauges-circle');
     return ids;
   }, [measureActive, isWildfireTab, isWeatherTab, isAllHazardTab, layers.fireHotspots, layers.firePerimeters, layers.incidentLocations, layers.aqi,
       layers.weatherAlerts, layers.spcWeatherOutlooks, spcWeatherOutlookMode, layers.stormReports, layers.evacZones, layers.reporterEvacZones, spcMdGeoJSON,
       layers.flights, layers.rawsStations, layers.airNowMonitors, layers.droughtOutlook, layers.ndgdSmokeForecast, layers.fireWeatherOutlooks,
-      layers.nhcTropicalWeather,
+      layers.nhcTropicalWeather, layers.riverGauges,
       hotspotsGeoJSON, perimetersGeoJSON, incidentsGeoJSON, aqiGeoJSON, alertsGeoJSON, spcOutlooksGeoJSON,
       stormReportsGeoJSON, userReportsGeoJSON, evacZonesGeoJSON, reporterEvacZonesGeoJSON,
       flightsGeoJSON, rawsGeoJSON, airNowMonitorsGeoJSON, droughtOutlookGeoJSON, ndgdSmokeFilteredGeoJSON, fireWeatherOutlooksGeoJSON,
       nhcTrackGeoJSON, nhcObservedTrackGeoJSON, nhcDisturbanceGeoJSON,
       criticalInfrastructureVisible, criticalInfrastructureTransGeoJSON, criticalInfrastructureGasGeoJSON,
       nationalMapCollegesVisible, nationalMapCollegesGeoJSON,
-      layers.nhcStorms, nhcCentersGeoJSON]);
+      layers.nhcStorms, nhcCentersGeoJSON, riverGaugesGeoJSON]);
 
   // Clear stale hover when layers change
   useEffect(() => {
@@ -1560,6 +1585,12 @@ export default function MapView({
         <UserReportsLayer
           geoJSON={userReportsGeoJSON}
           visible={(isWildfireTab || isAllHazardTab) && layers.incidentLocations}
+        />
+
+        {/* NOAA NWPS river gauge markers */}
+        <RiverGaugesLayer
+          geoJSON={riverGaugesGeoJSON}
+          visible={layers.riverGauges}
         />
 
         {/* Live flight tracking – always on top of all fire/weather layers */}
