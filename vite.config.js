@@ -52,6 +52,12 @@ export default defineConfig({
           return `/gis/forecast/archive/${file}`;
         },
       },
+      '/api/nwps': {
+        target: 'https://api.water.noaa.gov',
+        changeOrigin: true,
+        secure: true,
+        rewrite: (path) => path.replace(/^\/api\/nwps/, '/nwps/v1'),
+      },
     },
   },
   preview: {
@@ -84,6 +90,12 @@ export default defineConfig({
           const file = new URLSearchParams(qs).get('file') || '';
           return `/gis/forecast/archive/${file}`;
         },
+      },
+      '/api/nwps': {
+        target: 'https://api.water.noaa.gov',
+        changeOrigin: true,
+        secure: true,
+        rewrite: (path) => path.replace(/^\/api\/nwps/, '/nwps/v1'),
       },
     },
   },
