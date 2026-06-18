@@ -8,6 +8,7 @@
   },
   "scripts": {
     "dev": "vite",
+    "dev:all": "bash dev.sh",
     "build": "vite build",
     "preview": "vite preview",
     "ipaws-server": "node server/ipaws-server.js"

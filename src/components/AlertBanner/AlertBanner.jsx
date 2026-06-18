@@ -4,56 +4,118 @@
  * Auto-hides when there are no active alerts.
  */
 
-import { useState, memo } from 'react';
-import { AlertTriangle, X, ChevronRight } from 'lucide-react';
-import { useApp } from '../../context/AppContext';
-import { alertTypeToColor } from '../../utils/colorUtils';
 
-const AlertBanner = memo(function AlertBanner({ dismissed, onDismiss }) {
+import { useState, useEffect, memo } from 'react';
+import {
+  AlertTriangle,
+  X,
+  ChevronRight,
+  ChevronLeft,
+} from 'lucide-react';
+import { useApp } from '../../context/AppContext';
+
+const AlertBanner = memo(function AlertBanner({
+  dismissed,
+  onDismiss,
+}) {
   const { alerts, selectFire } = useApp();
   const [activeIndex, setActiveIndex] = useState(0);
 
   // Only show Red Flag Warnings in the banner
-  const rfwAlerts = alerts.filter(a => a.type === 'Red Flag Warning');
+  const rfwAlerts = alerts.filter(
+    alert => alert.type === 'Red Flag Warning'
+  );
 
-  if (dismissed || rfwAlerts.length === 0) return null;
+  // Reset index if alert count changes
+  useEffect(() => {
+    if (
+      rfwAlerts.length > 0 &&
+      activeIndex >= rfwAlerts.length
+    ) {
+      setActiveIndex(0);
+    }
+  }, [rfwAlerts.length, activeIndex]);
 
-  const current = rfwAlerts[activeIndex] || rfwAlerts[0];
+  if (dismissed || rfwAlerts.length === 0) {
+    return null;
+  }
 
-  const next = () => setActiveIndex(i => (i + 1) % rfwAlerts.length);
+  const current = rfwAlerts[activeIndex];
+
+  const next = () => {
+    setActiveIndex(index => (index + 1) % rfwAlerts.length);
+  };
+
+  const previous = () => {
+    setActiveIndex(
+      index => (index - 1 + rfwAlerts.length) % rfwAlerts.length
+    );
+  };
+
+  const openAlertDetails = () => {
+    selectFire({
+      ...current,
+      type: 'weather-alert',
+      eventType: current.type,
+    });
+  };
 
   return (
-    <div className="relative z-30 flex items-center gap-2 px-3 py-2
-                    bg-red-950/90 backdrop-blur-sm border-b border-red-800/60
-                    text-red-200 text-sm shrink-0 min-h-[40px]">
-      {/* Icon */}
-      <AlertTriangle size={15} className="text-red-400 shrink-0 animate-pulse" />
+    <div
+      className="
+        relative z-30 flex items-center gap-2 px-3 py-2
+        bg-red-950/90 backdrop-blur-sm
+        border-b border-red-800/60
+        text-red-200 text-sm
+        shrink-0 min-h-[40px]
+      "
+    >
+      {/* Alert Icon */}
+      <AlertTriangle
+        size={15}
+        className="text-red-400 shrink-0 animate-pulse"
+      />
 
-      {/* Alert type badge */}
-      <span className="shrink-0 text-xs font-bold uppercase tracking-wider text-red-400 hidden sm:inline">
+      {/* Alert Label */}
+      <span className="hidden text-xs font-bold tracking-wider text-red-400 uppercase sm:inline shrink-0">
         Red Flag Warning
       </span>
 
-      {/* Divider */}
-      <span className="hidden sm:inline text-red-700">·</span>
+      <span className="hidden text-red-700 sm:inline">·</span>
 
-      {/* Alert text – tappable to open detail panel */}
+      {/* Alert Headline */}
       <button
-        onClick={() => selectFire({ ...current, type: 'weather-alert', eventType: current.type })}
-        className="flex-1 truncate text-xs font-medium text-red-200 text-left hover:text-white transition-colors cursor-pointer"
+        onClick={openAlertDetails}
+        className="flex-1 text-xs font-medium text-left text-red-200 truncate transition-colors cursor-pointer hover:text-white"
       >
-        {current.headline || current.affectedArea || 'Active Red Flag Warning in your area'}
+        {current.headline ||
+          current.affectedArea ||
+          'Active Red Flag Warning in your area'}
       </button>
 
-      {/* Pagination if multiple alerts */}
+      {/* Navigation */}
       {rfwAlerts.length > 1 && (
-        <button
-          onClick={next}
-          className="shrink-0 flex items-center gap-1 text-xs text-red-400 hover:text-red-200 transition-colors"
-        >
-          <span>{activeIndex + 1}/{rfwAlerts.length}</span>
-          <ChevronRight size={13} />
-        </button>
+        <div className="flex items-center gap-1 shrink-0">
+          <button
+            onClick={previous}
+            className="p-0.5 text-red-400 hover:text-red-200 transition-colors"
+            aria-label="Previous alert"
+          >
+            <ChevronLeft size={13} />
+          </button>
+
+          <span className="text-xs text-red-400 min-w-[32px] text-center">
+            {activeIndex + 1}/{rfwAlerts.length}
+          </span>
+
+          <button
+            onClick={next}
+            className="p-0.5 text-red-400 hover:text-red-200 transition-colors"
+            aria-label="Next alert"
+          >
+            <ChevronRight size={13} />
+          </button>
+        </div>
       )}
 
       {/* Dismiss */}
@@ -67,4 +129,5 @@ const AlertBanner = memo(function AlertBanner({ dismissed, onDismiss }) {
     </div>
   );
 });
+
 export default AlertBanner;
