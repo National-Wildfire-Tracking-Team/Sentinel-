@@ -999,7 +999,7 @@ export default function MapView({
     if (isWeatherTab && layers.spcWeatherOutlooks && spcWeatherOutlookMode === 'fireWx' && fireWeatherOutlooksGeoJSON) {
       ids.push('fire-weather-outlook-fill');
     }
-    if ((isWeatherTab || isAllHazardTab) && layers.nhcStorms && nhcCentersGeoJSON?.features?.length) {
+    if ((isWeatherTab || isAllHazardTab) && layers.nhcTropicalWeather && nhcCentersGeoJSON?.features?.length) {
       ids.push('nhc-centers-circle');
     }
     if ((isWeatherTab || isAllHazardTab) && layers.nhcTropicalWeather) {
@@ -1018,7 +1018,7 @@ export default function MapView({
       nhcTrackGeoJSON, nhcObservedTrackGeoJSON, nhcDisturbanceGeoJSON,
       criticalInfrastructureVisible, criticalInfrastructureTransGeoJSON, criticalInfrastructureGasGeoJSON,
       nationalMapCollegesVisible, nationalMapCollegesGeoJSON,
-      layers.nhcStorms, nhcCentersGeoJSON]);
+      nhcCentersGeoJSON]);
 
   // Clear stale hover when layers change
   useEffect(() => {
@@ -1446,7 +1446,7 @@ export default function MapView({
           centersGeoJSON={nhcCentersGeoJSON}
           conesGeoJSON={nhcConesGeoJSON}
           tracksGeoJSON={nhcTracksGeoJSON}
-          visible={(isWeatherTab || isAllHazardTab) && layers.nhcStorms}
+          visible={(isWeatherTab || isAllHazardTab) && layers.nhcTropicalWeather}
         />
 
         {/* SPC convective outlook polygons */}
