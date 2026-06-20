@@ -6,7 +6,7 @@
  * the classic red-dash / white outline with no fill, matching the SPC map.
  */
 
-import { memo, Fragment } from 'react';
+import { memo, Fragment, useMemo } from 'react';
 import { Source, Layer } from 'react-map-gl';
 import {
   nwsWwaAwareColorMatchExpression,
@@ -18,6 +18,8 @@ const COLOR_EXPR = nwsWwaAwareColorMatchExpression();
 const FILL_OPACITY_EXPR = nwsWwaStyleMatchExpression('fill');
 const LINE_OPACITY_EXPR = nwsWwaStyleMatchExpression('stroke');
 const LINE_WIDTH_EXPR = nwsWwaStyleMatchExpression('width');
+const ALERT_FEATURE_FILTER = ['==', ['get', '__sentinelLayerType'], 'nws-alert'];
+const MD_FEATURE_FILTER = ['==', ['get', '__sentinelLayerType'], 'spc-md'];
 
 const WeatherAlertsLayer = memo(function WeatherAlertsLayer({
   geoJSON,
@@ -25,15 +27,43 @@ const WeatherAlertsLayer = memo(function WeatherAlertsLayer({
   visible,
 }) {
   const vis = visible ? 'visible' : 'none';
-  const md = spcMdGeoJSON || EMPTY_GEOJSON;
+  const combinedGeoJSON = useMemo(() => {
+    const alertFeatures = Array.isArray(geoJSON?.features)
+      ? geoJSON.features.map((feature) => ({
+          ...feature,
+          properties: {
+            ...(feature?.properties || {}),
+            __sentinelLayerType: 'nws-alert',
+          },
+        }))
+      : [];
+
+    const mdFeatures = Array.isArray(spcMdGeoJSON?.features)
+      ? spcMdGeoJSON.features.map((feature) => ({
+          ...feature,
+          properties: {
+            ...(feature?.properties || {}),
+            __sentinelLayerType: 'spc-md',
+          },
+        }))
+      : [];
+
+    if (!alertFeatures.length && !mdFeatures.length) return EMPTY_GEOJSON;
+
+    return {
+      type: 'FeatureCollection',
+      features: [...alertFeatures, ...mdFeatures],
+    };
+  }, [geoJSON, spcMdGeoJSON]);
 
   return (
     <Fragment>
-      <Source id="weather-alerts" type="geojson" data={geoJSON || EMPTY_GEOJSON}>
+      <Source id="weather-alerts" type="geojson" data={combinedGeoJSON}>
         <Layer
           id="weather-alerts-fill"
           type="fill"
           source="weather-alerts"
+          filter={ALERT_FEATURE_FILTER}
           layout={{ visibility: vis }}
           paint={{
             'fill-color': COLOR_EXPR,
@@ -44,6 +74,7 @@ const WeatherAlertsLayer = memo(function WeatherAlertsLayer({
           id="weather-alerts-line"
           type="line"
           source="weather-alerts"
+          filter={ALERT_FEATURE_FILTER}
           layout={{ visibility: vis }}
           paint={{
             'line-color': COLOR_EXPR,
@@ -51,18 +82,11 @@ const WeatherAlertsLayer = memo(function WeatherAlertsLayer({
             'line-opacity': LINE_OPACITY_EXPR,
           }}
         />
-      </Source>
-
-      <Source
-        id="spc-md"
-        type="geojson"
-        data={md}
-        generateId
-      >
         <Layer
           id="spc-md-fill"
           type="fill"
-          source="spc-md"
+          source="weather-alerts"
+          filter={MD_FEATURE_FILTER}
           layout={{ visibility: vis }}
           paint={{
             'fill-color': '#ff0000',
@@ -72,7 +96,8 @@ const WeatherAlertsLayer = memo(function WeatherAlertsLayer({
         <Layer
           id="spc-md-line-white"
           type="line"
-          source="spc-md"
+          source="weather-alerts"
+          filter={MD_FEATURE_FILTER}
           layout={{ visibility: vis }}
           paint={{
             'line-color': '#ffffff',
@@ -88,7 +113,8 @@ const WeatherAlertsLayer = memo(function WeatherAlertsLayer({
         <Layer
           id="spc-md-line-red"
           type="line"
-          source="spc-md"
+          source="weather-alerts"
+          filter={MD_FEATURE_FILTER}
           layout={{
             visibility: vis,
             'line-cap': 'butt',
@@ -109,7 +135,8 @@ const WeatherAlertsLayer = memo(function WeatherAlertsLayer({
         <Layer
           id="spc-md-label"
           type="symbol"
-          source="spc-md"
+          source="weather-alerts"
+          filter={MD_FEATURE_FILTER}
           minzoom={3.5}
           layout={{
             visibility: vis,
