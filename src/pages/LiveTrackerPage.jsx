@@ -881,7 +881,7 @@ const flightBounds = useMemo(() => {
             href="https://docs.google.com/forms/d/e/1FAIpQLSej35yFro7KsQ349MzgQ6Lek4_M67qfoK59UFssX9CaTKf07Q/viewform?usp=header"
             target="_blank"
             rel="noopener noreferrer"
-            className="absolute bottom-8 right-4 z-20 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-black/70 hover:bg-black/90 text-white border border-white/20 shadow-lg backdrop-blur-sm transition-colors"
+            className="bottom-4 right-4 z-20 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-black/70 hover:bg-black/90 text-white border border-white/20 shadow-lg backdrop-blur-sm transition-colors"
             title="Report a bug"
           >
             <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
