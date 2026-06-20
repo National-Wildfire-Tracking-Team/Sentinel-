@@ -17,7 +17,7 @@ function StatPill({ icon: Icon, label, value, color = 'text-white', onClick, cla
     <>
       <Icon size={14} className={color} />
       <span className={`text-base font-bold ${color}`}>{value}</span>
-      <span className="text-sentinel-300 text-[10px] text-center leading-tight">{label}</span>
+      <span className="text-sentinel-300 text-[xs] text-center leading-tight">{label}</span>
     </>
   );
   if (onClick) {
@@ -62,7 +62,7 @@ const Sidebar = memo(function Sidebar({
         <button
           onClick={toggleSidebar}
           className="absolute left-0 top-1/2 -translate-y-1/2 z-30
-                     flex items-center justify-center w-6 h-12
+                     flex items-center justify-center w-10 h-16
                      bg-sentinel-800 border border-l-0 border-sentinel-700
                      rounded-r-lg text-sentinel-200 hover:text-white
                      hover:bg-sentinel-700 transition-colors shadow-lg"
@@ -75,11 +75,16 @@ const Sidebar = memo(function Sidebar({
       {/* Sidebar panel */}
       <aside
         className={`
-          relative z-20 flex flex-col
+          fixed lg:relative
+          top-0 left-0
+          h-full
+          z-40
+          flex flex-col
           bg-sentinel-900/95 backdrop-blur-sm
           border-r border-sentinel-700
-          transition-all duration-300 ease-in-out
-          ${sidebarOpen ? 'w-72 sm:w-80' : 'w-0 overflow-hidden'}
+          transition-transform duration-300 ease-in-out
+          w-full sm:w-80 lg:w-80
+          ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
         `}
       >
         {/* Back to NWTT Home */}
@@ -109,7 +114,7 @@ const Sidebar = memo(function Sidebar({
             <AlertTriangle size={13} className={isAllHazardTab ? 'text-yellow-300' : 'text-sentinel-400'} />
             <span>All Hazards</span>
             {isAllHazardTab && (
-              <span className="ml-auto px-1.5 py-0.5 rounded-md text-[9px] font-black uppercase tracking-widest bg-white/20 text-white">
+              <span className="ml-auto px-1.5 py-0.5 rounded-md text-[xs] font-black uppercase tracking-widest bg-white/20 text-white">
                 LIVE
               </span>
             )}
@@ -157,7 +162,7 @@ const Sidebar = memo(function Sidebar({
                   <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-red-500 animate-pulse" />
                 </div>
                 <h2 className="font-bold text-white text-sm tracking-wide">All Hazards</h2>
-                <span className="px-1.5 py-0.5 bg-red-600/30 text-red-300 text-[10px] font-bold rounded-full border border-red-700/40">
+                <span className="px-1.5 py-0.5 bg-red-600/30 text-red-300 text-[xs] font-bold rounded-full border border-red-700/40">
                   {activeCount + alertsCount}
                 </span>
               </>
@@ -224,7 +229,7 @@ const Sidebar = memo(function Sidebar({
               <button
                 type="button"
                 onClick={() => setAllHazardFeedTab('fires')}
-                className={`flex-1 inline-flex items-center justify-center gap-1.5 px-2 py-1.5 text-[11px] font-semibold rounded-md transition-colors ${
+                className={`flex-1 inline-flex items-center justify-center gap-1.5 px-2 py-1.5 text-[xs] font-semibold rounded-md transition-colors ${
                   allHazardFeedTab === 'fires'
                     ? 'bg-fire-700 text-white'
                     : 'text-sentinel-300 hover:bg-sentinel-700'
@@ -236,7 +241,7 @@ const Sidebar = memo(function Sidebar({
               <button
                 type="button"
                 onClick={() => setAllHazardFeedTab('alerts')}
-                className={`flex-1 inline-flex items-center justify-center gap-1.5 px-2 py-1.5 text-[11px] font-semibold rounded-md transition-colors ${
+                className={`flex-1 inline-flex items-center justify-center gap-1.5 px-2 py-1.5 text-[xs] font-semibold rounded-md transition-colors ${
                   allHazardFeedTab === 'alerts'
                     ? 'bg-sky-700 text-white'
                     : 'text-sentinel-300 hover:bg-sentinel-700'
