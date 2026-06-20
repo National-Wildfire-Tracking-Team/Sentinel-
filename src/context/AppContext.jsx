@@ -34,8 +34,6 @@ const initialState = {
     criticalInfrastructure: false,
     /** USGS National Map — colleges/universities (structures layer 56); Pro */
     schoolsUniversities: false,
-    /** NHC active tropical storms / hurricanes */
-    nhcStorms: false,
     /** NHC tropical tracks, cone, and disturbances */
     nhcTropicalWeather: false,
   },

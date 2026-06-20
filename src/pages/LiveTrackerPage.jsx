@@ -101,7 +101,6 @@ const ALL_HAZARD_LAYER_PRESET = {
   criticalInfrastructure: false,
   schoolsUniversities: false,
   nhcTropicalWeather: false,
-  nhcStorms: false,
 };
 
 // Weather tab: only auto-enable NWS alerts (includes SPC MDs on map), and NEXRAD;
@@ -464,14 +463,14 @@ const flightBounds = useMemo(() => {
     fireWxOutlookType
   );
 
+  const nhcTropicalWeatherEnabled = weatherDataEnabled && layers.nhcTropicalWeather;
   const {
     centersGeoJSON: nhcCentersGeoJSON,
     conesGeoJSON:   nhcConesGeoJSON,
     tracksGeoJSON:  nhcTracksGeoJSON,
     refresh:        refreshNhcStorms,
-  } = useNhcStorms(weatherDataEnabled && layers.nhcStorms);
+  } = useNhcStorms(nhcTropicalWeatherEnabled);
 
-  const nhcTropicalWeatherEnabled = weatherDataEnabled && layers.nhcTropicalWeather;
   const {
     trackGeoJSON: nhcTrackGeoJSON,
     observedTrackGeoJSON: nhcObservedTrackGeoJSON,
@@ -755,8 +754,10 @@ const flightBounds = useMemo(() => {
     if (layers.fireWeatherOutlooks || (layers.spcWeatherOutlooks && spcWeatherOutlookMode === 'fireWx')) {
       refreshFireWeatherOutlooks();
     }
-    if (weatherDataEnabled && layers.nhcStorms) refreshNhcStorms();
-    if (nhcTropicalWeatherEnabled) refreshNhcTropicalWeather();
+    if (nhcTropicalWeatherEnabled) {
+      refreshNhcStorms();
+      refreshNhcTropicalWeather();
+    }
   }, [
     refreshHotspots, refreshPerimeters, refreshAlerts, refreshIncidents, refreshCalFireIncidents, refreshStormReports,
     refreshSpcMd, refreshSpcOutlooks, refreshUserReports, refreshEvacZones, refreshReporterEvacZones,
@@ -767,7 +768,6 @@ const flightBounds = useMemo(() => {
     refreshNhcTropicalWeather,
     activeMapTab, weatherDataEnabled, layers.aqi, layers.flights, rawsEnabled, layers.airNowMonitors, layers.droughtOutlook, layers.ndgdSmokeForecast,
     layers.fireWeatherOutlooks, layers.spcWeatherOutlooks, spcWeatherOutlookMode, layers.stormReports,
-    layers.nhcStorms,
     nhcTropicalWeatherEnabled,
     criticalInfraEnabled,
     schoolsLayerEnabled,
