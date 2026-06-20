@@ -105,10 +105,10 @@ export default function HomePage() {
       {/* ── Stats Bar ── */}
       <section className="bg-sentinel-800 border-y border-sentinel-700">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-3">
             {stats.map((stat) => (
               <div key={stat.label} className="text-center">
-                <div className="text-3xl sm:text-4xl font-bold text-fire-400">{stat.value}</div>
+                <div className="text-3xl md:text-5xl lg:text-6xl font-bold text-fire-400">{stat.value}</div>
                 <div className="mt-1 text-sm text-sentinel-300 font-medium">{stat.label}</div>
               </div>
             ))}
@@ -120,7 +120,7 @@ export default function HomePage() {
       <section className="bg-sentinel-900 py-20 sm:py-24">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
-            <h2 className="text-3xl sm:text-4xl font-bold text-white">What We Do</h2>
+            <h2 className="text-3xl md:text-5xl lg:text-6xl font-bold text-white">What We Do</h2>
             <p className="mt-4 text-sentinel-300 text-lg max-w-2xl mx-auto">
               Our team operates around the clock to detect, track, and report wildfire
               activity using cutting-edge technology and open-source intelligence.
@@ -138,7 +138,7 @@ export default function HomePage() {
                   <div className="w-12 h-12 rounded-xl bg-fire-600/10 border border-fire-600/20 flex items-center justify-center mb-4 group-hover:bg-fire-600/20 transition-colors">
                     <Icon size={22} className="text-fire-400" />
                   </div>
-                  <h3 className="text-lg font-semibold text-white mb-2">{cap.title}</h3>
+                  <h3 className="text-lg font-semibold text-white mb-2 min-h-[56px]">{cap.title}</h3>
                   <p className="text-sentinel-300 text-sm leading-relaxed">{cap.description}</p>
                 </div>
               );
@@ -152,7 +152,7 @@ export default function HomePage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="relative rounded-3xl overflow-hidden bg-gradient-to-br from-fire-600/20 via-sentinel-800 to-sentinel-900 border border-fire-600/20 p-10 sm:p-14">
             <div className="absolute top-0 right-0 w-72 h-72 bg-fire-600/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
-            <div className="relative flex flex-col lg:flex-row items-center gap-8">
+            <div className="relative flex flex-col md:flex-row items-center gap-8">
               <div className="flex-1">
                 <div className="flex items-center gap-2 mb-4">
                   <ShieldAlert size={20} className="text-fire-400" />
@@ -171,7 +171,7 @@ export default function HomePage() {
               <div className="flex flex-col sm:flex-row gap-4">
                 <Link
                   to="/about"
-                  className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-sentinel-700 text-white font-semibold hover:bg-sentinel-600 transition-colors border border-sentinel-600"
+                  className="inline-flex items-center gap-2 px-6 py-3 min-h-[48px] rounded-xl bg-sentinel-700 text-white font-semibold hover:bg-sentinel-600 transition-colors border border-sentinel-600"
                 >
                   <Users size={18} />
                   Meet the Team
