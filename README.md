@@ -98,3 +98,34 @@ src/
 npm run build   # outputs to dist/
 npm run preview # preview production build
 ```
+
+## CI/CD Pipeline
+
+### GitHub Secrets Required
+
+| Secret | Purpose |
+|--------|---------|
+| `NETLIFY_AUTH_TOKEN` | Netlify API authentication |
+| `NETLIFY_SITE_ID` | Netlify site identifier |
+
+### Branch Workflow
+
+```
+dev → stage → Main
+     (staging)  (production)
+```
+
+### PR Validation
+
+All pull requests automatically run:
+- Lint (ESLint)
+- Build (Vite)
+- Tests (Vitest)
+- Typecheck (TypeScript)
+- Coverage (Vitest v8)
+- E2E Tests (Playwright) - only when targeting Main, stage, or dev
+
+### Deployment
+
+- **stage/dev**: Netlify auto-deploys on branch push
+- **Main**: Netlify auto-deploys to production on merge
