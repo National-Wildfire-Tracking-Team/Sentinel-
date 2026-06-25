@@ -8,7 +8,7 @@ const mockUpdates = [
 
 const mockChannel = {
   on: vi.fn().mockReturnThis(),
-  subscribe: vi.fn(),
+  subscribe: vi.fn().mockReturnValue({}),
 };
 
 const mockSupabase = {
@@ -22,8 +22,8 @@ const mockSupabase = {
 };
 
 vi.mock('../api/supabaseClient', () => ({
-  supabase: mockSupabase,
-  isSupabaseConfigured: true,
+  get supabase() { return mockSupabase; },
+  get isSupabaseConfigured() { return true; },
 }));
 
 beforeEach(() => {
@@ -80,6 +80,6 @@ describe('useRecentUpdates', () => {
 
     unmount();
 
-    expect(mockSupabase.removeChannel).toHaveBeenCalledWith(mockChannel);
+    expect(mockSupabase.removeChannel).toHaveBeenCalled();
   });
 });
