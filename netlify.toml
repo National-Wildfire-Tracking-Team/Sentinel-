@@ -2,6 +2,21 @@
   command = "npm run build"
   publish = "dist"
 
+[build.environment]
+  NODE_VERSION = "24"
+
+# Production branch
+[context.production]
+  branch = "Main"
+
+# Stage branch preview deployment
+[context.deploy-preview]
+  branch = "stage"
+
+# Dev branch deployment
+[context.branch-deploy]
+  branch = "dev"
+
 # Proxy Mapbox API requests
 [[redirects]]
   from = "/api/mapbox/*"
