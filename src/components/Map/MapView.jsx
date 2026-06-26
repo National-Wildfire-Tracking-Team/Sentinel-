@@ -1352,6 +1352,34 @@ export default function MapView({
     setViewport(evt.viewState);
   }, [setViewport]);
 
+  const handleMapLoad = useCallback((event) => {
+    const map = event.target;
+
+  if (mapType !== "satellite") return;
+    
+  if (!map.getSource("mapbox-dem")) {
+    map.addSource("mapbox-dem", {
+      type: "raster-dem",
+      url: "mapbox://mapbox.mapbox-terrain-dem-v1",
+      tileSize: 512,
+      maxzoom: 15,
+    });
+  }
+
+  map.setTerrain({
+    source: "mapbox-dem",
+    exaggeration: 1.5,
+  });
+
+  map.setFog({});
+
+  map.easeTo({
+    pitch: 70,
+    bearing: 35,
+    duration: 2000,
+  });
+  }, [mapType]);
+
   return (
     <div className="absolute inset-0 bg-sentinel-900">
       {/* Wildfire tab: fire weather outlook selector only (convective uses combined control on weather tab) */}
@@ -1399,6 +1427,7 @@ export default function MapView({
         {...viewport}
         mapboxAccessToken={HAS_MAPBOX_TOKEN ? MAPBOX_TOKEN : undefined}
         mapStyle={MAP_STYLES[mapType] ?? MAP_STYLES.satellite}
+        onLoad={handleMapLoad}
         style={{ width: '100%', height: '100%', background: '#0a0c0e' }}
         interactiveLayerIds={interactiveLayerIds}
         onClick={handleClick}
@@ -1414,6 +1443,17 @@ export default function MapView({
         {/* Navigation controls */}
         <NavigationControl position="bottom-right" style={{ marginBottom: '6rem' }} />
         <ScaleControl position="bottom-left" style={{ marginLeft: '1rem', marginBottom: '1rem' }} />
+
+        <button
+          onClick={() => {
+            pitch: 70,
+            bearing: 35,
+            duration: 1000,
+              });
+            }}
+            > 
+            3D
+          </button>
 
         {/* ── Data Layers (ordered back-to-front, each independently controlled via visibility) ── */}
 
