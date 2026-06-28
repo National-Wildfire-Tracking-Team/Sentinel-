@@ -218,6 +218,7 @@ function IncidentCard({
   profile,
   userId,
   onRefresh,
+  evacZones,
 }) {
   const [expanded, setExpanded] = useState(false);
   const [mode, setMode] = useState('view'); // 'view' | 'edit' | 'update' | 'confirm-delete'
@@ -268,8 +269,25 @@ function IncidentCard({
     const hasAcres = updateAcreage.toString().trim().length > 0;
     const hasContain = updateContainment.toString().trim().length > 0;
     const hasNotes = updateNotes.trim().length > 0;
+    const hasEvacZones = evacZones.some(
+      zone => 
+        zone.incident_name?.trim().toLowerCase() ===
+        report.title?.trim().toLowerCase()
+        );
+
+    if (!hasEvacZones) {
+      setUpdateFeedback({
+        type: 'error',
+        message: 'You must add at least one evacuation zone before posting an update.'
+      });
+      return;
+    }
+    
     if (!hasAcres && !hasContain && !hasNotes) {
-      setUpdateFeedback({ type: 'error', message: 'Enter acreage, containment, or notes before posting.' });
+      setUpdateFeedback({
+        type: 'error',
+        message: 'Enter acreage, containment, or notes before posting.'
+      });
       return;
     }
     if (hasContain && !Number.isFinite(Number(updateContainment))) {
@@ -1938,6 +1956,7 @@ export default function ReporterDashboardPage() {
                   profile={profile}
                   userId={user.id}
                   onRefresh={refreshReports}
+                  evacZones={myEvacZones}
                 />
               ))
             )}
