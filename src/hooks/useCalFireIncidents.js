@@ -4,6 +4,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { fetchCalFireGeoJsonList, normalizeCalFireIncidents } from '../api/calFire';
+import { throttleError } from '../utils/errorThrottle';
 
 const REFRESH_MS = parseInt(import.meta.env.VITE_REFRESH_INTERVAL || '300000', 10);
 
@@ -31,7 +32,9 @@ export function useCalFireIncidents(includeInactive = false, enabled = true) {
     } catch (err) {
       if (!mountedRef.current) return;
       // CAL FIRE may fail from the browser (CORS) while IRWIN still loads; treat as optional.
-      console.warn('[CAL FIRE] GeoJsonList unavailable:', err.message);
+      throttleError('[CAL FIRE]', 'GeoJsonList unavailable:', err, {
+        friendlyType: 'generic',
+      });
       setError(null);
       setIncidents([]);
     } finally {

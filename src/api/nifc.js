@@ -16,6 +16,7 @@
 
 import { fetchWithCache } from '../utils/dataCache';
 import { MOCK_FIRE_PERIMETERS } from '../data/mockData';
+import { throttleError } from '../utils/errorThrottle';
 
 const NIFC_BASE =
   'https://services3.arcgis.com/T4QMspbfLg3qTGWY/arcgis/rest/services' +
@@ -29,7 +30,7 @@ const FIRIS_BASE =
  * Retry a function with exponential backoff.
  * Mitigates transient ERR_HTTP2_PROTOCOL_ERROR from ArcGIS on large payloads.
  */
-async function withRetry(fn, { attempts = 3, baseDelayMs = 1000 } = {}) {
+async function withRetry(fn, { attempts = 3, baseDelayMs = 1000, tag = '[NIFC]' } = {}) {
   let lastError;
   for (let i = 0; i < attempts; i++) {
     try {
@@ -38,7 +39,10 @@ async function withRetry(fn, { attempts = 3, baseDelayMs = 1000 } = {}) {
       lastError = err;
       if (i < attempts - 1) {
         const delay = baseDelayMs * Math.pow(2, i);
-        console.warn(`[NIFC] Attempt ${i + 1}/${attempts} failed, retrying in ${delay}ms:`, err.message);
+        // Only log retry attempts, not final failures (those are handled by callers)
+        throttleError(tag, `Attempt ${i + 1}/${attempts} failed, retrying in ${delay}ms:`, err, {
+          ttlMs: 30 * 1000, // 30 second TTL for retry messages
+        });
         await new Promise(resolve => setTimeout(resolve, delay));
       }
     }
@@ -89,7 +93,9 @@ export async function fetchFirePerimeters({ minAcres = 0 } = {}) {
     if (data?.features) return normalizePerimeters(data);
     throw new Error('Unexpected response format');
   } catch (err) {
-    console.warn('[NIFC] Using fallback perimeters:', err.message);
+    throttleError('[NIFC]', 'Using fallback perimeters:', err, {
+      friendlyType: 'generic',
+    });
     return MOCK_FIRE_PERIMETERS;
   }
 }
@@ -155,6 +161,7 @@ export async function fetchFIRISPerimeters({ minAcres = 0 } = {}) {
   try {
     const data = await withRetry(() =>
       fetchWithCache(url, cacheKey, {}, 10 * 60 * 1000),
+      { tag: '[FIRIS]' },
     );
     if (data?.error) throw new Error(data.error.message || 'ArcGIS FIRIS error');
     if (!data?.features) throw new Error('Unexpected FIRIS response format');
@@ -169,7 +176,9 @@ export async function fetchFIRISPerimeters({ minAcres = 0 } = {}) {
     }
     return normalized;
   } catch (err) {
-    console.warn('[FIRIS] Skipping CA perimeters source:', err.message);
+    throttleError('[FIRIS]', 'Skipping CA perimeters source:', err, {
+      friendlyType: 'unavailable',
+    });
     return { type: 'FeatureCollection', features: [] };
   }
 }

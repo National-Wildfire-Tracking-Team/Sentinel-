@@ -12,6 +12,7 @@
  */
 
 import { getCached, setCached } from '../utils/dataCache';
+import { throttleError } from '../utils/errorThrottle';
 
 // Requests go through the server-side proxy (Netlify edge fn / Vite dev proxy)
 // to work around nhc.noaa.gov's missing CORS headers for cross-origin requests.
@@ -119,7 +120,9 @@ export async function fetchNhcActiveStorms() {
     setCached(cacheKey, result, CACHE_TTL);
     return result;
   } catch (err) {
-    console.warn('[NHC] CurrentStorms fetch failed:', err.message);
+    throttleError('[NHC]', 'CurrentStorms fetch failed:', err, {
+      friendlyType: 'generic',
+    });
     return { type: 'FeatureCollection', features: [] };
   }
 }

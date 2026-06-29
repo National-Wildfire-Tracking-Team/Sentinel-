@@ -1,10 +1,37 @@
+/**
+ * OpenSky Proxy – Supabase Edge Function
+ *
+ * Proxies OpenSky Network API requests server-side to keep OAuth credentials secure.
+ *
+ * Required secrets (set via: supabase secrets set OPENSKY_CLIENT_ID=<value> OPENSKY_CLIENT_SECRET=<value>):
+ *   OPENSKY_CLIENT_ID
+ *   OPENSKY_CLIENT_SECRET
+ *
+ * POST body (JSON):
+ *   lamin?   Latitude min (default: 24)
+ *   lomin?   Longitude min (default: -130)
+ *   lamax?   Latitude max (default: 50)
+ *   lomax?   Longitude max (default: -65)
+ */
+
+const CORS_HEADERS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
+
 Deno.serve(async (req: Request) => {
+  // Handle CORS preflight
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: CORS_HEADERS });
+  }
+
   try {
     const clientId = Deno.env.get('OPENSKY_CLIENT_ID')
     const clientSecret = Deno.env.get('OPENSKY_CLIENT_SECRET')
 
     if (!clientId || !clientSecret) {
-      throw new Error('Missing OpenSky OAuth credentials')
+      return jsonResponse({ error: 'Missing OpenSky OAuth credentials' }, 500)
     }
 
     const body = await req.json().catch(() => ({}))
@@ -74,19 +101,20 @@ Deno.serve(async (req: Request) => {
       }),
       {
         status: 200,
-        headers: { 'Content-Type': 'application/json' },
+        headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
       },
     )
   } catch (err) {
-    return new Response(
-      JSON.stringify({
-        marker: 'OPENSKY-OAUTH-TEST',
-        error: err instanceof Error ? err.message : String(err),
-      }),
-      {
-        status: 500,
-        headers: { 'Content-Type': 'application/json' },
-      },
-    )
+    return jsonResponse({
+      marker: 'OPENSKY-OAUTH-TEST',
+      error: err instanceof Error ? err.message : String(err),
+    }, 500)
   }
 })
+
+function jsonResponse(body: unknown, status = 200): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+  });
+}

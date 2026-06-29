@@ -10,6 +10,7 @@
 
 import { getCached, setCached } from '../utils/dataCache';
 import { supabase, isSupabaseConfigured } from './supabaseClient';
+import { throttleError } from '../utils/errorThrottle';
 
 export const CAL_FIRE_GEOJSON_BASE =
   'https://incidents.fire.ca.gov/umbraco/api/IncidentApi/GeoJsonList';
@@ -93,7 +94,9 @@ export async function fetchCalFireGeoJsonList({ includeInactive = false } = {}) 
       return data;
     } catch (err) {
       lastErr = err;
-      console.warn(`[CAL FIRE] ${label}:`, err.message);
+      throttleError('[CAL FIRE]', `${label}:`, err, {
+        friendlyType: 'generic',
+      });
     }
   }
 

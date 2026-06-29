@@ -17,6 +17,7 @@ import { getCached, setCached } from '../utils/dataCache';
 import { acquireSlot } from '../utils/firmsRateLimiter';
 import { MOCK_FIRE_HOTSPOTS } from '../data/mockData';
 import { supabase, isSupabaseConfigured } from './supabaseClient';
+import { throttleError } from '../utils/errorThrottle';
 
 const IS_DEV = import.meta.env.DEV;
 
@@ -144,29 +145,36 @@ export async function fetchFireHotspots(
   const cached = getCached(cacheKey);
   if (cached !== null) return cached;
 
-  // 1. Preferred path: Supabase edge function (key stays server-side)
-  // Skip in dev mode — edge function lacks CORS headers for localhost
-  if (isSupabaseConfigured && !IS_DEV) {
-    try {
-      return normalizeHotspots(await fetchViaSupabase(source, area, days, cacheKey));
-    } catch (err) {
-      console.warn('[FIRMS] Supabase edge function failed, trying fallback:', err.message);
-    }
-  }
-
-  // 2. Fallback: direct fetch via Netlify proxy (requires VITE_NASA_FIRMS_API_KEY)
+  // 1. Primary path: Netlify edge function proxy (more reliable, no CORS issues)
   if (MAP_KEY) {
     try {
       const url = `${FIRMS_BASE}/csv/${MAP_KEY}/${source}/${area}/${days}`;
       return normalizeHotspots(await fetchFirmsCSV(url, cacheKey));
     } catch (err) {
-      console.error('[FIRMS] Direct CSV fetch failed:', err.message);
+      throttleError('[FIRMS]', 'Netlify edge function failed, trying Supabase fallback:', err, {
+        friendlyType: 'netlify',
+      });
+    }
+  }
+
+  // 2. Fallback: Supabase edge function (key stays server-side, but may have CORS issues)
+  // Skip in dev mode — edge function lacks CORS headers for localhost
+  if (isSupabaseConfigured && !IS_DEV) {
+    try {
+      return normalizeHotspots(await fetchViaSupabase(source, area, days, cacheKey));
+    } catch (err) {
+      throttleError('[FIRMS]', 'Supabase edge function failed, trying fallback:', err, {
+        friendlyType: 'supabase',
+      });
     }
   }
 
   // 3. No API access – use demo data
   if (!MAP_KEY) {
-    console.info('[FIRMS] No API key configured – using demo data');
+    throttleError('[FIRMS]', 'No API key configured – using demo data', null, {
+      friendlyType: 'demo',
+      ttlMs: 60 * 60 * 1000, // Only log once per hour for demo mode
+    });
   }
   return withRecentAcquisition(MOCK_FIRE_HOTSPOTS);
 }

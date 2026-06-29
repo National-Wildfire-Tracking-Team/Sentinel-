@@ -7,7 +7,19 @@
  *
  * NOTE: FIRMS only serves CSV responses – there is no JSON endpoint.
  */
+
+const CORS_HEADERS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type',
+};
+
 export default async (request) => {
+  // Handle CORS preflight
+  if (request.method === 'OPTIONS') {
+    return new Response('ok', { headers: CORS_HEADERS });
+  }
+
   const url = new URL(request.url);
   const firmsPath = url.pathname.replace(/^\/api\/firms/, '');
   const target = `https://firms.modaps.eosdis.nasa.gov${firmsPath}${url.search}`;
@@ -17,8 +29,8 @@ export default async (request) => {
   return new Response(resp.body, {
     status: resp.status,
     headers: {
+      ...CORS_HEADERS,
       'Content-Type': resp.headers.get('Content-Type') || 'text/csv',
-      'Access-Control-Allow-Origin': '*',
     },
   });
 };
