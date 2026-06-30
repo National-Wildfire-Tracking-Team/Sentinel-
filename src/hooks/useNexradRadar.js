@@ -4,15 +4,14 @@
  * Returns scan timestamp and a tile URL template that includes a cache-bust
  * token so MapLibre GL automatically refetches tiles when a new scan arrives.
  *
- * Falls back to the Iowa Environmental Mesonet WMS when the radar service is
- * unavailable, so the map never shows a blank radar layer.
+ * Source: https://registry.opendata.aws/noaa-nexrad/
  */
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 
 // Data source: https://registry.opendata.aws/noaa-nexrad/
 // Base URL of the Python radar service.
-// In development the Vite proxy forwards /api/radar → localhost:8765.
+// In development the Vite proxy forwards /api/radar-svc → localhost:8765.
 // In production set VITE_RADAR_SERVICE_URL to point at your deployed service.
 const RADAR_SERVICE_BASE =
   (import.meta.env.VITE_RADAR_SERVICE_URL || '').replace(/\/$/, '') || '/api/radar-svc';
@@ -21,18 +20,11 @@ const RADAR_SERVICE_BASE =
 // 2.5 min, so polling every 30 s is more than sufficient.
 const POLL_INTERVAL_MS = 30_000;
 
-// IEM WMS fallback — provides the national NEXRAD mosaic via a standard WMS
-const IEM_FALLBACK_URL =
-  'https://mesonet.agron.iastate.edu/cgi-bin/wms/nexrad/n0q.cgi' +
-  '?SERVICE=WMS&VERSION=1.1.1&REQUEST=GetMap&LAYERS=nexrad-n0q-900913' +
-  '&FORMAT=image/png&TRANSPARENT=true&SRS=EPSG:3857' +
-  '&WIDTH=256&HEIGHT=256&BBOX={bbox-epsg-3857}';
-
 /**
  * @returns {{
- *   tileUrl: string,          — XYZ tile URL template (includes {z}/{x}/{y})
+ *   tileUrl: string | null,   — XYZ tile URL (null until service responds)
  *   scanTime: Date | null,    — UTC time of the latest scan
- *   isServiceAvailable: bool, — false → fallback WMS is active
+ *   isServiceAvailable: bool,
  *   isLoading: bool,
  *   error: string | null,
  *   refresh: () => void,      — manually trigger a metadata check
@@ -69,7 +61,6 @@ export function useNexradRadar(enabled = true) {
       const newScanTime = data.latestScanTime ? new Date(data.latestScanTime) : null;
 
       setScanTime(newScanTime);
-      // Use the ISO timestamp string as a stable cache-bust token
       const token = data.latestScanTime || '';
       setScanKey((prev) => (prev !== token ? token : prev));
       setIsServiceAvailable(true);
@@ -95,11 +86,11 @@ export function useNexradRadar(enabled = true) {
     };
   }, [enabled, fetchStatus]);
 
-  // Build tile URL
+  // Tile URL — null when service is unavailable (layer renders nothing)
   const tileUrl = isServiceAvailable
     ? `${RADAR_SERVICE_BASE}/tiles/reflectivity/{z}/{x}/{y}.png` +
       (scanKey ? `?t=${encodeURIComponent(scanKey)}` : '')
-    : IEM_FALLBACK_URL;
+    : null;
 
   return {
     tileUrl,

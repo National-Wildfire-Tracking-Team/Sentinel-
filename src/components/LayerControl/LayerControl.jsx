@@ -7,7 +7,7 @@
 import { useState, memo, useMemo, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  Layers, Flame, MapPin, Wind, CloudRain, CloudLightning, Eye, ChevronDown, ChevronRight, Radar, AlertTriangle, Ruler, Hexagon, PlaneTakeoff, Satellite, Map as MapIcon, Thermometer, Activity, Droplets, Zap, Lock, Users, GraduationCap, Waves, RefreshCw, WifiOff,
+  Layers, Flame, MapPin, Wind, CloudRain, CloudLightning, Eye, ChevronDown, ChevronRight, Radar, AlertTriangle, Ruler, Hexagon, PlaneTakeoff, Satellite, Map as MapIcon, Thermometer, Activity, Droplets, Zap, Lock, Users, GraduationCap, Waves, RefreshCw,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { useNexradRadar } from '../../hooks/useNexradRadar';
@@ -336,15 +336,10 @@ function RadarLayerRow() {
             NEXRAD Reflectivity
           </div>
           <div className="text-[10px] text-zinc-400 leading-snug">
-            {active && isLoading ? (
-              <span className="flex items-center gap-1"><RefreshCw size={9} className="animate-spin" /> Fetching scan…</span>
-            ) : active && error && !isServiceAvailable ? (
-              <span className="flex items-center gap-1 text-amber-400"><WifiOff size={9} /> IEM mosaic fallback</span>
-            ) : active && isServiceAvailable ? (
-              'NOAA NEXRAD Level II · registry.opendata.aws/noaa-nexrad'
-            ) : (
-              'NOAA NEXRAD Level II · registry.opendata.aws/noaa-nexrad'
-            )}
+            {active && isLoading
+              ? <span className="flex items-center gap-1"><RefreshCw size={9} className="animate-spin" /> Fetching scan…</span>
+              : 'NOAA NEXRAD Level II · registry.opendata.aws/noaa-nexrad'
+            }
           </div>
         </div>
         <div
@@ -390,11 +385,11 @@ function RadarLayerRow() {
           <div className="flex items-center gap-1.5">
             <div
               className={`w-1.5 h-1.5 rounded-full ${
-                isServiceAvailable ? 'bg-emerald-500' : error ? 'bg-amber-500' : 'bg-zinc-600'
+                isServiceAvailable ? 'bg-emerald-500' : error ? 'bg-red-500' : 'bg-zinc-600'
               }`}
             />
             <span className="text-[9px] text-zinc-500">
-              {isServiceAvailable ? 'Live NEXRAD service' : error ? 'National mosaic (IEM fallback)' : 'Connecting…'}
+              {isServiceAvailable ? 'NWS Level II live' : error ? 'Service unavailable — layer hidden' : 'Connecting…'}
             </span>
           </div>
         </div>
