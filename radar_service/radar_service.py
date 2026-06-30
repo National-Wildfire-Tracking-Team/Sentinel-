@@ -1,6 +1,7 @@
 """
 radar_service.py
 FastAPI microservice for NOAA NEXRAD Level II radar tiles.
+Source: https://registry.opendata.aws/noaa-nexrad/
 
 Endpoints:
   GET /api/radar/status          — metadata: stations, latest scan times
@@ -38,7 +39,7 @@ log = logging.getLogger("radar_service")
 
 app = FastAPI(
     title="Sentinel NEXRAD Radar Service",
-    description="Real-time NOAA NEXRAD Level II tile server",
+    description="Real-time NOAA NEXRAD Level II tile server — source: https://registry.opendata.aws/noaa-nexrad/",
     version="1.0.0",
 )
 

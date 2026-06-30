@@ -31,7 +31,7 @@ const LAYER_DEFS = {
   goesWest:          { label: 'GOES West Imagery',   sublabel: 'NOAA GOES West · visible',    icon: Eye,           color: '#7c3aed' },
   goesFire16:        { label: 'GOES East Fire RGB',  sublabel: 'NOAA GOES East · Day Land Cloud Fire RGB', icon: Eye, color: '#a855f7' },
   goesFire18:        { label: 'GOES West Fire RGB',  sublabel: 'NOAA GOES West · Day Land Cloud Fire RGB', icon: Eye, color: '#9333ea' },
-  radar:             { label: 'NEXRAD Reflectivity', sublabel: 'NEXRAD Level 2 composite',     icon: Radar,        color: '#10b981' },
+  radar:             { label: 'NEXRAD Reflectivity', sublabel: 'NOAA NEXRAD Level II · AWS Open Data', icon: Radar, color: '#10b981' },
   aqi:               { label: 'AQI Heatmap',          sublabel: 'EPA AirNow gradient overlay',  icon: Wind,         color: '#3b82f6' },
   smoke:             { label: 'Smoke Forecast',      sublabel: 'NOAA HRRR',                   icon: CloudRain,    color: '#94a3b8' },
   flights:           { label: 'Live Flight Tracking', sublabel: 'OpenSky Network ADS-B',      icon: PlaneTakeoff, color: '#ff5a00' },
@@ -341,9 +341,9 @@ function RadarLayerRow() {
             ) : active && error && !isServiceAvailable ? (
               <span className="flex items-center gap-1 text-amber-400"><WifiOff size={9} /> IEM mosaic fallback</span>
             ) : active && isServiceAvailable ? (
-              'NOAA NEXRAD Level II · AWS'
+              'NOAA NEXRAD Level II · registry.opendata.aws/noaa-nexrad'
             ) : (
-              'NEXRAD Level 2 composite'
+              'NOAA NEXRAD Level II · registry.opendata.aws/noaa-nexrad'
             )}
           </div>
         </div>

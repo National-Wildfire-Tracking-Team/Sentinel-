@@ -10,6 +10,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 
+// Data source: https://registry.opendata.aws/noaa-nexrad/
 // Base URL of the Python radar service.
 // In development the Vite proxy forwards /api/radar → localhost:8765.
 // In production set VITE_RADAR_SERVICE_URL to point at your deployed service.

@@ -49,7 +49,7 @@ const RadarLayer = memo(function RadarLayer({ visible, opacity = 75, onStatusCha
       tileSize={256}
       attribution={
         isServiceAvailable
-          ? 'NOAA NEXRAD Level II via Sentinel Radar Service'
+          ? 'NOAA NEXRAD Level II — registry.opendata.aws/noaa-nexrad'
           : 'NEXRAD Level 2 composite via Iowa Environmental Mesonet'
       }
       minzoom={2}

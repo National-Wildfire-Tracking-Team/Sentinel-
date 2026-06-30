@@ -2,6 +2,7 @@
 nexrad_fetcher.py
 Polls the public NOAA NEXRAD Level II S3 bucket for new volume scans.
 
+Source: https://registry.opendata.aws/noaa-nexrad/
 Bucket: noaa-nexrad-level2 (us-east-1, public, no auth required)
 Key format: YYYY/MM/DD/KXXX/KXXX_YYYYMMDD_HHMMSS_V06
 """
