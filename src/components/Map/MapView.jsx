@@ -856,7 +856,7 @@ export default function MapView({
   precipRingActive = false,
   waterGaugesGeoJSON,
 }) {
-  const { layers, alerts, selectFire, selectGauge, viewport, setViewport, sidebarOpen } = useApp();
+  const { layers, alerts, selectFire, selectGauge, viewport, setViewport, sidebarOpen, radarOpacity } = useApp();
   const mapRef = useRef(null);
 
   // Resize the Mapbox canvas after the sidebar transition completes (300ms)
@@ -1470,7 +1470,10 @@ export default function MapView({
         />
 
         {/* NEXRAD radar reflectivity */}
-        <RadarLayer visible={(isWeatherTab || isAllHazardTab) && layers.radar} />
+        <RadarLayer
+          visible={(isWeatherTab || isAllHazardTab) && layers.radar}
+          opacity={radarOpacity}
+        />
 
         {/* Smoke forecast */}
         <SmokeLayer visible={(isWeatherTab || isAllHazardTab) && layers.smoke} />

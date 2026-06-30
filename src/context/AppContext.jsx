@@ -63,6 +63,8 @@ const initialState = {
     latitude:  44.0,
     zoom:      4.5,
   },
+  // NEXRAD radar opacity (0–100)
+  radarOpacity: 75,
 };
 
 // ─── Action Types ─────────────────────────────────────────────────────────────
@@ -78,8 +80,9 @@ const A = {
   SET_ALERTS:         'SET_ALERTS',
   SET_LOADING:        'SET_LOADING',
   SET_REFRESHED:      'SET_REFRESHED',
-  SET_VIEWPORT:       'SET_VIEWPORT',
-  SET_FEED_FILTER:    'SET_FEED_FILTER',
+  SET_VIEWPORT:        'SET_VIEWPORT',
+  SET_FEED_FILTER:     'SET_FEED_FILTER',
+  SET_RADAR_OPACITY:   'SET_RADAR_OPACITY',
 };
 
 // ─── Reducer ─────────────────────────────────────────────────────────────────
@@ -117,6 +120,8 @@ function reducer(state, action) {
       return { ...state, viewport: { ...state.viewport, ...action.viewport } };
     case A.SET_FEED_FILTER:
       return { ...state, feedFilter: action.value };
+    case A.SET_RADAR_OPACITY:
+      return { ...state, radarOpacity: action.value };
     default:
       return state;
   }
@@ -141,6 +146,7 @@ export function AppProvider({ children }) {
   const setRefreshed     = useCallback((time = new Date()) => dispatch({ type: A.SET_REFRESHED, time }), []);
   const setViewport      = useCallback((viewport) => dispatch({ type: A.SET_VIEWPORT, viewport }), []);
   const setFeedFilter    = useCallback((value) => dispatch({ type: A.SET_FEED_FILTER, value }), []);
+  const setRadarOpacity  = useCallback((value) => dispatch({ type: A.SET_RADAR_OPACITY, value }), []);
 
   /** Fly the map to a specific fire incident */
   const flyToFire = useCallback((incident) => {
@@ -171,6 +177,7 @@ export function AppProvider({ children }) {
       setViewport,
       flyToFire,
       setFeedFilter,
+      setRadarOpacity,
     }}>
       {children}
     </AppContext.Provider>

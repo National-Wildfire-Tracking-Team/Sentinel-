@@ -104,6 +104,20 @@ export default defineConfig({
         secure: true,
         rewrite: (path) => path.replace(/^\/api\/nwps/, ''),
       },
+      // NEXRAD radar service (Python microservice, default port 8765)
+      '/api/radar-svc': {
+        target: `http://127.0.0.1:${process.env.RADAR_SERVICE_PORT || 8765}`,
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api\/radar-svc/, '/api/radar'),
+        configure: (proxy) => {
+          proxy.on('error', (_err, _req, res) => {
+            if (!res.headersSent) {
+              res.writeHead(503, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ error: 'Radar service unavailable' }));
+            }
+          });
+        },
+      },
     },
   },
   preview: {
@@ -152,6 +166,20 @@ export default defineConfig({
         changeOrigin: true,
         secure: true,
         rewrite: (path) => path.replace(/^\/api\/nwps/, ''),
+      },
+      // NEXRAD radar service (Python microservice, default port 8765)
+      '/api/radar-svc': {
+        target: `http://127.0.0.1:${process.env.RADAR_SERVICE_PORT || 8765}`,
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api\/radar-svc/, '/api/radar'),
+        configure: (proxy) => {
+          proxy.on('error', (_err, _req, res) => {
+            if (!res.headersSent) {
+              res.writeHead(503, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ error: 'Radar service unavailable' }));
+            }
+          });
+        },
       },
     },
   },

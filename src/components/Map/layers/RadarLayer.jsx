@@ -1,31 +1,59 @@
 /**
  * RadarLayer.jsx
- * NEXRAD Level 2 base reflectivity composite via Iowa Environmental Mesonet WMS.
- * Uses the national NEXRAD mosaic (N0Q product — 0.5 deg base reflectivity)
- * sourced from NEXRAD Level 2 radar data across all WSR-88D stations.
- * Layer stays mounted; visibility is controlled via layout property.
+ * NEXRAD Level II base reflectivity tiles.
+ *
+ * Primary source: local Python radar service processing NOAA NEXRAD Level II
+ * AWS dataset (s3://noaa-nexrad-level2) — 256×256 RGBA PNG tiles.
+ * Fallback: Iowa Environmental Mesonet WMS mosaic (n0q 900913).
+ *
+ * The tile URL contains a cache-bust token derived from the latest scan
+ * timestamp so MapLibre GL automatically re-fetches tiles when new data
+ * arrives without requiring a page reload.
  */
 
-import { memo } from 'react';
-import { Source, Layer } from 'react-map-gl';
+import { memo, useEffect, useRef } from 'react';
+import { Source, Layer, useMap } from 'react-map-gl';
+import { useNexradRadar } from '../../../hooks/useNexradRadar';
 
-// IEM NEXRAD composite reflectivity (N0Q) — all CONUS WSR-88D stations
-const IEM_NEXRAD_WMS =
-  'https://mesonet.agron.iastate.edu/cgi-bin/wms/nexrad/n0q.cgi' +
-  '?SERVICE=WMS&VERSION=1.1.1&REQUEST=GetMap&LAYERS=nexrad-n0q-900913' +
-  '&FORMAT=image/png&TRANSPARENT=true&SRS=EPSG:3857' +
-  '&WIDTH=256&HEIGHT=256&BBOX={bbox-epsg-3857}';
+const RadarLayer = memo(function RadarLayer({ visible, opacity = 75, onStatusChange }) {
+  const { tileUrl, scanTime, isServiceAvailable, isLoading, error } = useNexradRadar(visible);
+  const { current: map } = useMap();
+  const prevTileUrlRef = useRef(null);
 
-const RadarLayer = memo(function RadarLayer({ visible }) {
+  // Notify parent of status changes (scan time, availability)
+  useEffect(() => {
+    onStatusChange?.({ scanTime, isServiceAvailable, isLoading, error });
+  }, [scanTime, isServiceAvailable, isLoading, error, onStatusChange]);
+
+  // When the tile URL changes (new scan arrived), tell MapLibre to reload tiles.
+  // We swap the source tiles array which triggers a re-fetch without unmounting.
+  useEffect(() => {
+    if (!map || !visible) return;
+    if (prevTileUrlRef.current === tileUrl) return;
+    prevTileUrlRef.current = tileUrl;
+
+    const source = map.getSource('nexrad-radar');
+    if (source && typeof source.setTiles === 'function') {
+      source.setTiles([tileUrl]);
+    }
+  }, [map, tileUrl, visible]);
+
   const vis = visible ? 'visible' : 'none';
+  const paintOpacity = Math.max(0, Math.min(100, opacity)) / 100;
 
   return (
     <Source
       id="nexrad-radar"
       type="raster"
-      tiles={[IEM_NEXRAD_WMS]}
+      tiles={[tileUrl]}
       tileSize={256}
-      attribution="NEXRAD Level 2 via Iowa Environmental Mesonet"
+      attribution={
+        isServiceAvailable
+          ? 'NOAA NEXRAD Level II via Sentinel Radar Service'
+          : 'NEXRAD Level 2 composite via Iowa Environmental Mesonet'
+      }
+      minzoom={2}
+      maxzoom={12}
     >
       <Layer
         id="nexrad-radar-raster"
@@ -33,12 +61,13 @@ const RadarLayer = memo(function RadarLayer({ visible }) {
         source="nexrad-radar"
         layout={{ visibility: vis }}
         paint={{
-          'raster-opacity': 0.75,
+          'raster-opacity': paintOpacity,
           'raster-resampling': 'linear',
-          'raster-fade-duration': 300,
+          'raster-fade-duration': 400,
         }}
       />
     </Source>
   );
 });
+
 export default RadarLayer;

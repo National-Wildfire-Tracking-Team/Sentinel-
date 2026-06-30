@@ -26,6 +26,10 @@
 
 # Edge functions
 [[edge_functions]]
+  function = "radar-proxy"
+  path = "/api/radar-svc/*"
+
+[[edge_functions]]
   function = "nhc-proxy"
   path = "/api/nhc/*"
 

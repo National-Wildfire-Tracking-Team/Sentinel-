@@ -4,12 +4,13 @@
  * Collapsible on mobile. Layers are grouped by the active map tab (Wildfire vs Weather).
  */
 
-import { useState, memo, useMemo, useEffect } from 'react';
+import { useState, memo, useMemo, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  Layers, Flame, MapPin, Wind, CloudRain, CloudLightning, Eye, ChevronDown, ChevronRight, Radar, AlertTriangle, Ruler, Hexagon, PlaneTakeoff, Satellite, Map as MapIcon, Thermometer, Activity, Droplets, Zap, Lock, Users, GraduationCap, Waves,
+  Layers, Flame, MapPin, Wind, CloudRain, CloudLightning, Eye, ChevronDown, ChevronRight, Radar, AlertTriangle, Ruler, Hexagon, PlaneTakeoff, Satellite, Map as MapIcon, Thermometer, Activity, Droplets, Zap, Lock, Users, GraduationCap, Waves, RefreshCw, WifiOff,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
+import { useNexradRadar } from '../../hooks/useNexradRadar';
 
 /** Layer row definitions — grouped under tab-specific sections below */
 const LAYER_DEFS = {
@@ -287,6 +288,121 @@ function LayerToggle({ layerKey, label, sublabel, icon: Icon, color, locked }) {
   );
 }
 
+/**
+ * Formats a Date for display: UTC time + local time.
+ * Returns null if date is falsy.
+ */
+function formatScanTimes(date) {
+  if (!date) return null;
+  const utc = date.toUTCString().replace(/:\d{2} GMT$/, ' UTC');
+  const local = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', timeZoneName: 'short' });
+  return { utc, local };
+}
+
+/** Radar toggle row with opacity slider, scan timestamp, and service indicator. */
+function RadarLayerRow() {
+  const { layers, toggleLayer, radarOpacity, setRadarOpacity } = useApp();
+  const active = layers.radar;
+  const { scanTime, isServiceAvailable, isLoading, error } = useNexradRadar(active);
+  const times = formatScanTimes(scanTime);
+  const color = '#10b981';
+
+  const handleOpacity = useCallback((e) => {
+    setRadarOpacity(Number(e.target.value));
+  }, [setRadarOpacity]);
+
+  return (
+    <div>
+      {/* Toggle row */}
+      <button
+        type="button"
+        onClick={() => toggleLayer('radar')}
+        className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg
+                   hover:bg-white/10 transition-colors group text-left"
+        aria-pressed={active}
+        aria-label="Toggle NEXRAD Reflectivity"
+      >
+        <div
+          className="shrink-0 w-7 h-7 rounded-md flex items-center justify-center"
+          style={{
+            backgroundColor: active ? `${color}22` : 'transparent',
+            border: `1px solid ${active ? color + '55' : '#52525b'}`,
+          }}
+        >
+          <Radar size={14} style={{ color: active ? color : '#a1a1aa' }} />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className={`text-sm font-medium truncate transition-colors ${active ? 'text-white' : 'text-zinc-100'}`}>
+            NEXRAD Reflectivity
+          </div>
+          <div className="text-[10px] text-zinc-400 leading-snug">
+            {active && isLoading ? (
+              <span className="flex items-center gap-1"><RefreshCw size={9} className="animate-spin" /> Fetching scan…</span>
+            ) : active && error && !isServiceAvailable ? (
+              <span className="flex items-center gap-1 text-amber-400"><WifiOff size={9} /> IEM mosaic fallback</span>
+            ) : active && isServiceAvailable ? (
+              'NOAA NEXRAD Level II · AWS'
+            ) : (
+              'NEXRAD Level 2 composite'
+            )}
+          </div>
+        </div>
+        <div
+          className={`shrink-0 relative w-9 h-5 rounded-full transition-colors duration-200
+            ${active ? 'bg-emerald-600' : 'bg-zinc-600'}`}
+        >
+          <span
+            className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow
+                        transition-transform duration-200 ${active ? 'translate-x-4' : ''}`}
+          />
+        </div>
+      </button>
+
+      {/* Expanded controls when layer is active */}
+      {active && (
+        <div className="px-2.5 pb-2.5 space-y-2">
+          {/* Opacity slider */}
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] text-zinc-400 w-12 shrink-0">Opacity</span>
+            <input
+              type="range"
+              min={0}
+              max={100}
+              step={1}
+              value={radarOpacity}
+              onChange={handleOpacity}
+              className="flex-1 h-1.5 accent-emerald-500 cursor-pointer"
+              aria-label="Radar opacity"
+            />
+            <span className="text-[10px] text-zinc-300 w-7 text-right shrink-0">{radarOpacity}%</span>
+          </div>
+
+          {/* Scan timestamp */}
+          {times && (
+            <div className="bg-zinc-900/70 rounded-md px-2 py-1.5 border border-zinc-800">
+              <div className="text-[9px] font-bold uppercase tracking-wider text-zinc-500 mb-0.5">Latest scan</div>
+              <div className="text-[10px] text-zinc-200 font-mono leading-snug">{times.utc}</div>
+              <div className="text-[9px] text-zinc-400 font-mono leading-snug">{times.local}</div>
+            </div>
+          )}
+
+          {/* Service indicator */}
+          <div className="flex items-center gap-1.5">
+            <div
+              className={`w-1.5 h-1.5 rounded-full ${
+                isServiceAvailable ? 'bg-emerald-500' : error ? 'bg-amber-500' : 'bg-zinc-600'
+              }`}
+            />
+            <span className="text-[9px] text-zinc-500">
+              {isServiceAvailable ? 'Live NEXRAD service' : error ? 'National mosaic (IEM fallback)' : 'Connecting…'}
+            </span>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 const LayerControl = memo(function LayerControl({
   activeMapTab = 'wildfire',
   infrastructureLayersEntitled = false,
@@ -506,6 +622,10 @@ const LayerControl = memo(function LayerControl({
                                     locked={layer.locked}
                                   />
                                 );
+                              }
+                              // Radar gets a special expanded row
+                              if (layerRef === 'radar') {
+                                return <RadarLayerRow key="radar" />;
                               }
                               const def = LAYER_DEFS[layerRef];
                               if (!def) return null;
