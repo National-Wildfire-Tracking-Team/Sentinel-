@@ -8,3 +8,7 @@ supabase/.temp/
 .env
 playwright-report/
 test-results/
+radar_service/.venv/
+radar_service/__pycache__/
+__pycache__/
+*.pyc
