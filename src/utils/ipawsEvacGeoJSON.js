@@ -3,7 +3,24 @@
  * features with the shared evac schema plus IPAWS-specific properties.
  */
 
-const WARNING = 'Evacuation Warning';
+/**
+ * Classify a CAP alert's event type and headline into a canonical warning type
+ * for use with EvacZonesLayer's color-match expression.
+ * @param {string|null} event - CAP event type (e.g. "Evacuation Order")
+ * @param {string|null} headline - CAP headline text
+ * @returns {'Evacuation Order'|'Evacuation Warning'|'Evacuation Watch'}
+ */
+export function classifyIpaWsSeverity(event, headline) {
+  const combined = [event, headline].filter(Boolean).join(' ').toLowerCase();
+
+  if (/\border\b|\bmandatory\b|\bimmediate\b|\bleave now\b/i.test(combined)) {
+    return 'Evacuation Order';
+  }
+  if (/\bwatch\b|\bpotential\b/i.test(combined)) {
+    return 'Evacuation Watch';
+  }
+  return 'Evacuation Warning';
+}
 
 /**
  * @param {Array<{ identifier?: string, sender?: string, sent?: string, infos?: object[] }>} alerts
@@ -23,7 +40,7 @@ export function ipawsAlertsToEvacFeatures(alerts) {
       for (let j = 0; j < areas.length; j++) {
         const area = areas[j];
         const geom = area?.geometry;
-        if (!geom || geom.type !== 'Polygon' || !geom.coordinates?.length) continue;
+        if (!geom || (geom.type !== 'Polygon' && geom.type !== 'MultiPolygon') || !geom.coordinates?.length) continue;
 
         const headline = info.headline || info.event || 'IPAWS alert';
         const zoneName = area.areaDesc ? `${headline} — ${area.areaDesc}` : headline;
@@ -34,7 +51,7 @@ export function ipawsAlertsToEvacFeatures(alerts) {
           geometry: geom,
           properties: {
             id: `ipaws-${identifier}-${i}-${j}`,
-            warningType: WARNING,
+            warningType: classifyIpaWsSeverity(info.event, info.headline),
             zoneName,
             county: area.areaDesc || '',
             agency: '',

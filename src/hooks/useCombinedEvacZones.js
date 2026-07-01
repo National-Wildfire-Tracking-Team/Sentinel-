@@ -43,9 +43,9 @@ import { fetchCaEvacuations }  from '../api/caEvacuations';
 import { ipawsAlertsToEvacFeatures } from '../utils/ipawsEvacGeoJSON';
 
 const REFRESH_MS = parseInt(import.meta.env.VITE_REFRESH_INTERVAL || '300000', 10);
-/** In dev, default to Vite proxy → Node poller; in prod set VITE_IPAWS_ALERTS_URL explicitly. */
+/** In dev, default to Vite proxy → Node poller; in prod default to edge function proxy. */
 const IPAWS_ALERTS_URL = (
-  import.meta.env.VITE_IPAWS_ALERTS_URL ?? (import.meta.env.DEV ? '/alerts' : '')
+  import.meta.env.VITE_IPAWS_ALERTS_URL ?? (import.meta.env.DEV ? '/alerts' : '/api/fema')
 ).trim();
 const EMPTY_GEOJSON = { type: 'FeatureCollection', features: [] };
 
