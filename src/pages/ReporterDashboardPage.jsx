@@ -269,7 +269,9 @@ function IncidentCard({
     const hasAcres = updateAcreage.toString().trim().length > 0;
     const hasContain = updateContainment.toString().trim().length > 0;
     const hasNotes = updateNotes.trim().length > 0;
-    const hasEvacZones = evacZones.some(
+    console.log("report title:" report.title);
+    console.log("evacZones:" evacZones);
+    const hasEvacZones = (evacZones ?? []).some(
       zone => 
         zone.incident_name?.trim().toLowerCase() ===
         report.title?.trim().toLowerCase()
