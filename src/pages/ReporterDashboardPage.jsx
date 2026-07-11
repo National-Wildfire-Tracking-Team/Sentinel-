@@ -1845,7 +1845,18 @@ export default function ReporterDashboardPage() {
                     setEvacSaving(true);
                     setEvacSaveError(null);
                     try {
-                      await createReporterEvacZone({ userId: user.id, ...zoneData });
+                      await createReporterEvacZone({
+                        userId: user.id,
+                        title,
+                        description,
+                        zoneType,
+                        geometry,
+                        reportId: report.id,
+                        incidentName: report.title,
+                        county,
+                        state,
+                        expiresAt,
+                      });
                       setShowDrawer(false);
                       setEvacSuccess('Evacuation zone published and live on the map.');
                       refreshEvacZones();
