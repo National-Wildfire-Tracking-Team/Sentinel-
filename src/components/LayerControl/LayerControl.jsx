@@ -7,7 +7,7 @@
 import { useState, memo, useMemo, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  Layers, Flame, MapPin, Wind, CloudRain, CloudLightning, Eye, ChevronDown, ChevronRight, Radar, AlertTriangle, Ruler, Hexagon, PlaneTakeoff, Satellite, Map as MapIcon, Thermometer, Activity, Droplets, Zap, Lock, Users, GraduationCap, Waves,
+  Layers, Flame, MapPin, Wind, CloudRain, CloudLightning, Eye, ChevronDown, ChevronRight, Radar, AlertTriangle, Ruler, Hexagon, PlaneTakeoff, Satellite, Map as MapIcon, Thermometer, Activity, Droplets, Zap, Lock, Users, GraduationCap, Waves, TrendingUp,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 
@@ -277,6 +277,7 @@ function LayerToggle({ layerKey, label, sublabel, icon: Icon, color, locked }) {
 const LayerControl = memo(function LayerControl({
   activeMapTab = 'wildfire',
   infrastructureLayersEntitled = false,
+  fireBehaviorModelingEntitled = false,
   mapType = 'satellite',
   onMapTypeChange,
   measureActive = false,
@@ -306,7 +307,15 @@ const LayerControl = memo(function LayerControl({
       color: '#a78bfa',
       locked: !infrastructureLayersEntitled,
     },
-  ], [infrastructureLayersEntitled]);
+    {
+      key: 'fireBehaviorModeling',
+      label: 'Fire Behavior Modeling',
+      sublabel: 'Estimated spread projection · +1h / +3h / +6h',
+      icon: TrendingUp,
+      color: '#ff8c1a',
+      locked: !fireBehaviorModelingEntitled,
+    },
+  ], [infrastructureLayersEntitled, fireBehaviorModelingEntitled]);
 
   const sections = useMemo(() => {
     const tabKey = activeMapTab === 'weather' ? 'weather' : activeMapTab === 'allhazard' ? 'allhazard' : 'wildfire';
@@ -318,8 +327,8 @@ const LayerControl = memo(function LayerControl({
       ...base,
       {
         id: 'wf-infra',
-        title: 'Infrastructure',
-        subtitle: 'Energy & key facilities (Pro)',
+        title: 'Infrastructure & Modeling',
+        subtitle: 'Energy, key facilities & spread modeling (Pro)',
         groups: [{ label: 'Layers', layers: infraLayers.map((l) => l.key) }],
         infraLayers,
       },

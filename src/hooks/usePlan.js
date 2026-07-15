@@ -23,6 +23,7 @@ export const PLANS = {
     infrastructureLayers: false,
     evacuationRoutes: false,
     federalLandLayers: false,
+    fireBehaviorModeling: false,
     camerasAircraft: true,
     apiAccess: false,
     priorityAlerts: false,
@@ -39,6 +40,7 @@ export const PLANS = {
     infrastructureLayers: true,   // highways, railroads, powerlines, pipelines (live)
     evacuationRoutes: true,
     federalLandLayers: false,     // coming soon
+    fireBehaviorModeling: true,   // spread projection rings (live)
     camerasAircraft: true,
     apiAccess: false,
     priorityAlerts: true,
@@ -55,6 +57,7 @@ export const PLANS = {
     infrastructureLayers: true,
     evacuationRoutes: true,
     federalLandLayers: true,
+    fireBehaviorModeling: true,
     camerasAircraft: true,
     apiAccess: true,
     priorityAlerts: true,
@@ -75,6 +78,8 @@ export function usePlan() {
   const isPaidPlan = planId === 'pro' || planId === 'team';
   /** Pro-equivalent data access for field reporters (no subscription required). */
   const hasProInfrastructureAccess = isPaidPlan || Boolean(isReporter);
+  /** Fire behavior modeling (spread projection layer) requires an active paid plan. */
+  const hasFireBehaviorModelingAccess = isPaidPlan;
 
   return {
     planId,
@@ -84,6 +89,7 @@ export function usePlan() {
     isTeam: planId === 'team',
     isPaid: isPaidPlan,
     hasProInfrastructureAccess,
+    hasFireBehaviorModelingAccess,
     isActive: subscription?.status === 'active' || subscription?.status === 'trialing' || planId === 'free',
     cancelAtPeriodEnd: subscription?.cancel_at_period_end ?? false,
     currentPeriodEnd: subscription?.current_period_end ?? null,
