@@ -290,32 +290,40 @@ const LayerControl = memo(function LayerControl({
   const { layerPanelOpen, toggleLayerPanel } = useApp();
   const [collapsed, setCollapsed] = useState({});
 
-  const infraLayers = useMemo(() => [
-    {
-      key: 'criticalInfrastructure',
-      label: 'Critical Infrastructure',
-      sublabel: 'CMRA power lines · EIA natural gas pipelines',
-      icon: Zap,
-      color: '#fbbf24',
-      locked: !infrastructureLayersEntitled,
-    },
-    {
-      key: 'schoolsUniversities',
-      label: 'Schools & Universities',
-      sublabel: 'USGS National Map · colleges & universities',
-      icon: GraduationCap,
-      color: '#a78bfa',
-      locked: !infrastructureLayersEntitled,
-    },
-    {
-      key: 'fireBehaviorModeling',
-      label: 'Fire Behavior Modeling',
-      sublabel: 'Estimated spread projection · +1h / +3h / +6h',
-      icon: TrendingUp,
-      color: '#ff8c1a',
-      locked: !fireBehaviorModelingEntitled,
-    },
-  ], [infrastructureLayersEntitled, fireBehaviorModelingEntitled]);
+  const infraLayers = useMemo(() => {
+    const base = [
+      {
+        key: 'criticalInfrastructure',
+        label: 'Critical Infrastructure',
+        sublabel: 'CMRA power lines · EIA natural gas pipelines',
+        icon: Zap,
+        color: '#fbbf24',
+        locked: !infrastructureLayersEntitled,
+      },
+      {
+        key: 'schoolsUniversities',
+        label: 'Schools & Universities',
+        sublabel: 'USGS National Map · colleges & universities',
+        icon: GraduationCap,
+        color: '#a78bfa',
+        locked: !infrastructureLayersEntitled,
+      },
+    ];
+    // Fire behavior modeling derives from active fire perimeters, which aren't
+    // fetched on the Weather tab — hide the toggle there instead of showing a
+    // control that can never render anything.
+    if (activeMapTab !== 'weather') {
+      base.push({
+        key: 'fireBehaviorModeling',
+        label: 'Fire Behavior Modeling',
+        sublabel: 'Estimated spread projection · +1h / +3h / +6h',
+        icon: TrendingUp,
+        color: '#ff8c1a',
+        locked: !fireBehaviorModelingEntitled,
+      });
+    }
+    return base;
+  }, [infrastructureLayersEntitled, fireBehaviorModelingEntitled, activeMapTab]);
 
   const sections = useMemo(() => {
     const tabKey = activeMapTab === 'weather' ? 'weather' : activeMapTab === 'allhazard' ? 'allhazard' : 'wildfire';
