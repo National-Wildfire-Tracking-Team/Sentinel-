@@ -42,6 +42,7 @@ import FireWeatherOutlookLayer from './layers/FireWeatherOutlookLayer';
 import FireWeatherOutlookSelector from './FireWeatherOutlookSelector';
 import CriticalInfrastructureLayer from './layers/CriticalInfrastructureLayer';
 import NationalMapCollegesLayer from './layers/NationalMapCollegesLayer';
+import FireBehaviorModelingLayer from './layers/FireBehaviorModelingLayer';
 import NhcStormsLayer from './layers/NhcStormsLayer';
 import NHCTropicalWeatherLayer from './layers/NHCTropicalWeatherLayer';
 
@@ -631,6 +632,37 @@ function HoverTooltip({ feature, lngLat }) {
       );
       break;
     }
+    case 'fire-behavior-modeling-fill': {
+      content = (
+        <>
+          <div className="font-semibold text-orange-300">{p.incidentName}</div>
+          <div className="text-white text-xs mt-0.5 font-medium">
+            +{p.horizonHours}h projected spread
+          </div>
+          <div className="text-gray-300 text-xs mt-1">
+            Est. rate of spread: <span className="text-white font-medium">{p.rosHeadChPerHr} ch/hr</span>
+          </div>
+          <div className="text-gray-300 text-xs">
+            Est. flame length: <span className="text-white font-medium">{p.flameLengthFt} ft</span>
+          </div>
+          {p.windSpeedMph != null && (
+            <div className="text-gray-300 text-xs">
+              Wind: <span className="text-white font-medium">{p.windSpeedMph} mph{p.windDirDeg != null ? ` @ ${p.windDirDeg}°` : ''}</span>
+              {' · '}Fuel moisture: <span className="text-white font-medium">{p.fuelMoisturePct}%</span>
+            </div>
+          )}
+          {p.stationName && (
+            <div className="text-gray-500 text-[10px] mt-1">
+              {p.stationName} RAWS · {p.stationDistanceMi} mi away
+            </div>
+          )}
+          <div className="text-gray-500 text-[10px] mt-1 uppercase tracking-wide">
+            Estimated — situational awareness only, not an official forecast
+          </div>
+        </>
+      );
+      break;
+    }
     case 'national-map-colleges-circle': {
       const name = p.NAME || p.name || 'School / university';
       content = (
@@ -754,6 +786,8 @@ function FlightDetailPopup({ flight, lngLat, onClose }) {
  * @param {boolean}     [props.criticalInfrastructureVisible]
  * @param {object|null} props.nationalMapCollegesGeoJSON
  * @param {boolean}     [props.nationalMapCollegesVisible]
+ * @param {object|null} props.fireBehaviorModelingGeoJSON
+ * @param {boolean}     [props.fireBehaviorModelingVisible]
  * @param {object|null} props.nhcCentersGeoJSON
  * @param {object|null} props.nhcConesGeoJSON
  * @param {object|null} props.nhcTracksGeoJSON
@@ -800,6 +834,8 @@ export default function MapView({
   criticalInfrastructureVisible = false,
   nationalMapCollegesGeoJSON,
   nationalMapCollegesVisible = false,
+  fireBehaviorModelingGeoJSON,
+  fireBehaviorModelingVisible = false,
   nhcCentersGeoJSON,
   nhcConesGeoJSON,
   nhcTracksGeoJSON,
@@ -995,6 +1031,9 @@ export default function MapView({
     if (nationalMapCollegesVisible && nationalMapCollegesGeoJSON?.features?.length) {
       ids.push('national-map-colleges-circle');
     }
+    if (fireBehaviorModelingVisible && fireBehaviorModelingGeoJSON?.features?.length) {
+      ids.push('fire-behavior-modeling-fill');
+    }
     if (layers.fireWeatherOutlooks && fireWeatherOutlooksGeoJSON) ids.push('fire-weather-outlook-fill');
     if (isWeatherTab && layers.spcWeatherOutlooks && spcWeatherOutlookMode === 'fireWx' && fireWeatherOutlooksGeoJSON) {
       ids.push('fire-weather-outlook-fill');
@@ -1018,6 +1057,7 @@ export default function MapView({
       nhcTrackGeoJSON, nhcObservedTrackGeoJSON, nhcDisturbanceGeoJSON,
       criticalInfrastructureVisible, criticalInfrastructureTransGeoJSON, criticalInfrastructureGasGeoJSON,
       nationalMapCollegesVisible, nationalMapCollegesGeoJSON,
+      fireBehaviorModelingVisible, fireBehaviorModelingGeoJSON,
       nhcCentersGeoJSON]);
 
   // Clear stale hover when layers change
@@ -1507,6 +1547,11 @@ export default function MapView({
         <NationalMapCollegesLayer
           geoJSON={nationalMapCollegesGeoJSON}
           visible={nationalMapCollegesVisible}
+        />
+
+        <FireBehaviorModelingLayer
+          geoJSON={fireBehaviorModelingGeoJSON}
+          visible={fireBehaviorModelingVisible}
         />
 
         {/* RAWS weather stations – visible on both wildfire and weather tabs */}

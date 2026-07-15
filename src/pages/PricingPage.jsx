@@ -48,7 +48,10 @@ const PRO_GOVT_SOON = [
   { icon: <TreePine size={14} />,    label: 'Bureau of Land Management (BLM)' },
   { icon: <TreePine size={14} />,    label: 'US Forest Service land' },
   { icon: <Ban size={14} />,         label: 'Temporary Flight Restrictions (TFRs)' },
-  { icon: <Flame size={14} />,       label: 'Fire Behavior Modeling' },
+];
+
+const FIRE_BEHAVIOR_LIVE = [
+  { icon: <Flame size={14} />, label: 'Spread projection rings (+1h / +3h / +6h)' },
 ];
 
 const FAQ = [
@@ -288,6 +291,19 @@ export default function PricingPage() {
               ))}
             </ul>
 
+            {/* Fire behavior modeling */}
+            <p className="text-xs font-semibold text-sentinel-300 uppercase tracking-wider mb-2">
+              Fire Behavior Modeling
+            </p>
+            <ul className="space-y-2.5 mb-4">
+              {FIRE_BEHAVIOR_LIVE.map((f, i) => (
+                <li key={i} className="flex items-start gap-2.5 text-sm text-sentinel-200">
+                  <span className="shrink-0 mt-0.5 text-fire-400">{f.icon}</span>
+                  {f.label}
+                </li>
+              ))}
+            </ul>
+
             {/* Government & land management */}
             <p className="text-xs font-semibold text-sentinel-300 uppercase tracking-wider mb-2">
               Government &amp; Land Management
@@ -349,7 +365,7 @@ export default function PricingPage() {
                 { label: 'Tribal nations',                              free: false, pro: '🔜'  },
                 { label: 'National Parks / BLM / Forest Service',       free: false, pro: '🔜'  },
                 { label: 'Temporary Flight Restrictions (TFRs)',        free: false, pro: '🔜'  },
-                { label: 'Fire Behavior Modeling',                      free: false, pro: '🔜'  },
+                { label: 'Fire Behavior Modeling',                      free: false, pro: true  },
               ].map((row, i) => (
                 <tr key={i} className="hover:bg-sentinel-800/40 transition-colors">
                   <td className="px-5 py-3 text-sentinel-200">{row.label}</td>
@@ -383,7 +399,7 @@ export default function PricingPage() {
             {
               icon: <Layers size={22} className="text-blue-400" />,
               title: 'Expanding Layer Library',
-              desc: 'Every new Pro data layer — government land, TFRs, fire modeling — ships automatically to your account.',
+              desc: 'Every new Pro data layer — fire behavior modeling, government land, TFRs — ships automatically to your account.',
             },
           ].map((item, i) => (
             <div key={i} className="rounded-xl bg-sentinel-900 border border-sentinel-700 p-5">

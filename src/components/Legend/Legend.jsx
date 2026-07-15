@@ -109,6 +109,12 @@ const FIRE_WX_LIGHTNING_SCALE = [
   { color: '#3C6FCD', label: 'CRITICAL – Dry Lightning (Scattered)' },
 ];
 
+const FIRE_BEHAVIOR_SCALE = [
+  { color: '#ffd11a', label: '+6h projected spread' },
+  { color: '#ff8c1a', label: '+3h projected spread' },
+  { color: '#ff3b1f', label: '+1h projected spread' },
+];
+
 const NDGD_SMOKE_SCALE = [
   { color: '#ffffa3', label: '0–3 µg/m³' },
   { color: '#fad157', label: '3–25 µg/m³' },
@@ -131,7 +137,7 @@ const Legend = memo(function Legend({
   const anyActive = layers.fireHotspots || layers.aqi || layers.firePerimeters || layers.spcWeatherOutlooks
     || layers.weatherAlerts || layers.radar || layers.incidentLocations
     || layers.stormReports || layers.fireWeatherOutlooks || layers.ndgdSmokeForecast
-    || layers.nhcTropicalWeather;
+    || layers.nhcTropicalWeather || layers.fireBehaviorModeling;
   if (!anyActive) return null;
 
   const spcScale = SPC_SCALES[spcOutlookType] || SPC_SCALES.categorical;
@@ -170,6 +176,15 @@ const Legend = memo(function Legend({
             {layers.firePerimeters && (
               <Section title="Fire Perimeters">
                 <ColorRow color="#ff6600" label="Active perimeter" />
+              </Section>
+            )}
+
+            {layers.fireBehaviorModeling && (
+              <Section title="Fire Behavior Modeling">
+                {FIRE_BEHAVIOR_SCALE.map(row => <ColorRow key={row.label} {...row} />)}
+                <div className="text-sentinel-400 text-[10px] pt-1 mt-1 border-t border-sentinel-700">
+                  Estimated from nearby RAWS wind &amp; fuel moisture — situational awareness only, not an official forecast.
+                </div>
               </Section>
             )}
 

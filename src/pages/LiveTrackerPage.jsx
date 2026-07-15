@@ -32,6 +32,7 @@ import { useNhcTropicalWeather } from '../hooks/useNhcTropicalWeather';
 import { useCriticalInfrastructure } from '../hooks/useCriticalInfrastructure';
 import { useNhcStorms } from '../hooks/useNhcStorms';
 import { useNationalMapColleges } from '../hooks/useNationalMapColleges';
+import { useFireBehaviorModeling } from '../hooks/useFireBehaviorModeling';
 import { usePlan } from '../hooks/usePlan';
 import { polygonCentroid } from '../utils/geoUtils';
 import { incidentsToGeoJSON } from '../api/inciweb';
@@ -77,6 +78,7 @@ const WILDFIRE_LAYER_PRESET = {
   stormReports: false,
   criticalInfrastructure: false,
   schoolsUniversities: false,
+  fireBehaviorModeling: false,
   nhcTropicalWeather: false,
 };
 
@@ -100,6 +102,7 @@ const ALL_HAZARD_LAYER_PRESET = {
   stormReports: false,
   criticalInfrastructure: false,
   schoolsUniversities: false,
+  fireBehaviorModeling: false,
   nhcTropicalWeather: false,
 };
 
@@ -126,6 +129,7 @@ const WEATHER_LAYER_PRESET = {
   airNowMonitors: false,
   ndgdSmokeForecast: false,
   schoolsUniversities: false,
+  fireBehaviorModeling: false,
   nhcTropicalWeather: false,
 };
 
@@ -202,8 +206,9 @@ const RAWS_MIN_ZOOM = 9;
 
 export default function LiveTrackerPage() {
   const { layers, setLayer, setRefreshed, setLoading, feedFilter, viewport } = useApp();
-  const { hasProInfrastructureAccess } = usePlan();
+  const { hasProInfrastructureAccess, hasFireBehaviorModelingAccess } = usePlan();
   const criticalInfraEntitled = hasProInfrastructureAccess;
+  const fireBehaviorModelingEntitled = hasFireBehaviorModelingAccess;
   const { locations: savedLocations } = useSavedLocations();
   const [activeMapTab, setActiveMapTab] = useState(MAP_TABS.wildfire);
   const [mapType, setMapType] = useState('satellite');
@@ -237,6 +242,12 @@ export default function LiveTrackerPage() {
       setLayer('schoolsUniversities', false);
     }
   }, [criticalInfraEntitled, layers.schoolsUniversities, setLayer]);
+
+  useEffect(() => {
+    if (!fireBehaviorModelingEntitled && layers.fireBehaviorModeling) {
+      setLayer('fireBehaviorModeling', false);
+    }
+  }, [fireBehaviorModelingEntitled, layers.fireBehaviorModeling, setLayer]);
 
   // Weather tab: dark streets map; all-hazard and wildfire tabs use satellite.
   useEffect(() => {
@@ -509,6 +520,12 @@ const flightBounds = useMemo(() => {
   const freshPerimetersGeoJSON = useMemo(
     () => filterStaleContainedGeoJSON(perimetersGeoJSON, 'PercentContained', 'ModifiedOnDateTime'),
     [perimetersGeoJSON]
+  );
+
+  const fireBehaviorModelingEnabled = Boolean(layers.fireBehaviorModeling && fireBehaviorModelingEntitled);
+  const { geoJSON: fireBehaviorModelingGeoJSON } = useFireBehaviorModeling(
+    fireBehaviorModelingEnabled,
+    freshPerimetersGeoJSON
   );
 
   const freshIncidentDotsGeoJSON = useMemo(
@@ -830,6 +847,8 @@ const flightBounds = useMemo(() => {
             criticalInfrastructureVisible={criticalInfraEnabled}
             nationalMapCollegesGeoJSON={nationalMapCollegesGeoJSON}
             nationalMapCollegesVisible={schoolsLayerEnabled}
+            fireBehaviorModelingGeoJSON={fireBehaviorModelingGeoJSON}
+            fireBehaviorModelingVisible={fireBehaviorModelingEnabled}
             nhcCentersGeoJSON={nhcCentersGeoJSON}
             nhcConesGeoJSON={nhcConesGeoJSON}
             nhcTracksGeoJSON={nhcTracksGeoJSON}
@@ -858,6 +877,7 @@ const flightBounds = useMemo(() => {
           <LayerControl
             activeMapTab={activeMapTab}
             infrastructureLayersEntitled={hasProInfrastructureAccess}
+            fireBehaviorModelingEntitled={fireBehaviorModelingEntitled}
             mapType={mapType}
             onMapTypeChange={setMapType}
             measureActive={measureActive}
