@@ -29,7 +29,7 @@ const initialState = {
     evacZones:         false,
     reporterEvacZones: false,
     flights:           false,
-    rawsStations:          false,
+    rawsStations:          true,
     airNowMonitors:        false,
     droughtOutlook:        false,
     ndgdSmokeForecast:     false,
@@ -41,7 +41,7 @@ const initialState = {
     /** NHC tropical tracks, cone, and disturbances */
     nhcTropicalWeather: false,
     /** NOAA NWPS water gauges */
-    waterGauges: false,
+    waterGauges: true,
     /** Mapbox 3D buildings (Standard 3D objects / fill-extrusions) */
     buildings3d: false,
   },
