@@ -38,6 +38,9 @@ export default function Footer() {
                 <a href="https://givebutter.com/national-wildfire-tracking-team-dvi6jx" target="_blank" rel="noopener noreferrer" className="text-sentinel-300 hover:text-fire-400 text-sm transition-colors">Donate</a>
               </li>
               <li>
+                <Link to="/terms" className="text-sentinel-300 hover:text-fire-400 text-sm transition-colors">Terms of Service</Link>
+              </li>
+              <li>
                 <Link to="/privacy-policy" className="text-sentinel-300 hover:text-fire-400 text-sm transition-colors">Privacy Policy</Link>
               </li>
             </ul>
