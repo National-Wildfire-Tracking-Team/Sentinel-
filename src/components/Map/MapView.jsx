@@ -1503,18 +1503,6 @@ export default function MapView({
           visible={(isWildfireTab || isAllHazardTab) && layers.firePerimeters}
         />
 
-        {/* WFIGS incident location markers */}
-        <IncidentLocationsLayer
-          geoJSON={incidentsGeoJSON}
-          visible={(isWildfireTab || isAllHazardTab) && layers.incidentLocations}
-        />
-
-        {/* Incident dot markers – fires with no matching perimeter */}
-        <FireIncidentsLayer
-          geoJSON={incidentDotsGeoJSON}
-          visible={(isWildfireTab || isAllHazardTab) && layers.incidentLocations}
-        />
-
         {/* AQI heatmap + stations — available on both wildfire and weather tabs */}
         <AQILayer
           geoJSON={aqiGeoJSON}
@@ -1528,10 +1516,22 @@ export default function MapView({
           opacity={0.9}
         />
 
-        {/* Evacuation zones — official Cal OES/IPAWS feeds + reporter-drawn boundaries, combined */}
+        {/* Evacuation zones — under fire point markers so dots stay visible */}
         <EvacuationZonesLayer
           geoJSON={evacZonesGeoJSON}
           visible={(isWildfireTab || isAllHazardTab) && layers.evacZones}
+        />
+
+        {/* WFIGS incident location markers – above evacuation fills */}
+        <IncidentLocationsLayer
+          geoJSON={incidentsGeoJSON}
+          visible={(isWildfireTab || isAllHazardTab) && layers.incidentLocations}
+        />
+
+        {/* Incident dot markers – fires with no matching perimeter; above evacuation fills */}
+        <FireIncidentsLayer
+          geoJSON={incidentDotsGeoJSON}
+          visible={(isWildfireTab || isAllHazardTab) && layers.incidentLocations}
         />
 
         <CriticalInfrastructureLayer

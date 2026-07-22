@@ -24,6 +24,11 @@
 
 import { useEffect, useRef, useMemo } from 'react';
 import { Source, Layer, useMap } from 'react-map-gl';
+import {
+  EVAC_ZONE_FILL_COLORS,
+  EVAC_ZONE_FILL_OPACITY,
+  EVAC_ZONE_LINE_OPACITY,
+} from './evacZonesPaint';
 
 const EMPTY_GEOJSON = { type: 'FeatureCollection', features: [] };
 
@@ -58,19 +63,19 @@ function polygonCentroid(geometry) {
 const COLOR_MATCH = [
   'match',
   ZONE_LEVEL,
-  'Evacuation Order',   '#ef4444',
-  'Evacuation Warning', '#f97316',
-  'Evacuation Watch',   '#eab308',
-  /* default */         '#f97316',
+  'Evacuation Order',   EVAC_ZONE_FILL_COLORS['Evacuation Order'],
+  'Evacuation Warning', EVAC_ZONE_FILL_COLORS['Evacuation Warning'],
+  'Evacuation Watch',   EVAC_ZONE_FILL_COLORS['Evacuation Watch'],
+  /* default */         EVAC_ZONE_FILL_COLORS.default,
 ];
 
 const OPACITY_MATCH = [
   'match',
   ZONE_LEVEL,
-  'Evacuation Order',   0.60,
-  'Evacuation Warning', 0.50,
-  'Evacuation Watch',   0.40,
-  /* default */         0.45,
+  'Evacuation Order',   EVAC_ZONE_FILL_OPACITY['Evacuation Order'],
+  'Evacuation Warning', EVAC_ZONE_FILL_OPACITY['Evacuation Warning'],
+  'Evacuation Watch',   EVAC_ZONE_FILL_OPACITY['Evacuation Watch'],
+  /* default */         EVAC_ZONE_FILL_OPACITY.default,
 ];
 
 const LINE_WIDTH_MATCH = [
@@ -163,7 +168,7 @@ export default function EvacuationZonesLayer({ geoJSON, visible }) {
           paint={{
             'line-color':   COLOR_MATCH,
             'line-width':   LINE_WIDTH_MATCH,
-            'line-opacity': 0.9,
+            'line-opacity': EVAC_ZONE_LINE_OPACITY,
           }}
         />
 
@@ -181,7 +186,7 @@ export default function EvacuationZonesLayer({ geoJSON, visible }) {
           paint={{
             'line-color':     COLOR_MATCH,
             'line-width':     2.5,
-            'line-opacity':   0.9,
+            'line-opacity':   EVAC_ZONE_LINE_OPACITY,
             'line-dasharray': [3, 2],
           }}
         />
