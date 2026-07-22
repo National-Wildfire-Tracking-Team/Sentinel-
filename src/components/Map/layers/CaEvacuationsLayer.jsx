@@ -26,10 +26,10 @@ const STATUS_COLOR = [
 const STATUS_OPACITY = [
   'match',
   ['downcase', ['coalesce', ['get', 'Zone_Status'], '']],
-  'evacuation order',   0.35,
-  'evacuation warning', 0.28,
-  'evacuation advisory',0.20,
-  /* default */         0.15,
+  'evacuation order',   0.10,
+  'evacuation warning', 0.08,
+  'evacuation advisory',0.06,
+  /* default */         0.07,
 ];
 
 const CaEvacuationsLayer = memo(function CaEvacuationsLayer({ geoJSON, visible }) {
