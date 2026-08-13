@@ -8,23 +8,15 @@
 import { memo, useState, useMemo } from 'react';
 import { X, Droplets, ExternalLink } from 'lucide-react';
 import { useWaterGaugeDetail } from '../../hooks/useWaterGaugeDetail';
+import { FLOOD_CATEGORY_META, floodCategoryLabel } from '../../api/noaaWaterGauge';
 
 // ─── Flood stage colours ───────────────────────────────────────────────────────
-const STAGE_COLORS = {
-  action:   '#f59e0b',
-  minor:    '#f97316',
-  moderate: '#dc2626',
-  major:    '#9333ea',
-};
-
-const CATEGORY_BG = {
-  major:    'bg-purple-600',
-  moderate: 'bg-red-600',
-  minor:    'bg-orange-500',
-  action:   'bg-yellow-500',
-  no_flooding: 'bg-blue-500',
-  default:  'bg-blue-500',
-};
+// Threshold-line colors for the chart (major/moderate/minor/action only).
+const STAGE_COLORS = Object.fromEntries(
+  Object.entries(FLOOD_CATEGORY_META)
+    .filter(([, meta]) => meta.chartColor)
+    .map(([key, meta]) => [key, meta.chartColor])
+);
 
 // ─── SVG Chart ────────────────────────────────────────────────────────────────
 
@@ -51,8 +43,9 @@ function WaterLevelChart({ observed, forecast, thresholds, currentStage }) {
   const allStages = useMemo(() => {
     const vals = allPoints.map((p) => p.stage).filter((s) => s != null);
     Object.values(thresholds).forEach((v) => { if (v != null) vals.push(v); });
+    if (currentStage != null) vals.push(currentStage);
     return vals;
-  }, [allPoints, thresholds]);
+  }, [allPoints, thresholds, currentStage]);
 
   if (!allPoints.length) {
     return (
@@ -190,6 +183,7 @@ function WaterLevelChart({ observed, forecast, thresholds, currentStage }) {
           fill="#3b82f6"
           stroke="#fff"
           strokeWidth="1.5"
+          clipPath="url(#chartClip)"
         />
       )}
 
@@ -363,15 +357,8 @@ const WaterGaugePanel = memo(function WaterGaugePanel({ gauge, onClose }) {
   const titleSuffix = datum ? ` (in ${datum})` : '';
   const fullTitle = `${gaugeName}${titleSuffix}`;
 
-  const categoryLabel = {
-    major:       'Major Flooding',
-    moderate:    'Moderate Flooding',
-    minor:       'Minor Flooding',
-    action:      'Action Stage',
-    no_flooding: 'Normal / No Flooding',
-  }[floodCategory] ?? 'No Data';
-
-  const categoryBg = CATEGORY_BG[floodCategory] ?? CATEGORY_BG.default;
+  const categoryLabel = floodCategoryLabel(floodCategory);
+  const categoryBg = FLOOD_CATEGORY_META[floodCategory]?.bgClass ?? FLOOD_CATEGORY_META.no_flooding.bgClass;
 
   return (
     <div className="
