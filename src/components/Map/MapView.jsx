@@ -1456,6 +1456,14 @@ export default function MapView({
         {/* Navigation controls */}
         <NavigationControl position="bottom-right" style={{ marginBottom: '6rem' }} />
         <ScaleControl position="bottom-left" style={{ marginLeft: '1rem', marginBottom: '1rem' }} />
+        <GOESFireTemperatureLayer 
+          mapRef={mapRef}
+          visible={
+            (isWildfireTab || isAllHazardTab) &&
+            layers.goesFireTemperature
+          }
+          opacity={0.65}
+          />
 
         {/* ── Data Layers (ordered back-to-front, each independently controlled via visibility) ── */}
 
