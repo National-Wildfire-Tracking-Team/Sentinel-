@@ -3,13 +3,8 @@
  * CAL FIRE FRAP – Fire and Resource Assessment Program
  * Historical California fire perimeter polygons (statewide, back to the 1800s).
  *
- * Primary source is CAL FIRE's own first-party ArcGIS Server, which is kept
- * up to date to always point at the latest official "firep" release:
- *   https://egis.fire.ca.gov/arcgis/rest/services/FRAP/FirePerimeters_FS/FeatureServer/0/query
- *
- * Falls back to CAL FIRE's ArcGIS Online mirror of the same FRAP dataset
- * (same fields, hosted on Esri's infrastructure) if the first-party server
- * is unreachable or does not allow cross-origin browser requests:
+ * Primary source is CAL FIRE's public ArcGIS Online mirror of the FRAP dataset
+ * (hosted on Esri's infrastructure):
  *   https://services1.arcgis.com/jUJYIo9tSA7EHvfZ/arcgis/rest/services/
  *   California_Historic_Fire_Perimeters/FeatureServer/0/query
  *
@@ -29,8 +24,10 @@ import { fetchWithCache } from '../utils/dataCache';
 import { MOCK_CALFIRE_HISTORICAL_PERIMETERS } from '../data/mockData';
 import { throttleError } from '../utils/errorThrottle';
 
-const CALFIRE_EGIS_BASE =
-  'https://egis.fire.ca.gov/arcgis/rest/services/FRAP/FirePerimeters_FS/FeatureServer/0/query';
+// The first-party eGIS endpoint currently requires authentication (HTTP 499).
+// Keep it documented here in case public access or an approved backend proxy is restored.
+// const CALFIRE_EGIS_BASE =
+//   'https://egis.fire.ca.gov/arcgis/rest/services/FRAP/FirePerimeters_FS/FeatureServer/0/query';
 
 const CALFIRE_AGOL_MIRROR_BASE =
   'https://services1.arcgis.com/jUJYIo9tSA7EHvfZ/arcgis/rest/services' +
@@ -41,6 +38,7 @@ const DATA_CA_GOV_PACKAGE_URL =
 
 const CACHE_TTL_MS = 12 * 60 * 60 * 1000; // 12h – FRAP data only refreshes ~annually
 const CKAN_RESOURCE_CACHE_TTL_MS = 24 * 60 * 60 * 1000; // resource URLs change rarely
+const ARCGIS_PAGE_SIZE = 2000;
 
 const OUT_FIELDS = [
   'YEAR_',
@@ -57,7 +55,7 @@ const OUT_FIELDS = [
   'IRWINID',
 ].join(',');
 
-function buildQueryUrl(base, { year, minAcres }) {
+function buildQueryUrl(base, { year, minAcres, offset = 0 }) {
   const clauses = [`YEAR_>=${year}`];
   if (minAcres > 0) clauses.push(`GIS_ACRES>=${minAcres}`);
 
@@ -65,6 +63,9 @@ function buildQueryUrl(base, { year, minAcres }) {
     where: clauses.join(' AND '),
     outFields: OUT_FIELDS,
     outSR: '4326',
+    orderByFields: 'OBJECTID ASC',
+    resultOffset: String(offset),
+    resultRecordCount: String(ARCGIS_PAGE_SIZE),
     f: 'geojson',
   });
 
@@ -95,6 +96,38 @@ async function fetchFromSource(url, cacheKey, tag) {
   if (data?.error) throw new Error(data.error.message || 'ArcGIS error');
   if (!data?.features) throw new Error('Unexpected response format');
   return data;
+}
+
+async function fetchArcGisPages(base, { year, minAcres }) {
+  const features = [];
+  let firstPage;
+  let offset = 0;
+
+  while (true) {
+    const page = await fetchFromSource(
+      buildQueryUrl(base, { year, minAcres, offset }),
+      `calfire:agol:perimeters:${year}:${minAcres}:${offset}`,
+      '[CAL FIRE FRAP: ArcGIS Online mirror]'
+    );
+
+    firstPage ??= page;
+    features.push(...page.features);
+
+    if (!page.properties?.exceededTransferLimit) break;
+    if (page.features.length === 0) {
+      throw new Error('ArcGIS pagination returned an empty truncated page');
+    }
+    offset += page.features.length;
+  }
+
+  return {
+    ...firstPage,
+    properties: {
+      ...firstPage?.properties,
+      exceededTransferLimit: false,
+    },
+    features,
+  };
 }
 
 /**
@@ -155,8 +188,8 @@ async function fetchFromDataCaGov({ year, minAcres }) {
 
 /**
  * Fetch historical fire perimeters from CAL FIRE FRAP.
- * Tries CAL FIRE's first-party egis.fire.ca.gov server first, then its
- * ArcGIS Online mirror, then falls back to mock data.
+ * Tries CAL FIRE's public ArcGIS Online mirror, then data.ca.gov, and finally
+ * falls back to mock data.
  * Defaults to the last 10 fire seasons to keep the statewide (1878+) dataset
  * a reasonable size for the browser to render.
  * @param {object} [opts]
@@ -168,23 +201,15 @@ export async function fetchCalFireHistoricalPerimeters({ minYear, minAcres = 0 }
   const year = minYear ?? new Date().getFullYear() - 10;
 
   const sources = [
-    {
-      label: 'egis.fire.ca.gov (CAL FIRE FRAP)',
-      fetch: () =>
-        fetchFromSource(
-          buildQueryUrl(CALFIRE_EGIS_BASE, { year, minAcres }),
-          `calfire:egis:perimeters:${year}:${minAcres}`,
-          '[CAL FIRE FRAP: egis.fire.ca.gov]'
-        ),
-    },
+    // The first-party eGIS source is disabled because it requires authentication.
+    // Re-enable it only through an organization-approved backend authentication proxy.
+    // {
+    //   label: 'egis.fire.ca.gov (CAL FIRE FRAP)',
+    //   fetch: () => fetchFromSource(...),
+    // },
     {
       label: 'ArcGIS Online mirror',
-      fetch: () =>
-        fetchFromSource(
-          buildQueryUrl(CALFIRE_AGOL_MIRROR_BASE, { year, minAcres }),
-          `calfire:agol:perimeters:${year}:${minAcres}`,
-          '[CAL FIRE FRAP: ArcGIS Online mirror]'
-        ),
+      fetch: () => fetchArcGisPages(CALFIRE_AGOL_MIRROR_BASE, { year, minAcres }),
     },
     {
       label: 'data.ca.gov',
