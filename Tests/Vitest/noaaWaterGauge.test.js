@@ -186,33 +186,89 @@ describe('categoryForStage', () => {
 describe('fetchWaterGauges', () => {
   afterEach(() => vi.unstubAllGlobals());
 
-  it('reads gauges from the unfiltered list endpoint on the first attempt', async () => {
+  const arcgisFeature = (props = {}, coords = [-100, 40]) => ({
+    type: 'Feature',
+    geometry: { type: 'Point', coordinates: coords },
+    properties: {
+      gaugelid: 'ARC1', status: 'no_flooding', location: 'Test Gauge', waterbody: 'Test River',
+      state: 'CA', wfo: 'sto', url: 'https://water.noaa.gov/gauges/arc1',
+      action: '', flood: '', moderate: '', major: '', observed: '5.1', hdatum: 'none',
+      ...props,
+    },
+  });
+
+  it('reads gauges from the ArcGIS river-gauge source on the first attempt', async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
-      json: async () => ({ gauges: [{ lid: 'A', latitude: 1, longitude: 2, status: { observed: { primary: 3 } } }] }),
+      json: async () => ({ features: [arcgisFeature()] }),
     });
     vi.stubGlobal('fetch', fetchMock);
 
     const geo = await fetchWaterGauges();
 
-    // First attempt (unfiltered) succeeds, so no bbox request is needed.
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(fetchMock.mock.calls[0][0]).toBe('/api/nwps/gauges');
+    expect(fetchMock.mock.calls[0][0]).toContain('/api/river-gauges?');
     expect(geo.features).toHaveLength(1);
-    expect(geo.features[0].properties.currentStage).toBe(3);
+    const p = geo.features[0].properties;
+    expect(p.lid).toBe('ARC1');
+    expect(p.currentStage).toBe(5.1);
+    expect(p.floodCategory).toBe('no_flooding');
     expect(setCached).toHaveBeenCalled();
   });
 
-  it('falls back to a US-wide bbox query when the unfiltered endpoint is empty', async () => {
+  it('treats empty-string threshold/stage fields as null rather than 0', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ features: [arcgisFeature({ action: '', flood: '', moderate: '', major: '' })] }),
+    }));
+
+    const geo = await fetchWaterGauges();
+    const p = geo.features[0].properties;
+    expect(p.actionStage).toBeNull();
+    expect(p.minorStage).toBeNull();
+    expect(p.moderateStage).toBeNull();
+    expect(p.majorStage).toBeNull();
+  });
+
+  it('paginates past the ArcGIS 10k-record page cap', async () => {
+    const fullPage = Array.from({ length: 10000 }, (_, i) => arcgisFeature({ gaugelid: `A${i}` }, [-100 + i * 0.0001, 40]));
     const fetchMock = vi.fn()
-      .mockResolvedValueOnce({ ok: true, json: async () => ({ gauges: [] }) })
-      .mockResolvedValueOnce({ ok: true, json: async () => ({ gauges: [{ lid: 'B', latitude: 4, longitude: 5 }] }) });
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ features: fullPage }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ features: [arcgisFeature({ gaugelid: 'LAST' })] }) });
     vi.stubGlobal('fetch', fetchMock);
 
     const geo = await fetchWaterGauges();
 
     expect(fetchMock).toHaveBeenCalledTimes(2);
-    const bboxUrl = fetchMock.mock.calls[1][0];
+    expect(fetchMock.mock.calls[0][0]).toContain('resultOffset=0');
+    expect(fetchMock.mock.calls[1][0]).toContain('resultOffset=10000');
+    expect(geo.features).toHaveLength(10001);
+  });
+
+  it('falls back to the NWPS list endpoint when the ArcGIS source errors', async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce({ ok: false, status: 500 }) // ArcGIS attempt fails
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ gauges: [{ lid: 'NWPS1', latitude: 1, longitude: 2 }] }) });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const geo = await fetchWaterGauges();
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock.mock.calls[1][0]).toBe('/api/nwps/gauges');
+    expect(geo.features[0].properties.lid).toBe('NWPS1');
+  });
+
+  it('falls back to a US-wide bbox query when both the ArcGIS source and unfiltered NWPS endpoint are empty', async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ features: [] }) }) // ArcGIS: empty
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ gauges: [] }) }) // NWPS unfiltered: empty
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ gauges: [{ lid: 'B', latitude: 4, longitude: 5 }] }) });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const geo = await fetchWaterGauges();
+
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    const bboxUrl = fetchMock.mock.calls[2][0];
     expect(bboxUrl).toContain('/api/nwps/gauges?');
     expect(bboxUrl).toContain('bbox.xmin=');
     expect(bboxUrl).toContain('srid=EPSG_4326');
@@ -220,24 +276,13 @@ describe('fetchWaterGauges', () => {
     expect(geo.features[0].properties.lid).toBe('B');
   });
 
-  it('falls through to the bbox attempt when the first request errors', async () => {
-    const fetchMock = vi.fn()
-      .mockResolvedValueOnce({ ok: false, status: 500 })
-      .mockResolvedValueOnce({ ok: true, json: async () => ({ gauges: [{ lid: 'C', latitude: 6, longitude: 7 }] }) });
-    vi.stubGlobal('fetch', fetchMock);
-
-    const geo = await fetchWaterGauges();
-    expect(fetchMock).toHaveBeenCalledTimes(2);
-    expect(geo.features[0].properties.lid).toBe('C');
-  });
-
-  it('throws only when every attempt errors', async () => {
+  it('throws only when every attempt (ArcGIS + both NWPS attempts) errors', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 503 }));
     await expect(fetchWaterGauges()).rejects.toThrow('NWPS gauges HTTP 503');
   });
 
   it('does NOT cache an empty result (no negative caching)', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => ({ gauges: [] }) }));
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => ({ features: [], gauges: [] }) }));
 
     const geo = await fetchWaterGauges();
 

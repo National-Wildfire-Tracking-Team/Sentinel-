@@ -50,6 +50,10 @@
   path = "/api/nwps/*"
 
 [[edge_functions]]
+  function = "river-gauges-proxy"
+  path = "/api/river-gauges"
+
+[[edge_functions]]
   function = "noaa-proxy"
   path = "/api/noaa/*"
 

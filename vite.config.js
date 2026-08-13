@@ -130,6 +130,21 @@ export default defineConfig({
         },
         rewrite: (path) => path.replace(/^\/api\/nwps/, ''),
       },
+      // NOAA ArcGIS "Observed River Stages" – primary river-gauge list source
+      // (more reliable than NWPS's own /gauges list endpoint); paginated via
+      // resultOffset/resultRecordCount, forwarded through to the query string.
+      '/api/river-gauges': {
+        target: 'https://mapservices.weather.noaa.gov',
+        changeOrigin: true,
+        secure: true,
+        rewrite: (path) => {
+          const qs = path.includes('?') ? path.slice(path.indexOf('?') + 1) : '';
+          const params = new URLSearchParams(qs);
+          const count = params.get('resultRecordCount') || '10000';
+          const offset = params.get('resultOffset') || '0';
+          return `/eventdriven/rest/services/water/riv_gauges/MapServer/0/query?where=1%3D1&outFields=gaugelid,status,location,waterbody,state,wfo,url,action,flood,moderate,major,observed,hdatum&outSR=4326&f=geojson&resultRecordCount=${count}&resultOffset=${offset}`;
+        },
+      },
     },
   },
   preview: {
@@ -203,6 +218,18 @@ export default defineConfig({
           'User-Agent': 'Sentinel Wildfire Platform (contact@sentinel.app)',
         },
         rewrite: (path) => path.replace(/^\/api\/nwps/, ''),
+      },
+      '/api/river-gauges': {
+        target: 'https://mapservices.weather.noaa.gov',
+        changeOrigin: true,
+        secure: true,
+        rewrite: (path) => {
+          const qs = path.includes('?') ? path.slice(path.indexOf('?') + 1) : '';
+          const params = new URLSearchParams(qs);
+          const count = params.get('resultRecordCount') || '10000';
+          const offset = params.get('resultOffset') || '0';
+          return `/eventdriven/rest/services/water/riv_gauges/MapServer/0/query?where=1%3D1&outFields=gaugelid,status,location,waterbody,state,wfo,url,action,flood,moderate,major,observed,hdatum&outSR=4326&f=geojson&resultRecordCount=${count}&resultOffset=${offset}`;
+        },
       },
     },
   },

@@ -6,18 +6,19 @@
 
 import { memo } from 'react';
 import { Source, Layer } from 'react-map-gl';
+import { FLOOD_CATEGORY_META, FLOOD_CATEGORY_DEFAULT } from '../../../api/noaaWaterGauge';
 
 const EMPTY = { type: 'FeatureCollection', features: [] };
 const MIN_ZOOM = 0;
 
-// Color by flood category (matches NOAA color conventions)
+// Color by flood category (matches NOAA color conventions) — built from the
+// shared FLOOD_CATEGORY_META so it can't drift from the popup/detail panel.
 const CATEGORY_COLOR = [
   'match', ['get', 'floodCategory'],
-  'major',    '#cc33ff',
-  'moderate', '#ff0000',
-  'minor',    '#ff8c00',
-  'action',   '#ffff00',
-  /* default (normal / no data) */ '#1e90ff',
+  ...Object.entries(FLOOD_CATEGORY_META)
+    .filter(([key]) => key !== FLOOD_CATEGORY_DEFAULT)
+    .flatMap(([key, meta]) => [key, meta.mapColor]),
+  /* default (normal / no data) */ FLOOD_CATEGORY_META[FLOOD_CATEGORY_DEFAULT].mapColor,
 ];
 
 const WaterGaugesLayer = memo(function WaterGaugesLayer({ geoJSON, visible }) {

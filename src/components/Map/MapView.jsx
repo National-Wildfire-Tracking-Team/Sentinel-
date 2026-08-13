@@ -13,6 +13,7 @@ import { useApp } from '../../context/AppContext';
 import { formatAcres, formatContainment, formatFRP } from '../../utils/formatUtils';
 import { frpToLabel } from '../../utils/colorUtils';
 import * as hrrRateLimiter from '../../utils/hrrRateLimiter';
+import { FLOOD_CATEGORY_META, floodCategoryLabel } from '../../api/noaaWaterGauge';
 
 // Data layer components
 import FireHotspotsLayer  from './layers/FireHotspotsLayer';
@@ -637,15 +638,8 @@ function HoverTooltip({ feature, lngLat }) {
     }
     case 'water-gauges-circle': {
       const stage = p.currentStage != null ? `${Number(p.currentStage).toFixed(2)} ft` : 'N/A';
-      const catColors = {
-        major: 'text-purple-400', moderate: 'text-red-400',
-        minor: 'text-orange-400', action: 'text-yellow-300',
-      };
-      const catLabel = {
-        major: 'Major Flooding', moderate: 'Moderate Flooding',
-        minor: 'Minor Flooding', action: 'Action Stage', no_flooding: 'Normal',
-      }[p.floodCategory] ?? 'No Data';
-      const catClass = catColors[p.floodCategory] ?? 'text-blue-400';
+      const catLabel = floodCategoryLabel(p.floodCategory);
+      const catClass = FLOOD_CATEGORY_META[p.floodCategory]?.textClass ?? FLOOD_CATEGORY_META.no_flooding.textClass;
       content = (
         <>
           <div className="font-semibold text-blue-300">{p.name || p.lid}</div>
@@ -1456,6 +1450,8 @@ export default function MapView({
         {/* Navigation controls */}
         <NavigationControl position="bottom-right" style={{ marginBottom: '6rem' }} />
         <ScaleControl position="bottom-left" style={{ marginLeft: '1rem', marginBottom: '1rem' }} />
+        {/* GOESFireTemperatureLayer disabled — src/components/Map/GOESFireTemperatureLayer.jsx
+            has never built (wrong import path + syntax errors); re-enable once fixed. */}
 
         {/* ── Data Layers (ordered back-to-front, each independently controlled via visibility) ── */}
 
