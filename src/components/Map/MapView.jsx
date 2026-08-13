@@ -22,7 +22,7 @@ import IncidentLocationsLayer from './layers/IncidentLocationsLayer';
 import AQILayer           from './layers/AQILayer';
 import WeatherAlertsLayer from './layers/WeatherAlertsLayer';
 import SmokeLayer         from './layers/SmokeLayer';
-import GOESLayer          from './layers/GOESLayer';
+import GOESFireTemperatureLayer          from './layers/GOESFireTemperatureLayer';
 import StormReportsLayer  from './layers/StormReportsLayer';
 import UserReportsLayer   from './layers/UserReportsLayer';
 import SPCOutlookLayer from './layers/SPCOutlookLayer';
