@@ -23,7 +23,7 @@ import IncidentLocationsLayer from './layers/IncidentLocationsLayer';
 import AQILayer           from './layers/AQILayer';
 import WeatherAlertsLayer from './layers/WeatherAlertsLayer';
 import SmokeLayer         from './layers/SmokeLayer';
-import GOESFireTemperatureLayer          from './layers/GOESFireTemperatureLayer';
+import GOESLayer          from './layers/GOESLayer';
 import StormReportsLayer  from './layers/StormReportsLayer';
 import UserReportsLayer   from './layers/UserReportsLayer';
 import SPCOutlookLayer from './layers/SPCOutlookLayer';
@@ -1450,14 +1450,8 @@ export default function MapView({
         {/* Navigation controls */}
         <NavigationControl position="bottom-right" style={{ marginBottom: '6rem' }} />
         <ScaleControl position="bottom-left" style={{ marginLeft: '1rem', marginBottom: '1rem' }} />
-        <GOESFireTemperatureLayer 
-          mapRef={mapRef}
-          visible={
-            (isWildfireTab || isAllHazardTab) &&
-            layers.goesFireTemperature
-          }
-          opacity={0.65}
-          />
+        {/* GOESFireTemperatureLayer disabled — src/components/Map/GOESFireTemperatureLayer.jsx
+            has never built (wrong import path + syntax errors); re-enable once fixed. */}
 
         {/* ── Data Layers (ordered back-to-front, each independently controlled via visibility) ── */}
 
