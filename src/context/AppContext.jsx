@@ -23,6 +23,7 @@ const initialState = {
     goesFire16:        false,
     goesFire18:        false,
     stormReports:      false,
+    goesFireTemperature: false,
     spcWeatherOutlooks: false,
     fireWeatherOutlooks: false,
     radar:             false,
