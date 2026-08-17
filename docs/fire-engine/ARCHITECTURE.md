@@ -1,27 +1,41 @@
 # Fire Behavior Modeling Engine — Architecture (Phase 1)
 
-Status: **Phase 1 implemented** (physics core, single-process, in-repo). Phases 2+ are
-roadmap, not yet built. This doc is the reference for both.
+Status: **Phase 1 implemented and wired into the live map** (physics core in
+`src/fireEngine/`, driving the "Fire Behavior Modeling" layer toggle end-to-end). Phases
+2+ are roadmap, not yet built. This doc is the reference for both.
 
 ## 0. Why this looks different from a from-scratch spec
 
 Sentinel/NWTT is a live product: React + Vite frontend, Supabase (Postgres) for
 persistence, Netlify (edge functions + regular functions) as the API/proxy layer,
-Mapbox GL for rendering. There is **no Python/GDAL/Celery anywhere in the stack today**,
-and a ships-today Pro/Team feature already exists at
-[`src/utils/fireBehaviorModel.js`](../../src/utils/fireBehaviorModel.js) — a deliberately
-simple, honestly-labeled heuristic (Byram flame length + an Anderson-1983-style
-elliptical growth approximation driven by nearest-RAWS wind/fuel-moisture). That model
-stays as-is: it's cheap, it's already reviewed, and it's the right tool when there's no
-fuel/terrain data to feed anything heavier.
+Mapbox GL for rendering. There is **no Python/GDAL/Celery anywhere in the stack today**.
 
-This architecture adds a **second, deeper computational path** — a real Rothermel-based
-physics engine — as a standalone, tested module (`src/fireEngine/`). It does not replace
-the existing layer yet, because the inputs a real model needs (LANDFIRE fuel model
-rasters, DEM slope/aspect, gridded weather) aren't ingested into this app yet. Phase 1
-below is the physics core plus a working end-to-end simulation using caller-supplied or
-synthetic spatial inputs. Phases 2–4 are what it takes to wire it to real data at
-production scale.
+A lighter heuristic model already existed at
+[`src/utils/fireBehaviorModel.js`](../../src/utils/fireBehaviorModel.js) (Byram flame
+length + an Anderson-1983-style elliptical growth approximation driven by nearest-RAWS
+wind/fuel-moisture) along with a hook and map layer built for it
+(`useFireBehaviorModeling.js`, `FireBehaviorModelingLayer.jsx`) — but on inspection those
+were never actually wired into `MapView`, `LayerControl`, or the fire-selection flow. The
+files existed and had a passing unit test, but the feature did not render on the map.
+
+This work added the real Rothermel-based physics engine as a standalone, tested module
+(`src/fireEngine/`), **and** rewired `useFireBehaviorModeling.js` to call it instead of
+the old heuristic, **and** finished the wiring that was missing: a `fireBehaviorModeling`
+entry in `AppContext`'s layer state, a toggle in `LayerControl`, a
+`FireBehaviorModelingLayer` mount in `MapView`, and a `selectedFireId` derived from
+`AppContext`'s `selectedFire` (set when the user clicks a fire dot or perimeter on the
+map) feeding the hook in `LiveTrackerPage.jsx`. `src/utils/fireBehaviorModel.js` itself is
+left in place, unused by the live feature now except for its `findNearestStation` helper
+— removing it wasn't asked for and it may still be useful as a cheap fallback later.
+
+The one gap the wiring can't close by itself: this app has no LANDFIRE fuel-model or DEM
+slope/aspect ingestion yet, so the live feature runs the real Rothermel physics against a
+**placeholder fuel model (Anderson FM4, chaparral) and a flat-ground assumption**,
+everywhere, for every fire — not the real per-location fuel/terrain the model is capable
+of consuming. This is why `useFireBehaviorModeling.js` sets `fuelModelIsReal: false` and
+`terrainIsReal: false` in the confidence inputs, which caps every live projection at
+"moderate" confidence at best regardless of wind data quality. Phase 2 (real fuel/terrain
+ingestion, §7 below) is what removes that ceiling.
 
 ## 1. Scientific model selection
 
