@@ -24,6 +24,7 @@ import { useCombinedEvacZones } from '../hooks/useCombinedEvacZones';
 import { useReporterEvacZones, reporterEvacZonesToGeoJSON } from '../hooks/useReporterEvacZones';
 import { useFlightData } from '../hooks/useFlightData';
 import { useRAWSData } from '../hooks/useRAWSData';
+import { useFireBehaviorModeling } from '../hooks/useFireBehaviorModeling';
 import { useAirNowMonitors } from '../hooks/useAirNowMonitors';
 import { useDroughtOutlook } from '../hooks/useDroughtOutlook';
 import { useNdgdSmokeForecast } from '../hooks/useNdgdSmokeForecast';
@@ -201,8 +202,8 @@ function mergeIrwinAndCalFireIncidents(irwinIncidents, calFireIncidents) {
 const RAWS_MIN_ZOOM = 9;
 
 export default function LiveTrackerPage() {
-  const { layers, setLayer, setRefreshed, setLoading, feedFilter, viewport, selectedGauge, selectGauge } = useApp();
-  const { hasProInfrastructureAccess } = usePlan();
+  const { layers, setLayer, setRefreshed, setLoading, feedFilter, viewport, selectedGauge, selectGauge, selectedFire } = useApp();
+  const { hasProInfrastructureAccess, hasFireBehaviorModelingAccess } = usePlan();
   const criticalInfraEntitled = hasProInfrastructureAccess;
   const { locations: savedLocations } = useSavedLocations();
   const [activeMapTab, setActiveMapTab] = useState(MAP_TABS.wildfire);
@@ -743,6 +744,28 @@ const flightBounds = useMemo(() => {
     };
   }, [deduplicatedIncidentDotsGeoJSON, deduplicatedIncidentsGeoJSON, filteredPerimetersGeoJSON]);
 
+  // Fire behavior spread-projection rings (Rothermel engine) for whichever
+  // fire dot or perimeter the user currently has selected. Perimeters and
+  // dot-only incidents are merged into one combined layer here so the
+  // modeling hook has a single unified fire-features source to look
+  // selectedFireId up in, instead of branching across two separate GeoJSON
+  // props — which fire it is (perimeter vs. dot) is then just a matter of
+  // that feature's own geometry type, not which list it came from.
+  const fireFeaturesForModeling = useMemo(() => ({
+    type: 'FeatureCollection',
+    features: [
+      ...(filteredPerimetersGeoJSON?.features || []),
+      ...(finalIncidentDotsGeoJSON?.features || []),
+    ],
+  }), [filteredPerimetersGeoJSON, finalIncidentDotsGeoJSON]);
+
+  const selectedFireId = ['incident', 'perimeter'].includes(selectedFire?.type) ? selectedFire.id : null;
+  const { geoJSON: fireBehaviorModelingGeoJSON } = useFireBehaviorModeling(
+    layers.fireBehaviorModeling && hasFireBehaviorModelingAccess,
+    fireFeaturesForModeling,
+    selectedFireId
+  );
+
   // ── Global loading state ──
   const anyLoading = hotspotsLoading || perimetersLoading || incidentsLoading || calFireLoading;
   useEffect(() => { setLoading(anyLoading); }, [anyLoading, setLoading]);
@@ -829,6 +852,7 @@ const flightBounds = useMemo(() => {
             perimetersGeoJSON={filteredPerimetersGeoJSON}
             incidentsGeoJSON={deduplicatedIncidentsGeoJSON}
             incidentDotsGeoJSON={finalIncidentDotsGeoJSON}
+            fireBehaviorModelingGeoJSON={fireBehaviorModelingGeoJSON}
             aqiGeoJSON={aqiGeoJSON}
             alertsGeoJSON={filteredAlertsGeoJSON}
             stormReportsGeoJSON={stormReportsGeoJSON}

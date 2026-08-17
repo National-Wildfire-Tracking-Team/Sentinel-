@@ -40,6 +40,8 @@ const initialState = {
     nhcTropicalWeather: false,
     /** NOAA NWPS water gauges */
     waterGauges: false,
+    /** Rothermel-based spread projection rings for the selected fire */
+    fireBehaviorModeling: false,
   },
   // Currently clicked/selected fire feature (hotspot or perimeter)
   selectedFire: null,
