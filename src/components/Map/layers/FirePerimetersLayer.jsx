@@ -8,21 +8,37 @@
 import { useMemo, memo } from 'react';
 import { Source, Layer } from 'react-map-gl';
 import { polygonCentroid } from '../../../utils/geoUtils';
+import { getFireMatchKey } from '../../../hooks/useMergedFireData';
 
 const EMPTY_GEOJSON = { type: 'FeatureCollection', features: [] };
 
 const FirePerimetersLayer = memo(function FirePerimetersLayer({ geoJSON, visible }) {
   const vis = visible ? 'visible' : 'none';
 
-  // Derive a Point FeatureCollection of perimeter centroids for the center dots.
+  // Derive a Point FeatureCollection of perimeter centroids for the center dots
+  // and name labels. A single fire can arrive as several separate polygon
+  // fragments sharing one name (e.g. FIRIS "Heat Perimeter" chunks) — all
+  // fragments still get drawn as fill/line, but only the largest fragment per
+  // fire contributes a dot + label so each fire shows once.
   // Perimeters with HideFromCentroid=true have their centroid dot suppressed
   // because a repositioned IRWIN incident dot already covers that location.
   const centroidGeoJSON = useMemo(() => {
     if (!geoJSON?.features?.length) return EMPTY_GEOJSON;
 
+    const candidates = geoJSON.features.filter(f => !f.properties?.HideFromCentroid);
+    candidates.sort((a, b) => (b.properties?.GISAcres || 0) - (a.properties?.GISAcres || 0));
+
+    const seen = new Set();
     const features = [];
-    for (const f of geoJSON.features) {
-      if (f.properties?.HideFromCentroid) continue;
+    for (const f of candidates) {
+      const key =
+        getFireMatchKey(f.properties?.IncidentName) ||
+        f.properties?.UniqueFireIdentifier ||
+        f.properties?.IncidentManagementOrganization;
+      if (key) {
+        if (seen.has(key)) continue;
+        seen.add(key);
+      }
       const center = polygonCentroid(f.geometry);
       if (center) {
         features.push({
@@ -97,29 +113,9 @@ const FirePerimetersLayer = memo(function FirePerimetersLayer({ geoJSON, visible
             'line-opacity': 1,
           }}
         />
-        <Layer
-          id="fire-perimeters-label"
-          type="symbol"
-          source="fire-perimeters"
-          minzoom={7}
-          layout={{
-            visibility: vis,
-            'text-field': ['get', 'IncidentName'],
-            'text-font': ['DIN Pro Medium', 'Arial Unicode MS Bold'],
-            'text-size': 12,
-            'text-anchor': 'top',
-            'text-offset': [0, 1.2],
-            'text-max-width': 10,
-          }}
-          paint={{
-            'text-color': ['case', isContained, '#9ca3af', '#ffffff'],
-            'text-halo-color': 'rgba(0,0,0,0.8)',
-            'text-halo-width': 2,
-          }}
-        />
       </Source>
 
-      {/* Centroid dot at the center of each perimeter */}
+      {/* Centroid dot + name label, once per fire (deduped in centroidGeoJSON above) */}
       <Source id="fire-perimeter-centroids" type="geojson" data={centroidGeoJSON}>
         <Layer
           id="fire-perimeter-centroids-glow"
@@ -146,6 +142,26 @@ const FirePerimetersLayer = memo(function FirePerimetersLayer({ geoJSON, visible
             'circle-opacity': 0.9,
             'circle-stroke-color': 'rgba(255,255,255,0.7)',
             'circle-stroke-width': 1.5,
+          }}
+        />
+        <Layer
+          id="fire-perimeters-label"
+          type="symbol"
+          source="fire-perimeter-centroids"
+          minzoom={7}
+          layout={{
+            visibility: vis,
+            'text-field': ['get', 'IncidentName'],
+            'text-font': ['DIN Pro Medium', 'Arial Unicode MS Bold'],
+            'text-size': 12,
+            'text-anchor': 'top',
+            'text-offset': [0, 1.2],
+            'text-max-width': 10,
+          }}
+          paint={{
+            'text-color': ['case', isContained, '#9ca3af', '#ffffff'],
+            'text-halo-color': 'rgba(0,0,0,0.8)',
+            'text-halo-width': 2,
           }}
         />
       </Source>
