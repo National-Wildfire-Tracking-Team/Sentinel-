@@ -31,6 +31,7 @@ const LAYER_DEFS = {
   goesWest:          { label: 'GOES West Imagery',   sublabel: 'NOAA GOES West · visible',    icon: Eye,           color: '#7c3aed' },
   goesFire16:        { label: 'GOES East Fire RGB',  sublabel: 'NOAA GOES East · Day Land Cloud Fire RGB', icon: Eye, color: '#a855f7' },
   goesFire18:        { label: 'GOES West Fire RGB',  sublabel: 'NOAA GOES West · Day Land Cloud Fire RGB', icon: Eye, color: '#9333ea' },
+  goesFireTemperature:  { label: 'GOES Fire Temperature', sublabel: 'NOAA GOES-19 · Fire Temperature RGB', icon: Thermometer, color: '#ef4444' },
   radar:             { label: 'NEXRAD Reflectivity', sublabel: 'NEXRAD Level 2 composite',     icon: Radar,        color: '#10b981' },
   aqi:               { label: 'AQI Heatmap',          sublabel: 'EPA AirNow gradient overlay',  icon: Wind,         color: '#3b82f6' },
   smoke:             { label: 'Smoke Forecast',      sublabel: 'NOAA HRRR',                   icon: CloudRain,    color: '#94a3b8' },
@@ -145,7 +146,7 @@ const TAB_SECTIONS = {
         },
         {
           label: 'Outlooks & smoke',
-          layers: ['ndgdSmokeForecast', 'droughtOutlook', 'fireWeatherOutlooks', 'goesFire16', 'goesFire18'],
+          layers: ['ndgdSmokeForecast', 'droughtOutlook', 'fireWeatherOutlooks', 'goesFire16', 'goesFire18', 'goesFireTemperature'],
         },
       ],
     },
