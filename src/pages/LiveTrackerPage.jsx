@@ -20,6 +20,7 @@ import { useNwsLsrMapServer } from '../hooks/useNwsLsrMapServer';
 import { useSpcOutlooks } from '../hooks/useSpcOutlooks';
 import { useSpcMesoscaleDiscussion } from '../hooks/useSpcMesoscaleDiscussion';
 import { useFireReports, reportsToGeoJSON } from '../hooks/useFireReports';
+import { useHazardEvents, hazardEventsToGeoJSON } from '../hooks/useHazardEvents';
 import { useCombinedEvacZones } from '../hooks/useCombinedEvacZones';
 import { useReporterEvacZones, reporterEvacZonesToGeoJSON } from '../hooks/useReporterEvacZones';
 import { useFlightData } from '../hooks/useFlightData';
@@ -518,6 +519,13 @@ const flightBounds = useMemo(() => {
     [reporterReports]
   );
 
+  // Community-submitted hazard events – wildfire, flooding, hazmat, other
+  const { events: activeHazardEvents } = useHazardEvents('active');
+  const hazardEventsGeoJSON = useMemo(
+    () => hazardEventsToGeoJSON(activeHazardEvents),
+    [activeHazardEvents]
+  );
+
   // ── Remove stale fully-contained fires (100% contained, no update in 3+ days) ──
   const freshIncidents = useMemo(
     () => filterStaleContainedIncidents(mergedIncidentsList),
@@ -865,6 +873,7 @@ const flightBounds = useMemo(() => {
             onSpcActiveDayChange={setSpcActiveDay}
             spcMdGeoJSON={spcMdGeoJSON}
             userReportsGeoJSON={userReportsGeoJSON}
+            hazardEventsGeoJSON={hazardEventsGeoJSON}
             evacZonesGeoJSON={evacZonesGeoJSON}
             flightsGeoJSON={flightsGeoJSON}
             rawsGeoJSON={rawsGeoJSON}

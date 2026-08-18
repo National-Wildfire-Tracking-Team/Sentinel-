@@ -9,7 +9,7 @@ import {
   X, Flame, MapPin, Users, Home, Calendar, Thermometer,
   AlertTriangle, Wind, ExternalLink, TrendingUp, ShieldAlert,
   CloudRain, Clock, Info, Share2, ShieldCheck, Zap, Fuel,
-  GraduationCap, FileText, Copy, Waves, Navigation,
+  GraduationCap, FileText, Copy, Waves, Navigation, Siren, Biohazard, HelpCircle,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import {
@@ -19,6 +19,7 @@ import {
 import { frpToLabel, containmentToColor, aqiToColor, getAQICategory } from '../../utils/colorUtils';
 import { nwsAlertColor } from '../../utils/nwsColors';
 import IncidentTimeline from '../IncidentTimeline/IncidentTimeline';
+import { HAZARD_CATEGORY_COLORS } from '../Map/layers/HazardEventsLayer';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -1240,6 +1241,78 @@ function NationalMapCollegeDetail({ fire }) {
   );
 }
 
+// ─── Hazard Event Detail ──────────────────────────────────────────────────────
+
+const HAZARD_CATEGORY_META = {
+  wildfire: { label: 'Wildfire', icon: Flame },
+  flooding: { label: 'Flooding', icon: Waves },
+  hazmat:   { label: 'Hazmat',   icon: Biohazard },
+  other:    { label: 'Other',    icon: HelpCircle },
+};
+
+const SEVERITY_COLOR = {
+  low:      '#84cc16',
+  moderate: '#eab308',
+  high:     '#f97316',
+  critical: '#ef4444',
+};
+
+function HazardEventDetail({ fire }) {
+  const meta = HAZARD_CATEGORY_META[fire.category] || HAZARD_CATEGORY_META.other;
+  const Icon = meta.icon;
+  const color = HAZARD_CATEGORY_COLORS[fire.category] || HAZARD_CATEGORY_COLORS.other;
+  const severityColor = SEVERITY_COLOR[fire.severity] || SEVERITY_COLOR.moderate;
+
+  return (
+    <>
+      <div className="mb-4 flex items-start gap-2">
+        <div className="mt-0.5 p-1.5 rounded-lg" style={{ backgroundColor: `${color}22`, border: `1px solid ${color}55` }}>
+          <Icon size={16} style={{ color }} />
+        </div>
+        <div>
+          <h3 className="font-bold text-white text-lg leading-tight">{fire.title}</h3>
+          <p className="text-sentinel-400 text-[11px] mt-1">{meta.label} · Community Report · NWTT</p>
+        </div>
+      </div>
+
+      <div className="flex items-center gap-2 mb-4">
+        <span
+          className="text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-md"
+          style={{ backgroundColor: `${severityColor}22`, color: severityColor, border: `1px solid ${severityColor}55` }}
+        >
+          {fire.severity || 'moderate'}
+        </span>
+        {fire.status && (
+          <span className="text-[10px] font-semibold text-sentinel-400 uppercase tracking-wider">
+            {fire.status}
+          </span>
+        )}
+      </div>
+
+      {fire.description && (
+        <p className="text-sentinel-200 text-sm mb-4 leading-relaxed whitespace-pre-wrap">
+          {fire.description}
+        </p>
+      )}
+
+      {fire.created_at && (
+        <p className="text-sentinel-400 text-xs mb-4">
+          Reported <span className="text-sentinel-300 font-medium">{formatRelativeTime(fire.created_at)}</span>
+        </p>
+      )}
+
+      {Number.isFinite(fire.lat) && Number.isFinite(fire.lng) && (
+        <div className="text-xs text-sentinel-400">
+          Location:{' '}
+          <span className="text-sentinel-200 font-mono">
+            {fire.lat.toFixed(5)}, {fire.lng.toFixed(5)}
+          </span>
+        </div>
+      )}
+    </>
+  );
+}
+
 // ─── NHC Tropical Weather Detail ─────────────────────────────────────────────
 
 const NHC_CHANCE_COLOR = { HIGH: '#FF4444', MEDIUM: '#FFA040', LOW: '#FFE566' };
@@ -1545,6 +1618,7 @@ const FireDetailPanel = memo(function FireDetailPanel() {
              selectedFire.type === 'transmission-line'        ? 'Critical Infrastructure' :
              selectedFire.type === 'gas-pipeline'            ? 'Critical Infrastructure' :
              selectedFire.type === 'national-map-college'    ? 'School / University' :
+             selectedFire.type === 'hazard-event'            ? 'Event Report' :
              selectedFire.type === 'nhc-invest'              ? 'NHC Invest' :
              selectedFire.type === 'nhc-storm'               ? 'NHC Tropical Cyclone' :
              selectedFire.type === 'nhc-watch-warning'        ? 'NHC Watch/Warning' :
@@ -1587,13 +1661,14 @@ const FireDetailPanel = memo(function FireDetailPanel() {
           {selectedFire.type === 'transmission-line'       && <TransmissionLineDetail fire={selectedFire} />}
           {selectedFire.type === 'gas-pipeline'            && <GasPipelineDetail     fire={selectedFire} />}
           {selectedFire.type === 'national-map-college'    && <NationalMapCollegeDetail fire={selectedFire} />}
+          {selectedFire.type === 'hazard-event'            && <HazardEventDetail       fire={selectedFire} />}
           {selectedFire.type === 'nhc-invest'              && <NhcInvestDetail        fire={selectedFire} />}
           {selectedFire.type === 'nhc-storm'                && <NhcStormDetail         fire={selectedFire} />}
           {selectedFire.type === 'nhc-watch-warning'        && <NhcWatchWarningDetail  fire={selectedFire} />}
           {![
             'hotspot', 'perimeter', 'incident', 'aqi', 'weather-alert', 'user-report',
             'evacuation-zone', 'reporter-evacuation-zone', 'transmission-line',
-            'gas-pipeline', 'national-map-college', 'nhc-invest', 'nhc-storm', 'nhc-watch-warning',
+            'gas-pipeline', 'national-map-college', 'hazard-event', 'nhc-invest', 'nhc-storm', 'nhc-watch-warning',
           ].includes(selectedFire.type) && (
             <div className="flex flex-col items-center justify-center py-10 text-center gap-3">
               <Info size={24} className="text-sentinel-600" />

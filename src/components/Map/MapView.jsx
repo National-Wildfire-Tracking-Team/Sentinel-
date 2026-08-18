@@ -47,6 +47,7 @@ import NhcStormsLayer from './layers/NhcStormsLayer';
 import NHCTropicalWeatherLayer from './layers/NHCTropicalWeatherLayer';
 import WaterGaugesLayer from './layers/WaterGaugesLayer';
 import CalFirePerimetersLayer from './layers/CalFirePerimetersLayer';
+import HazardEventsLayer from './layers/HazardEventsLayer';
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN || '';
 const HAS_MAPBOX_TOKEN = Boolean(MAPBOX_TOKEN.trim());
@@ -247,6 +248,23 @@ function HoverTooltip({ feature, lngLat }) {
         </>
       );
       break;
+    case 'hazard-events-circle': {
+      const categoryLabels = { wildfire: 'Wildfire', flooding: 'Flooding', hazmat: 'Hazmat', other: 'Other' };
+      content = (
+        <>
+          <div className="font-semibold text-purple-300">{p.title}</div>
+          <div className="text-gray-300 text-xs mt-0.5">
+            {categoryLabels[p.category] || 'Event'} · {p.severity}
+          </div>
+          {p.created_at && (
+            <div className="text-gray-400 text-xs">
+              {new Date(p.created_at).toLocaleString()}
+            </div>
+          )}
+        </>
+      );
+      break;
+    }
     case 'incident-locations-circle':
       content = (
         <>
@@ -772,6 +790,7 @@ function FlightDetailPopup({ flight, lngLat, onClose }) {
  * @param {Function}    [props.onSpcActiveDayChange]
  * @param {object|null} props.spcMdGeoJSON
  * @param {object|null} props.userReportsGeoJSON
+ * @param {object|null} props.hazardEventsGeoJSON
  * @param {object|null} props.evacZonesGeoJSON - combined official (Cal OES/IPAWS) + reporter-drawn zones
  * @param {object|null} props.flightsGeoJSON
  * @param {object|null} props.rawsGeoJSON
@@ -818,6 +837,7 @@ export default function MapView({
   onSpcActiveDayChange,
   spcMdGeoJSON,
   userReportsGeoJSON,
+  hazardEventsGeoJSON,
   evacZonesGeoJSON,
   flightsGeoJSON,
   rawsGeoJSON,
@@ -1038,6 +1058,7 @@ export default function MapView({
       if (nhcObservedTrackGeoJSON?.features?.length) ids.push('nhc-obs-circle');
     }
     if (layers.waterGauges && waterGaugesGeoJSON?.features?.length) ids.push('water-gauges-circle');
+    if (hazardEventsGeoJSON?.features?.length) ids.push('hazard-events-circle');
     return ids;
   }, [measureActive, isWildfireTab, isWeatherTab, isAllHazardTab, layers.fireHotspots, layers.firePerimeters, layers.incidentLocations, layers.aqi,
       layers.weatherAlerts, layers.spcWeatherOutlooks, spcWeatherOutlookMode, layers.stormReports, layers.evacZones, spcMdGeoJSON,
@@ -1050,7 +1071,8 @@ export default function MapView({
       criticalInfrastructureVisible, criticalInfrastructureTransGeoJSON, criticalInfrastructureGasGeoJSON,
       nationalMapCollegesVisible, nationalMapCollegesGeoJSON,
       nhcCentersGeoJSON,
-      layers.waterGauges, waterGaugesGeoJSON]);
+      layers.waterGauges, waterGaugesGeoJSON,
+      hazardEventsGeoJSON]);
 
   // Clear stale hover when layers change
   useEffect(() => {
@@ -1250,6 +1272,21 @@ export default function MapView({
         name:        p.title,
         title:       p.title,
         description: p.description,
+        lat:         evt.lngLat.lat,
+        lng:         evt.lngLat.lng,
+        created_at:  p.created_at,
+        user_id:     p.user_id,
+      });
+    } else if (feature.layer.id === 'hazard-events-circle') {
+      selectFire({
+        type:        'hazard-event',
+        id:          p.id,
+        name:        p.title,
+        title:       p.title,
+        category:    p.category,
+        description: p.description,
+        severity:    p.severity,
+        status:      p.status,
         lat:         evt.lngLat.lat,
         lng:         evt.lngLat.lng,
         created_at:  p.created_at,
@@ -1601,6 +1638,12 @@ export default function MapView({
         <UserReportsLayer
           geoJSON={userReportsGeoJSON}
           visible={(isWildfireTab || isAllHazardTab) && layers.incidentLocations}
+        />
+
+        {/* Community-submitted hazard events: wildfire, flooding, hazmat, other — always on */}
+        <HazardEventsLayer
+          geoJSON={hazardEventsGeoJSON}
+          visible={true}
         />
 
         {/* NOAA NWPS water gauges */}
