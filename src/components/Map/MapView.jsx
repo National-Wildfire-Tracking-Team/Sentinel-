@@ -315,7 +315,8 @@ function HoverTooltip({ feature, lngLat }) {
       );
       break;
     }
-    case 'evac-zones-fill': {
+    case 'evac-zones-fill':
+    case 'evac-zones-dot': {
       const isReporter = p.source === 'reporter';
       const isIpaws = p.source === 'ipaws';
 
@@ -1008,7 +1009,10 @@ export default function MapView({
     }
     if ((isWeatherTab || isAllHazardTab) && layers.weatherAlerts && spcMdGeoJSON) ids.push('spc-md-fill');
     if ((isWeatherTab || isAllHazardTab) && layers.stormReports && stormReportsGeoJSON)     ids.push('nws-lsr-reports-circle');
-    if ((isWildfireTab || isAllHazardTab) && layers.evacZones && evacZonesGeoJSON)                        ids.push('evac-zones-fill');
+    if (layers.evacZones && evacZonesGeoJSON) {
+      ids.push('evac-zones-fill');
+      ids.push('evac-zones-dot');
+    }
     if (layers.flights && flightsGeoJSON)                                                                 ids.push('flights-symbol');
     if (layers.rawsStations && rawsGeoJSON)                                                               ids.push('raws-stations-circle');
     if ((isWildfireTab || isAllHazardTab) && layers.airNowMonitors && airNowMonitorsGeoJSON)              ids.push('airnow-monitors-circle');
@@ -1255,7 +1259,7 @@ export default function MapView({
         created_at:  p.created_at,
         user_id:     p.user_id,
       });
-    } else if (feature.layer.id === 'evac-zones-fill' && p.source === 'reporter') {
+    } else if ((feature.layer.id === 'evac-zones-fill' || feature.layer.id === 'evac-zones-dot') && p.source === 'reporter') {
       selectFire({
         type:          'reporter-evacuation-zone',
         id:            p.id || null,
@@ -1272,7 +1276,7 @@ export default function MapView({
         lat:           evt.lngLat.lat,
         lng:           evt.lngLat.lng,
       });
-    } else if (feature.layer.id === 'evac-zones-fill') {
+    } else if (feature.layer.id === 'evac-zones-fill' || feature.layer.id === 'evac-zones-dot') {
       const isIpaws = p.source === 'ipaws';
       selectFire({
         type:           'evacuation-zone',
@@ -1513,12 +1517,6 @@ export default function MapView({
           geoJSON={stormReportsGeoJSON}
           visible={(isWeatherTab || isAllHazardTab) && layers.stormReports}
           opacity={0.9}
-        />
-
-        {/* Evacuation zones — under fire point markers so dots stay visible */}
-        <EvacuationZonesLayer
-          geoJSON={evacZonesGeoJSON}
-          visible={(isWildfireTab || isAllHazardTab) && layers.evacZones}
         />
 
         {/* WFIGS incident location markers – above evacuation fills */}

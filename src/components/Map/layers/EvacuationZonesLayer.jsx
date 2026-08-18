@@ -10,7 +10,7 @@
  *   Official (see useCombinedEvacZones):
  *     warningType, zoneName, county, agency, jurisdiction, instructions,
  *     comments, effectiveDate, expirationDate, externalURL,
- *     source – "hosted" | "prod" | "ipaws"
+ *     source – "hosted" | "ipaws"
  *
  *   Reporter-drawn (see useReporterEvacZones / reporterEvacZonesToGeoJSON):
  *     zone_type, title, incident_name, county, state, status,
@@ -231,26 +231,63 @@ export default function EvacuationZonesLayer({ geoJSON, visible }) {
         />
       </Source>
 
-      {/* Dot markers at polygon centroids (low zoom) — on top of polygons */}
+      {/* Persistent markers at polygon centroids */}
       <Source id="evac-zones-dots" type="geojson" data={dotsData}>
+        <Layer
+          id="evac-zones-dot-halo"
+          type="circle"
+          source="evac-zones-dots"
+          layout={{ visibility: vis }}
+          paint={{
+            'circle-color': '#111827',
+            'circle-opacity': 0.9,
+            'circle-radius': [
+              'interpolate', ['linear'], ['zoom'],
+              0, 7,
+              5, 11,
+              10, 14,
+            ],
+          }}
+        />
         <Layer
           id="evac-zones-dot"
           type="circle"
           source="evac-zones-dots"
-          maxzoom={6}
           layout={{ visibility: vis }}
           paint={{
             'circle-color':   COLOR_MATCH,
             'circle-opacity': 0.95,
             'circle-radius':  [
               'interpolate', ['linear'], ['zoom'],
-              0, 4,
-              3, 6,
+              0, 5,
               5, 8,
+              10, 11,
             ],
             'circle-stroke-color': '#ffffff',
             'circle-stroke-width': 2,
             'circle-stroke-opacity': 1,
+          }}
+        />
+        <Layer
+          id="evac-zones-dot-alert"
+          type="symbol"
+          source="evac-zones-dots"
+          layout={{
+            visibility: vis,
+            'text-field': '!',
+            'text-size': [
+              'interpolate', ['linear'], ['zoom'],
+              0, 9,
+              5, 12,
+              10, 15,
+            ],
+            'text-font': ['DIN Pro Bold', 'Arial Unicode MS Bold'],
+            'text-allow-overlap': true,
+          }}
+          paint={{
+            'text-color': '#ffffff',
+            'text-halo-color': 'rgba(0,0,0,0.45)',
+            'text-halo-width': 0.5,
           }}
         />
       </Source>
