@@ -8,6 +8,7 @@ import { useState, memo } from 'react';
 import { Info, ChevronDown, ChevronUp } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { AQI_CATEGORIES } from '../../utils/colorUtils';
+import { HAZARD_CATEGORY_COLORS } from '../Map/layers/HazardEventsLayer';
 
 const CONTAINMENT_SCALE = [
   { color: '#ef4444', label: 'Uncontained (0%)' },
@@ -134,11 +135,8 @@ const Legend = memo(function Legend({
 
   if (!legendOpen) return null;
 
-  const anyActive = layers.fireHotspots || layers.aqi || layers.firePerimeters || layers.spcWeatherOutlooks
-    || layers.weatherAlerts || layers.radar || layers.incidentLocations
-    || layers.stormReports || layers.fireWeatherOutlooks || layers.ndgdSmokeForecast
-    || layers.nhcTropicalWeather || layers.fireBehaviorModeling;
-  if (!anyActive) return null;
+  // Hazard event report dots are a permanent (non-toggleable) layer, so the
+  // legend is always reachable even if every toggleable layer is off.
 
   const spcScale = SPC_SCALES[spcOutlookType] || SPC_SCALES.categorical;
 
@@ -229,6 +227,22 @@ const Legend = memo(function Legend({
               </Section>
             )}
 
+            {layers.damageAssessment && (
+              <Section title="Damage Assessment (EF/damage scale)">
+                <ColorRow color="#84cc16" label="EF0" />
+                <ColorRow color="#eab308" label="EF1" />
+                <ColorRow color="#f59e0b" label="EF2" />
+                <ColorRow color="#f97316" label="EF3" />
+                <ColorRow color="#dc2626" label="EF4" />
+                <ColorRow color="#7f1d1d" label="EF5" />
+                <ColorRow color="#3b82f6" label="TSTM/Wind" />
+                <ColorRow color="#9ca3af" label="Unknown" />
+                <div className="text-sentinel-300 text-[10px] pt-1 mt-1 border-t border-sentinel-700">
+                  NWS DAT: post-storm surveys, last 30 days
+                </div>
+              </Section>
+            )}
+
             {layers.radar && (
               <Section title="Radar Reflectivity (dBZ)">
                 {RADAR_DBZ_SCALE.map(row => <ColorRow key={row.label} {...row} />)}
@@ -282,6 +296,13 @@ const Legend = memo(function Legend({
                 {FIRE_WX_LIGHTNING_SCALE.map(row => <ColorRow key={row.label} {...row} />)}
               </Section>
             )}
+
+            <Section title="Event Reports">
+              <ColorRow color={HAZARD_CATEGORY_COLORS.wildfire} label="Wildfire" />
+              <ColorRow color={HAZARD_CATEGORY_COLORS.flooding} label="Flooding" />
+              <ColorRow color={HAZARD_CATEGORY_COLORS.hazmat} label="Hazmat" />
+              <ColorRow color={HAZARD_CATEGORY_COLORS.other} label="Other" />
+            </Section>
           </div>
         )}
       </div>

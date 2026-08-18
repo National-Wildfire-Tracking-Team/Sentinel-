@@ -15,7 +15,8 @@ import {
   Upload, X, LogOut, AlertCircle, CheckCircle2, Send, User,
   PlusCircle, Pencil, Trash2, RefreshCw, ChevronUp, Clock,
   Activity, Settings, ArrowLeft, Shield, Loader2, Globe,
-  AlertTriangle as TriangleAlert, Eye, EyeOff,
+  AlertTriangle as TriangleAlert, Eye, EyeOff, Siren, Waves,
+  Biohazard, HelpCircle, CheckCheck,
 } from 'lucide-react';
 
 import { useAuth } from '../context/AuthContext';
@@ -38,6 +39,13 @@ import {
   deleteReporterEvacZone,
 } from '../hooks/useReporterEvacZones';
 import EvacZoneDrawer from '../components/Map/EvacZoneDrawer';
+import {
+  useHazardEvents,
+  submitHazardEvent,
+  updateHazardEvent,
+  deleteHazardEvent,
+} from '../hooks/useHazardEvents';
+import { HAZARD_CATEGORY_COLORS } from '../components/Map/layers/HazardEventsLayer';
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN || '';
 
@@ -121,6 +129,14 @@ const US_COUNTIES = [
 ].sort();
 
 const INCIDENT_STATUS_OPTIONS = ['active', 'contained', 'controlled', 'out'];
+
+const EVENT_CATEGORY_META = {
+  wildfire: { label: 'Wildfire', icon: Flame },
+  flooding: { label: 'Flooding', icon: Waves },
+  hazmat:   { label: 'Hazmat',   icon: Biohazard },
+  other:    { label: 'Other',    icon: HelpCircle },
+};
+const EVENT_SEVERITY_OPTIONS = ['low', 'moderate', 'high', 'critical'];
 
 /* ── Shared style tokens ── */
 const INPUT_CLS =
@@ -902,6 +918,122 @@ function EvacZoneCard({ zone, onRefresh }) {
   );
 }
 
+function HazardEventCard({ event, onRefresh }) {
+  const [busy, setBusy] = useState(false);
+  const [feedback, setFeedback] = useState(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+
+  const meta = EVENT_CATEGORY_META[event.category] || EVENT_CATEGORY_META.other;
+  const Icon = meta.icon;
+  const color = HAZARD_CATEGORY_COLORS[event.category] || HAZARD_CATEGORY_COLORS.other;
+
+  async function handleToggleStatus() {
+    setBusy(true);
+    setFeedback(null);
+    try {
+      await updateHazardEvent(event.id, { status: event.status === 'active' ? 'resolved' : 'active' });
+      onRefresh();
+    } catch (err) {
+      setFeedback({ type: 'error', message: err?.message || 'Failed to update event.' });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleDelete() {
+    setBusy(true);
+    setFeedback(null);
+    try {
+      await deleteHazardEvent(event.id);
+      onRefresh();
+    } catch (err) {
+      setFeedback({ type: 'error', message: err?.message || 'Failed to delete event.' });
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="bg-[#0d1117] border border-[#21262d] rounded-xl p-4">
+      <div className="flex items-start justify-between gap-3 mb-2">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap mb-1">
+            <div className="p-1 rounded-md shrink-0" style={{ backgroundColor: `${color}22`, border: `1px solid ${color}55` }}>
+              <Icon size={11} style={{ color }} />
+            </div>
+            <h3 className="font-bold text-white text-sm truncate">{event.title}</h3>
+            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold border bg-[#21262d] border-[#30363d] text-[#8b949e] uppercase tracking-wider">
+              {event.severity}
+            </span>
+            {event.status !== 'active' && (
+              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold border bg-[#21262d] border-[#30363d] text-[#8b949e] uppercase tracking-wider">
+                {event.status}
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-3 text-[#8b949e] text-xs flex-wrap">
+            <span>{meta.label}</span>
+            <span className="text-[#484f58]">{new Date(event.created_at).toLocaleDateString()}</span>
+          </div>
+          {event.description && (
+            <p className="text-[#8b949e] text-xs mt-1.5 line-clamp-2">{event.description}</p>
+          )}
+        </div>
+
+        <div className="flex items-center gap-1.5 shrink-0">
+          <button
+            type="button"
+            onClick={handleToggleStatus}
+            disabled={busy}
+            title={event.status === 'active' ? 'Mark resolved' : 'Mark active'}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium text-[#8b949e] border border-[#30363d] hover:text-green-400 hover:border-green-800 transition-colors disabled:opacity-50"
+          >
+            <CheckCheck size={12} />
+            <span className="hidden sm:inline">{event.status === 'active' ? 'Resolve' : 'Reactivate'}</span>
+          </button>
+          {!confirmDelete ? (
+            <button
+              type="button"
+              onClick={() => setConfirmDelete(true)}
+              disabled={busy}
+              title="Delete event"
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium text-[#8b949e] border border-[#30363d] hover:text-red-400 hover:border-red-800 transition-colors disabled:opacity-50"
+            >
+              <Trash2 size={12} />
+              <span className="hidden sm:inline">Delete</span>
+            </button>
+          ) : (
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs text-red-400">Sure?</span>
+              <button
+                type="button"
+                onClick={handleDelete}
+                disabled={busy}
+                className="px-2.5 py-1.5 rounded-lg text-xs font-semibold text-white bg-red-600 hover:bg-red-500 disabled:opacity-50 transition-colors"
+              >
+                {busy ? <RefreshCw size={11} className="animate-spin" /> : 'Yes'}
+              </button>
+              <button
+                type="button"
+                onClick={() => setConfirmDelete(false)}
+                className="px-2.5 py-1.5 rounded-lg text-xs font-medium text-[#8b949e] border border-[#30363d] hover:text-white transition-colors"
+              >
+                No
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {feedback && (
+        <div className="flex items-start gap-2 mt-2 p-2.5 rounded-lg text-xs border bg-red-950/40 border-red-800/60 text-red-300">
+          <AlertCircle size={12} className="shrink-0 mt-0.5" />
+          <span>{feedback.message}</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ══════════════════════════════════════════════════════════
    Main page
 ══════════════════════════════════════════════════════════ */
@@ -961,6 +1093,132 @@ export default function ReporterDashboardPage() {
     () => allReports.filter((r) => r.user_id === user?.id && r.status !== 'rejected'),
     [allReports, user?.id],
   );
+
+  /* ── Hazard Event tab state ── */
+  const { events: allHazardEvents, refresh: refreshHazardEvents } = useHazardEvents('all');
+  const myHazardEvents = useMemo(
+    () => allHazardEvents.filter((ev) => ev.user_id === user?.id),
+    [allHazardEvents, user?.id],
+  );
+
+  const [eventCategory, setEventCategory] = useState('wildfire');
+  const [eventTitle, setEventTitle] = useState('');
+  const [eventDescription, setEventDescription] = useState('');
+  const [eventSeverity, setEventSeverity] = useState('moderate');
+  const [eventAddressSearch, setEventAddressSearch] = useState('');
+  const [eventSuggestions, setEventSuggestions] = useState([]);
+  const [eventShowSuggestions, setEventShowSuggestions] = useState(false);
+  const [eventSearchLoading, setEventSearchLoading] = useState(false);
+  const [eventSearchError, setEventSearchError] = useState(null);
+  const [eventLat, setEventLat] = useState(null);
+  const [eventLng, setEventLng] = useState(null);
+  const eventSearchDebounceRef = useRef(null);
+
+  const [eventBusy, setEventBusy] = useState(false);
+  const [eventError, setEventError] = useState(null);
+  const [eventSuccess, setEventSuccess] = useState(null);
+
+  function handleEventAddressChange(e) {
+    const val = e.target.value;
+    setEventAddressSearch(val);
+    setEventSearchError(null);
+    clearTimeout(eventSearchDebounceRef.current);
+    if (!val.trim() || val.trim().length < 3) {
+      setEventSuggestions([]);
+      setEventShowSuggestions(false);
+      return;
+    }
+    eventSearchDebounceRef.current = setTimeout(() => fetchEventSuggestions(val), 300);
+  }
+
+  async function fetchEventSuggestions(q) {
+    setEventSearchLoading(true);
+    setEventSearchError(null);
+    let features = null;
+
+    if (isSupabaseConfigured) {
+      try {
+        await acquireSlot();
+        const { data, error: err } = await supabase.functions.invoke('mapbox-geocoding', {
+          body: { query: q, country: 'us', autocomplete: true, limit: 5 },
+        });
+        if (!err && Array.isArray(data?.features)) features = data.features;
+      } catch {
+        // fall through to direct fallback below
+      }
+    }
+
+    if (features === null && MAPBOX_TOKEN) {
+      try {
+        features = await geocodeViaDirect(q, { limit: 5, autocomplete: true });
+      } catch (err) {
+        console.error('Event address suggestion fallback error:', err);
+      }
+    }
+
+    setEventSearchLoading(false);
+
+    if (features === null) {
+      setEventSearchError('Address search unavailable. Check your connection or enter a different query.');
+      setEventSuggestions([]);
+      setEventShowSuggestions(false);
+      return;
+    }
+
+    setEventSuggestions(features);
+    setEventShowSuggestions(features.length > 0);
+  }
+
+  function applyEventSuggestion(feature) {
+    const coords = feature.geometry?.coordinates;
+    setEventAddressSearch(feature.properties?.full_address || feature.place_name || feature.properties?.name || '');
+    setEventLng(Array.isArray(coords) ? Number(coords[0]) : null);
+    setEventLat(Array.isArray(coords) ? Number(coords[1]) : null);
+    setEventSuggestions([]);
+    setEventShowSuggestions(false);
+    setEventSearchError(null);
+  }
+
+  async function handleEventSubmit(e) {
+    e.preventDefault();
+    setEventError(null);
+    setEventSuccess(null);
+
+    if (!eventTitle.trim()) { setEventError('Title is required.'); return; }
+    if (!Number.isFinite(eventLat) || !Number.isFinite(eventLng)) {
+      setEventError('Please search for a location and select one of the suggested results.');
+      return;
+    }
+
+    setEventBusy(true);
+    try {
+      await submitHazardEvent({
+        category: eventCategory,
+        title: eventTitle.trim(),
+        description: eventDescription.trim(),
+        severity: eventSeverity,
+        latitude: eventLat,
+        longitude: eventLng,
+        userId: user.id,
+      });
+
+      setEventSuccess('Event submitted and is now live on the map.');
+      setEventCategory('wildfire');
+      setEventTitle('');
+      setEventDescription('');
+      setEventSeverity('moderate');
+      setEventAddressSearch('');
+      setEventLat(null);
+      setEventLng(null);
+      setEventSuggestions([]);
+      setEventShowSuggestions(false);
+      refreshHazardEvents();
+    } catch (err) {
+      setEventError(err?.message || 'Failed to submit event.');
+    } finally {
+      setEventBusy(false);
+    }
+  }
 
   /* ── External Incidents tab state ── */
   const [externalIncidents, setExternalIncidents] = useState([]);
@@ -1341,6 +1599,7 @@ export default function ReporterDashboardPage() {
             {activeTab === 'add' ? 'Add New Incident'
               : activeTab === 'manage' ? 'My Incidents'
               : activeTab === 'evaczones' ? 'Evacuation Zones'
+              : activeTab === 'events' ? 'Event Reports'
               : 'External Incidents'}
           </h1>
           <p className="text-[#8b949e] text-sm mt-1">
@@ -1350,6 +1609,8 @@ export default function ReporterDashboardPage() {
               ? 'View, edit, post updates, or delete your submitted incidents.'
               : activeTab === 'evaczones'
               ? 'Draw and publish evacuation zone polygons directly on the live map.'
+              : activeTab === 'events'
+              ? 'Report a wildfire, flooding, hazmat, or other hazard event as a map pin.'
               : 'Post reporter updates to active IRWIN / WFIGS incidents from other sources.'}
           </p>
         </div>
@@ -1424,6 +1685,25 @@ export default function ReporterDashboardPage() {
             {myOwnEvacZones.filter((z) => z.status === 'active').length > 0 && (
               <span className="ml-0.5 px-1.5 py-0.5 rounded-full bg-white/20 text-[10px] font-bold">
                 {myOwnEvacZones.filter((z) => z.status === 'active').length}
+              </span>
+            )}
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === 'events'}
+            onClick={() => { setActiveTab('events'); refreshHazardEvents(); }}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold uppercase tracking-wider transition-colors
+              ${activeTab === 'events'
+                ? 'bg-purple-600 text-white shadow'
+                : 'text-[#8b949e] hover:text-white hover:bg-[#21262d]'}`}
+          >
+            <Siren size={13} />
+            <span className="hidden sm:inline">Event Reports</span>
+            <span className="sm:hidden">Events</span>
+            {myHazardEvents.filter((ev) => ev.status === 'active').length > 0 && (
+              <span className="ml-0.5 px-1.5 py-0.5 rounded-full bg-white/20 text-[10px] font-bold">
+                {myHazardEvents.filter((ev) => ev.status === 'active').length}
               </span>
             )}
           </button>
@@ -1884,6 +2164,190 @@ export default function ReporterDashboardPage() {
                       zone={zone}
                       onRefresh={refreshEvacZones}
                     />
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ════════════════ TAB 5: EVENT REPORTS ════════════════ */}
+        {activeTab === 'events' && (
+          <div className="space-y-8">
+            <form onSubmit={handleEventSubmit} className="space-y-6">
+              <div className={SECTION_CLS}>
+                <SectionHeader icon={Siren} iconColor="text-purple-400">New Event</SectionHeader>
+
+                {/* Category picker */}
+                <div className="mb-5">
+                  <label className={LABEL_CLS}>Category</label>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    {Object.entries(EVENT_CATEGORY_META).map(([key, meta]) => {
+                      const Icon = meta.icon;
+                      const active = eventCategory === key;
+                      const color = HAZARD_CATEGORY_COLORS[key];
+                      return (
+                        <button
+                          key={key}
+                          type="button"
+                          onClick={() => setEventCategory(key)}
+                          className="flex flex-col items-center gap-1.5 py-3 rounded-lg border transition-colors"
+                          style={{
+                            backgroundColor: active ? `${color}22` : '#0d1117',
+                            borderColor: active ? `${color}88` : '#30363d',
+                          }}
+                        >
+                          <Icon size={18} style={{ color: active ? color : '#8b949e' }} />
+                          <span className={`text-xs font-medium ${active ? 'text-white' : 'text-[#8b949e]'}`}>{meta.label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Location search */}
+                <div className="relative mb-5">
+                  <label className={LABEL_CLS}>Location <span className="text-red-400">*</span></label>
+                  <div className="relative">
+                    {eventSearchLoading
+                      ? <Loader2 size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#0096ff] pointer-events-none animate-spin" />
+                      : <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#484f58] pointer-events-none" />
+                    }
+                    <input
+                      type="text"
+                      value={eventAddressSearch}
+                      onChange={handleEventAddressChange}
+                      onFocus={() => eventSuggestions.length > 0 && setEventShowSuggestions(true)}
+                      onBlur={() => setTimeout(() => setEventShowSuggestions(false), 150)}
+                      placeholder="Search an address or place…"
+                      autoComplete="off"
+                      className="w-full pl-10 pr-4 py-3 rounded-lg bg-[#161b22] border border-[#30363d]
+                                 text-white placeholder-[#484f58] focus:outline-none focus:border-[#0096ff]
+                                 focus:ring-1 focus:ring-[#0096ff]/20 transition-colors text-sm"
+                    />
+                  </div>
+                  {eventSearchError && (
+                    <p className="mt-1.5 text-xs text-amber-400 flex items-center gap-1">
+                      <AlertCircle size={12} className="shrink-0" />
+                      {eventSearchError}
+                    </p>
+                  )}
+                  {Number.isFinite(eventLat) && Number.isFinite(eventLng) && (
+                    <p className="mt-1.5 text-xs text-green-400 flex items-center gap-1">
+                      <CheckCircle2 size={12} className="shrink-0" />
+                      Location set: {eventLat.toFixed(5)}, {eventLng.toFixed(5)}
+                    </p>
+                  )}
+                  {eventShowSuggestions && eventSuggestions.length > 0 && (
+                    <ul className="absolute z-30 mt-1 w-full rounded-lg bg-[#161b22] border border-[#30363d] shadow-2xl overflow-hidden">
+                      {eventSuggestions.map((feature, idx) => (
+                        <li key={feature.properties?.mapbox_id || feature.id || idx}>
+                          <button
+                            type="button"
+                            onMouseDown={() => applyEventSuggestion(feature)}
+                            className="w-full text-left px-4 py-2.5 text-sm text-[#c9d1d9] hover:bg-[#21262d] transition-colors flex items-start gap-2.5"
+                          >
+                            <MapPin size={13} className="text-[#0096ff] shrink-0 mt-0.5" />
+                            <span className="truncate">{feature.properties?.full_address || feature.place_name || feature.text}</span>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-5">
+                  <div className="sm:col-span-2">
+                    <label className={LABEL_CLS}>Title <span className="text-red-400">*</span></label>
+                    <input
+                      type="text"
+                      required
+                      value={eventTitle}
+                      onChange={(e) => setEventTitle(e.target.value)}
+                      placeholder="Short, descriptive title"
+                      className={INPUT_CLS}
+                    />
+                  </div>
+                  <div>
+                    <label className={LABEL_CLS}>Severity</label>
+                    <select value={eventSeverity} onChange={(e) => setEventSeverity(e.target.value)} className={INPUT_CLS + ' cursor-pointer'}>
+                      {EVENT_SEVERITY_OPTIONS.map((s) => (
+                        <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label className={LABEL_CLS}>Description</label>
+                  <textarea
+                    value={eventDescription}
+                    onChange={(e) => setEventDescription(e.target.value)}
+                    placeholder="What's happening, current conditions, anything responders should know…"
+                    rows={4}
+                    className={INPUT_CLS + ' resize-none'}
+                  />
+                </div>
+              </div>
+
+              {eventError && (
+                <div className="flex items-start gap-2 p-4 rounded-lg bg-red-950/40 border border-red-800/60 text-red-300 text-sm">
+                  <AlertCircle size={15} className="shrink-0 mt-0.5" />
+                  <span>{eventError}</span>
+                </div>
+              )}
+              {eventSuccess && (
+                <div className="flex items-start gap-2 p-4 rounded-lg bg-green-950/40 border border-green-800/60 text-green-300 text-sm">
+                  <CheckCircle2 size={15} className="shrink-0 mt-0.5" />
+                  <span>{eventSuccess}</span>
+                </div>
+              )}
+
+              <div className="flex items-center justify-between gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => navigate('/sentinel')}
+                  className="flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-medium text-[#8b949e] border border-[#30363d] hover:border-[#484f58] hover:text-white transition-colors"
+                >
+                  <ArrowLeft size={14} />
+                  View Live Map
+                </button>
+                <button
+                  type="submit"
+                  disabled={eventBusy || !isSupabaseConfigured}
+                  className="flex items-center gap-2 px-8 py-2.5 rounded-lg font-bold text-sm text-white bg-purple-600 hover:bg-purple-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                >
+                  {eventBusy ? (
+                    <><RefreshCw size={15} className="animate-spin" /> Submitting…</>
+                  ) : (
+                    <><Send size={15} /> Submit Event</>
+                  )}
+                </button>
+              </div>
+            </form>
+
+            {/* My submitted events */}
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="text-white font-semibold text-sm uppercase tracking-wider">My Events</h2>
+                <button
+                  type="button"
+                  onClick={refreshHazardEvents}
+                  className="flex items-center gap-1.5 text-xs text-[#8b949e] hover:text-white transition-colors"
+                >
+                  <RefreshCw size={13} />
+                  Refresh
+                </button>
+              </div>
+              {myHazardEvents.length === 0 ? (
+                <div className="text-center py-12 bg-[#0d1117] border border-[#21262d] rounded-xl">
+                  <Siren size={30} className="mx-auto text-[#30363d] mb-3" />
+                  <p className="text-[#8b949e] text-sm font-medium">No events reported yet</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {myHazardEvents.map((ev) => (
+                    <HazardEventCard key={ev.id} event={ev} onRefresh={refreshHazardEvents} />
                   ))}
                 </div>
               )}

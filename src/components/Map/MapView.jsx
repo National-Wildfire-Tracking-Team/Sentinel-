@@ -47,6 +47,8 @@ import NhcStormsLayer from './layers/NhcStormsLayer';
 import NHCTropicalWeatherLayer from './layers/NHCTropicalWeatherLayer';
 import WaterGaugesLayer from './layers/WaterGaugesLayer';
 import CalFirePerimetersLayer from './layers/CalFirePerimetersLayer';
+import HazardEventsLayer from './layers/HazardEventsLayer';
+import DamageAssessmentLayer from './layers/DamageAssessmentLayer';
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN || '';
 const HAS_MAPBOX_TOKEN = Boolean(MAPBOX_TOKEN.trim());
@@ -247,6 +249,23 @@ function HoverTooltip({ feature, lngLat }) {
         </>
       );
       break;
+    case 'hazard-events-circle': {
+      const categoryLabels = { wildfire: 'Wildfire', flooding: 'Flooding', hazmat: 'Hazmat', other: 'Other' };
+      content = (
+        <>
+          <div className="font-semibold text-purple-300">{p.title}</div>
+          <div className="text-gray-300 text-xs mt-0.5">
+            {categoryLabels[p.category] || 'Event'} · {p.severity}
+          </div>
+          {p.created_at && (
+            <div className="text-gray-400 text-xs">
+              {new Date(p.created_at).toLocaleString()}
+            </div>
+          )}
+        </>
+      );
+      break;
+    }
     case 'incident-locations-circle':
       content = (
         <>
@@ -661,6 +680,33 @@ function HoverTooltip({ feature, lngLat }) {
       );
       break;
     }
+    case 'dat-points-circle':
+    case 'dat-lines-line':
+    case 'dat-polygons-fill': {
+      content = (
+        <>
+          <div className="font-semibold text-red-500">
+            {p.efscale} <span className="text-sentinel-300">(NWS DAT)</span>
+          </div>
+          {p.damage_txt && <div className="text-gray-300 text-xs mt-0.5 line-clamp-2">{p.damage_txt}</div>}
+          {p.office && <div className="text-gray-400 text-xs">{p.office}</div>}
+          {(p.injuries || p.deaths || p.fatalities) ? (
+            <div className="text-gray-300 text-xs mt-0.5">
+              {num(p.injuries) ? `${num(p.injuries)} injuries` : ''}
+              {(num(p.injuries) && (num(p.deaths) || num(p.fatalities))) ? ' · ' : ''}
+              {(num(p.deaths) || num(p.fatalities)) ? `${num(p.deaths) || num(p.fatalities)} deaths` : ''}
+            </div>
+          ) : null}
+          {p.stormdate && (
+            <div className="text-gray-400 text-xs">{new Date(p.stormdate).toLocaleDateString()}</div>
+          )}
+          {p.comments && (
+            <div className="text-gray-400 text-xs mt-1 max-w-[220px] line-clamp-3">{p.comments}</div>
+          )}
+        </>
+      );
+      break;
+    }
     case 'national-map-colleges-circle': {
       const name = p.NAME || p.name || 'School / university';
       content = (
@@ -764,6 +810,9 @@ function FlightDetailPopup({ flight, lngLat, onClose }) {
  * @param {object|null} props.aqiGeoJSON
  * @param {object|null} props.alertsGeoJSON
  * @param {object|null} props.stormReportsGeoJSON
+ * @param {object|null} props.damageAssessmentPointsGeoJSON
+ * @param {object|null} props.damageAssessmentLinesGeoJSON
+ * @param {object|null} props.damageAssessmentPolygonsGeoJSON
  * @param {object|null} props.spcOutlooksGeoJSON
  * @param {string}      [props.spcOutlookType]       - active outlook type key
  * @param {string}      [props.spcActiveDay]         - active day key e.g. 'day1'
@@ -773,6 +822,7 @@ function FlightDetailPopup({ flight, lngLat, onClose }) {
  * @param {Function}    [props.onSpcActiveDayChange]
  * @param {object|null} props.spcMdGeoJSON
  * @param {object|null} props.userReportsGeoJSON
+ * @param {object|null} props.hazardEventsGeoJSON
  * @param {object|null} props.evacZonesGeoJSON - combined official (Cal OES/IPAWS) + reporter-drawn zones
  * @param {object|null} props.flightsGeoJSON
  * @param {object|null} props.rawsGeoJSON
@@ -810,6 +860,9 @@ export default function MapView({
   aqiGeoJSON,
   alertsGeoJSON,
   stormReportsGeoJSON,
+  damageAssessmentPointsGeoJSON,
+  damageAssessmentLinesGeoJSON,
+  damageAssessmentPolygonsGeoJSON,
   spcOutlooksGeoJSON,
   spcOutlookType = 'categorical',
   spcActiveDay = 'day1',
@@ -819,6 +872,7 @@ export default function MapView({
   onSpcActiveDayChange,
   spcMdGeoJSON,
   userReportsGeoJSON,
+  hazardEventsGeoJSON,
   evacZonesGeoJSON,
   flightsGeoJSON,
   rawsGeoJSON,
@@ -1009,6 +1063,11 @@ export default function MapView({
     }
     if ((isWeatherTab || isAllHazardTab) && layers.weatherAlerts && spcMdGeoJSON) ids.push('spc-md-fill');
     if ((isWeatherTab || isAllHazardTab) && layers.stormReports && stormReportsGeoJSON)     ids.push('nws-lsr-reports-circle');
+    if ((isWeatherTab || isAllHazardTab) && layers.damageAssessment) {
+      if (damageAssessmentPolygonsGeoJSON?.features?.length) ids.push('dat-polygons-fill');
+      if (damageAssessmentLinesGeoJSON?.features?.length) ids.push('dat-lines-line');
+      if (damageAssessmentPointsGeoJSON?.features?.length) ids.push('dat-points-circle');
+    }
     if (layers.evacZones && evacZonesGeoJSON) {
       ids.push('evac-zones-fill');
       ids.push('evac-zones-dot');
@@ -1042,19 +1101,22 @@ export default function MapView({
       if (nhcObservedTrackGeoJSON?.features?.length) ids.push('nhc-obs-circle');
     }
     if (layers.waterGauges && waterGaugesGeoJSON?.features?.length) ids.push('water-gauges-circle');
+    if (hazardEventsGeoJSON?.features?.length) ids.push('hazard-events-circle');
     return ids;
   }, [measureActive, isWildfireTab, isWeatherTab, isAllHazardTab, layers.fireHotspots, layers.firePerimeters, layers.incidentLocations, layers.aqi,
       layers.weatherAlerts, layers.spcWeatherOutlooks, spcWeatherOutlookMode, layers.stormReports, layers.evacZones, spcMdGeoJSON,
       layers.flights, layers.rawsStations, layers.airNowMonitors, layers.droughtOutlook, layers.ndgdSmokeForecast, layers.fireWeatherOutlooks,
-      layers.nhcTropicalWeather,
+      layers.nhcTropicalWeather, layers.damageAssessment,
       hotspotsGeoJSON, perimetersGeoJSON, incidentsGeoJSON, aqiGeoJSON, alertsGeoJSON, spcOutlooksGeoJSON,
       stormReportsGeoJSON, userReportsGeoJSON, evacZonesGeoJSON,
+      damageAssessmentPointsGeoJSON, damageAssessmentLinesGeoJSON, damageAssessmentPolygonsGeoJSON,
       flightsGeoJSON, rawsGeoJSON, airNowMonitorsGeoJSON, droughtOutlookGeoJSON, ndgdSmokeFilteredGeoJSON, fireWeatherOutlooksGeoJSON,
       nhcTrackGeoJSON, nhcObservedTrackGeoJSON, nhcDisturbanceGeoJSON,
       criticalInfrastructureVisible, criticalInfrastructureTransGeoJSON, criticalInfrastructureGasGeoJSON,
       nationalMapCollegesVisible, nationalMapCollegesGeoJSON,
       nhcCentersGeoJSON,
-      layers.waterGauges, waterGaugesGeoJSON]);
+      layers.waterGauges, waterGaugesGeoJSON,
+      hazardEventsGeoJSON]);
 
   // Clear stale hover when layers change
   useEffect(() => {
@@ -1254,6 +1316,21 @@ export default function MapView({
         name:        p.title,
         title:       p.title,
         description: p.description,
+        lat:         evt.lngLat.lat,
+        lng:         evt.lngLat.lng,
+        created_at:  p.created_at,
+        user_id:     p.user_id,
+      });
+    } else if (feature.layer.id === 'hazard-events-circle') {
+      selectFire({
+        type:        'hazard-event',
+        id:          p.id,
+        name:        p.title,
+        title:       p.title,
+        category:    p.category,
+        description: p.description,
+        severity:    p.severity,
+        status:      p.status,
         lat:         evt.lngLat.lat,
         lng:         evt.lngLat.lng,
         created_at:  p.created_at,
@@ -1519,6 +1596,13 @@ export default function MapView({
           opacity={0.9}
         />
 
+        {/* NWS Damage Assessment Toolkit — post-storm survey points/tracks/polygons */}
+        <DamageAssessmentLayer
+          pointsGeoJSON={damageAssessmentPointsGeoJSON}
+          linesGeoJSON={damageAssessmentLinesGeoJSON}
+          polygonsGeoJSON={damageAssessmentPolygonsGeoJSON}
+          visible={(isWeatherTab || isAllHazardTab) && layers.damageAssessment}
+        />
         {/* WFIGS incident location markers – above evacuation fills */}
         <IncidentLocationsLayer
           geoJSON={incidentsGeoJSON}
@@ -1529,6 +1613,12 @@ export default function MapView({
         <FireIncidentsLayer
           geoJSON={incidentDotsGeoJSON}
           visible={(isWildfireTab || isAllHazardTab) && layers.incidentLocations}
+        />
+
+        {/* Evacuation zones and markers — above incident dots for clear identification */}
+        <EvacuationZonesLayer
+          geoJSON={evacZonesGeoJSON}
+          visible={layers.evacZones}
         />
 
         {/* Fire behavior spread-projection rings for the selected fire (Rothermel engine) */}
@@ -1599,6 +1689,12 @@ export default function MapView({
         <UserReportsLayer
           geoJSON={userReportsGeoJSON}
           visible={(isWildfireTab || isAllHazardTab) && layers.incidentLocations}
+        />
+
+        {/* Community-submitted hazard events: wildfire, flooding, hazmat, other — always on */}
+        <HazardEventsLayer
+          geoJSON={hazardEventsGeoJSON}
+          visible={true}
         />
 
         {/* NOAA NWPS water gauges */}

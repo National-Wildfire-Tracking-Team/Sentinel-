@@ -68,8 +68,10 @@ function pointInGeometry(point, geometry) {
 
 /**
  * Merge two perimeter FeatureCollections. Primary (WFIGS) features take priority;
- * secondary (FIRIS) features are added only when their incident_name doesn't
- * already appear in the primary set.
+ * secondary (FIRIS) features are added when their incident_name doesn't already
+ * appear in the primary set. FIRIS features with no name (common — many FIRIS
+ * perimeters carry a null incident_name) can't be matched against primary by
+ * name at all, so they're kept rather than dropped as unmatchable duplicates.
  */
 function mergePerimeterSources(primary, secondary) {
   const primaryKeys = new Set();
@@ -80,7 +82,7 @@ function mergePerimeterSources(primary, secondary) {
 
   const addedFeatures = (secondary.features || []).filter(f => {
     const key = getFireMatchKey(f.properties.IncidentName);
-    return key && !primaryKeys.has(key);
+    return !key || !primaryKeys.has(key);
   });
 
   return {
