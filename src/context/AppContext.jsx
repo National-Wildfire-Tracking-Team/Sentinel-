@@ -40,6 +40,8 @@ const initialState = {
     nhcTropicalWeather: false,
     /** NOAA NWPS water gauges */
     waterGauges: false,
+    /** NWS Damage Assessment Toolkit — post-storm survey points/tracks/polygons */
+    damageAssessment: false,
     /** Rothermel-based spread projection rings for the selected fire */
     fireBehaviorModeling: false,
   },
