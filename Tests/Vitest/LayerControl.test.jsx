@@ -76,4 +76,12 @@ describe('LayerControl — Infrastructure & Modeling group', () => {
     expect(screen.getByText('Critical Infrastructure')).toBeInTheDocument();
     expect(screen.getByText('Schools & Universities')).toBeInTheDocument();
   });
+
+  it.each(['wildfire', 'weather', 'allhazard'])(
+    'shows the Evacuation Zones toggle on the %s tab',
+    (tab) => {
+      renderPanel({ activeMapTab: tab });
+      expect(screen.getByText('Evacuation Zones')).toBeInTheDocument();
+    },
+  );
 });

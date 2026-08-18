@@ -120,7 +120,7 @@ const WEATHER_LAYER_PRESET = {
   stormReports: false,
   radar: true,
   criticalInfrastructure: false,
-  evacZones: false,
+  evacZones: true,
   rawsStations: false,
   flights: false,
   airNowMonitors: false,
@@ -366,7 +366,7 @@ export default function LiveTrackerPage() {
     refresh:  refreshSpcMd,
   } = useSpcMesoscaleDiscussion(weatherDataEnabled && layers.weatherAlerts);
 
-  // California evacuation zones – combined CalOES hosted-view + PROD feed
+  // Active evacuation zones from the CalOES hosted view and IPAWS
   const {
     geoJSON: officialEvacZonesGeoJSON,
     refresh: refreshEvacZones,
