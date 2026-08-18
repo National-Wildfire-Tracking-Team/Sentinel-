@@ -51,6 +51,41 @@ async function withRetry(fn, { attempts = 3, baseDelayMs = 1000, tag = '[NIFC]' 
 }
 
 /**
+ * Fetch every page of an ArcGIS query, following `exceededTransferLimit`.
+ * ArcGIS FeatureServers cap results at their `maxRecordCount` (2000 for this
+ * service) — a query matching more records than that silently drops the
+ * remainder with no error. The nationwide WFIGS perimeters query regularly
+ * matches 2700+ fires, which was silently losing ~800 real fires (including
+ * large, notable ones) with no indication anything was missing.
+ * Ordered by OBJECTID so `resultOffset` paging is stable across requests.
+ */
+async function fetchAllPages(baseUrl, cacheKeyBase, ttlMs, tag) {
+  const pageSize = 2000;
+  const maxPages = 10; // hard cap against a runaway loop; ~20k records
+  let offset = 0;
+  let allFeatures = [];
+  let geojsonShell = null;
+
+  for (let page = 0; page < maxPages; page++) {
+    const pagedUrl = `${baseUrl}&orderByFields=OBJECTID&resultOffset=${offset}&resultRecordCount=${pageSize}`;
+    const data = await withRetry(
+      () => fetchWithCache(pagedUrl, `${cacheKeyBase}:offset${offset}`, {}, ttlMs),
+      { tag }
+    );
+    if (data?.error) throw new Error(data.error.message || 'ArcGIS error');
+    if (!data?.features) throw new Error('Unexpected response format');
+
+    geojsonShell = geojsonShell || data;
+    allFeatures = allFeatures.concat(data.features);
+
+    if (!data.properties?.exceededTransferLimit && data.features.length < pageSize) break;
+    offset += pageSize;
+  }
+
+  return { ...geojsonShell, features: allFeatures };
+}
+
+/**
  * Fetch current fire perimeters from NIFC WFIGS.
  * @param {object} [opts]
  * @param {number} [opts.minAcres=100]  Filter perimeters below this size
@@ -86,12 +121,8 @@ export async function fetchFirePerimeters({ minAcres = 0 } = {}) {
   const cacheKey = `nifc:perimeters:all:${minAcres}`;
 
   try {
-    const data = await withRetry(() =>
-      fetchWithCache(url, cacheKey, {}, 10 * 60 * 1000),
-    );
-    if (data?.error) throw new Error(data.error.message || 'ArcGIS error');
-    if (data?.features) return normalizePerimeters(data);
-    throw new Error('Unexpected response format');
+    const data = await fetchAllPages(url, cacheKey, 10 * 60 * 1000, '[NIFC]');
+    return normalizePerimeters(data);
   } catch (err) {
     throttleError('[NIFC]', 'Using fallback perimeters:', err, {
       friendlyType: 'generic',
@@ -135,21 +166,22 @@ function normalizePerimeters(geojson) {
  */
 export async function fetchFIRISPerimeters({ minAcres = 0 } = {}) {
   const params = new URLSearchParams({
-    where: '1=1',
+    // This service has no PercentContained field, so contained/old perimeters
+    // can't be greyed out on the map — filter to Active only, since the other
+    // ~90% of records are stale historical burn scars, not real-time data.
+    where: "displayStatus='Active'",
     outFields: [
-      'irwinid',
+      'GlobalID',
+      'type',
+      'source',
+      'mission',
       'incident_name',
-      'gis_acres',
-      'perc_contnd',
-      'percent_contained',
-      'fire_discovery_datetime',
-      'date_current',
-      'state',
-      'county',
-      'inci_mgmt_org',
-      'total_personnel',
-      'inc_type_cat',
-      'fire_cause',
+      'incident_number',
+      'area_acres',
+      'description',
+      'FireDiscoveryDate',
+      'poly_DateCurrent',
+      'displayStatus',
     ].join(','),
     outSR: '4326',
     f: 'geojson',
@@ -184,8 +216,13 @@ export async function fetchFIRISPerimeters({ minAcres = 0 } = {}) {
 }
 
 /**
- * Normalize FIRIS snake_case fields to the flat schema the map layers expect.
+ * Normalize FIRIS/WFIGS combo layer fields to the flat schema the map layers expect.
  * The `incident_name` field is the primary match key for incident dot suppression.
+ *
+ * Current live schema (service was renamed to "FIRIS WFIGS ComboLayer" and no
+ * longer exposes the old irwinid/gis_acres/perc_contnd/state/county/etc. fields):
+ *   type, source, mission, incident_name, incident_number, area_acres,
+ *   description, FireDiscoveryDate, poly_DateCurrent, displayStatus, GlobalID
  */
 function normalizeFIRISPerimeters(geojson) {
   return {
@@ -195,19 +232,22 @@ function normalizeFIRISPerimeters(geojson) {
       return {
         ...f,
         properties: {
-          UniqueFireIdentifier:      p.irwinid || p.IRWINID || p.UniqueFireIdentifier || '',
+          UniqueFireIdentifier:      p.GlobalID || p.irwinid || p.IRWINID || p.UniqueFireIdentifier || '',
           IncidentName:              p.incident_name || p.IncidentName || p.INCIDENT_NAME || 'Unknown Fire',
-          GISAcres:                  p.gis_acres || p.GISAcres || p.GIS_ACRES || 0,
+          GISAcres:                  p.area_acres ?? p.gis_acres ?? p.GISAcres ?? p.GIS_ACRES ?? 0,
           PercentContained:          p.perc_contnd ?? p.percent_contained ?? p.PercentContained ?? 0,
-          FireDiscoveryDateTime:     p.fire_discovery_datetime || p.FireDiscoveryDateTime || p.date_current || null,
-          ModifiedOnDateTime:        p.date_current || p.ModifiedOnDateTime || null,
+          FireDiscoveryDateTime:     p.FireDiscoveryDate || p.fire_discovery_datetime || p.poly_DateCurrent || null,
+          ModifiedOnDateTime:        p.poly_DateCurrent || p.date_current || p.ModifiedOnDateTime || null,
           POOState:                  p.state || p.POOState || 'CA',
           POOCounty:                 p.county || p.POOCounty || '',
-          IncidentManagementOrganization: p.inci_mgmt_org || p.IncidentManagementOrganization || '',
+          IncidentManagementOrganization: p.mission || p.inci_mgmt_org || p.IncidentManagementOrganization || '',
           TotalIncidentPersonnel:    p.total_personnel || p.TotalIncidentPersonnel || 0,
-          IncidentTypeCategory:      p.inc_type_cat || p.IncidentTypeCategory || 'WF',
+          IncidentTypeCategory:      p.type || p.inc_type_cat || p.IncidentTypeCategory || 'WF',
           FireCause:                 p.fire_cause || p.FireCause || '',
-          _source:                   'FIRIS',
+          IncidentNumber:            p.incident_number || '',
+          Description:               p.description || '',
+          DisplayStatus:             p.displayStatus || '',
+          _source:                   p.source || 'FIRIS',
         },
       };
     }),
