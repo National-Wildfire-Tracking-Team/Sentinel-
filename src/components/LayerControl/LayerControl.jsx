@@ -17,6 +17,7 @@ const LAYER_DEFS = {
   firePerimeters:    { label: 'Fire Perimeters',     sublabel: 'NIFC WFIGS',                  icon: MapPin,       color: '#ff6600' },
   calFireHistoricalPerimeters: { label: 'Historical Fire Perimeters', sublabel: 'CAL FIRE FRAP · past fire scars', icon: History, color: '#92400e' },
   incidentLocations: { label: 'Incident Locations',  sublabel: 'WFIGS · NWTT verified',       icon: Flame,        color: '#f59e0b' },
+  goesFireTemperature:  { label: 'GOES Fire Temperature', sublabel: 'NOAA GOES-19 · Fire Temperature RGB', icon: Thermometer, color: '#ef4444' },
   evacZones:         { label: 'Evacuation Zones',    sublabel: 'Cal OES + IPAWS + field-reported zones', icon: AlertTriangle, color: '#ef4444' },
   ndgdSmokeForecast: { label: 'Smoke Concentration', sublabel: 'NOAA NDGD hourly (48h)',      icon: CloudRain,    color: '#eab308' },
   droughtOutlook:    { label: 'Drought Outlook',     sublabel: 'NOAA CPC Monthly Outlook',    icon: Droplets,     color: '#f59e0b' },
@@ -31,7 +32,6 @@ const LAYER_DEFS = {
   goesWest:          { label: 'GOES West Imagery',   sublabel: 'NOAA GOES West · visible',    icon: Eye,           color: '#7c3aed' },
   goesFire16:        { label: 'GOES East Fire RGB',  sublabel: 'NOAA GOES East · Day Land Cloud Fire RGB', icon: Eye, color: '#a855f7' },
   goesFire18:        { label: 'GOES West Fire RGB',  sublabel: 'NOAA GOES West · Day Land Cloud Fire RGB', icon: Eye, color: '#9333ea' },
-  goesFireTemperature:  { label: 'GOES Fire Temperature', sublabel: 'NOAA GOES-19 · Fire Temperature RGB', icon: Thermometer, color: '#ef4444' },
   radar:             { label: 'NEXRAD Reflectivity', sublabel: 'NEXRAD Level 2 composite',     icon: Radar,        color: '#10b981' },
   aqi:               { label: 'AQI Heatmap',          sublabel: 'EPA AirNow gradient overlay',  icon: Wind,         color: '#3b82f6' },
   smoke:             { label: 'Smoke Forecast',      sublabel: 'NOAA HRRR',                   icon: CloudRain,    color: '#94a3b8' },
@@ -127,7 +127,7 @@ const TAB_SECTIONS = {
       groups: [
         {
           label: 'Core layers',
-          layers: ['fireHotspots', 'firePerimeters', 'calFireHistoricalPerimeters', 'incidentLocations'],
+          layers: ['fireHotspots', 'firePerimeters', 'calFireHistoricalPerimeters', 'incidentLocations', 'goesFireTemperature'],
         },
         {
           label: 'Modeling',
@@ -146,7 +146,7 @@ const TAB_SECTIONS = {
         },
         {
           label: 'Outlooks & smoke',
-          layers: ['ndgdSmokeForecast', 'droughtOutlook', 'fireWeatherOutlooks', 'goesFire16', 'goesFire18', 'goesFireTemperature'],
+          layers: ['ndgdSmokeForecast', 'droughtOutlook', 'fireWeatherOutlooks', 'goesFire16', 'goesFire18'],
         },
       ],
     },
