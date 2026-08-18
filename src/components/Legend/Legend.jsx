@@ -227,6 +227,22 @@ const Legend = memo(function Legend({
               </Section>
             )}
 
+            {layers.damageAssessment && (
+              <Section title="Damage Assessment (EF/damage scale)">
+                <ColorRow color="#84cc16" label="EF0" />
+                <ColorRow color="#eab308" label="EF1" />
+                <ColorRow color="#f59e0b" label="EF2" />
+                <ColorRow color="#f97316" label="EF3" />
+                <ColorRow color="#dc2626" label="EF4" />
+                <ColorRow color="#7f1d1d" label="EF5" />
+                <ColorRow color="#3b82f6" label="TSTM/Wind" />
+                <ColorRow color="#9ca3af" label="Unknown" />
+                <div className="text-sentinel-300 text-[10px] pt-1 mt-1 border-t border-sentinel-700">
+                  NWS DAT: post-storm surveys, last 30 days
+                </div>
+              </Section>
+            )}
+
             {layers.radar && (
               <Section title="Radar Reflectivity (dBZ)">
                 {RADAR_DBZ_SCALE.map(row => <ColorRow key={row.label} {...row} />)}

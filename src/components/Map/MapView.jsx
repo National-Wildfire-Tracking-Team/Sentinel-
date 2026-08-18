@@ -48,6 +48,7 @@ import NHCTropicalWeatherLayer from './layers/NHCTropicalWeatherLayer';
 import WaterGaugesLayer from './layers/WaterGaugesLayer';
 import CalFirePerimetersLayer from './layers/CalFirePerimetersLayer';
 import HazardEventsLayer from './layers/HazardEventsLayer';
+import DamageAssessmentLayer from './layers/DamageAssessmentLayer';
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN || '';
 const HAS_MAPBOX_TOKEN = Boolean(MAPBOX_TOKEN.trim());
@@ -678,6 +679,33 @@ function HoverTooltip({ feature, lngLat }) {
       );
       break;
     }
+    case 'dat-points-circle':
+    case 'dat-lines-line':
+    case 'dat-polygons-fill': {
+      content = (
+        <>
+          <div className="font-semibold text-red-500">
+            {p.efscale} <span className="text-sentinel-300">(NWS DAT)</span>
+          </div>
+          {p.damage_txt && <div className="text-gray-300 text-xs mt-0.5 line-clamp-2">{p.damage_txt}</div>}
+          {p.office && <div className="text-gray-400 text-xs">{p.office}</div>}
+          {(p.injuries || p.deaths || p.fatalities) ? (
+            <div className="text-gray-300 text-xs mt-0.5">
+              {num(p.injuries) ? `${num(p.injuries)} injuries` : ''}
+              {(num(p.injuries) && (num(p.deaths) || num(p.fatalities))) ? ' · ' : ''}
+              {(num(p.deaths) || num(p.fatalities)) ? `${num(p.deaths) || num(p.fatalities)} deaths` : ''}
+            </div>
+          ) : null}
+          {p.stormdate && (
+            <div className="text-gray-400 text-xs">{new Date(p.stormdate).toLocaleDateString()}</div>
+          )}
+          {p.comments && (
+            <div className="text-gray-400 text-xs mt-1 max-w-[220px] line-clamp-3">{p.comments}</div>
+          )}
+        </>
+      );
+      break;
+    }
     case 'national-map-colleges-circle': {
       const name = p.NAME || p.name || 'School / university';
       content = (
@@ -781,6 +809,9 @@ function FlightDetailPopup({ flight, lngLat, onClose }) {
  * @param {object|null} props.aqiGeoJSON
  * @param {object|null} props.alertsGeoJSON
  * @param {object|null} props.stormReportsGeoJSON
+ * @param {object|null} props.damageAssessmentPointsGeoJSON
+ * @param {object|null} props.damageAssessmentLinesGeoJSON
+ * @param {object|null} props.damageAssessmentPolygonsGeoJSON
  * @param {object|null} props.spcOutlooksGeoJSON
  * @param {string}      [props.spcOutlookType]       - active outlook type key
  * @param {string}      [props.spcActiveDay]         - active day key e.g. 'day1'
@@ -828,6 +859,9 @@ export default function MapView({
   aqiGeoJSON,
   alertsGeoJSON,
   stormReportsGeoJSON,
+  damageAssessmentPointsGeoJSON,
+  damageAssessmentLinesGeoJSON,
+  damageAssessmentPolygonsGeoJSON,
   spcOutlooksGeoJSON,
   spcOutlookType = 'categorical',
   spcActiveDay = 'day1',
@@ -1028,6 +1062,11 @@ export default function MapView({
     }
     if ((isWeatherTab || isAllHazardTab) && layers.weatherAlerts && spcMdGeoJSON) ids.push('spc-md-fill');
     if ((isWeatherTab || isAllHazardTab) && layers.stormReports && stormReportsGeoJSON)     ids.push('nws-lsr-reports-circle');
+    if ((isWeatherTab || isAllHazardTab) && layers.damageAssessment) {
+      if (damageAssessmentPolygonsGeoJSON?.features?.length) ids.push('dat-polygons-fill');
+      if (damageAssessmentLinesGeoJSON?.features?.length) ids.push('dat-lines-line');
+      if (damageAssessmentPointsGeoJSON?.features?.length) ids.push('dat-points-circle');
+    }
     if ((isWildfireTab || isAllHazardTab) && layers.evacZones && evacZonesGeoJSON)                        ids.push('evac-zones-fill');
     if (layers.flights && flightsGeoJSON)                                                                 ids.push('flights-symbol');
     if (layers.rawsStations && rawsGeoJSON)                                                               ids.push('raws-stations-circle');
@@ -1063,9 +1102,10 @@ export default function MapView({
   }, [measureActive, isWildfireTab, isWeatherTab, isAllHazardTab, layers.fireHotspots, layers.firePerimeters, layers.incidentLocations, layers.aqi,
       layers.weatherAlerts, layers.spcWeatherOutlooks, spcWeatherOutlookMode, layers.stormReports, layers.evacZones, spcMdGeoJSON,
       layers.flights, layers.rawsStations, layers.airNowMonitors, layers.droughtOutlook, layers.ndgdSmokeForecast, layers.fireWeatherOutlooks,
-      layers.nhcTropicalWeather,
+      layers.nhcTropicalWeather, layers.damageAssessment,
       hotspotsGeoJSON, perimetersGeoJSON, incidentsGeoJSON, aqiGeoJSON, alertsGeoJSON, spcOutlooksGeoJSON,
       stormReportsGeoJSON, userReportsGeoJSON, evacZonesGeoJSON,
+      damageAssessmentPointsGeoJSON, damageAssessmentLinesGeoJSON, damageAssessmentPolygonsGeoJSON,
       flightsGeoJSON, rawsGeoJSON, airNowMonitorsGeoJSON, droughtOutlookGeoJSON, ndgdSmokeFilteredGeoJSON, fireWeatherOutlooksGeoJSON,
       nhcTrackGeoJSON, nhcObservedTrackGeoJSON, nhcDisturbanceGeoJSON,
       criticalInfrastructureVisible, criticalInfrastructureTransGeoJSON, criticalInfrastructureGasGeoJSON,
@@ -1550,6 +1590,14 @@ export default function MapView({
           geoJSON={stormReportsGeoJSON}
           visible={(isWeatherTab || isAllHazardTab) && layers.stormReports}
           opacity={0.9}
+        />
+
+        {/* NWS Damage Assessment Toolkit — post-storm survey points/tracks/polygons */}
+        <DamageAssessmentLayer
+          pointsGeoJSON={damageAssessmentPointsGeoJSON}
+          linesGeoJSON={damageAssessmentLinesGeoJSON}
+          polygonsGeoJSON={damageAssessmentPolygonsGeoJSON}
+          visible={(isWeatherTab || isAllHazardTab) && layers.damageAssessment}
         />
 
         {/* Evacuation zones — under fire point markers so dots stay visible */}

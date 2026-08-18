@@ -17,6 +17,7 @@ import { useWeatherAlerts } from '../hooks/useWeatherAlerts';
 import { useIncidents } from '../hooks/useIncidents';
 import { useCalFireIncidents } from '../hooks/useCalFireIncidents';
 import { useNwsLsrMapServer } from '../hooks/useNwsLsrMapServer';
+import { useDamageAssessment } from '../hooks/useDamageAssessment';
 import { useSpcOutlooks } from '../hooks/useSpcOutlooks';
 import { useSpcMesoscaleDiscussion } from '../hooks/useSpcMesoscaleDiscussion';
 import { useFireReports, reportsToGeoJSON } from '../hooks/useFireReports';
@@ -347,6 +348,14 @@ export default function LiveTrackerPage() {
     geoJSON: stormReportsGeoJSON,
     refresh: refreshStormReports,
   } = useNwsLsrMapServer(weatherDataEnabled && layers.stormReports);
+
+  const damageAssessmentEnabled = weatherDataEnabled && layers.damageAssessment;
+  const {
+    pointsGeoJSON: damageAssessmentPointsGeoJSON,
+    linesGeoJSON: damageAssessmentLinesGeoJSON,
+    polygonsGeoJSON: damageAssessmentPolygonsGeoJSON,
+    refresh: refreshDamageAssessment,
+  } = useDamageAssessment(damageAssessmentEnabled);
 
   const [spcOutlookType, setSpcOutlookType] = useState('categorical');
   const [spcActiveDay,   setSpcActiveDay]   = useState('day1');
@@ -791,6 +800,9 @@ const flightBounds = useMemo(() => {
     if (weatherDataEnabled && layers.stormReports) {
       refreshStormReports();
     }
+    if (damageAssessmentEnabled) {
+      refreshDamageAssessment();
+    }
     refreshSpcOutlooks();
     refreshSpcMd();
     refreshUserReports();
@@ -813,13 +825,14 @@ const flightBounds = useMemo(() => {
     }
   }, [
     refreshHotspots, refreshPerimeters, refreshAlerts, refreshIncidents, refreshCalFireIncidents, refreshStormReports,
+    refreshDamageAssessment,
     refreshSpcMd, refreshSpcOutlooks, refreshUserReports, refreshEvacZones, refreshReporterEvacZones,
     refreshAQI, refreshFlights, refreshRAWS, refreshAirNowMonitors, refreshDroughtOutlook, refreshNdgdSmokeForecast, refreshFireWeatherOutlooks,
     refreshCriticalInfrastructure,
     refreshNationalMapColleges,
     refreshNhcStorms,
     refreshNhcTropicalWeather,
-    activeMapTab, weatherDataEnabled, layers.aqi, layers.flights, rawsEnabled, layers.airNowMonitors, layers.droughtOutlook, layers.ndgdSmokeForecast,
+    activeMapTab, weatherDataEnabled, damageAssessmentEnabled, layers.aqi, layers.flights, rawsEnabled, layers.airNowMonitors, layers.droughtOutlook, layers.ndgdSmokeForecast,
     layers.fireWeatherOutlooks, layers.spcWeatherOutlooks, spcWeatherOutlookMode, layers.stormReports,
     nhcTropicalWeatherEnabled,
     criticalInfraEnabled,
@@ -864,6 +877,9 @@ const flightBounds = useMemo(() => {
             aqiGeoJSON={aqiGeoJSON}
             alertsGeoJSON={filteredAlertsGeoJSON}
             stormReportsGeoJSON={stormReportsGeoJSON}
+            damageAssessmentPointsGeoJSON={damageAssessmentPointsGeoJSON}
+            damageAssessmentLinesGeoJSON={damageAssessmentLinesGeoJSON}
+            damageAssessmentPolygonsGeoJSON={damageAssessmentPolygonsGeoJSON}
             spcOutlooksGeoJSON={spcOutlooksGeoJSON}
             spcOutlookType={spcOutlookType}
             spcActiveDay={spcActiveDay}
