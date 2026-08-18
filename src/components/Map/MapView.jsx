@@ -19,6 +19,7 @@ import { FLOOD_CATEGORY_META, floodCategoryLabel } from '../../api/noaaWaterGaug
 import FireHotspotsLayer  from './layers/FireHotspotsLayer';
 import FirePerimetersLayer from './layers/FirePerimetersLayer';
 import FireIncidentsLayer  from './layers/FireIncidentsLayer';
+import FireBehaviorModelingLayer from './layers/FireBehaviorModelingLayer';
 import IncidentLocationsLayer from './layers/IncidentLocationsLayer';
 import AQILayer           from './layers/AQILayer';
 import WeatherAlertsLayer from './layers/WeatherAlertsLayer';
@@ -759,6 +760,7 @@ function FlightDetailPopup({ flight, lngLat, onClose }) {
  * @param {object|null} props.perimetersGeoJSON
  * @param {object|null} props.incidentsGeoJSON // Fixed naming mismatch
  * @param {object|null} props.incidentDotsGeoJSON
+ * @param {object|null} props.fireBehaviorModelingGeoJSON
  * @param {object|null} props.aqiGeoJSON
  * @param {object|null} props.alertsGeoJSON
  * @param {object|null} props.stormReportsGeoJSON
@@ -804,6 +806,7 @@ export default function MapView({
   perimetersGeoJSON,
   incidentsGeoJSON, // Renamed to match usage inside
   incidentDotsGeoJSON,
+  fireBehaviorModelingGeoJSON,
   aqiGeoJSON,
   alertsGeoJSON,
   stormReportsGeoJSON,
@@ -1528,10 +1531,10 @@ export default function MapView({
           visible={(isWildfireTab || isAllHazardTab) && layers.incidentLocations}
         />
 
-        {/* Evacuation zones and markers — above incident dots for clear identification */}
-        <EvacuationZonesLayer
-          geoJSON={evacZonesGeoJSON}
-          visible={layers.evacZones}
+        {/* Fire behavior spread-projection rings for the selected fire (Rothermel engine) */}
+        <FireBehaviorModelingLayer
+          geoJSON={fireBehaviorModelingGeoJSON}
+          visible={(isWildfireTab || isAllHazardTab) && layers.fireBehaviorModeling}
         />
 
         <CriticalInfrastructureLayer
