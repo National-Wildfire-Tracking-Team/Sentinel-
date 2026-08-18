@@ -1,13 +1,12 @@
 /**
  * useCombinedEvacZones.js
  *
- * Merges evacuation zone polygons from two CalOES / ArcGIS services:
+ * Merges active evacuation zone polygons from:
  *
  *   1. CA_EVACUATIONS_CalOESHosted_view  (caEvacZones.js)
- *      – Broad coverage; normalised to { warningType, zoneName, county, … }
+ *      – CalOES active-zone view; normalised to { warningType, zoneName, county, … }
  *
- *   2. CA_EVACUATIONS_PROD               (caEvacuations.js)
- *      – Authoritative prod feed; richer metadata (agency, jurisdiction, instructions)
+ *   2. FEMA IPAWS CAP alerts with polygon/circle geometry (optional)
  *
  * Normalisation strategy
  * ──────────────────────
@@ -15,28 +14,22 @@
  *   warningType  – "Evacuation Order" | "Evacuation Warning" | "Evacuation Watch/Advisory"
  *   zoneName     – display label
  *   county       – county name
- *   agency       – responsible agency (PROD feed only)
- *   jurisdiction – jurisdiction (PROD feed only)
- *   instructions – instructions text (PROD feed only)
- *   comments     – additional comments (PROD feed only)
  *   effectiveDate
  *   expirationDate
  *   externalURL
- *   source       – "hosted" | "prod" | "ipaws"
+ *   source       – "hosted" | "ipaws"
  *
  * IPAWS (optional)
  * ───────────────
  * When VITE_IPAWS_ALERTS_URL is set (default in dev: same-origin `/alerts` via Vite proxy),
  * CAP alerts with polygon/circle geometry are merged in as additional features (source: ipaws).
  *
- * Both sources are shown at once, even when a zone appears in both — one
- * source mislabeling a zone's status must never hide the other source's
- * correctly-labeled copy of it.
+ * CA_EVACUATIONS_PROD is intentionally excluded because it retains historical
+ * warning/order records after they leave the active hosted view.
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { fetchCAEvacZones }    from '../api/caEvacZones';
-import { fetchCaEvacuations }  from '../api/caEvacuations';
 import { ipawsAlertsToEvacFeatures } from '../utils/ipawsEvacGeoJSON';
 
 const REFRESH_MS = parseInt(import.meta.env.VITE_REFRESH_INTERVAL || '300000', 10);
@@ -49,45 +42,8 @@ const EMPTY_GEOJSON = { type: 'FeatureCollection', features: [] };
 // ─── Schema normalisation ─────────────────────────────────────────────────────
 
 /**
- * Map a Zone_Status value from the PROD service to the canonical warningType
- * strings used by EvacuationZonesLayer's Mapbox color expressions.
- */
-function prodStatusToWarningType(status) {
-  if (!status) return 'Evacuation Warning';
-  const s = String(status).trim().toLowerCase();
-  if (s.includes('order') || s.includes('mandatory')) return 'Evacuation Order';
-  if (s.includes('watch')) return 'Evacuation Watch';
-  return 'Evacuation Warning';
-}
-
-/**
- * Normalise a PROD feature to the unified schema.
- */
-function normaliseProdFeature(f) {
-  const p = f.properties || {};
-  return {
-    ...f,
-    id: f.id || `prod-${p.OBJECTID ?? p.Zone_Name ?? ''}`,
-    properties: {
-      id:             p.OBJECTID ?? p.Zone_Name ?? '',
-      warningType:    prodStatusToWarningType(p.Zone_Status),
-      zoneName:       p.Zone_Name   || p.IncidentName || 'Evacuation Zone',
-      county:         p.Jurisdiction || '',
-      agency:         p.Agency       || '',
-      jurisdiction:   p.Jurisdiction || '',
-      instructions:   p.Instructions || '',
-      comments:       p.Comments     || '',
-      effectiveDate:  p.Date_Time_Issued || null,
-      expirationDate: p.Last_Update      || null,
-      externalURL:    '',
-      source:         'prod',
-    },
-  };
-}
-
-/**
  * Normalise a hosted feature (already normalised by caEvacZones.js) to the
- * unified schema, adding the missing PROD-only fields as empty strings.
+ * unified schema.
  */
 function normaliseHostedFeature(f) {
   const p = f.properties || {};
@@ -157,8 +113,7 @@ async function fetchIpawsEvacFeatures() {
 // ─── Hook ────────────────────────────────────────────────────────────────────
 
 /**
- * Fetches and combines CalOES hosted-view and PROD evacuation zones.
- * Falls back gracefully to whichever source succeeds if the other fails.
+ * Fetches and combines the CalOES active hosted view with IPAWS evacuation alerts.
  *
  * @returns {{ geoJSON, loading, error, count, refresh }}
  */
@@ -174,27 +129,22 @@ export function useCombinedEvacZones(enabled = true) {
     setLoading(true);
     setError(null);
 
-    const [hosted, prod, ipawsFeatures] = await Promise.all([
+    const [hosted, ipawsFeatures] = await Promise.all([
       fetchCAEvacZones(),
-      fetchCaEvacuations(),
       fetchIpawsEvacFeatures(),
     ]);
 
     if (!mountedRef.current) return;
 
-    const normProd   = (prod?.features   || []).map(normaliseProdFeature);
     const normHosted = (hosted?.features || []).map(normaliseHostedFeature);
 
-    // Show both sources — don't let one suppress the other. A dedup pass here
-    // previously let PROD "win" over hosted duplicates even when PROD's status
-    // was wrong, hiding a correctly-labeled hosted zone behind a mislabeled one.
     const merged = {
       type: 'FeatureCollection',
-      features: [...normProd, ...normHosted, ...ipawsFeatures],
+      features: [...normHosted, ...ipawsFeatures],
     };
 
     console.log(
-      `[EvacZones] Loaded: ${normProd.length} prod + ${normHosted.length} hosted + ${ipawsFeatures.length} ipaws = ${merged.features.length} total`
+      `[EvacZones] Loaded: ${normHosted.length} hosted + ${ipawsFeatures.length} ipaws = ${merged.features.length} total`
     );
     if (merged.features.length > 0) {
       const sample = merged.features[0];

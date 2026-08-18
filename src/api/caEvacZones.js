@@ -36,7 +36,7 @@ function arcgisTimestamp(date) {
 export async function fetchCAEvacZones() {
   const cutoff = new Date(Date.now() - 180 * 24 * 60 * 60 * 1000);
   const params = new URLSearchParams({
-    where:             `EditDate > ${arcgisTimestamp(cutoff)}`,
+    where:             `EDIT_DATE > ${arcgisTimestamp(cutoff)}`,
     outFields:         '*',
     f:                 'geojson',
     outSR:             '4326',
