@@ -180,6 +180,10 @@ const TAB_SECTIONS = {
           layers: ['weatherAlerts', 'stormReports', 'damageAssessment', 'spcWeatherOutlooks'],
         },
         {
+          label: 'Evacuation',
+          layers: ['evacZones'],
+        },
+        {
           label: 'Tropical',
           layers: ['nhcTropicalWeather'],
         },

@@ -27,7 +27,7 @@ const initialState = {
     spcWeatherOutlooks: false,
     fireWeatherOutlooks: false,
     radar:             false,
-    evacZones:         false,
+    evacZones:         true,
     flights:           false,
     rawsStations:          false,
     airNowMonitors:        false,

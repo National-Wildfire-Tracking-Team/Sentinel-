@@ -334,7 +334,8 @@ function HoverTooltip({ feature, lngLat }) {
       );
       break;
     }
-    case 'evac-zones-fill': {
+    case 'evac-zones-fill':
+    case 'evac-zones-dot': {
       const isReporter = p.source === 'reporter';
       const isIpaws = p.source === 'ipaws';
 
@@ -1067,7 +1068,10 @@ export default function MapView({
       if (damageAssessmentLinesGeoJSON?.features?.length) ids.push('dat-lines-line');
       if (damageAssessmentPointsGeoJSON?.features?.length) ids.push('dat-points-circle');
     }
-    if ((isWildfireTab || isAllHazardTab) && layers.evacZones && evacZonesGeoJSON)                        ids.push('evac-zones-fill');
+    if (layers.evacZones && evacZonesGeoJSON) {
+      ids.push('evac-zones-fill');
+      ids.push('evac-zones-dot');
+    }
     if (layers.flights && flightsGeoJSON)                                                                 ids.push('flights-symbol');
     if (layers.rawsStations && rawsGeoJSON)                                                               ids.push('raws-stations-circle');
     if ((isWildfireTab || isAllHazardTab) && layers.airNowMonitors && airNowMonitorsGeoJSON)              ids.push('airnow-monitors-circle');
@@ -1332,7 +1336,7 @@ export default function MapView({
         created_at:  p.created_at,
         user_id:     p.user_id,
       });
-    } else if (feature.layer.id === 'evac-zones-fill' && p.source === 'reporter') {
+    } else if ((feature.layer.id === 'evac-zones-fill' || feature.layer.id === 'evac-zones-dot') && p.source === 'reporter') {
       selectFire({
         type:          'reporter-evacuation-zone',
         id:            p.id || null,
@@ -1349,7 +1353,7 @@ export default function MapView({
         lat:           evt.lngLat.lat,
         lng:           evt.lngLat.lng,
       });
-    } else if (feature.layer.id === 'evac-zones-fill') {
+    } else if (feature.layer.id === 'evac-zones-fill' || feature.layer.id === 'evac-zones-dot') {
       const isIpaws = p.source === 'ipaws';
       selectFire({
         type:           'evacuation-zone',
@@ -1599,13 +1603,6 @@ export default function MapView({
           polygonsGeoJSON={damageAssessmentPolygonsGeoJSON}
           visible={(isWeatherTab || isAllHazardTab) && layers.damageAssessment}
         />
-
-        {/* Evacuation zones — under fire point markers so dots stay visible */}
-        <EvacuationZonesLayer
-          geoJSON={evacZonesGeoJSON}
-          visible={(isWildfireTab || isAllHazardTab) && layers.evacZones}
-        />
-
         {/* WFIGS incident location markers – above evacuation fills */}
         <IncidentLocationsLayer
           geoJSON={incidentsGeoJSON}
@@ -1616,6 +1613,12 @@ export default function MapView({
         <FireIncidentsLayer
           geoJSON={incidentDotsGeoJSON}
           visible={(isWildfireTab || isAllHazardTab) && layers.incidentLocations}
+        />
+
+        {/* Evacuation zones and markers — above incident dots for clear identification */}
+        <EvacuationZonesLayer
+          geoJSON={evacZonesGeoJSON}
+          visible={layers.evacZones}
         />
 
         {/* Fire behavior spread-projection rings for the selected fire (Rothermel engine) */}
