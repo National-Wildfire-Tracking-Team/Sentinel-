@@ -20,6 +20,9 @@ const FRIENDLY_MESSAGES = {
     'demo': 'No API key configured. Showing demo data.',
     'generic': 'Unable to load fire data. Please try again later.',
   },
+  'NGFS': {
+    'generic': 'GOES satellite fire detections temporarily unavailable.',
+  },
   'FIRIS': {
     'unavailable': 'California fire perimeter data temporarily unavailable.',
     'generic': 'Unable to load fire perimeter data.',

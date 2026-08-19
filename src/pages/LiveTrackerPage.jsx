@@ -11,6 +11,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 
 // Data hooks
 import { useFireHotspots } from '../hooks/useFireHotspots';
+import { useNgfsDetections } from '../hooks/useNgfsDetections';
 import { useMergedFireData, getFireMatchKey } from '../hooks/useMergedFireData';
 import { useAQIData } from '../hooks/useAQIData';
 import { useWeatherAlerts } from '../hooks/useWeatherAlerts';
@@ -281,6 +282,12 @@ export default function LiveTrackerPage() {
     sourceCounts: hotspotsSourceCounts,
     refresh: refreshHotspots,
   } = useFireHotspots(US_BOUNDS, wildfireDataEnabled);
+
+  const {
+    geoJSON: ngfsGeoJSON,
+    loading: ngfsLoading,
+    refresh: refreshNgfs,
+  } = useNgfsDetections(wildfireDataEnabled);
 
   const {
     perimetersGeoJSON,
@@ -784,7 +791,7 @@ const flightBounds = useMemo(() => {
   );
 
   // ── Global loading state ──
-  const anyLoading = hotspotsLoading || perimetersLoading || incidentsLoading || calFireLoading;
+  const anyLoading = hotspotsLoading || ngfsLoading || perimetersLoading || incidentsLoading || calFireLoading;
   useEffect(() => { setLoading(anyLoading); }, [anyLoading, setLoading]);
   useEffect(() => {
     if (!anyLoading) setRefreshed(new Date());
@@ -793,6 +800,7 @@ const flightBounds = useMemo(() => {
   // ── Manual refresh ──
   const handleRefresh = useCallback(() => {
     refreshHotspots();
+    refreshNgfs();
     refreshPerimeters();
     refreshAlerts();
     refreshIncidents();
@@ -824,7 +832,7 @@ const flightBounds = useMemo(() => {
       refreshNhcTropicalWeather();
     }
   }, [
-    refreshHotspots, refreshPerimeters, refreshAlerts, refreshIncidents, refreshCalFireIncidents, refreshStormReports,
+    refreshHotspots, refreshNgfs, refreshPerimeters, refreshAlerts, refreshIncidents, refreshCalFireIncidents, refreshStormReports,
     refreshDamageAssessment,
     refreshSpcMd, refreshSpcOutlooks, refreshUserReports, refreshEvacZones, refreshReporterEvacZones,
     refreshAQI, refreshFlights, refreshRAWS, refreshAirNowMonitors, refreshDroughtOutlook, refreshNdgdSmokeForecast, refreshFireWeatherOutlooks,
@@ -870,6 +878,7 @@ const flightBounds = useMemo(() => {
             activeMapTab={activeMapTab}
             mapType={mapType}
             hotspotsGeoJSON={hotspotsGeoJSON}
+            ngfsGeoJSON={ngfsGeoJSON}
             perimetersGeoJSON={filteredPerimetersGeoJSON}
             incidentsGeoJSON={deduplicatedIncidentsGeoJSON}
             incidentDotsGeoJSON={finalIncidentDotsGeoJSON}
