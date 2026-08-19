@@ -5,7 +5,7 @@
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { fetchNgfsDetections, ngfsDetectionsToPoints } from '../api/noaaNgfs';
+import { fetchNgfsDetections, ngfsDetectionsToPolygons } from '../api/noaaNgfs';
 
 // GOES scans CONUS roughly every 5 minutes; poll a little slower so the
 // public endpoint isn't hammered while still tracking fast fire growth.
@@ -26,9 +26,9 @@ export function useNgfsDetections(enabled = true) {
       setError(null);
       const features = await fetchNgfsDetections();
       if (!mountedRef.current) return;
-      const points = ngfsDetectionsToPoints(features);
-      setGeoJSON(points);
-      setCount(points.features.length);
+      const polygons = ngfsDetectionsToPolygons(features);
+      setGeoJSON(polygons);
+      setCount(polygons.features.length);
     } catch (err) {
       if (!mountedRef.current) return;
       setError(err.message);

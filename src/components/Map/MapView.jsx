@@ -113,7 +113,7 @@ function HoverTooltip({ feature, lngLat }) {
       );
       break;
     }
-    case 'ngfs-detections-circle': {
+    case 'ngfs-detections-fill': {
       content = (
         <>
           <div className="font-semibold text-orange-400">GOES Fire Detection</div>
@@ -1069,7 +1069,7 @@ export default function MapView({
     if (measureActive) return [];
     const ids = [];
     if ((isWildfireTab || isAllHazardTab) && layers.fireHotspots && hotspotsGeoJSON)        ids.push('fire-hotspots-circle');
-    if ((isWildfireTab || isAllHazardTab) && layers.ngfsDetections && ngfsGeoJSON)          ids.push('ngfs-detections-circle');
+    if ((isWildfireTab || isAllHazardTab) && layers.ngfsDetections && ngfsGeoJSON)          ids.push('ngfs-detections-fill');
     if ((isWildfireTab || isAllHazardTab) && layers.firePerimeters && perimetersGeoJSON) {
       ids.push('fire-perimeters-fill');
       ids.push('fire-perimeter-centroids-circle');

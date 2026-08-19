@@ -59,11 +59,13 @@ export async function fetchNgfsDetections() {
 }
 
 /**
- * Convert raw NGFS features into a Point FeatureCollection, using each
- * pixel's centroid (latitude/longitude properties) rather than its polygon
- * footprint, filtered down to actual wildfire detections.
+ * Convert raw NGFS features into a Polygon FeatureCollection, keeping each
+ * detection's native satellite pixel footprint (as delivered by NOAA —
+ * an irregular quadrilateral, not an axis-aligned box) rather than
+ * collapsing it to a centroid point. Filtered down to actual wildfire
+ * detections.
  */
-export function ngfsDetectionsToPoints(features) {
+export function ngfsDetectionsToPolygons(features) {
   return {
     type: 'FeatureCollection',
     features: features
@@ -72,10 +74,7 @@ export function ngfsDetectionsToPoints(features) {
         const p = f.properties;
         return {
           type: 'Feature',
-          geometry: {
-            type: 'Point',
-            coordinates: [p.longitude, p.latitude],
-          },
+          geometry: f.geometry,
           properties: {
             id: p.id,
             latitude: p.latitude,

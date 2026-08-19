@@ -1,7 +1,8 @@
 /**
  * NgfsDetectionsLayer.jsx
- * Renders NOAA NESDIS NGFS (GOES satellite) fire detections as circle
- * markers, using each pixel's centroid coordinates.
+ * Renders NOAA NESDIS NGFS (GOES satellite) fire detections using each
+ * detection's native satellite pixel footprint — an outlined quadrilateral,
+ * as delivered by NOAA — rather than a synthetic circle marker.
  * Layer stays mounted; visibility is controlled via layout property.
  */
 
@@ -19,23 +20,26 @@ const NgfsDetectionsLayer = memo(function NgfsDetectionsLayer({ geoJSON, visible
       type="geojson"
       data={geoJSON || EMPTY_GEOJSON}
     >
+      {/* Near-invisible fill purely as a click/hover hit target */}
       <Layer
-        id="ngfs-detections-circle"
-        type="circle"
+        id="ngfs-detections-fill"
+        type="fill"
         source="ngfs-detections"
         layout={{ visibility: vis }}
         paint={{
-          'circle-radius': [
-            'interpolate', ['linear'], ['zoom'],
-            3, 2,
-            6, 4,
-            10, 6,
-            14, 10,
-          ],
-          'circle-color': '#ffa500',
-          'circle-opacity': 0.75,
-          'circle-stroke-color': 'rgba(255,255,255,0.45)',
-          'circle-stroke-width': 0.8,
+          'fill-color': '#ff8c00',
+          'fill-opacity': 0.06,
+        }}
+      />
+      <Layer
+        id="ngfs-detections-line"
+        type="line"
+        source="ngfs-detections"
+        layout={{ visibility: vis }}
+        paint={{
+          'line-color': '#ff8c00',
+          'line-width': 2,
+          'line-opacity': 0.95,
         }}
       />
     </Source>
