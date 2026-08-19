@@ -17,6 +17,7 @@ import { FLOOD_CATEGORY_META, floodCategoryLabel } from '../../api/noaaWaterGaug
 
 // Data layer components
 import FireHotspotsLayer  from './layers/FireHotspotsLayer';
+import NgfsDetectionsLayer from './layers/NgfsDetectionsLayer';
 import FirePerimetersLayer from './layers/FirePerimetersLayer';
 import FireIncidentsLayer  from './layers/FireIncidentsLayer';
 import FireBehaviorModelingLayer from './layers/FireBehaviorModelingLayer';
@@ -105,6 +106,22 @@ function HoverTooltip({ feature, lngLat }) {
             )}
           </div>
           <div className="text-gray-400 text-xs">{p.satellite} · {p.acq_date}</div>
+          <div className="text-gray-500 text-[10px] mt-1">
+            ({num(p.latitude).toFixed(4)}, {num(p.longitude).toFixed(4)})
+          </div>
+        </>
+      );
+      break;
+    }
+    case 'ngfs-detections-circle': {
+      content = (
+        <>
+          <div className="font-semibold text-orange-400">GOES Fire Detection</div>
+          <div className="text-gray-300 text-xs mt-0.5">
+            FRP: <span className="text-white font-medium">{formatFRP(num(p.frp))}</span>
+            {' '}· {p.confidence} confidence
+          </div>
+          <div className="text-gray-400 text-xs">{p.satellite} · {p.acq_date_time}</div>
           <div className="text-gray-500 text-[10px] mt-1">
             ({num(p.latitude).toFixed(4)}, {num(p.longitude).toFixed(4)})
           </div>
@@ -803,6 +820,7 @@ function FlightDetailPopup({ flight, lngLat, onClose }) {
 /**
  * @param {object} props
  * @param {object|null} props.hotspotsGeoJSON
+ * @param {object|null} props.ngfsGeoJSON
  * @param {object|null} props.perimetersGeoJSON
  * @param {object|null} props.incidentsGeoJSON // Fixed naming mismatch
  * @param {object|null} props.incidentDotsGeoJSON
@@ -853,6 +871,7 @@ export default function MapView({
   activeMapTab = 'wildfire',
   mapType = 'satellite',
   hotspotsGeoJSON,
+  ngfsGeoJSON,
   perimetersGeoJSON,
   incidentsGeoJSON, // Renamed to match usage inside
   incidentDotsGeoJSON,
@@ -1050,6 +1069,7 @@ export default function MapView({
     if (measureActive) return [];
     const ids = [];
     if ((isWildfireTab || isAllHazardTab) && layers.fireHotspots && hotspotsGeoJSON)        ids.push('fire-hotspots-circle');
+    if ((isWildfireTab || isAllHazardTab) && layers.ngfsDetections && ngfsGeoJSON)          ids.push('ngfs-detections-circle');
     if ((isWildfireTab || isAllHazardTab) && layers.firePerimeters && perimetersGeoJSON) {
       ids.push('fire-perimeters-fill');
       ids.push('fire-perimeter-centroids-circle');
@@ -1107,6 +1127,7 @@ export default function MapView({
       layers.weatherAlerts, layers.spcWeatherOutlooks, spcWeatherOutlookMode, layers.stormReports, layers.evacZones, spcMdGeoJSON,
       layers.flights, layers.rawsStations, layers.airNowMonitors, layers.droughtOutlook, layers.ndgdSmokeForecast, layers.fireWeatherOutlooks,
       layers.nhcTropicalWeather, layers.damageAssessment,
+      layers.ngfsDetections, ngfsGeoJSON,
       hotspotsGeoJSON, perimetersGeoJSON, incidentsGeoJSON, aqiGeoJSON, alertsGeoJSON, spcOutlooksGeoJSON,
       stormReportsGeoJSON, userReportsGeoJSON, evacZonesGeoJSON,
       damageAssessmentPointsGeoJSON, damageAssessmentLinesGeoJSON, damageAssessmentPolygonsGeoJSON,
@@ -1683,6 +1704,12 @@ export default function MapView({
         <FireHotspotsLayer
           geoJSON={hotspotsGeoJSON}
           visible={(isWildfireTab || isAllHazardTab) && layers.fireHotspots}
+        />
+
+        {/* GOES satellite fire detections (NOAA NESDIS NGFS) */}
+        <NgfsDetectionsLayer
+          geoJSON={ngfsGeoJSON}
+          visible={(isWildfireTab || isAllHazardTab) && layers.ngfsDetections}
         />
 
         {/* Community-submitted reports (rendered on top of official data) */}
