@@ -14,6 +14,7 @@ import { useApp } from '../../context/AppContext';
 /** Layer row definitions — grouped under tab-specific sections below */
 const LAYER_DEFS = {
   fireHotspots:      { label: 'Fire Hotspots',       sublabel: 'NASA FIRMS satellite',          icon: Flame,        color: '#ff4500' },
+  ngfsDetections:    { label: 'GOES Fire Detections', sublabel: 'NOAA NESDIS NGFS satellite',   icon: Satellite,    color: '#ffa500' },
   firePerimeters:    { label: 'Fire Perimeters',     sublabel: 'NIFC WFIGS',                  icon: MapPin,       color: '#ff6600' },
   calFireHistoricalPerimeters: { label: 'Historical Fire Perimeters', sublabel: 'CAL FIRE FRAP · past fire scars', icon: History, color: '#92400e' },
   incidentLocations: { label: 'Incident Locations',  sublabel: 'WFIGS · NWTT verified',       icon: Flame,        color: '#f59e0b' },
@@ -53,7 +54,7 @@ const TAB_SECTIONS = {
       groups: [
         {
           label: 'Core layers',
-          layers: ['fireHotspots', 'firePerimeters', 'calFireHistoricalPerimeters', 'incidentLocations'],
+          layers: ['fireHotspots', 'ngfsDetections', 'firePerimeters', 'calFireHistoricalPerimeters', 'incidentLocations'],
         },
         {
           label: 'Evacuation',
@@ -127,7 +128,7 @@ const TAB_SECTIONS = {
       groups: [
         {
           label: 'Core layers',
-          layers: ['fireHotspots', 'firePerimeters', 'calFireHistoricalPerimeters', 'incidentLocations', 'goesFireTemperature'],
+          layers: ['fireHotspots', 'ngfsDetections', 'firePerimeters', 'calFireHistoricalPerimeters', 'incidentLocations', 'goesFireTemperature'],
         },
         {
           label: 'Modeling',

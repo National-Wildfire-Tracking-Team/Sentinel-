@@ -11,6 +11,8 @@ const initialState = {
   // Which map data layers are currently visible
   layers: {
     fireHotspots:      false,
+    /** NOAA NESDIS NGFS — GOES satellite fire detections */
+    ngfsDetections:    false,
     firePerimeters:    false,
     /** CAL FIRE FRAP historical fire perimeter scars */
     calFireHistoricalPerimeters: false,
