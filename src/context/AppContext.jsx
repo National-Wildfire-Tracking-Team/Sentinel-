@@ -42,10 +42,14 @@ const initialState = {
   selectedFire: null,
   // Currently selected water gauge (properties from map feature)
   selectedGauge: null,
-  // Sidebar open/closed (left panel)
-  sidebarOpen: true,
+  // Sidebar open/closed (left panel) — closed by default, opened via the top-left corner buttons
+  sidebarOpen: false,
   // Layer control panel open/closed (right panel)
   layerPanelOpen: true,
+  // Placeholder "future features" panel open/closed (top-left corner button 1)
+  futurePanelOpen: false,
+  // Account center panel open/closed (top-left corner button 3)
+  accountPanelOpen: false,
   // Legend visibility
   legendOpen: true,
   // Active weather alerts list
@@ -64,6 +68,10 @@ const initialState = {
     latitude:  44.0,
     zoom:      4.5,
   },
+  // Whether the user has granted live location (only requested via the locate-me corner button)
+  locationGranted: false,
+  // Live user location {latitude, longitude}, once granted
+  userLocation: null,
 };
 
 // ─── Action Types ─────────────────────────────────────────────────────────────
@@ -75,6 +83,8 @@ const A = {
   SELECT_GAUGE:       'SELECT_GAUGE',
   TOGGLE_SIDEBAR:     'TOGGLE_SIDEBAR',
   TOGGLE_LAYER_PANEL: 'TOGGLE_LAYER_PANEL',
+  TOGGLE_FUTURE_PANEL: 'TOGGLE_FUTURE_PANEL',
+  TOGGLE_ACCOUNT_PANEL: 'TOGGLE_ACCOUNT_PANEL',
   TOGGLE_LEGEND:      'TOGGLE_LEGEND',
   SET_ALERTS:         'SET_ALERTS',
   SET_ALERTS_STATUS:  'SET_ALERTS_STATUS',
@@ -82,6 +92,8 @@ const A = {
   SET_REFRESHED:      'SET_REFRESHED',
   SET_VIEWPORT:       'SET_VIEWPORT',
   SET_FEED_FILTER:    'SET_FEED_FILTER',
+  GRANT_LOCATION:     'GRANT_LOCATION',
+  SET_USER_LOCATION:  'SET_USER_LOCATION',
 };
 
 // ─── Reducer ─────────────────────────────────────────────────────────────────
@@ -103,10 +115,20 @@ function reducer(state, action) {
       return { ...state, selectedFire: null, selectedGauge: null };
     case A.SELECT_GAUGE:
       return { ...state, selectedGauge: action.gauge, selectedFire: null };
-    case A.TOGGLE_SIDEBAR:
-      return { ...state, sidebarOpen: !state.sidebarOpen };
+    case A.TOGGLE_SIDEBAR: {
+      const next = !state.sidebarOpen;
+      return { ...state, sidebarOpen: next, futurePanelOpen: next ? false : state.futurePanelOpen, accountPanelOpen: next ? false : state.accountPanelOpen };
+    }
     case A.TOGGLE_LAYER_PANEL:
       return { ...state, layerPanelOpen: !state.layerPanelOpen };
+    case A.TOGGLE_FUTURE_PANEL: {
+      const next = !state.futurePanelOpen;
+      return { ...state, futurePanelOpen: next, sidebarOpen: next ? false : state.sidebarOpen, accountPanelOpen: next ? false : state.accountPanelOpen };
+    }
+    case A.TOGGLE_ACCOUNT_PANEL: {
+      const next = !state.accountPanelOpen;
+      return { ...state, accountPanelOpen: next, sidebarOpen: next ? false : state.sidebarOpen, futurePanelOpen: next ? false : state.futurePanelOpen };
+    }
     case A.TOGGLE_LEGEND:
       return { ...state, legendOpen: !state.legendOpen };
     case A.SET_ALERTS:
@@ -121,6 +143,10 @@ function reducer(state, action) {
       return { ...state, viewport: { ...state.viewport, ...action.viewport } };
     case A.SET_FEED_FILTER:
       return { ...state, feedFilter: action.value };
+    case A.GRANT_LOCATION:
+      return { ...state, locationGranted: true };
+    case A.SET_USER_LOCATION:
+      return { ...state, userLocation: action.location };
     default:
       return state;
   }
@@ -139,6 +165,8 @@ export function AppProvider({ children }) {
   const selectGauge      = useCallback((gauge) => dispatch({ type: A.SELECT_GAUGE, gauge }), []);
   const toggleSidebar    = useCallback(() => dispatch({ type: A.TOGGLE_SIDEBAR }), []);
   const toggleLayerPanel = useCallback(() => dispatch({ type: A.TOGGLE_LAYER_PANEL }), []);
+  const toggleFuturePanel = useCallback(() => dispatch({ type: A.TOGGLE_FUTURE_PANEL }), []);
+  const toggleAccountPanel = useCallback(() => dispatch({ type: A.TOGGLE_ACCOUNT_PANEL }), []);
   const toggleLegend     = useCallback(() => dispatch({ type: A.TOGGLE_LEGEND }), []);
   const setAlerts        = useCallback((alerts) => dispatch({ type: A.SET_ALERTS, alerts }), []);
   const setAlertsStatus  = useCallback((status) => dispatch({ type: A.SET_ALERTS_STATUS, status }), []);
@@ -146,6 +174,8 @@ export function AppProvider({ children }) {
   const setRefreshed     = useCallback((time = new Date()) => dispatch({ type: A.SET_REFRESHED, time }), []);
   const setViewport      = useCallback((viewport) => dispatch({ type: A.SET_VIEWPORT, viewport }), []);
   const setFeedFilter    = useCallback((value) => dispatch({ type: A.SET_FEED_FILTER, value }), []);
+  const grantLocation    = useCallback(() => dispatch({ type: A.GRANT_LOCATION }), []);
+  const setUserLocation  = useCallback((location) => dispatch({ type: A.SET_USER_LOCATION, location }), []);
 
   /** Fly the map to a specific fire incident */
   const flyToFire = useCallback((incident) => {
@@ -169,6 +199,8 @@ export function AppProvider({ children }) {
       selectGauge,
       toggleSidebar,
       toggleLayerPanel,
+      toggleFuturePanel,
+      toggleAccountPanel,
       toggleLegend,
       setAlerts,
       setAlertsStatus,
@@ -177,6 +209,8 @@ export function AppProvider({ children }) {
       setViewport,
       flyToFire,
       setFeedFilter,
+      grantLocation,
+      setUserLocation,
     }}>
       {children}
     </AppContext.Provider>
