@@ -4,10 +4,16 @@
  * future-features panel, incident sidebar, account center, and locate-me.
  */
 
-import { memo, useCallback } from 'react';
+import { memo, useCallback, useEffect, useState } from 'react';
 import { Menu, LocateFixed, User } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { useAuth } from '../../context/AuthContext';
+
+const GEOLOCATION_ERROR_MESSAGES = {
+  1: 'Location permission denied. Enable location access for this site in your browser settings.',
+  2: 'Your location is currently unavailable. Try again in a moment.',
+  3: 'Getting your location timed out. Try again.',
+};
 
 function CornerButton({ active, onClick, ariaLabel, children }) {
   return (
@@ -39,11 +45,27 @@ const MapCornerButtons = memo(function MapCornerButtons() {
 
   const userInitial = user?.email ? user.email[0].toUpperCase() : '?';
 
+  const [locationError, setLocationError] = useState(null);
+
+  useEffect(() => {
+    if (!locationError) return undefined;
+    const timer = setTimeout(() => setLocationError(null), 6000);
+    return () => clearTimeout(timer);
+  }, [locationError]);
+
   // Only ever asks for location permission here, on click — never automatically.
   // Once granted, every subsequent click just re-centers the map (the browser
   // won't re-prompt), and location tracking (the live dot) keeps running.
   const handleLocateMe = useCallback(() => {
-    if (typeof navigator === 'undefined' || !navigator.geolocation) return;
+    if (typeof navigator === 'undefined' || !navigator.geolocation) {
+      setLocationError('Location is not supported in this browser.');
+      return;
+    }
+    if (typeof window !== 'undefined' && window.isSecureContext === false) {
+      setLocationError('Location requires a secure (https) connection.');
+      return;
+    }
+    setLocationError(null);
     navigator.geolocation.getCurrentPosition(
       ({ coords }) => {
         const location = { latitude: coords.latitude, longitude: coords.longitude };
@@ -51,7 +73,9 @@ const MapCornerButtons = memo(function MapCornerButtons() {
         setUserLocation(location);
         grantLocation();
       },
-      () => {},
+      (err) => {
+        setLocationError(GEOLOCATION_ERROR_MESSAGES[err?.code] || 'Could not get your location.');
+      },
       { enableHighAccuracy: true, timeout: 10000 }
     );
   }, [setViewport, setUserLocation, grantLocation]);
@@ -84,9 +108,20 @@ const MapCornerButtons = memo(function MapCornerButtons() {
         </CornerButton>
       </div>
 
-      <CornerButton active={locationGranted} onClick={handleLocateMe} ariaLabel="Center map on my location">
-        <LocateFixed size={18} />
-      </CornerButton>
+      <div className="relative">
+        <CornerButton active={locationGranted} onClick={handleLocateMe} ariaLabel="Center map on my location">
+          <LocateFixed size={18} />
+        </CornerButton>
+
+        {locationError && (
+          <div
+            role="alert"
+            className="absolute top-0 left-full ml-2 w-56 rounded-lg border border-zinc-700 bg-black/95 px-3 py-2 text-xs text-white shadow-xl"
+          >
+            {locationError}
+          </div>
+        )}
+      </div>
     </div>
   );
 });
