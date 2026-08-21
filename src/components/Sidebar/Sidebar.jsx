@@ -4,8 +4,7 @@
  */
 
 import { memo, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { Flame, TrendingUp, Wind, ChevronLeft, CloudSun, ShieldAlert, ArrowLeft, AlertTriangle, Waves } from 'lucide-react';
+import { Flame, TrendingUp, Wind, CloudSun, ShieldAlert, AlertTriangle, Waves } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import IncidentFeed from './IncidentFeed';
 import WeatherAlertsFeed from './WeatherAlertsFeed';
@@ -36,7 +35,6 @@ const Sidebar = memo(function Sidebar({
   loading,
   error,
   activeMapTab = 'wildfire',
-  onTabChange,
   weatherAlertsLoading = false,
   weatherAlertsError = null,
   onReopenBanner,
@@ -46,7 +44,7 @@ const Sidebar = memo(function Sidebar({
   nhcInvests = [],
   nhcCyclones = [],
 }) {
-  const { sidebarOpen, toggleSidebar, alerts } = useApp();
+  const { sidebarOpen, alerts } = useApp();
   const [allHazardFeedTab, setAllHazardFeedTab] = useState('fires');
   const [weatherFeedTab, setWeatherFeedTab] = useState('alerts');
   const isWeatherTab = activeMapTab === 'weather';
@@ -63,103 +61,21 @@ const Sidebar = memo(function Sidebar({
 
   return (
     <>
-      {/* Collapsed toggle button */}
-      {!sidebarOpen && (
-        <button
-          onClick={toggleSidebar}
-          className="absolute left-0 top-1/2 -translate-y-1/2 z-30
-                     flex items-center justify-center w-10 h-16
-                     bg-sentinel-800 border border-l-0 border-sentinel-700
-                     rounded-r-lg text-sentinel-200 hover:text-white
-                     hover:bg-sentinel-700 transition-colors shadow-lg"
-          aria-label="Open sidebar"
-        >
-          <ChevronLeft size={14} className="rotate-180" />
-        </button>
-      )}
-
       {/* Sidebar panel */}
       <aside
         className={`
-          fixed lg:relative
-          top-0 left-0
-          h-full
+          absolute inset-y-0 left-0
           z-40
           flex flex-col
           bg-sentinel-900/95 backdrop-blur-sm
           border-r border-sentinel-700
           transition-transform duration-300 ease-in-out
-          w-full sm:w-80 lg:w-80
-          ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
+          w-full sm:w-80
+          ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
         `}
       >
-        {/* Back to NWTT Home */}
-        <div className="px-3 pt-2 pb-1 shrink-0">
-          <Link
-            to="/"
-            className="inline-flex items-center gap-1 text-xs text-sentinel-200 hover:text-fire-300 transition-colors"
-          >
-            <ArrowLeft size={12} />
-            Back to NWTT Home
-          </Link>
-        </div>
-
-        {/* Map mode tabs */}
-        <div className="px-3 pt-1 pb-2 border-b border-sentinel-700/70 shrink-0">
-          {/* All Hazard featured tab */}
-          <button
-            type="button"
-            onClick={() => onTabChange?.('allhazard')}
-            className={`w-full mb-1.5 inline-flex items-center justify-center gap-2 px-3 py-2 text-xs font-bold rounded-xl transition-all duration-200 border ${
-              isAllHazardTab
-                ? 'bg-gradient-to-r from-fire-600 via-red-600 to-sky-700 text-white border-red-500/50 shadow-lg shadow-red-900/30'
-                : 'text-sentinel-200 hover:text-white border-sentinel-700 hover:border-red-600/50 hover:bg-sentinel-700/60'
-            }`}
-            aria-pressed={isAllHazardTab}
-          >
-            <AlertTriangle size={13} className={isAllHazardTab ? 'text-yellow-300' : 'text-sentinel-400'} />
-            <span>All Hazards</span>
-            {isAllHazardTab && (
-              <span className="ml-auto px-1.5 py-0.5 rounded-md text-[xs] font-black uppercase tracking-widest bg-white/20 text-white">
-                LIVE
-              </span>
-            )}
-          </button>
-
-          {/* Wildfire + Weather row */}
-          <div className="inline-flex w-full rounded-xl border border-sentinel-700 bg-sentinel-800 p-1 gap-1">
-            <button
-              type="button"
-              onClick={() => onTabChange?.('wildfire')}
-              className={`flex-1 inline-flex items-center justify-center gap-1.5 px-2 py-1.5 text-xs font-semibold rounded-lg transition-colors ${
-                activeMapTab === 'wildfire'
-                  ? 'bg-fire-600 text-white'
-                  : 'text-sentinel-200 hover:bg-sentinel-700'
-              }`}
-              aria-pressed={activeMapTab === 'wildfire'}
-            >
-              <Flame size={13} />
-              Wildfire
-            </button>
-
-            <button
-              type="button"
-              onClick={() => onTabChange?.('weather')}
-              className={`flex-1 inline-flex items-center justify-center gap-1.5 px-2 py-1.5 text-xs font-semibold rounded-lg transition-colors ${
-                activeMapTab === 'weather'
-                  ? 'bg-sky-600 text-white'
-                  : 'text-sentinel-200 hover:bg-sentinel-700'
-              }`}
-              aria-pressed={activeMapTab === 'weather'}
-            >
-              <CloudSun size={13} />
-              Weather
-            </button>
-          </div>
-        </div>
-
         {/* Sidebar header */}
-        <div className={`flex items-center justify-between px-4 py-3 border-b shrink-0 ${isAllHazardTab ? 'border-red-900/60 bg-gradient-to-r from-fire-900/30 to-sky-900/20' : 'border-sentinel-700'}`}>
+        <div className={`flex items-center px-4 py-3 border-b shrink-0 ${isAllHazardTab ? 'border-red-900/60 bg-gradient-to-r from-fire-900/30 to-sky-900/20' : 'border-sentinel-700'}`}>
           <div className="flex items-center gap-2">
             {isAllHazardTab ? (
               <>
@@ -189,14 +105,6 @@ const Sidebar = memo(function Sidebar({
               </>
             )}
           </div>
-
-          <button
-            onClick={toggleSidebar}
-            className="p-1 text-sentinel-200 hover:text-white hover:bg-sentinel-700 rounded transition-colors"
-            aria-label="Collapse sidebar"
-          >
-            <ChevronLeft size={16} />
-          </button>
         </div>
 
         {/* Summary stats strip */}
