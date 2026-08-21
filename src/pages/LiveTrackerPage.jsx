@@ -47,7 +47,10 @@ import Header from '../components/Header/Header';
 import AlertBanner from '../components/AlertBanner/AlertBanner';
 import Sidebar from '../components/Sidebar/Sidebar';
 import MapView from '../components/Map/MapView';
-import LayerControl from '../components/LayerControl/LayerControl';
+import MapBottomBar from '../components/BottomBar/MapBottomBar';
+import MapCornerButtons from '../components/MapControls/MapCornerButtons';
+import FutureFeaturesPanel from '../components/MapControls/FutureFeaturesPanel';
+import AccountPanel from '../components/AccountPanel/AccountPanel';
 import Legend from '../components/Legend/Legend';
 import FireDetailPanel from '../components/FireDetailPanel/FireDetailPanel';
 import WaterGaugePanel from '../components/WaterGaugePanel/WaterGaugePanel';
@@ -855,26 +858,9 @@ const flightBounds = useMemo(() => {
       {/* ── Active alert banner ── */}
       <AlertBanner dismissed={bannerDismissed} onDismiss={() => setBannerDismissed(true)} />
 
-      {/* ── Main content area ── */}
-      <div className="flex flex-1 overflow-hidden relative">
-        {/* Left sidebar */}
-        <Sidebar
-          incidents={mergedIncidents}
-          loading={incidentsLoading}
-          error={incidentsError}
-          activeMapTab={activeMapTab}
-          onTabChange={setActiveMapTab}
-          weatherAlertsLoading={alertsLoading}
-          weatherAlertsError={alertsError}
-          onReopenBanner={() => setBannerDismissed(false)}
-          weatherAlertFilter={weatherAlertFilter}
-          onWeatherAlertFilterChange={setWeatherAlertFilter}
-          onWeatherAlertsRefresh={refreshAlerts}
-        />
-
-        {/* Map area */}
-        <div className="flex-1 relative overflow-hidden">
-          <MapView
+      {/* ── Main content area (map fills full width; all controls float over it) ── */}
+      <div className="flex-1 relative overflow-hidden">
+        <MapView
             activeMapTab={activeMapTab}
             mapType={mapType}
             hotspotsGeoJSON={hotspotsGeoJSON}
@@ -937,8 +923,28 @@ const flightBounds = useMemo(() => {
             calFireHistoricalPerimetersGeoJSON={calFireHistoricalPerimetersGeoJSON}
           />
 
-          <LayerControl
+          <MapCornerButtons />
+
+          <Sidebar
+            incidents={mergedIncidents}
+            loading={incidentsLoading}
+            error={incidentsError}
             activeMapTab={activeMapTab}
+            weatherAlertsLoading={alertsLoading}
+            weatherAlertsError={alertsError}
+            onReopenBanner={() => setBannerDismissed(false)}
+            weatherAlertFilter={weatherAlertFilter}
+            onWeatherAlertFilterChange={setWeatherAlertFilter}
+            onWeatherAlertsRefresh={refreshAlerts}
+          />
+
+          <FutureFeaturesPanel />
+
+          <AccountPanel />
+
+          <MapBottomBar
+            activeMapTab={activeMapTab}
+            onTabChange={setActiveMapTab}
             infrastructureLayersEntitled={hasProInfrastructureAccess}
             mapType={mapType}
             onMapTypeChange={setMapType}
@@ -963,27 +969,6 @@ const flightBounds = useMemo(() => {
               onClose={() => selectGauge(null)}
             />
           )}
-
-          {/* Bug report button – fixed to bottom-right of map area */}
-          <a
-            href="https://docs.google.com/forms/d/e/1FAIpQLSej35yFro7KsQ349MzgQ6Lek4_M67qfoK59UFssX9CaTKf07Q/viewform?usp=header"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="bottom-4 right-4 z-20 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-black/70 hover:bg-black/90 text-white border border-white/20 shadow-lg backdrop-blur-sm transition-colors"
-            title="Report a bug"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M8 2h8l1 4H7L8 2z"/>
-              <path d="M12 6v4"/>
-              <circle cx="12" cy="14" r="6"/>
-              <path d="M6 14H2M22 14h-4"/>
-              <path d="M12 20v2"/>
-              <path d="M6.34 17.66l-2.83 2.83M20.49 3.51l-2.83 2.83"/>
-              <path d="M17.66 17.66l2.83 2.83M3.51 3.51l2.83 2.83"/>
-            </svg>
-            Report Bug
-          </a>
-        </div>
       </div>
 
     </div>
