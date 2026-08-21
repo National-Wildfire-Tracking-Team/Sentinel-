@@ -6,8 +6,9 @@
  */
 
 import { useRef, useCallback, useMemo, useState, useEffect } from 'react';
-import Map, { NavigationControl, ScaleControl, Popup, Marker } from 'react-map-gl';
+import Map, { ScaleControl, Popup, Marker } from 'react-map-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
+import MapZoomControl from './MapZoomControl';
 
 import { useApp } from '../../context/AppContext';
 import { formatAcres, formatContainment, formatFRP } from '../../utils/formatUtils';
@@ -53,7 +54,6 @@ import DamageAssessmentLayer from './layers/DamageAssessmentLayer';
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN || '';
 const HAS_MAPBOX_TOKEN = Boolean(MAPBOX_TOKEN.trim());
-const LOCATION_PROMPT_KEY = 'sentinel-live-location-choice';
 
 // Quick helper if you don't already have one exported from utils
 const num = (val) => Number(val);
@@ -929,7 +929,7 @@ export default function MapView({
   waterGaugesGeoJSON,
   calFireHistoricalPerimetersGeoJSON,
 }) {
-  const { layers, alerts, selectFire, selectGauge, viewport, setViewport, sidebarOpen } = useApp();
+  const { layers, alerts, selectFire, selectGauge, viewport, setViewport, sidebarOpen, locationGranted, userLocation, setUserLocation } = useApp();
   const mapRef = useRef(null);
 
   // Resize the Mapbox canvas after the sidebar transition completes (300ms)
@@ -982,8 +982,6 @@ export default function MapView({
   // Selected aircraft popup state
   const [selectedFlight,       setSelectedFlight]       = useState(null);
   const [selectedFlightLngLat, setSelectedFlightLngLat] = useState(null);
-  const [showLocationPrompt, setShowLocationPrompt] = useState(false);
-  const [userLocation, setUserLocation] = useState(null);
 
   // Measurement tool state (active/mode lifted to LiveTrackerPage; points/preview stay local)
   const [measurePoints,  setMeasurePoints]  = useState([]);   // [{lng, lat}, ...]
@@ -1015,21 +1013,10 @@ export default function MapView({
     return () => window.removeEventListener('keydown', onKey);
   }, [measureActive, closeMeasure]);
 
-  // Ask for live location once per browser session when map opens.
+  // Live location tracking is only ever started after the user explicitly grants
+  // it via the locate-me corner button (MapCornerButtons) — never automatically.
   useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const savedChoice = window.sessionStorage.getItem(LOCATION_PROMPT_KEY);
-    if (!savedChoice) setShowLocationPrompt(true);
-    if (savedChoice === 'granted') {
-      setShowLocationPrompt(false);
-    }
-  }, []);
-
-  // Start/stop live location tracking after user choice is made.
-  useEffect(() => {
-    if (typeof window === 'undefined') return undefined;
-    const savedChoice = window.sessionStorage.getItem(LOCATION_PROMPT_KEY);
-    if (savedChoice !== 'granted' || !navigator.geolocation) return undefined;
+    if (!locationGranted || typeof navigator === 'undefined' || !navigator.geolocation) return undefined;
 
     const watchId = navigator.geolocation.watchPosition(
       ({ coords }) => {
@@ -1038,29 +1025,12 @@ export default function MapView({
           longitude: coords.longitude,
         });
       },
-      () => {
-        setUserLocation(null);
-      },
+      () => {},
       { enableHighAccuracy: true, maximumAge: 10000, timeout: 15000 }
     );
 
     return () => navigator.geolocation.clearWatch(watchId);
-  }, [showLocationPrompt]);
-
-  const allowLiveLocation = useCallback(() => {
-    if (typeof window !== 'undefined') {
-      window.sessionStorage.setItem(LOCATION_PROMPT_KEY, 'granted');
-    }
-    setShowLocationPrompt(false);
-  }, []);
-
-  const cancelLiveLocation = useCallback(() => {
-    if (typeof window !== 'undefined') {
-      window.sessionStorage.setItem(LOCATION_PROMPT_KEY, 'denied');
-    }
-    setUserLocation(null);
-    setShowLocationPrompt(false);
-  }, []);
+  }, [locationGranted, setUserLocation]);
 
   // Only include interactive layer IDs for layers that are currently visible.
   // When the measurement tool is active, disable all layer interactions so
@@ -1553,7 +1523,6 @@ export default function MapView({
         projection="mercator"
       >
         {/* Navigation controls */}
-        <NavigationControl position="bottom-right" style={{ marginBottom: '6rem' }} />
         <ScaleControl position="bottom-left" style={{ marginLeft: '1rem', marginBottom: '1rem' }} />
         {/* GOESFireTemperatureLayer disabled — src/components/Map/GOESFireTemperatureLayer.jsx
             has never built (wrong import path + syntax errors); re-enable once fixed. */}
@@ -1811,6 +1780,8 @@ export default function MapView({
         )}
       </Map>
 
+      <MapZoomControl mapRef={mapRef} />
+
       {/* Measurement results panel – visible while tool is active */}
       {measureActive && (
         <MeasurementPanel
@@ -1827,33 +1798,6 @@ export default function MapView({
         lat={viewport?.latitude}
         lng={viewport?.longitude}
       />
-
-      {showLocationPrompt && (
-        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/55 p-4">
-          <div className="w-full max-w-sm rounded-xl border border-sentinel-600 bg-sentinel-800 p-5 shadow-2xl">
-            <h3 className="text-white text-base font-semibold">Use live location?</h3>
-            <p className="mt-2 text-sm text-sentinel-300">
-              Allow live location to place your current position on the map.
-            </p>
-            <div className="mt-4 flex items-center justify-end gap-2">
-              <button
-                type="button"
-                onClick={cancelLiveLocation}
-                className="rounded-md border border-sentinel-500 px-3 py-1.5 text-sm text-sentinel-200 hover:bg-sentinel-700 transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={allowLiveLocation}
-                className="rounded-md bg-blue-500 px-3 py-1.5 text-sm font-semibold text-white hover:bg-blue-400 transition-colors"
-              >
-                Use Live Location
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
