@@ -5,20 +5,31 @@
  */
 
 import { useEffect, useMemo, useRef, useState, memo } from 'react';
+import { Link } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
+import { useAuth } from '../../context/AuthContext';
 import { formatRelativeTime } from '../../utils/formatUtils';
-import { Flame, RefreshCw } from 'lucide-react';
+import { Flame, LogOut, MapPin, Menu, RefreshCw, Settings, User } from 'lucide-react';
+import LoginModal from '../Auth/LoginModal';
+import MapAddressSearchPanel from '../Auth/MapAddressSearchPanel';
 
 const ONE_MINUTE_MS = 60_000;
 const JUST_NOW_VISIBLE_MS = 5_000;
 const GIVEBUTTER_WIDGET_ID = 'j1X43O';
 
 const Header = memo(function Header({ onRefresh }) {
-  const { lastRefreshed, isLoading } = useApp();
+  const { toggleSidebar, lastRefreshed, isLoading } = useApp();
+  const { isAuthenticated, user, signOut } = useAuth();
 
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [showRecentRefreshIndicator, setShowRecentRefreshIndicator] = useState(false);
   const hideRecentIndicatorTimeoutRef = useRef(null);
+
+  // Auth modal state
+  const [showLoginModal, setShowLoginModal] = useState(false);
+  const [showAddressSetup, setShowAddressSetup] = useState(false);
+  const [showUserMenu, setShowUserMenu] = useState(false);
+  const userMenuRef = useRef(null);
 
   useEffect(() => {
     const intervalId = window.setInterval(() => setNowMs(Date.now()), 1000);
@@ -62,6 +73,18 @@ const Header = memo(function Header({ onRefresh }) {
     }
   }, []);
 
+  // Close user menu on outside click
+  useEffect(() => {
+    if (!showUserMenu) return;
+    const handler = (e) => {
+      if (userMenuRef.current && !userMenuRef.current.contains(e.target)) {
+        setShowUserMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [showUserMenu]);
+
   const refreshAgeMs = useMemo(() => {
     if (!lastRefreshed) return null;
     const refreshedMs = new Date(lastRefreshed).getTime();
@@ -91,11 +114,30 @@ const Header = memo(function Header({ onRefresh }) {
     onRefresh?.();
   };
 
+  const handleLoginSuccess = () => {
+    setShowLoginModal(false);
+    setShowAddressSetup(true);
+  };
+
+  const handleAddressSetupReturn = () => {
+    setShowAddressSetup(false);
+  };
+
+const userInitial = user?.email ? user.email[0].toUpperCase() : '?';
+
   return (
     <>
       <header className="relative z-40 flex items-center justify-between h-14 px-4 bg-sentinel-900/95 backdrop-blur-sm border-b border-sentinel-700 shrink-0">
         {/* Left – Logo + title */}
         <div className="flex items-center gap-3">
+          <button
+            onClick={toggleSidebar}
+            className="p-1.5 rounded-md text-sentinel-300 hover:text-white hover:bg-sentinel-700 transition-colors"
+            aria-label="Toggle sidebar"
+          >
+            <Menu size={20} />
+          </button>
+
           <div className="flex items-center gap-2">
             <div className="relative">
               <Flame size={22} className="text-fire-600" />
@@ -142,8 +184,81 @@ const Header = memo(function Header({ onRefresh }) {
             <RefreshCw size={13} className={isLoading ? 'animate-spin' : ''} />
             <span className="hidden sm:inline">Refresh</span>
           </button>
+
+          {/* Auth button */}
+          {isAuthenticated ? (
+            <div className="relative" ref={userMenuRef}>
+              <button
+                onClick={() => setShowUserMenu(v => !v)}
+                className="flex items-center justify-center w-8 h-8 rounded-full bg-fire-600 hover:bg-fire-500 text-white text-xs font-bold transition-colors"
+                aria-label="User menu"
+                title={user?.email}
+              >
+                {userInitial}
+              </button>
+
+              {showUserMenu && (
+                <div className="absolute right-0 top-full mt-1.5 w-52 rounded-xl border border-sentinel-600 bg-sentinel-800 shadow-2xl z-50 overflow-hidden">
+                  <div className="px-3 py-2.5 border-b border-sentinel-700">
+                    <p className="text-xs font-medium text-white truncate">{user?.email}</p>
+                    <p className="text-[10px] text-sentinel-400 mt-0.5">Signed in</p>
+                  </div>
+                  <div className="py-1">
+                    <Link
+                      to="/manage-zipcodes"
+                      onClick={() => setShowUserMenu(false)}
+                      className="w-full text-left px-3 py-2 text-sm text-sentinel-200 hover:bg-sentinel-700 hover:text-white transition-colors flex items-center gap-2"
+                    >
+                      <MapPin size={13} />
+                      Manage My Zip Codes
+                    </Link>
+                    <Link
+                      to="/account"
+                      onClick={() => setShowUserMenu(false)}
+                      className="w-full text-left px-3 py-2 text-sm text-sentinel-200 hover:bg-sentinel-700 hover:text-white transition-colors flex items-center gap-2"
+                    >
+                      <Settings size={13} />
+                      Account Settings
+                    </Link>
+                    <button
+                      onClick={() => { setShowUserMenu(false); signOut(); }}
+                      className="w-full text-left px-3 py-2 text-sm text-sentinel-200 hover:bg-sentinel-700 hover:text-white transition-colors flex items-center gap-2"
+                    >
+                      <LogOut size={13} />
+                      Sign Out
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <button
+              onClick={() => setShowLoginModal(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium
+                         bg-fire-600 hover:bg-fire-500 text-white
+                         transition-colors"
+            >
+              <User size={13} />
+              <span>Sign In</span>
+            </button>
+          )}
         </div>
       </header>
+
+      {/* Login modal */}
+      {showLoginModal && (
+        <LoginModal
+          onClose={() => setShowLoginModal(false)}
+          onLoginSuccess={handleLoginSuccess}
+        />
+      )}
+
+      {/* Address search panel (shown after login on the live map) */}
+      {showAddressSetup && (
+        <MapAddressSearchPanel
+          onClose={handleAddressSetupReturn}
+        />
+      )}
     </>
   );
 });
