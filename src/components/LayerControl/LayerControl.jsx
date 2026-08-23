@@ -338,13 +338,13 @@ function FireRiskDaySelector() {
           type="button"
           onClick={() => setFireRiskDay(day)}
           aria-pressed={active}
-          aria-label={'Show fire risk forecast Day ${day}'}
+          aria-label={`Show fire risk forecast Day ${day}`}
           className={`
             h-8 rounded-md text-[10px] font-semibold
             transition-all border
             ${
               active
-                ? 'bg-orange-500 text-white border-orange-400 shadow-1g shadow-orange-900/30'
+                ? 'bg-orange-500 text-white border-orange-400 shadow-lg shadow-orange-900/30'
                 : 'bg-zinc-950 text-zinc-400 border-zinc-700 hover:bg-zinc-800 hover:text-white hover:border-zinc-600'
             }
           `}
