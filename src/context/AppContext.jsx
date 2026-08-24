@@ -28,6 +28,7 @@ const initialState = {
     goesFireTemperature: false,
     spcWeatherOutlooks: false,
     fireWeatherOutlooks: false,
+    fireRiskOutlook: false,
     radar:             false,
     evacZones:         true,
     flights:           false,
@@ -47,6 +48,8 @@ const initialState = {
     /** Rothermel-based spread projection rings for the selected fire */
     fireBehaviorModeling: false,
   },
+  // Currently selected 7-day fire risk forecast (1-7)
+  fireRiskDay: 1,
   // Currently clicked/selected fire feature (hotspot or perimeter)
   selectedFire: null,
   // Currently selected water gauge (properties from map feature)
@@ -87,6 +90,7 @@ const initialState = {
 const A = {
   TOGGLE_LAYER:       'TOGGLE_LAYER',
   SET_LAYER:          'SET_LAYER',
+  SET_FIRE_RISK_DAY:  'SET_FIRE_RISK_DAY',
   SELECT_FIRE:        'SELECT_FIRE',
   CLEAR_SELECTED:     'CLEAR_SELECTED',
   SELECT_GAUGE:       'SELECT_GAUGE',
@@ -117,6 +121,14 @@ function reducer(state, action) {
       return {
         ...state,
         layers: { ...state.layers, [action.layer]: action.value },
+      };
+    case A.SET_FIRE_RISK_DAY:
+      return { 
+        ...state,
+        fireRiskDay: Math.min(
+          7,
+          Math.max(1, Number(action.day) || 1)
+        ),
       };
     case A.SELECT_FIRE:
       return { ...state, selectedFire: action.fire, selectedGauge: null };
@@ -169,6 +181,7 @@ export function AppProvider({ children }) {
 
   const toggleLayer      = useCallback((layer) => dispatch({ type: A.TOGGLE_LAYER, layer }), []);
   const setLayer         = useCallback((layer, value) => dispatch({ type: A.SET_LAYER, layer, value }), []);
+  const setFireRiskDay     = useCallback((day) => dispatch({ type: A.SET_FIRE_RISK_DAY, day }), [] ); 
   const selectFire       = useCallback((fire) => dispatch({ type: A.SELECT_FIRE, fire }), []);
   const clearSelected    = useCallback(() => dispatch({ type: A.CLEAR_SELECTED }), []);
   const selectGauge      = useCallback((gauge) => dispatch({ type: A.SELECT_GAUGE, gauge }), []);
@@ -203,6 +216,7 @@ export function AppProvider({ children }) {
       ...state,
       toggleLayer,
       setLayer,
+      setFireRiskDay,
       selectFire,
       clearSelected,
       selectGauge,

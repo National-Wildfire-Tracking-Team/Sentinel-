@@ -23,6 +23,7 @@ const LAYER_DEFS = {
   ndgdSmokeForecast: { label: 'Smoke Concentration', sublabel: 'NOAA NDGD hourly (48h)',      icon: CloudRain,    color: '#eab308' },
   droughtOutlook:    { label: 'Drought Outlook',     sublabel: 'NOAA CPC Monthly Outlook',    icon: Droplets,     color: '#f59e0b' },
   fireWeatherOutlooks: { label: 'Fire Weather Outlooks', sublabel: 'SPC Day 1-8 fire weather', icon: Zap,          color: '#ff6b35' },
+  fireRiskOutlook: { label: '7-day Fire Risk', sublabel: 'NIFC/NWCG Significant Fire Potential', icon: Flame, color: '#f97316' },
   rawsStations:      { label: 'RAWS Stations',       sublabel: 'Fire weather stations',       icon: Thermometer,  color: '#f97316' },
   airNowMonitors:    { label: 'Air Quality Monitors', sublabel: 'EPA AirNow sensor network',  icon: Activity,     color: '#38bdf8' },
   weatherAlerts:     { label: 'NWS & mesoscale',     sublabel: 'NWS active alerts + SPC MDs', icon: Wind,         color: '#ef4444' },
@@ -85,7 +86,7 @@ const TAB_SECTIONS = {
         },
         {
           label: 'Outlooks',
-          layers: ['spcWeatherOutlooks', 'fireWeatherOutlooks'],
+          layers: ['spcWeatherOutlooks', 'fireWeatherOutlooks', 'fireRiskOutlook'],
         },
       ],
     },
@@ -147,7 +148,7 @@ const TAB_SECTIONS = {
         },
         {
           label: 'Outlooks & smoke',
-          layers: ['ndgdSmokeForecast', 'droughtOutlook', 'fireWeatherOutlooks', 'goesFire16', 'goesFire18'],
+          layers: ['fireRiskOutlook', 'ndgdSmokeForecast', 'droughtOutlook', 'fireWeatherOutlooks', 'goesFire16', 'goesFire18'],
         },
       ],
     },
@@ -303,6 +304,65 @@ function LayerToggle({ layerKey, label, sublabel, icon: Icon, color, locked }) {
   );
 }
 
+function FireRiskDaySelector() {
+  const { layers, fireRiskDay, setFireRiskDay } = useApp();
+
+  if (!layers.fireRiskOutlook) {
+    return null;
+  }
+
+  return (
+    <div className="px-2.5 py-2.5 bg-zinc-900/70 border-t border-zinc-800">
+      <div className="flex items-center justify-between mb-2">
+        <div>
+          <div className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400">
+            Forecast Day
+          </div>
+          <div className="text-[10px] text-zinc-500 mt-0.5">
+            NIFC 7-Day Significant Fire Potential
+          </div>
+      </div>
+
+      <span className="text-[10px] font-semibold text-orange-400">
+        Day {fireRiskDay}
+      </span>
+    </div>
+
+    <div className="grid grid-cols-7 gap-1">
+      {[1, 2, 3, 4, 5, 6, 7].map((day) => {
+        const active = fireRiskDay === day;
+
+      return (
+        <button
+          key={day}
+          type="button"
+          onClick={() => setFireRiskDay(day)}
+          aria-pressed={active}
+          aria-label={`Show fire risk forecast Day ${day}`}
+          className={`
+            h-8 rounded-md text-[10px] font-semibold
+            transition-all border
+            ${
+              active
+                ? 'bg-orange-500 text-white border-orange-400 shadow-lg shadow-orange-900/30'
+                : 'bg-zinc-950 text-zinc-400 border-zinc-700 hover:bg-zinc-800 hover:text-white hover:border-zinc-600'
+            }
+          `}
+          >
+            D{day}
+          </button>
+        );
+      })}
+    </div>
+
+    <div className="flex justify-between mt-2 text-[9px] text-zinc-600">
+      <span>Today</span>
+      <span>+7 days</span>
+    </div>
+    </div>
+  );
+}
+
 const LayerControl = memo(function LayerControl({
   activeMapTab = 'wildfire',
   infrastructureLayersEntitled = false,
@@ -409,8 +469,8 @@ const LayerControl = memo(function LayerControl({
       <button
         onClick={toggleLayerPanel}
         className={`flex items-center gap-2 px-3 py-2.5 rounded-xl
-                   text-white text-sm font-medium transition-colors ${
-                     layerPanelOpen ? 'bg-zinc-800' : 'hover:bg-zinc-800/70'
+                   text-sentinel-900 dark:text-white text-sm font-medium transition-colors ${
+                     layerPanelOpen ? 'bg-sentinel-100 dark:bg-zinc-800' : 'hover:bg-sentinel-100/70 dark:hover:bg-zinc-800/70'
                    }`}
         aria-label="Toggle layer control"
         aria-pressed={layerPanelOpen}
@@ -421,7 +481,9 @@ const LayerControl = memo(function LayerControl({
 
       {layerPanelOpen && (
         <div
-          className="absolute bottom-full left-0 mb-2 w-full
+          className="absolute left-1/2 -translate-x-1/2 sm:left-0 sm:translate-x-0
+                        bottom-20 sm:bottom-full sm:mb-2
+                        w-[92vw] max-w-[380px] sm:w-full sm:max-w-none
                         bg-black backdrop-blur-md border border-zinc-700
                         rounded-2xl shadow-2xl shadow-black/60 overflow-hidden
                         origin-bottom animate-slide-up-panel"
@@ -529,14 +591,20 @@ const LayerControl = memo(function LayerControl({
                               const def = LAYER_DEFS[layerRef];
                               if (!def) return null;
                               return (
-                                <LayerToggle
-                                  key={layerRef}
-                                  layerKey={layerRef}
-                                  label={def.label}
-                                  sublabel={def.sublabel}
-                                  icon={def.icon}
-                                  color={def.color}
-                                />
+                                <div key={layerRef}>
+                                  <LayerToggle
+                                    key={layerRef}
+                                    layerKey={layerRef}
+                                    label={def.label}
+                                    sublabel={def.sublabel}
+                                    icon={def.icon}
+                                    color={def.color}
+                                  />
+
+                                  {layerRef === 'fireRiskOutlook' && (
+                                    <FireRiskDaySelector />
+                                  )}
+                                </div>
                               );
                             })}
                           </div>

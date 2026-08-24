@@ -351,8 +351,7 @@ function HoverTooltip({ feature, lngLat }) {
       );
       break;
     }
-    case 'evac-zones-fill':
-    case 'evac-zones-dot': {
+    case 'evac-zones-fill': {
       const isReporter = p.source === 'reporter';
       const isIpaws = p.source === 'ipaws';
 
@@ -1060,7 +1059,6 @@ export default function MapView({
     }
     if (layers.evacZones && evacZonesGeoJSON) {
       ids.push('evac-zones-fill');
-      ids.push('evac-zones-dot');
     }
     if (layers.flights && flightsGeoJSON)                                                                 ids.push('flights-symbol');
     if (layers.rawsStations && rawsGeoJSON)                                                               ids.push('raws-stations-circle');
@@ -1327,7 +1325,7 @@ export default function MapView({
         created_at:  p.created_at,
         user_id:     p.user_id,
       });
-    } else if ((feature.layer.id === 'evac-zones-fill' || feature.layer.id === 'evac-zones-dot') && p.source === 'reporter') {
+    } else if (feature.layer.id === 'evac-zones-fill' && p.source === 'reporter') {
       selectFire({
         type:          'reporter-evacuation-zone',
         id:            p.id || null,
@@ -1344,7 +1342,7 @@ export default function MapView({
         lat:           evt.lngLat.lat,
         lng:           evt.lngLat.lng,
       });
-    } else if (feature.layer.id === 'evac-zones-fill' || feature.layer.id === 'evac-zones-dot') {
+    } else if (feature.layer.id === 'evac-zones-fill') {
       const isIpaws = p.source === 'ipaws';
       selectFire({
         type:           'evacuation-zone',
