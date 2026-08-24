@@ -74,8 +74,8 @@ const Sidebar = memo(function Sidebar({
           ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
         `}
       >
-        {/* Sidebar header */}
-        <div className={`flex items-center px-4 py-3 border-b shrink-0 ${isAllHazardTab ? 'border-red-900/60 bg-gradient-to-r from-fire-900/30 to-sky-900/20' : 'border-sentinel-700'}`}>
+        {/* Sidebar header — left-padded on mobile to clear the floating corner-button column, which only shifts out of the way at sm+ */}
+        <div className={`flex items-center pl-20 pr-4 sm:px-4 py-3 border-b shrink-0 ${isAllHazardTab ? 'border-red-900/60 bg-gradient-to-r from-fire-900/30 to-sky-900/20' : 'border-sentinel-700'}`}>
           <div className="flex items-center gap-2">
             {isAllHazardTab ? (
               <>
@@ -107,8 +107,8 @@ const Sidebar = memo(function Sidebar({
           </div>
         </div>
 
-        {/* Summary stats strip */}
-        <div className={`px-3 py-2 border-b shrink-0 ${isAllHazardTab ? 'border-red-900/50' : 'border-sentinel-700'}`}>
+        {/* Summary stats strip — same mobile left-padding as the header, for the same reason */}
+        <div className={`pl-20 pr-3 sm:px-3 py-2 border-b shrink-0 ${isAllHazardTab ? 'border-red-900/50' : 'border-sentinel-700'}`}>
           <div className="flex justify-center gap-2 overflow-x-auto pb-1 scrollbar-none">
             {isAllHazardTab ? (
               <>

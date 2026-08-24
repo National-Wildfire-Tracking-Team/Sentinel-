@@ -25,7 +25,7 @@ function CornerButton({ active, onClick, ariaLabel, children }) {
       className={`flex items-center justify-center w-11 h-11 rounded-full border shadow-xl backdrop-blur-sm transition-colors ${
         active
           ? 'bg-fire-600 border-fire-500 text-white'
-          : 'bg-black/90 border-zinc-700 text-white hover:bg-zinc-800'
+          : 'bg-white/90 dark:bg-black/90 border-sentinel-200 dark:border-zinc-700 text-sentinel-700 dark:text-white hover:bg-sentinel-100 dark:hover:bg-zinc-800'
       }`}
     >
       {children}
@@ -38,6 +38,7 @@ const MapCornerButtons = memo(function MapCornerButtons() {
     sidebarOpen, toggleSidebar,
     futurePanelOpen, toggleFuturePanel,
     accountPanelOpen, toggleAccountPanel,
+    layerPanelOpen,
     locationGranted, grantLocation, setUserLocation,
     setViewport,
   } = useApp();
@@ -82,13 +83,19 @@ const MapCornerButtons = memo(function MapCornerButtons() {
 
   // When a left overlay panel (sidebar or future-features) is open, slide the
   // button column out from over the panel to the right, over the map itself.
+  // On phones those panels are full-width (no room to shift into), so this
+  // column stays put and remains the only way to close them — the panels
+  // themselves reserve top-left space instead (see Sidebar/FutureFeaturesPanel).
   const panelOpen = sidebarOpen || futurePanelOpen;
 
+  // The layer control's popover (bottom toolbar) is wide enough on phones to
+  // reach under this column, but it has its own always-visible toggle button
+  // in the bottom bar, so it's safe to fade this column out of the way there.
   return (
     <div
-      className={`absolute top-4 z-50 flex flex-col gap-3 transition-[left] duration-300 ease-in-out ${
+      className={`absolute top-4 z-50 flex flex-col gap-3 transition-[left,opacity] duration-300 ease-in-out ${
         panelOpen ? 'left-4 sm:left-[336px]' : 'left-4'
-      }`}
+      } ${layerPanelOpen ? 'opacity-0 pointer-events-none sm:opacity-100 sm:pointer-events-auto' : ''}`}
     >
       <CornerButton active={futurePanelOpen} onClick={toggleFuturePanel} ariaLabel="Open more features panel">
         <Menu size={19} />
@@ -116,7 +123,7 @@ const MapCornerButtons = memo(function MapCornerButtons() {
         {locationError && (
           <div
             role="alert"
-            className="absolute top-0 left-full ml-2 w-56 rounded-lg border border-zinc-700 bg-black/95 px-3 py-2 text-xs text-white shadow-xl"
+            className="absolute top-0 left-full ml-2 w-56 rounded-lg border border-sentinel-200 dark:border-zinc-700 bg-white dark:bg-black/95 px-3 py-2 text-xs text-sentinel-900 dark:text-white shadow-xl"
           >
             {locationError}
           </div>

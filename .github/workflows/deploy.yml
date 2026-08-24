@@ -17,6 +17,10 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          VITE_MAPBOX_TOKEN: ${{ secrets.VITE_MAPBOX_TOKEN }}
       - uses: actions/upload-artifact@v4
         with:
           name: dist
@@ -28,15 +32,21 @@ jobs:
     needs: [build]
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
       - uses: actions/download-artifact@v4
         with:
           name: dist
           path: dist/
-      - uses: nwtgck/actions-netlify@v3
-        with:
-          publish-dir: dist/
-          production-deploy: true
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+      # Deploy with the Netlify CLI (not a raw folder upload) so netlify.toml's
+      # redirects/headers and the netlify/edge-functions/ directory actually get
+      # processed — a plain publish-dir upload skips both, which is why prior
+      # deploys done this way logged "No redirect rules processed" and "No edge
+      # functions deployed" and never correctly served the app at /sentinel.
+      - run: npx --yes netlify-cli deploy --no-build --dir=dist --prod --site="$NETLIFY_SITE_ID" --auth="$NETLIFY_AUTH_TOKEN" --message="Deploy ${{ github.sha }}"
         env:
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
           NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}

@@ -1,6 +1,18 @@
 <!DOCTYPE html>
-<html lang="en" class="dark">
+<html lang="en">
   <head>
+    <script>
+      // Apply the stored theme before paint to avoid a flash of the wrong theme.
+      // Defaults to dark (this app's original, and still primary, look).
+      (function () {
+        try {
+          var stored = localStorage.getItem('nwtt-theme');
+          if (stored !== 'light') document.documentElement.classList.add('dark');
+        } catch (e) {
+          document.documentElement.classList.add('dark');
+        }
+      })();
+    </script>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/sentinel-icon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />

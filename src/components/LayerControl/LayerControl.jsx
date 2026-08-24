@@ -469,8 +469,8 @@ const LayerControl = memo(function LayerControl({
       <button
         onClick={toggleLayerPanel}
         className={`flex items-center gap-2 px-3 py-2.5 rounded-xl
-                   text-white text-sm font-medium transition-colors ${
-                     layerPanelOpen ? 'bg-zinc-800' : 'hover:bg-zinc-800/70'
+                   text-sentinel-900 dark:text-white text-sm font-medium transition-colors ${
+                     layerPanelOpen ? 'bg-sentinel-100 dark:bg-zinc-800' : 'hover:bg-sentinel-100/70 dark:hover:bg-zinc-800/70'
                    }`}
         aria-label="Toggle layer control"
         aria-pressed={layerPanelOpen}
@@ -481,7 +481,9 @@ const LayerControl = memo(function LayerControl({
 
       {layerPanelOpen && (
         <div
-          className="absolute bottom-full left-0 mb-2 w-full
+          className="absolute left-1/2 -translate-x-1/2 sm:left-0 sm:translate-x-0
+                        bottom-20 sm:bottom-full sm:mb-2
+                        w-[92vw] max-w-[380px] sm:w-full sm:max-w-none
                         bg-black backdrop-blur-md border border-zinc-700
                         rounded-2xl shadow-2xl shadow-black/60 overflow-hidden
                         origin-bottom animate-slide-up-panel"

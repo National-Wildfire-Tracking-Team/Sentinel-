@@ -938,7 +938,7 @@ const flightBounds = useMemo(() => {
             onWeatherAlertsRefresh={refreshAlerts}
           />
 
-          <FutureFeaturesPanel />
+          <FutureFeaturesPanel mapType={mapType} onMapTypeChange={setMapType} />
 
           <AccountPanel />
 
