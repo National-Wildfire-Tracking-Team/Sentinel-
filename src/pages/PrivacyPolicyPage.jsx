@@ -45,13 +45,21 @@ const sections = [
     ],
   },
   {
-    title: '7. Children\'s Privacy',
+    title: '7. Advertising & Cookies',
+    body: [
+      'We use Google AdSense to display advertising on this website. Google and its partners use cookies and similar technologies (including the DoubleClick cookie) to serve ads based on your prior visits to this and other websites.',
+      'Google\'s use of advertising cookies enables it and its partners to serve ads based on your visit to this site and/or other sites on the Internet. You may opt out of personalized advertising by visiting Google\'s Ads Settings at adssettings.google.com, or opt out of a participating third-party vendor\'s use of cookies for personalized advertising by visiting aboutads.info/choices.',
+      'These third-party ad vendors\' use of cookies is subject to their own privacy policies, not ours. We do not control the content of ads served by Google or the data Google collects to serve them.',
+    ],
+  },
+  {
+    title: '8. Children\'s Privacy',
     body: [
       'Our services are not directed to children under 13. We do not knowingly collect personal information from children under 13.',
     ],
   },
   {
-    title: '8. Updates to This Policy',
+    title: '9. Updates to This Policy',
     body: [
       'We may update this Privacy Policy from time to time. Material updates will be posted on this page with an updated effective date.',
     ],
