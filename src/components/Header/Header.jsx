@@ -93,7 +93,7 @@ const Header = memo(function Header({ onRefresh }) {
 
   return (
     <>
-      <header className="relative z-40 flex items-center justify-between h-14 px-4 bg-sentinel-900/95 backdrop-blur-sm border-b border-sentinel-700 shrink-0">
+      <header className="relative z-40 flex items-center justify-between h-14 px-4 bg-white/95 dark:bg-sentinel-900/95 backdrop-blur-sm border-b border-sentinel-200 dark:border-sentinel-700 shrink-0">
         {/* Left – Logo + title */}
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2">
@@ -102,11 +102,11 @@ const Header = memo(function Header({ onRefresh }) {
               {/* pulsing dot for active status */}
               <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-fire-500 rounded-full animate-pulse" />
             </div>
-            <span className="inline-flex items-center font-bold text-white text-lg tracking-tight">
+            <span className="inline-flex items-center font-bold text-sentinel-900 dark:text-white text-lg tracking-tight">
               Sentinel
               <span className="self-start ml-0.5 mt-0.5 text-[0.45em] font-bold tracking-wider text-fire-400">BETA</span>
             </span>
-            <span className="hidden sm:inline text-sentinel-400 text-sm font-light">
+            <span className="hidden sm:inline text-sentinel-500 dark:text-sentinel-400 text-sm font-light">
               All Hazard Intelligence
             </span>
           </div>
@@ -121,7 +121,7 @@ const Header = memo(function Header({ onRefresh }) {
 
           {/* Last updated */}
           <span
-            className={`hidden md:inline text-xs text-sentinel-400 whitespace-nowrap overflow-hidden transition-all duration-300 ${
+            className={`hidden md:inline text-xs text-sentinel-500 dark:text-sentinel-400 whitespace-nowrap overflow-hidden transition-all duration-300 ${
               shouldShowIndicator ? 'max-w-40 opacity-100 ml-1' : 'max-w-0 opacity-0 ml-0'
             }`}
             aria-hidden={!shouldShowIndicator}
@@ -134,7 +134,7 @@ const Header = memo(function Header({ onRefresh }) {
             onClick={handleRefreshClick}
             disabled={isLoading}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium
-                       text-sentinel-300 hover:text-white hover:bg-sentinel-700
+                       text-sentinel-600 dark:text-sentinel-300 hover:text-sentinel-900 dark:hover:text-white hover:bg-sentinel-100 dark:hover:bg-sentinel-700
                        disabled:opacity-50 disabled:cursor-not-allowed
                        transition-colors"
             aria-label="Refresh data"

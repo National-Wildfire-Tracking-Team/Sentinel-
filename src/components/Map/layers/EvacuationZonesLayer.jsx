@@ -22,7 +22,7 @@
  * an official feed, matching the polygon drawn on EvacZoneDrawer.
  */
 
-import { useEffect, useRef, useMemo } from 'react';
+import { useEffect, useRef } from 'react';
 import { Source, Layer, useMap } from 'react-map-gl';
 import {
   EVAC_ZONE_FILL_COLORS,
@@ -37,28 +37,6 @@ const IS_REPORTER_FILTER = ['==', ['get', 'source'], 'reporter'];
 
 /** Normalized zone-level key shared by both schemas: warningType (official) or zone_type (reporter). */
 const ZONE_LEVEL = ['coalesce', ['get', 'warningType'], ['get', 'zone_type']];
-
-/**
- * Compute the centroid of a GeoJSON Polygon or MultiPolygon ring.
- * Returns [lng, lat] or null.
- */
-function polygonCentroid(geometry) {
-  try {
-    if (!geometry) return null;
-    const coords =
-      geometry.type === 'Polygon'
-        ? geometry.coordinates[0]
-        : geometry.type === 'MultiPolygon'
-        ? geometry.coordinates[0][0]
-        : null;
-    if (!coords?.length) return null;
-    const lng = coords.reduce((s, c) => s + c[0], 0) / coords.length;
-    const lat = coords.reduce((s, c) => s + c[1], 0) / coords.length;
-    return [lng, lat];
-  } catch {
-    return null;
-  }
-}
 
 const COLOR_MATCH = [
   'match',
@@ -92,27 +70,6 @@ export default function EvacuationZonesLayer({ geoJSON, visible }) {
   const { current: map } = useMap();
   const prevCountRef = useRef(0);
 
-  // Build a companion FeatureCollection of centroid points for the dot layer
-  const dotsData = useMemo(() => {
-    if (!data?.features?.length) return EMPTY_GEOJSON;
-    const dots = data.features
-      .map((f, idx) => {
-        const center = polygonCentroid(f.geometry);
-        if (!center) return null;
-        return {
-          type: 'Feature',
-          id: `dot-${f.id || idx}`,
-          geometry: { type: 'Point', coordinates: center },
-          properties: f.properties,
-        };
-      })
-      .filter(Boolean);
-    return {
-      type: 'FeatureCollection',
-      features: dots,
-    };
-  }, [data]);
-
   // Force source data update when geoJSON changes
   useEffect(() => {
     if (!map) return;
@@ -127,16 +84,7 @@ export default function EvacuationZonesLayer({ geoJSON, visible }) {
     } catch {
       // source not yet added
     }
-
-    try {
-      const dotSource = map.getSource('evac-zones-dots');
-      if (dotSource && dotSource.type === 'geojson') {
-        dotSource.setData(dotsData);
-      }
-    } catch {
-      // source not yet added
-    }
-  }, [data, dotsData, map]);
+  }, [data, map]);
 
   return (
     <>
@@ -227,67 +175,6 @@ export default function EvacuationZonesLayer({ geoJSON, visible }) {
             'text-color': '#ffffff',
             'text-halo-color': 'rgba(0,0,0,0.85)',
             'text-halo-width': 2,
-          }}
-        />
-      </Source>
-
-      {/* Persistent markers at polygon centroids */}
-      <Source id="evac-zones-dots" type="geojson" data={dotsData}>
-        <Layer
-          id="evac-zones-dot-halo"
-          type="circle"
-          source="evac-zones-dots"
-          layout={{ visibility: vis }}
-          paint={{
-            'circle-color': '#111827',
-            'circle-opacity': 0.9,
-            'circle-radius': [
-              'interpolate', ['linear'], ['zoom'],
-              0, 7,
-              5, 11,
-              10, 14,
-            ],
-          }}
-        />
-        <Layer
-          id="evac-zones-dot"
-          type="circle"
-          source="evac-zones-dots"
-          layout={{ visibility: vis }}
-          paint={{
-            'circle-color':   COLOR_MATCH,
-            'circle-opacity': 0.95,
-            'circle-radius':  [
-              'interpolate', ['linear'], ['zoom'],
-              0, 5,
-              5, 8,
-              10, 11,
-            ],
-            'circle-stroke-color': '#ffffff',
-            'circle-stroke-width': 2,
-            'circle-stroke-opacity': 1,
-          }}
-        />
-        <Layer
-          id="evac-zones-dot-alert"
-          type="symbol"
-          source="evac-zones-dots"
-          layout={{
-            visibility: vis,
-            'text-field': '!',
-            'text-size': [
-              'interpolate', ['linear'], ['zoom'],
-              0, 9,
-              5, 12,
-              10, 15,
-            ],
-            'text-font': ['DIN Pro Bold', 'Arial Unicode MS Bold'],
-            'text-allow-overlap': true,
-          }}
-          paint={{
-            'text-color': '#ffffff',
-            'text-halo-color': 'rgba(0,0,0,0.45)',
-            'text-halo-width': 0.5,
           }}
         />
       </Source>
