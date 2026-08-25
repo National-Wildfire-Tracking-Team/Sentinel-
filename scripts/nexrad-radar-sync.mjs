@@ -43,6 +43,7 @@
  * assuming both live at elevation 1.
  */
 
+import { gzipSync } from 'node:zlib';
 import Level2Radar from 'nexrad-level-2-data';
 import { encodeScanPayload } from '../src/utils/nexradPayloadFormat.js';
 
@@ -273,6 +274,14 @@ async function publishProduct({ site, product, elevationDeg, azimuths, radials, 
     moments,
   });
 
+  // Most gates are the "no data" sentinel byte (typically 75-85% of the
+  // buffer), so gzip compresses this extremely well — cuts a ~1.3MB
+  // reflectivity payload down to a few hundred KB, which is the difference
+  // between a snappy and a sluggish-feeling panel on a real connection.
+  // The frontend always decompresses explicitly (DecompressionStream), so
+  // this isn't relying on the CDN forwarding Content-Encoding correctly.
+  const compressed = gzipSync(Buffer.from(buffer));
+
   const storagePath = `${site}/${product}/latest.bin`;
 
   const uploadResp = await fetch(
@@ -283,7 +292,7 @@ async function publishProduct({ site, product, elevationDeg, azimuths, radials, 
         'Content-Type': 'application/octet-stream',
         'x-upsert': 'true',
       }),
-      body: Buffer.from(buffer),
+      body: compressed,
     },
   );
   if (!uploadResp.ok) {
@@ -305,7 +314,7 @@ async function publishProduct({ site, product, elevationDeg, azimuths, radials, 
         elevation_deg: elevationDeg,
         source_file: sourceFile,
         storage_path: storagePath,
-        byte_size: buffer.byteLength,
+        byte_size: compressed.byteLength,
         gate_count: gateCount,
         radial_count: azimuths.length,
         updated_at: new Date().toISOString(),

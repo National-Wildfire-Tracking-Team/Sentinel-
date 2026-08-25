@@ -16,7 +16,11 @@ const NexradScanLayer = memo(function NexradScanLayer({ dataUrl, coordinates, vi
       <Layer
         id="nexrad-scan-raster"
         type="raster"
-        paint={{ 'raster-opacity': 0.85, 'raster-fade-duration': 0 }}
+        paint={{
+          'raster-opacity': 0.85,
+          'raster-fade-duration': 300,
+          'raster-resampling': 'linear',
+        }}
       />
     </Source>
   );

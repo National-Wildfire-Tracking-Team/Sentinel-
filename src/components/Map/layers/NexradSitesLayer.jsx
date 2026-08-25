@@ -56,24 +56,29 @@ const NexradSitesLayer = memo(function NexradSitesLayer({ geoJSON, visible }) {
         }}
       />
 
-      {/* Station ID label at higher zoom */}
+      {/* Station ID label — visible from a regional zoom, not just close-in,
+          so sites are scannable at a glance (matches most public radar
+          viewers' always-labeled site markers). Mapbox's built-in label
+          collision handling thins these out automatically as more sites
+          come into view at lower zoom. */}
       <Layer
         id="nexrad-sites-label"
         type="symbol"
-        minzoom={6}
+        minzoom={MIN_ZOOM}
         layout={{
           visibility: vis,
           'text-field': ['get', 'id'],
           'text-font': ['DIN Pro Bold', 'Arial Unicode MS Bold'],
-          'text-size': 10,
+          'text-size': ['interpolate', ['linear'], ['zoom'], 3, 9, 8, 11],
           'text-anchor': 'top',
-          'text-offset': [0, 0.9],
+          'text-offset': [0, 0.85],
           'text-allow-overlap': false,
+          'text-optional': true,
         }}
         paint={{
-          'text-color': '#ffffff',
-          'text-halo-color': 'rgba(0,0,0,0.7)',
-          'text-halo-width': 1.5,
+          'text-color': STATUS_COLOR,
+          'text-halo-color': 'rgba(0,0,0,0.85)',
+          'text-halo-width': 1.4,
         }}
       />
     </Source>

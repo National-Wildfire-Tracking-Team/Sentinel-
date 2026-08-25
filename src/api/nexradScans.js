@@ -33,6 +33,12 @@ export async function fetchScanMeta(siteId, product) {
   return data;
 }
 
+/** Decompress a gzip-compressed ArrayBuffer (the sync script gzips every payload). */
+async function gunzip(arrayBuffer) {
+  const stream = new Blob([arrayBuffer]).stream().pipeThrough(new DecompressionStream('gzip'));
+  return new Response(stream).arrayBuffer();
+}
+
 /** Fetch + decode the compact binary scan payload at the given storage path. */
 export async function fetchScanPayload(storagePath) {
   const { data } = supabase.storage.from(STORAGE_BUCKET).getPublicUrl(storagePath);
@@ -44,6 +50,7 @@ export async function fetchScanPayload(storagePath) {
   const resp = await fetch(`${url}?t=${Date.now()}`);
   if (!resp.ok) throw new Error(`Scan payload fetch failed: HTTP ${resp.status}`);
 
-  const buffer = await resp.arrayBuffer();
+  const compressed = await resp.arrayBuffer();
+  const buffer = await gunzip(compressed);
   return decodeScanPayload(buffer);
 }

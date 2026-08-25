@@ -1,19 +1,20 @@
 /**
  * RadarSitePanel.jsx
- * Slide-in detail panel for a selected NEXRAD radar site. Shows live
- * operability status, last-scan timestamp, and lets the user switch between
- * available Level II products. The actual radar sweep is rendered on the map
- * by NexradScanLayer — this panel is controls + status only.
+ * Compact floating widget for a selected NEXRAD radar site — status, last
+ * scan time, and product switcher. Styled as a small collapsible card
+ * (matching Legend.jsx's floating-card conventions) rather than a full-height
+ * slide-in, so it stays out of the way of the map. The actual radar sweep is
+ * rendered on the map by NexradScanLayer — this widget is controls + status.
  */
 
-import { memo } from 'react';
-import { X, RadioTower } from 'lucide-react';
+import { memo, useState } from 'react';
+import { X, RadioTower, ChevronDown, ChevronUp } from 'lucide-react';
 import { NEXRAD_STATUS } from '../../api/nexradSites';
 
 const PRODUCTS = [
-  { id: 'reflectivity', label: 'Reflectivity', available: true },
-  { id: 'velocity', label: 'Velocity', available: true },
-  { id: 'spectrumWidth', label: 'Spectrum Width', available: false },
+  { id: 'reflectivity', label: 'REF', available: true },
+  { id: 'velocity', label: 'VEL', available: true },
+  { id: 'spectrumWidth', label: 'SW', available: false },
   { id: 'zdr', label: 'ZDR', available: false },
   { id: 'cc', label: 'CC', available: false },
 ];
@@ -24,9 +25,9 @@ function resolveDisplayStatus(siteStatus, scanStatus) {
     return { label: 'OFFLINE', color: NEXRAD_STATUS.offline.color };
   }
   if (scanStatus === 'live') return { label: 'LIVE', color: NEXRAD_STATUS.operate.color };
-  if (scanStatus === 'loading') return { label: 'LOADING…', color: NEXRAD_STATUS.unknown.color };
-  if (scanStatus === 'stale') return { label: 'DATA UNAVAILABLE', color: NEXRAD_STATUS.alarm.color };
-  return { label: 'DATA UNAVAILABLE', color: NEXRAD_STATUS.unknown.color };
+  if (scanStatus === 'loading') return { label: 'LOADING', color: NEXRAD_STATUS.unknown.color };
+  if (scanStatus === 'stale') return { label: 'UNAVAILABLE', color: NEXRAD_STATUS.alarm.color };
+  return { label: 'UNAVAILABLE', color: NEXRAD_STATUS.unknown.color };
 }
 
 function formatScanTime(scanTime) {
@@ -45,129 +46,108 @@ function minutesAgo(scanTime) {
 }
 
 const RadarSitePanel = memo(function RadarSitePanel({ site, product, onProductChange, meta, status, error, onClose }) {
+  const [collapsed, setCollapsed] = useState(false);
+
   if (!site) return null;
 
   const display = resolveDisplayStatus(site.status, status);
   const scanTime = meta?.scan_time ?? null;
 
   return (
-    <div className="
-      fixed right-0 top-0 h-full w-full sm:w-[420px]
-      bg-sentinel-900 border-l border-sentinel-700
-      flex flex-col z-40 shadow-2xl shadow-black/60
-      overflow-hidden
-    ">
-      {/* Header */}
-      <div className="flex items-start justify-between px-4 pt-4 pb-3 border-b border-sentinel-700 shrink-0">
-        <div className="flex items-start gap-2 min-w-0 mr-3">
-          <div className="p-1.5 bg-cyan-900/50 rounded-lg shrink-0 mt-0.5">
-            <RadioTower size={16} className="text-cyan-400" />
-          </div>
-          <div className="min-w-0">
-            <h2 className="text-sm font-bold text-white leading-tight break-words">
-              {site.id} — {site.name}
-            </h2>
-            <div className="text-[11px] text-sentinel-400 mt-0.5">
-              NWS NEXRAD Level II · {site.stationType || 'WSR-88D'}
-            </div>
-            <span
-              className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold text-white mt-1"
-              style={{ backgroundColor: display.color }}
-            >
-              {display.label}
-            </span>
-          </div>
+    <div className="absolute top-4 right-4 z-30 w-64 bg-sentinel-900/95 backdrop-blur-sm border border-sentinel-700 rounded-xl shadow-2xl shadow-black/60 overflow-hidden animate-fade-in">
+      {/* Header — always visible, single compact row */}
+      <div className="flex items-center gap-2 px-3 py-2.5 border-b border-sentinel-700">
+        <RadioTower size={14} className="text-cyan-400 shrink-0" />
+        <div className="min-w-0 flex-1">
+          <div className="text-xs font-bold text-white truncate">{site.id}</div>
+          <div className="text-[10px] text-sentinel-400 truncate">{site.name}</div>
         </div>
+        <span
+          className="shrink-0 px-1.5 py-0.5 rounded text-[9px] font-bold text-white"
+          style={{ backgroundColor: display.color }}
+        >
+          {display.label}
+        </span>
+        <button
+          onClick={() => setCollapsed((c) => !c)}
+          className="shrink-0 text-sentinel-400 hover:text-white transition-colors p-0.5"
+          aria-label={collapsed ? 'Expand' : 'Collapse'}
+        >
+          {collapsed ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
+        </button>
         <button
           onClick={onClose}
-          className="text-sentinel-400 hover:text-white transition-colors shrink-0 p-1"
+          className="shrink-0 text-sentinel-400 hover:text-white transition-colors p-0.5"
           aria-label="Close"
         >
-          <X size={18} />
+          <X size={14} />
         </button>
       </div>
 
-      {/* Body */}
-      <div className="flex-1 overflow-y-auto px-4 py-4">
-        {/* Last scan */}
-        <div className="flex gap-2 mb-4">
-          <div className="flex-1 bg-sentinel-800/60 rounded-lg p-2.5 border border-sentinel-700">
-            <div className="text-[10px] text-sentinel-400 uppercase tracking-wider font-bold mb-0.5">
-              Last Scan
-            </div>
-            <div className="text-lg font-bold text-cyan-400">
+      {!collapsed && (
+        <div className="px-3 py-2.5">
+          {/* Scan time row */}
+          <div className="flex items-center justify-between mb-2.5 text-[11px]">
+            <span className="text-sentinel-400 uppercase tracking-wide font-semibold">Scan</span>
+            <span className="text-cyan-300 font-mono font-semibold">
               {formatScanTime(scanTime) ?? '—'}
-            </div>
-            {scanTime && (
-              <div className="text-[10px] text-sentinel-500 mt-0.5">{minutesAgo(scanTime)}</div>
-            )}
+              {scanTime && <span className="text-sentinel-500 ml-1.5 font-sans">({minutesAgo(scanTime)})</span>}
+            </span>
           </div>
-        </div>
 
-        {/* Product selector */}
-        <div className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-sentinel-400">
-          Product
-        </div>
-        <div className="grid grid-cols-3 gap-1.5 mb-4">
-          {PRODUCTS.map((p) => {
-            const active = product === p.id;
-            if (!p.available) {
+          {/* Product selector — compact row */}
+          <div className="grid grid-cols-5 gap-1 mb-2">
+            {PRODUCTS.map((p) => {
+              const active = product === p.id;
+              if (!p.available) {
+                return (
+                  <div
+                    key={p.id}
+                    title={`${p.label} — coming soon`}
+                    className="h-8 rounded text-[9px] font-semibold border flex items-center justify-center opacity-40 bg-zinc-950 text-zinc-600 border-zinc-800 cursor-not-allowed"
+                  >
+                    {p.label}
+                  </div>
+                );
+              }
               return (
-                <div
+                <button
                   key={p.id}
-                  className="h-12 rounded-md text-[10px] font-semibold border flex flex-col items-center justify-center gap-0.5 opacity-40 bg-zinc-950 text-zinc-600 border-zinc-800 cursor-not-allowed"
+                  type="button"
+                  onClick={() => onProductChange(p.id)}
+                  aria-pressed={active}
+                  className={`h-8 rounded text-[10px] font-bold transition-all border ${
+                    active
+                      ? 'bg-cyan-500 text-white border-cyan-400'
+                      : 'bg-zinc-950 text-zinc-400 border-zinc-700 hover:bg-zinc-800 hover:text-white'
+                  }`}
                 >
-                  <span>{p.label}</span>
-                  <span className="text-[8px] uppercase tracking-wide text-amber-500/80">Soon</span>
-                </div>
+                  {p.label}
+                </button>
               );
-            }
-            return (
-              <button
-                key={p.id}
-                type="button"
-                onClick={() => onProductChange(p.id)}
-                aria-pressed={active}
-                className={`h-12 rounded-md text-[10px] font-semibold transition-all border ${
-                  active
-                    ? 'bg-cyan-500 text-white border-cyan-400 shadow-lg shadow-cyan-900/30'
-                    : 'bg-zinc-950 text-zinc-400 border-zinc-700 hover:bg-zinc-800 hover:text-white hover:border-zinc-600'
-                }`}
-              >
-                {p.label}
-              </button>
-            );
-          })}
+            })}
+          </div>
+
+          {status === 'loading' && !meta && (
+            <div className="flex items-center gap-2 text-[10px] text-sentinel-400 py-1.5">
+              <div className="w-2.5 h-2.5 border-2 border-sentinel-500 border-t-cyan-400 rounded-full animate-spin shrink-0" />
+              Loading first scan — can take a couple minutes for a new site.
+            </div>
+          )}
+
+          {status === 'stale' && (
+            <div className="text-[10px] text-amber-300 bg-amber-900/20 border border-amber-800 rounded p-1.5">
+              Radar data temporarily unavailable.
+            </div>
+          )}
+
+          {error && (
+            <div className="text-[10px] text-red-400 bg-red-900/20 border border-red-800 rounded p-1.5">
+              {error}
+            </div>
+          )}
         </div>
-
-        {/* Status messaging */}
-        {status === 'loading' && !meta && (
-          <div className="flex items-center gap-2 text-xs text-sentinel-400 py-4">
-            <div className="w-3 h-3 border-2 border-sentinel-500 border-t-cyan-400 rounded-full animate-spin" />
-            Loading first scan — this can take a couple of minutes for a site that hasn't been viewed recently.
-          </div>
-        )}
-
-        {status === 'stale' && (
-          <div className="text-xs text-amber-300 bg-amber-900/20 border border-amber-800 rounded p-2 mb-3">
-            Radar data temporarily unavailable.
-          </div>
-        )}
-
-        {error && (
-          <div className="text-xs text-red-400 bg-red-900/20 border border-red-800 rounded p-2 mb-3">
-            {error}
-          </div>
-        )}
-
-        {/* Footer */}
-        <div className="mt-6 pt-3 border-t border-sentinel-800">
-          <p className="text-[10px] text-sentinel-500 leading-relaxed">
-            Live Level II data decoded from NOAA/Unidata radar feeds · Reflectivity + Velocity, lowest tilt.
-            Spectrum Width, ZDR, and CC are decodable but not yet wired up.
-          </p>
-        </div>
-      </div>
+      )}
     </div>
   );
 });

@@ -11,7 +11,7 @@
  * radar viewers use.
  */
 
-const CANVAS_SIZE = 512; // px, square output
+const CANVAS_SIZE = 768; // px, square output — higher res + linear raster-resampling on the Mapbox layer softens the polar-to-grid blockiness
 const METERS_PER_DEG_LAT = 111320;
 
 // Reuses the same band thresholds as Legend.jsx's RADAR_DBZ_SCALE so the
