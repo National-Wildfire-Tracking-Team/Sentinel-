@@ -929,7 +929,7 @@ export default function MapView({
   waterGaugesGeoJSON,
   calFireHistoricalPerimetersGeoJSON,
 }) {
-  const { layers, alerts, selectFire, selectGauge, viewport, setViewport, sidebarOpen, locationGranted, userLocation, setUserLocation } = useApp();
+  const { layers, alerts, selectFire, selectGauge, viewport, setViewport, sidebarOpen, locationGranted, userLocation, setUserLocation, layerPanelOpen, closeLayerPanel } = useApp();
   const mapRef = useRef(null);
 
   // Resize the Mapbox canvas after the sidebar transition completes (300ms)
@@ -1117,6 +1117,8 @@ export default function MapView({
 
   // Handle map click – add measurement point OR select fire for detail panel
   const handleClick = useCallback((evt) => {
+    if (layerPanelOpen) closeLayerPanel();
+
     if (measureActive) {
       const { lng, lat } = evt.lngLat;
       setMeasurePoints(prev => [...prev, { lng, lat }]);
@@ -1409,7 +1411,7 @@ export default function MapView({
         window.open(p.url, '_blank', 'noopener,noreferrer');
       }
     }
-  }, [measureActive, alerts, selectFire, selectGauge]);
+  }, [measureActive, alerts, selectFire, selectGauge, layerPanelOpen, closeLayerPanel]);
 
   // Handle mouse move – update hover tooltip OR measurement preview
   const handleMouseMove = useCallback((evt) => {

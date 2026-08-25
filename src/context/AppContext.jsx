@@ -92,6 +92,7 @@ const A = {
   SELECT_GAUGE:       'SELECT_GAUGE',
   TOGGLE_SIDEBAR:     'TOGGLE_SIDEBAR',
   TOGGLE_LAYER_PANEL: 'TOGGLE_LAYER_PANEL',
+  CLOSE_LAYER_PANEL:  'CLOSE_LAYER_PANEL',
   TOGGLE_FUTURE_PANEL: 'TOGGLE_FUTURE_PANEL',
   TOGGLE_ACCOUNT_PANEL: 'TOGGLE_ACCOUNT_PANEL',
   TOGGLE_LEGEND:      'TOGGLE_LEGEND',
@@ -130,6 +131,8 @@ function reducer(state, action) {
     }
     case A.TOGGLE_LAYER_PANEL:
       return { ...state, layerPanelOpen: !state.layerPanelOpen };
+    case A.CLOSE_LAYER_PANEL:
+      return state.layerPanelOpen ? { ...state, layerPanelOpen: false } : state;
     case A.TOGGLE_FUTURE_PANEL: {
       const next = !state.futurePanelOpen;
       return { ...state, futurePanelOpen: next, sidebarOpen: next ? false : state.sidebarOpen, accountPanelOpen: next ? false : state.accountPanelOpen };
@@ -174,6 +177,7 @@ export function AppProvider({ children }) {
   const selectGauge      = useCallback((gauge) => dispatch({ type: A.SELECT_GAUGE, gauge }), []);
   const toggleSidebar    = useCallback(() => dispatch({ type: A.TOGGLE_SIDEBAR }), []);
   const toggleLayerPanel = useCallback(() => dispatch({ type: A.TOGGLE_LAYER_PANEL }), []);
+  const closeLayerPanel  = useCallback(() => dispatch({ type: A.CLOSE_LAYER_PANEL }), []);
   const toggleFuturePanel = useCallback(() => dispatch({ type: A.TOGGLE_FUTURE_PANEL }), []);
   const toggleAccountPanel = useCallback(() => dispatch({ type: A.TOGGLE_ACCOUNT_PANEL }), []);
   const toggleLegend     = useCallback(() => dispatch({ type: A.TOGGLE_LEGEND }), []);
@@ -208,6 +212,7 @@ export function AppProvider({ children }) {
       selectGauge,
       toggleSidebar,
       toggleLayerPanel,
+      closeLayerPanel,
       toggleFuturePanel,
       toggleAccountPanel,
       toggleLegend,
