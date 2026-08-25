@@ -30,6 +30,8 @@ const initialState = {
     fireWeatherOutlooks: false,
     fireRiskOutlook: false,
     radar:             false,
+    /** NWS/NOAA NEXRAD Level 2 radar site locations + live operability status */
+    nexradSites:       false,
     evacZones:         true,
     flights:           false,
     rawsStations:          false,
@@ -54,6 +56,8 @@ const initialState = {
   selectedFire: null,
   // Currently selected water gauge (properties from map feature)
   selectedGauge: null,
+  // Currently selected NEXRAD radar site (properties from map feature, incl. lat/lng)
+  selectedRadarSite: null,
   // Sidebar open/closed (left panel) — closed by default, opened via the top-left corner buttons
   sidebarOpen: false,
   // Layer control panel open/closed (right panel)
@@ -94,6 +98,7 @@ const A = {
   SELECT_FIRE:        'SELECT_FIRE',
   CLEAR_SELECTED:     'CLEAR_SELECTED',
   SELECT_GAUGE:       'SELECT_GAUGE',
+  SELECT_RADAR_SITE:  'SELECT_RADAR_SITE',
   TOGGLE_SIDEBAR:     'TOGGLE_SIDEBAR',
   TOGGLE_LAYER_PANEL: 'TOGGLE_LAYER_PANEL',
   TOGGLE_FUTURE_PANEL: 'TOGGLE_FUTURE_PANEL',
@@ -131,11 +136,13 @@ function reducer(state, action) {
         ),
       };
     case A.SELECT_FIRE:
-      return { ...state, selectedFire: action.fire, selectedGauge: null };
+      return { ...state, selectedFire: action.fire, selectedGauge: null, selectedRadarSite: null };
     case A.CLEAR_SELECTED:
-      return { ...state, selectedFire: null, selectedGauge: null };
+      return { ...state, selectedFire: null, selectedGauge: null, selectedRadarSite: null };
     case A.SELECT_GAUGE:
-      return { ...state, selectedGauge: action.gauge, selectedFire: null };
+      return { ...state, selectedGauge: action.gauge, selectedFire: null, selectedRadarSite: null };
+    case A.SELECT_RADAR_SITE:
+      return { ...state, selectedRadarSite: action.site, selectedFire: null, selectedGauge: null };
     case A.TOGGLE_SIDEBAR: {
       const next = !state.sidebarOpen;
       return { ...state, sidebarOpen: next, futurePanelOpen: next ? false : state.futurePanelOpen, accountPanelOpen: next ? false : state.accountPanelOpen };
@@ -185,6 +192,7 @@ export function AppProvider({ children }) {
   const selectFire       = useCallback((fire) => dispatch({ type: A.SELECT_FIRE, fire }), []);
   const clearSelected    = useCallback(() => dispatch({ type: A.CLEAR_SELECTED }), []);
   const selectGauge      = useCallback((gauge) => dispatch({ type: A.SELECT_GAUGE, gauge }), []);
+  const selectRadarSite  = useCallback((site) => dispatch({ type: A.SELECT_RADAR_SITE, site }), []);
   const toggleSidebar    = useCallback(() => dispatch({ type: A.TOGGLE_SIDEBAR }), []);
   const toggleLayerPanel = useCallback(() => dispatch({ type: A.TOGGLE_LAYER_PANEL }), []);
   const toggleFuturePanel = useCallback(() => dispatch({ type: A.TOGGLE_FUTURE_PANEL }), []);
@@ -220,6 +228,7 @@ export function AppProvider({ children }) {
       selectFire,
       clearSelected,
       selectGauge,
+      selectRadarSite,
       toggleSidebar,
       toggleLayerPanel,
       toggleFuturePanel,

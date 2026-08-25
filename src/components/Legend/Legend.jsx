@@ -9,6 +9,8 @@ import { Info, ChevronDown, ChevronUp } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { AQI_CATEGORIES } from '../../utils/colorUtils';
 import { HAZARD_CATEGORY_COLORS } from '../Map/layers/HazardEventsLayer';
+import { NEXRAD_STATUS } from '../../api/nexradSites';
+import { VELOCITY_SCALE as LIVE_VELOCITY_SCALE } from '../../utils/radarRaster';
 
 const CONTAINMENT_SCALE = [
   { color: '#ef4444', label: 'Uncontained (0%)' },
@@ -124,11 +126,18 @@ const NDGD_SMOKE_SCALE = [
   { color: '#690000', label: '158–1000 µg/m³' },
 ];
 
+const LIVE_VELOCITY_LEGEND_SCALE = LIVE_VELOCITY_SCALE.map(({ min, color }) => ({
+  color,
+  label: `${min > 0 ? '+' : ''}${min} kt${min < 0 ? ' (toward)' : min > 0 ? ' (away)' : ''}`,
+}));
+
 const Legend = memo(function Legend({
   spcOutlookType = 'categorical',
   spcActiveDay = 'day1',
   spcWeatherOutlookMode = 'convective',
   fireWxOutlookType = 'winds_low_humidity',
+  radarScanActive = false,
+  radarScanProduct = null,
 }) {
   const { layers, legendOpen, toggleLegend } = useApp();
   const [collapsed, setCollapsed] = useState(true);
@@ -243,9 +252,24 @@ const Legend = memo(function Legend({
               </Section>
             )}
 
-            {layers.radar && (
+            {(layers.radar || (radarScanActive && radarScanProduct === 'reflectivity')) && (
               <Section title="Radar Reflectivity (dBZ)">
                 {RADAR_DBZ_SCALE.map(row => <ColorRow key={row.label} {...row} />)}
+              </Section>
+            )}
+
+            {radarScanActive && radarScanProduct === 'velocity' && (
+              <Section title="Radar Velocity (kt)">
+                {LIVE_VELOCITY_LEGEND_SCALE.map(row => <ColorRow key={row.label} {...row} />)}
+              </Section>
+            )}
+
+            {layers.nexradSites && (
+              <Section title="NEXRAD Sites">
+                <ColorRow color={NEXRAD_STATUS.operate.color} label={NEXRAD_STATUS.operate.label} />
+                <ColorRow color={NEXRAD_STATUS.alarm.color} label={NEXRAD_STATUS.alarm.label} />
+                <ColorRow color={NEXRAD_STATUS.offline.color} label={NEXRAD_STATUS.offline.label} />
+                <ColorRow color={NEXRAD_STATUS.unknown.color} label={NEXRAD_STATUS.unknown.label} />
               </Section>
             )}
 

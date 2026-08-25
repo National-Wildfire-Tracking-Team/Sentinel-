@@ -48,6 +48,8 @@ import NationalMapCollegesLayer from './layers/NationalMapCollegesLayer';
 import NhcStormsLayer from './layers/NhcStormsLayer';
 import NHCTropicalWeatherLayer from './layers/NHCTropicalWeatherLayer';
 import WaterGaugesLayer from './layers/WaterGaugesLayer';
+import NexradSitesLayer from './layers/NexradSitesLayer';
+import NexradScanLayer from './layers/NexradScanLayer';
 import CalFirePerimetersLayer from './layers/CalFirePerimetersLayer';
 import HazardEventsLayer from './layers/HazardEventsLayer';
 import DamageAssessmentLayer from './layers/DamageAssessmentLayer';
@@ -696,6 +698,37 @@ function HoverTooltip({ feature, lngLat }) {
       );
       break;
     }
+    case 'nexrad-sites-circle': {
+      const statusColors = {
+        operate: 'text-green-400',
+        alarm: 'text-amber-400',
+        offline: 'text-red-400',
+        unknown: 'text-gray-400',
+      };
+      content = (
+        <>
+          <div className="font-semibold text-cyan-300">{p.id} · {p.name}</div>
+          <div className={`text-xs font-medium mt-0.5 ${statusColors[p.status] || 'text-gray-400'}`}>
+            {p.statusLabel}
+          </div>
+          {p.rdaStatus && (
+            <div className="text-gray-300 text-xs mt-0.5">
+              RDA: <span className="text-white font-medium">{p.rdaStatus}</span>
+              {p.alarmSummary && p.alarmSummary !== 'No Alarms' && (
+                <span className="text-amber-400"> · {p.alarmSummary}</span>
+              )}
+            </div>
+          )}
+          {p.levelTwoLastReceivedTime && (
+            <div className="text-gray-500 text-[10px] mt-1">
+              Last Level 2 data: {new Date(p.levelTwoLastReceivedTime).toLocaleString()}
+            </div>
+          )}
+          <div className="text-cyan-500 text-[10px] mt-0.5 uppercase tracking-wide">NWS · api.weather.gov</div>
+        </>
+      );
+      break;
+    }
     case 'dat-points-circle':
     case 'dat-lines-line':
     case 'dat-polygons-fill': {
@@ -926,9 +959,12 @@ export default function MapView({
   onMeasureClose,
   precipRingActive = false,
   waterGaugesGeoJSON,
+  nexradSitesGeoJSON,
+  nexradScanUrl,
+  nexradScanCoordinates,
   calFireHistoricalPerimetersGeoJSON,
 }) {
-  const { layers, alerts, selectFire, selectGauge, viewport, setViewport, sidebarOpen, locationGranted, userLocation, setUserLocation } = useApp();
+  const { layers, alerts, selectFire, selectGauge, selectRadarSite, viewport, setViewport, sidebarOpen, locationGranted, userLocation, setUserLocation } = useApp();
   const mapRef = useRef(null);
 
   // Resize the Mapbox canvas after the sidebar transition completes (300ms)
@@ -1089,6 +1125,7 @@ export default function MapView({
       if (nhcObservedTrackGeoJSON?.features?.length) ids.push('nhc-obs-circle');
     }
     if (layers.waterGauges && waterGaugesGeoJSON?.features?.length) ids.push('water-gauges-circle');
+    if ((isWeatherTab || isAllHazardTab) && layers.nexradSites && nexradSitesGeoJSON?.features?.length) ids.push('nexrad-sites-circle');
     if (hazardEventsGeoJSON?.features?.length) ids.push('hazard-events-circle');
     return ids;
   }, [measureActive, isWildfireTab, isWeatherTab, isAllHazardTab, layers.fireHotspots, layers.firePerimeters, layers.incidentLocations, layers.aqi,
@@ -1105,6 +1142,7 @@ export default function MapView({
       nationalMapCollegesVisible, nationalMapCollegesGeoJSON,
       nhcCentersGeoJSON,
       layers.waterGauges, waterGaugesGeoJSON,
+      layers.nexradSites, nexradSitesGeoJSON,
       hazardEventsGeoJSON]);
 
   // Clear stale hover when layers change
@@ -1135,6 +1173,12 @@ export default function MapView({
 
     if (feature.layer.id === 'water-gauges-circle') {
       selectGauge(feature.properties);
+      return;
+    }
+
+    if (feature.layer.id === 'nexrad-sites-circle') {
+      const [lng, lat] = feature.geometry?.coordinates ?? [evt.lngLat.lng, evt.lngLat.lat];
+      selectRadarSite({ ...feature.properties, lat, lng });
       return;
     }
 
@@ -1695,6 +1739,19 @@ export default function MapView({
         <WaterGaugesLayer
           geoJSON={waterGaugesGeoJSON}
           visible={layers.waterGauges}
+        />
+
+        {/* NWS NEXRAD Level 2 radar sites — live operability status */}
+        <NexradSitesLayer
+          geoJSON={nexradSitesGeoJSON}
+          visible={(isWeatherTab || isAllHazardTab) && layers.nexradSites}
+        />
+
+        {/* Live Level II sweep (reflectivity/velocity) for the selected radar site */}
+        <NexradScanLayer
+          dataUrl={nexradScanUrl}
+          coordinates={nexradScanCoordinates}
+          visible={Boolean(nexradScanUrl)}
         />
 
         {/* CAL FIRE FRAP historical fire perimeter scars */}

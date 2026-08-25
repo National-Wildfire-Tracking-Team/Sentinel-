@@ -38,6 +38,9 @@ import { useNhcStorms } from '../hooks/useNhcStorms';
 import { useNationalMapColleges } from '../hooks/useNationalMapColleges';
 import { usePlan } from '../hooks/usePlan';
 import { useWaterGauges } from '../hooks/useWaterGauges';
+import { useNexradSites } from '../hooks/useNexradSites';
+import { useNexradScan } from '../hooks/useNexradScan';
+import { rasterizeSweep } from '../utils/radarRaster';
 import { useCalFirePerimeters } from '../hooks/useCalFirePerimeters';
 import { polygonCentroid } from '../utils/geoUtils';
 import { incidentsToGeoJSON } from '../api/inciweb';
@@ -54,6 +57,7 @@ import AccountPanel from '../components/AccountPanel/AccountPanel';
 import Legend from '../components/Legend/Legend';
 import FireDetailPanel from '../components/FireDetailPanel/FireDetailPanel';
 import WaterGaugePanel from '../components/WaterGaugePanel/WaterGaugePanel';
+import RadarSitePanel from '../components/RadarSitePanel/RadarSitePanel';
 
 // US continental bounding box for data fetches
 const US_BOUNDS = { west: -130, south: 24, east: -65, north: 50 };
@@ -208,7 +212,7 @@ function mergeIrwinAndCalFireIncidents(irwinIncidents, calFireIncidents) {
 const RAWS_MIN_ZOOM = 9;
 
 export default function LiveTrackerPage() {
-  const { layers, setLayer, setRefreshed, setLoading, feedFilter, viewport, selectedGauge, selectGauge, selectedFire } = useApp();
+  const { layers, setLayer, setRefreshed, setLoading, feedFilter, viewport, selectedGauge, selectGauge, selectedFire, selectedRadarSite, selectRadarSite } = useApp();
   const { hasProInfrastructureAccess, hasFireBehaviorModelingAccess } = usePlan();
   const criticalInfraEntitled = hasProInfrastructureAccess;
   const { locations: savedLocations } = useSavedLocations();
@@ -522,6 +526,27 @@ const flightBounds = useMemo(() => {
   const {
     geoJSON: waterGaugesGeoJSON,
   } = useWaterGauges(layers.waterGauges);
+
+  // NWS NEXRAD Level 2 radar sites — live operability status
+  const {
+    geoJSON: nexradSitesGeoJSON,
+  } = useNexradSites(layers.nexradSites);
+
+  // Live Level II sweep for whichever radar site is currently selected
+  const [radarProduct, setRadarProduct] = useState('reflectivity');
+  useEffect(() => {
+    setRadarProduct('reflectivity');
+  }, [selectedRadarSite?.id]);
+
+  const { meta: radarScanMeta, payload: radarScanPayload, status: radarScanStatus, error: radarScanError } =
+    useNexradScan(selectedRadarSite?.id, radarProduct, Boolean(selectedRadarSite));
+
+  const radarRaster = useMemo(
+    () => (selectedRadarSite && radarScanPayload
+      ? rasterizeSweep(radarScanPayload, { lat: selectedRadarSite.lat, lng: selectedRadarSite.lng })
+      : null),
+    [selectedRadarSite, radarScanPayload]
+  );
 
   useEffect(() => {
     if (flightsError) console.error('[FlightTracking] Error:', flightsError);
@@ -920,6 +945,9 @@ const flightBounds = useMemo(() => {
             onMeasureClose={onMeasureClose}
             precipRingActive={precipRingActive}
             waterGaugesGeoJSON={waterGaugesGeoJSON}
+            nexradSitesGeoJSON={nexradSitesGeoJSON}
+            nexradScanUrl={radarRaster?.dataUrl}
+            nexradScanCoordinates={radarRaster?.coordinates}
             calFireHistoricalPerimetersGeoJSON={calFireHistoricalPerimetersGeoJSON}
           />
 
@@ -961,12 +989,25 @@ const flightBounds = useMemo(() => {
             spcActiveDay={spcActiveDay}
             spcWeatherOutlookMode={spcWeatherOutlookMode}
             fireWxOutlookType={fireWxOutlookType}
+            radarScanActive={Boolean(selectedRadarSite)}
+            radarScanProduct={radarProduct}
           />
           <FireDetailPanel />
           {selectedGauge && (
             <WaterGaugePanel
               gauge={selectedGauge}
               onClose={() => selectGauge(null)}
+            />
+          )}
+          {selectedRadarSite && (
+            <RadarSitePanel
+              site={selectedRadarSite}
+              product={radarProduct}
+              onProductChange={setRadarProduct}
+              meta={radarScanMeta}
+              status={radarScanStatus}
+              error={radarScanError}
+              onClose={() => selectRadarSite(null)}
             />
           )}
       </div>
