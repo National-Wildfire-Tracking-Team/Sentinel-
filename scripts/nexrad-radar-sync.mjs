@@ -241,6 +241,13 @@ const MS_TO_KNOTS = 1.943844;
 async function publishProduct({ site, product, elevationDeg, azimuths, radials, scanTimeMs, sourceFile }) {
   const first = radials.find(Boolean);
   const gateCount = first.gate_count;
+  // nexrad-level-2-data returns gate_size/first_gate in KILOMETERS (e.g.
+  // 0.25, 2.125 for a standard super-res reflectivity cut), not meters —
+  // confirmed against real decoded output. Convert to meters here since
+  // the payload format (and the frontend's georeferencing math) is in
+  // meters throughout.
+  const gateSizeM = first.gate_size * 1000;
+  const firstGateM = first.first_gate * 1000;
   // Radials with no data for this product (e.g. a gap in a split-cut scan)
   // are encoded as all-no-data rather than skipped, so the array stays
   // aligned with `azimuths`.
@@ -261,8 +268,8 @@ async function publishProduct({ site, product, elevationDeg, azimuths, radials, 
     elevationDeg,
     azimuths,
     gateCount,
-    gateSizeM: first.gate_size,
-    firstGateM: first.first_gate,
+    gateSizeM,
+    firstGateM,
     moments,
   });
 
