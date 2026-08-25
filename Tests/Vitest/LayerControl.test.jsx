@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import LayerControl from '../../src/components/LayerControl/LayerControl';
 
@@ -84,4 +84,17 @@ describe('LayerControl — Infrastructure & Modeling group', () => {
       expect(screen.getByText('Evacuation Zones')).toBeInTheDocument();
     },
   );
+
+  it('shows and toggles the dBZ probe on the weather tab', () => {
+    const onPrecipRingToggle = vi.fn();
+    renderPanel({ activeMapTab: 'weather', onPrecipRingToggle });
+    const button = screen.getByRole('button', { name: 'Toggle dBZ radar probe' });
+    fireEvent.click(button);
+    expect(onPrecipRingToggle).toHaveBeenCalledOnce();
+  });
+
+  it('does not show the dBZ probe on the wildfire tab', () => {
+    renderPanel({ activeMapTab: 'wildfire' });
+    expect(screen.queryByRole('button', { name: 'Toggle dBZ radar probe' })).not.toBeInTheDocument();
+  });
 });
