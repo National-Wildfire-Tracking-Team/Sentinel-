@@ -9,7 +9,10 @@ import {
   MessageSquare, Bot, Send, Pencil, Trash2, Check, X, Loader2,
 } from 'lucide-react';
 import { useIncidentUpdates } from '../../hooks/useIncidentUpdates';
+import { useImageAttachments } from '../../hooks/useImageAttachments';
+import { uploadIncidentPhotos } from '../../api/incidentPhotos';
 import { useAuth } from '../../context/AuthContext';
+import PhotoPickerButton from '../PhotoAttachments/PhotoPickerButton';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -93,6 +96,20 @@ function UpdateCard({ update, isLatest, currentUserId, onEdit, onDelete }) {
         {updateDescription(update)}
       </p>
 
+      {Array.isArray(update.photo_urls) && update.photo_urls.length > 0 && (
+        <div className="flex flex-wrap gap-1.5 mt-2">
+          {update.photo_urls.map((url, i) => (
+            <a key={url} href={url} target="_blank" rel="noopener noreferrer" className="shrink-0">
+              <img
+                src={url}
+                alt={`Attachment ${i + 1}`}
+                className="w-14 h-14 object-cover rounded-md border border-sentinel-700 hover:opacity-80 transition-opacity"
+              />
+            </a>
+          ))}
+        </div>
+      )}
+
       {isLatest && (
         <p className="text-sentinel-500 text-[11px] italic mt-2">Updated by: {badge}</p>
       )}
@@ -105,45 +122,50 @@ function UpdateCard({ update, isLatest, currentUserId, onEdit, onDelete }) {
 function ComposeBox({ onSubmit, disabled }) {
   const [text, setText] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const photos = useImageAttachments();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     const trimmed = text.trim();
-    if (!trimmed || submitting) return;
+    if ((!trimmed && photos.images.length === 0) || submitting) return;
     setSubmitting(true);
     try {
-      await onSubmit(trimmed);
+      await onSubmit({ content: trimmed, files: photos.images.map((img) => img.file) });
       setText('');
+      photos.reset();
     } finally {
       setSubmitting(false);
     }
   };
 
   return (
-    <form onSubmit={handleSubmit} className="flex gap-2 items-end">
-      <textarea
-        value={text}
-        onChange={(e) => setText(e.target.value)}
-        placeholder="Post an update..."
-        disabled={disabled || submitting}
-        rows={2}
-        className="flex-1 bg-sentinel-800/80 border border-sentinel-700 rounded-lg px-3 py-2
-                   text-xs text-sentinel-200 placeholder:text-sentinel-600
-                   focus:outline-none focus:border-fire-500/50 focus:ring-1 focus:ring-fire-500/20
-                   resize-none disabled:opacity-50"
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) handleSubmit(e);
-        }}
-      />
-      <button
-        type="submit"
-        disabled={!text.trim() || disabled || submitting}
-        className="p-2 bg-fire-600/80 hover:bg-fire-600 text-white rounded-lg
-                   transition-colors disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
-        title="Post update (Ctrl+Enter)"
-      >
-        {submitting ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
-      </button>
+    <form onSubmit={handleSubmit} className="space-y-2">
+      <div className="flex gap-2 items-end">
+        <textarea
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          placeholder="Post an update..."
+          disabled={disabled || submitting}
+          rows={2}
+          className="flex-1 bg-sentinel-800/80 border border-sentinel-700 rounded-lg px-3 py-2
+                     text-xs text-sentinel-200 placeholder:text-sentinel-600
+                     focus:outline-none focus:border-fire-500/50 focus:ring-1 focus:ring-fire-500/20
+                     resize-none disabled:opacity-50"
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) handleSubmit(e);
+          }}
+        />
+        <button
+          type="submit"
+          disabled={(!text.trim() && photos.images.length === 0) || disabled || submitting}
+          className="p-2 bg-fire-600/80 hover:bg-fire-600 text-white rounded-lg
+                     transition-colors disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
+          title="Post update (Ctrl+Enter)"
+        >
+          {submitting ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
+        </button>
+      </div>
+      <PhotoPickerButton {...photos} label="Add Photos" />
     </form>
   );
 }
@@ -231,9 +253,12 @@ export default function IncidentTimeline({
   // Explicit allowPost prop also enables posting (e.g. from reporter dashboard).
   const canPost = isAuthenticated && (allowPost || isReporter || isAdmin);
 
-  const handleAdd = async (content) => {
+  const handleAdd = async ({ content, files }) => {
     const sourceName = profile?.email?.split('@')[0] || 'Reporter';
-    await addUpdate({ content, sourceName, userId: user.id });
+    const photoUrls = files?.length
+      ? await uploadIncidentPhotos(files, { userId: user.id, incidentId })
+      : [];
+    await addUpdate({ content, sourceName, userId: user.id, photoUrls });
   };
 
   const handleEdit = async (updateId, newContent) => {

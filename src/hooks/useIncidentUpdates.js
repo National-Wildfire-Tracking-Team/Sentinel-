@@ -31,7 +31,7 @@ export function useIncidentUpdates(incidentId) {
     setLoading(true);
     const { data, error: err } = await supabase
       .from('incident_updates')
-      .select('id, incident_id, content, source_type, source_name, user_id, created_at')
+      .select('id, incident_id, content, source_type, source_name, user_id, photo_urls, created_at')
       .eq('incident_id', incidentId)
       .order('created_at', { ascending: false });
 
@@ -126,7 +126,7 @@ export function useIncidentUpdates(incidentId) {
 
   /** Add a reporter update. */
   const addUpdate = useCallback(
-    async ({ content, sourceName, userId }) => {
+    async ({ content, sourceName, userId, photoUrls }) => {
       if (!isSupabaseConfigured) throw new Error('Supabase is not configured');
       if (!incidentId) throw new Error('No incident selected');
 
@@ -138,6 +138,7 @@ export function useIncidentUpdates(incidentId) {
           source_type: 'reporter',
           source_name: sourceName,
           user_id: userId,
+          photo_urls: photoUrls ?? [],
         })
         .select()
         .single();
@@ -182,7 +183,7 @@ export function useIncidentUpdates(incidentId) {
  * Insert a reporter update from outside the hook (e.g. ReporterDashboardPage).
  * Mirrors the addUpdate callback but as a standalone async function.
  */
-export async function insertReporterUpdate({ incidentId, content, sourceName, userId }) {
+export async function insertReporterUpdate({ incidentId, content, sourceName, userId, photoUrls }) {
   if (!isSupabaseConfigured) throw new Error('Supabase is not configured');
 
   const { data, error } = await supabase
@@ -193,6 +194,7 @@ export async function insertReporterUpdate({ incidentId, content, sourceName, us
       source_type: 'reporter',
       source_name: sourceName,
       user_id: userId,
+      photo_urls: photoUrls ?? [],
     })
     .select()
     .single();

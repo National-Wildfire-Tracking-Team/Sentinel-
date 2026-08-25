@@ -30,6 +30,10 @@ import {
   useFireReports,
 } from '../hooks/useFireReports';
 import { insertReporterUpdate } from '../hooks/useIncidentUpdates';
+import { useImageAttachments } from '../hooks/useImageAttachments';
+import { uploadIncidentPhotos } from '../api/incidentPhotos';
+import PhotoPickerButton from '../components/PhotoAttachments/PhotoPickerButton';
+import PhotoThumbnailGrid from '../components/PhotoAttachments/PhotoThumbnailGrid';
 import { fetchIncidents } from '../api/inciweb';
 import {
   useReporterEvacZones,
@@ -253,6 +257,7 @@ function IncidentCard({
   const [updateNotes, setUpdateNotes]     = useState('');
   const [updateBusy, setUpdateBusy]       = useState(false);
   const [updateFeedback, setUpdateFeedback] = useState(null);
+  const updatePhotos = useImageAttachments();
 
   /* Delete state */
   const [deleteBusy, setDeleteBusy] = useState(false);
@@ -284,8 +289,9 @@ function IncidentCard({
     const hasAcres = updateAcreage.toString().trim().length > 0;
     const hasContain = updateContainment.toString().trim().length > 0;
     const hasNotes = updateNotes.trim().length > 0;
-    if (!hasAcres && !hasContain && !hasNotes) {
-      setUpdateFeedback({ type: 'error', message: 'Enter acreage, containment, or notes before posting.' });
+    const hasPhotos = updatePhotos.images.length > 0;
+    if (!hasAcres && !hasContain && !hasNotes && !hasPhotos) {
+      setUpdateFeedback({ type: 'error', message: 'Enter acreage, containment, notes, or attach a photo before posting.' });
       return;
     }
     if (hasContain && !Number.isFinite(Number(updateContainment))) {
@@ -311,16 +317,22 @@ function IncidentCard({
       }
       if (hasNotes) parts.push(updateNotes.trim());
 
+      const photoUrls = hasPhotos
+        ? await uploadIncidentPhotos(updatePhotos.images.map((img) => img.file), { userId, incidentId: report.id })
+        : [];
+
       await insertReporterUpdate({
         incidentId: report.id,
         content: parts.join('\n'),
         sourceName: profile?.email?.split('@')[0] || 'Reporter',
         userId,
+        photoUrls,
       });
 
       setUpdateAcreage('');
       setUpdateContainment('');
       setUpdateNotes('');
+      updatePhotos.reset();
       setUpdateFeedback({ type: 'success', message: 'Update posted successfully.' });
       setMode('view');
       onRefresh();
@@ -532,6 +544,10 @@ function IncidentCard({
                 />
                 <div className="text-right text-xs text-[#484f58] mt-1">{updateNotes.length} / 2000</div>
               </div>
+              <div>
+                <label className={LABEL_CLS}>Photos</label>
+                <PhotoPickerButton {...updatePhotos} />
+              </div>
 
               {updateFeedback && (
                 <div className={`flex items-start gap-2 p-3 rounded-lg text-xs border ${
@@ -624,10 +640,12 @@ function ExternalIncidentUpdatePanel({ incident, profile, userId, onDone }) {
   const [notes, setNotes]     = useState('');
   const [busy, setBusy]       = useState(false);
   const [feedback, setFeedback] = useState(null);
+  const photos = useImageAttachments();
 
   async function handlePost() {
-    if (!acreage.toString().trim() && !notes.trim()) {
-      setFeedback({ type: 'error', message: 'Enter acreage or notes before posting.' });
+    const hasPhotos = photos.images.length > 0;
+    if (!acreage.toString().trim() && !notes.trim() && !hasPhotos) {
+      setFeedback({ type: 'error', message: 'Enter acreage, notes, or attach a photo before posting.' });
       return;
     }
     setBusy(true);
@@ -637,15 +655,21 @@ function ExternalIncidentUpdatePanel({ incident, profile, userId, onDone }) {
       if (acreage.toString().trim()) parts.push(`Acreage: ${acreage.toString().trim()}`);
       if (notes.trim()) parts.push(notes.trim());
 
+      const photoUrls = hasPhotos
+        ? await uploadIncidentPhotos(photos.images.map((img) => img.file), { userId, incidentId: incident.id })
+        : [];
+
       await insertReporterUpdate({
         incidentId: incident.id,
         content: parts.join('\n'),
         sourceName: profile?.email?.split('@')[0] || 'Reporter',
         userId,
+        photoUrls,
       });
 
       setAcreage('');
       setNotes('');
+      photos.reset();
       setFeedback({ type: 'success', message: 'Update posted to live timeline.' });
       setTimeout(() => { setFeedback(null); onDone?.(); }, 1800);
     } catch (err) {
@@ -680,6 +704,10 @@ function ExternalIncidentUpdatePanel({ incident, profile, userId, onDone }) {
           className={INPUT_CLS + ' resize-y min-h-[80px]'}
         />
         <div className="text-right text-xs text-[#484f58] mt-0.5">{notes.length} / 2000</div>
+      </div>
+      <div>
+        <label className={LABEL_CLS}>Photos</label>
+        <PhotoPickerButton {...photos} />
       </div>
 
       {feedback && (
@@ -1078,7 +1106,7 @@ export default function ReporterDashboardPage() {
   const [initialContainment, setInitialContainment] = useState('');
   const [incidentNotes, setIncidentNotes] = useState('');
   const [internalNotes, setInternalNotes] = useState('');
-  const [images, setImages] = useState([]);
+  const { images, addFiles: handleFiles, removeImage, reset: resetImages, error: imagesError } = useImageAttachments();
   const [dragging, setDragging] = useState(false);
   const fileInputRef = useRef(null);
 
@@ -1306,22 +1334,6 @@ export default function ReporterDashboardPage() {
     );
   }
 
-  /* ── Image helpers ── */
-  function handleFiles(files) {
-    const imageFiles = Array.from(files).filter((f) => f.type.startsWith('image/'));
-    setImages((prev) => [
-      ...prev,
-      ...imageFiles.map((file) => ({ file, preview: URL.createObjectURL(file), name: file.name })),
-    ]);
-  }
-
-  function removeImage(idx) {
-    setImages((prev) => {
-      URL.revokeObjectURL(prev[idx].preview);
-      return prev.filter((_, i) => i !== idx);
-    });
-  }
-
   /* ── Address autofill ── */
   function handleAddressSearchChange(e) {
     const val = e.target.value;
@@ -1521,11 +1533,15 @@ export default function ReporterDashboardPage() {
         incidentNotes.trim(),
       ].filter((line) => line !== null && line !== '');
       const initialTimelineBody = initialTimelineParts.join('\n');
+      const photoUrls = images.length
+        ? await uploadIncidentPhotos(images.map((img) => img.file), { userId: user.id, incidentId: created.id })
+        : [];
       await insertReporterUpdate({
         incidentId: created.id,
         content: initialTimelineBody,
         sourceName,
         userId: user.id,
+        photoUrls,
       });
 
       setSuccess('Incident submitted and is now live on the map.');
@@ -1538,8 +1554,7 @@ export default function ReporterDashboardPage() {
       setSuggestions([]); setShowSuggestions(false);
       setIncidentName(''); setIncidentNotes(''); setInternalNotes('');
       setInitialAcres(''); setInitialContainment('');
-      images.forEach((img) => URL.revokeObjectURL(img.preview));
-      setImages([]);
+      resetImages();
       refreshReports();
     } catch (err) {
       setError(err?.message || 'Failed to submit incident.');
@@ -1908,27 +1923,10 @@ export default function ReporterDashboardPage() {
                   Drag &amp; drop images here, or <span className="text-[#0096ff]">browse files</span>
                 </p>
                 <p className="text-[#484f58] text-xs mt-1">PNG, JPG, GIF, WEBP supported</p>
-                <input ref={fileInputRef} type="file" accept="image/*" multiple onChange={(e) => handleFiles(e.target.files)} className="hidden" />
+                <input ref={fileInputRef} type="file" accept="image/*" multiple onChange={(e) => { handleFiles(e.target.files); e.target.value = ''; }} className="hidden" />
               </div>
-              {images.length > 0 && (
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 mt-4">
-                  {images.map((img, idx) => (
-                    <div key={idx} className="relative group rounded-lg overflow-hidden border border-[#30363d] bg-[#161b22]">
-                      <img src={img.preview} alt={img.name} className="w-full h-24 object-cover" />
-                      <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                        <button
-                          type="button"
-                          onClick={(e) => { e.stopPropagation(); removeImage(idx); }}
-                          className="p-1.5 rounded-full bg-red-600 text-white hover:bg-red-500 transition-colors"
-                        >
-                          <X size={13} />
-                        </button>
-                      </div>
-                      <div className="px-2 py-1 text-[10px] text-[#484f58] truncate bg-[#0d1117]">{img.name}</div>
-                    </div>
-                  ))}
-                </div>
-              )}
+              {imagesError && <p className="text-[11px] text-red-400 mt-2">{imagesError}</p>}
+              <PhotoThumbnailGrid images={images} onRemove={removeImage} />
             </div>
 
             {/* Feedback */}
