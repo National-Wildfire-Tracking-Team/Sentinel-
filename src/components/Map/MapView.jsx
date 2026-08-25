@@ -958,6 +958,7 @@ export default function MapView({
   onMeasureActivate,
   onMeasureClose,
   precipRingActive = false,
+  onPrecipRingToggle,
   waterGaugesGeoJSON,
   nexradSitesGeoJSON,
   nexradScanUrl,
@@ -1021,6 +1022,28 @@ export default function MapView({
   // Measurement tool state (active/mode lifted to LiveTrackerPage; points/preview stay local)
   const [measurePoints,  setMeasurePoints]  = useState([]);   // [{lng, lat}, ...]
   const [measurePreview, setMeasurePreview] = useState(null); // {lng, lat} – live cursor
+  const [probeMoving, setProbeMoving] = useState(false);
+  const [probeLocked, setProbeLocked] = useState(false);
+  const [lockedProbeCoords, setLockedProbeCoords] = useState(null);
+
+  useEffect(() => {
+    if (!precipRingActive) {
+      setProbeMoving(false);
+      setProbeLocked(false);
+      setLockedProbeCoords(null);
+    }
+  }, [precipRingActive]);
+
+  const toggleProbeLock = useCallback(() => {
+    if (probeLocked) {
+      setProbeLocked(false);
+      setLockedProbeCoords(null);
+      return;
+    }
+    setLockedProbeCoords({ lat: viewport.latitude, lng: viewport.longitude });
+    setProbeLocked(true);
+    setProbeMoving(false);
+  }, [probeLocked, viewport.latitude, viewport.longitude]);
 
   const activateMeasure = useCallback((mode) => {
     onMeasureActivate?.(mode);
@@ -1502,7 +1525,12 @@ export default function MapView({
   // Sync viewport to context
   const handleMove = useCallback((evt) => {
     setViewport(evt.viewState);
-  }, [setViewport]);
+    if (precipRingActive && !probeLocked) setProbeMoving(true);
+  }, [setViewport, precipRingActive, probeLocked]);
+
+  const handleMoveEnd = useCallback(() => {
+    setProbeMoving(false);
+  }, []);
 
   return (
     <div className="absolute inset-0 bg-sentinel-900">
@@ -1558,6 +1586,7 @@ export default function MapView({
         onMouseMove={handleMouseMove}
         onMouseLeave={handleMouseLeave}
         onMove={handleMove}
+        onMoveEnd={handleMoveEnd}
         transformRequest={transformRequest}
         attributionControl={false}
         maxTileCacheSize={150}
@@ -1767,6 +1796,15 @@ export default function MapView({
         />
 
         {/* User live location marker */}
+        {precipRingActive && probeLocked && lockedProbeCoords && (
+          <Marker longitude={lockedProbeCoords.lng} latitude={lockedProbeCoords.lat} anchor="center">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full border-2 border-amber-300 bg-black/35 shadow-lg" aria-label="Locked radar probe location">
+              <div className="h-2 w-2 rounded-full bg-amber-300" />
+            </div>
+          </Marker>
+        )}
+
+        {/* User live location marker */}
         {userLocation && (
           <Marker
             longitude={userLocation.longitude}
@@ -1850,8 +1888,13 @@ export default function MapView({
       {/* Precipitation ring – center-locked dBZ sampler */}
       <PrecipitationRing
         active={precipRingActive}
-        lat={viewport?.latitude}
-        lng={viewport?.longitude}
+        lat={probeLocked ? lockedProbeCoords?.lat : viewport?.latitude}
+        lng={probeLocked ? lockedProbeCoords?.lng : viewport?.longitude}
+        moving={probeMoving}
+        locked={probeLocked}
+        radarVisible={(isWeatherTab || isAllHazardTab) && layers.radar}
+        onLockToggle={toggleProbeLock}
+        onClose={onPrecipRingToggle}
       />
     </div>
   );

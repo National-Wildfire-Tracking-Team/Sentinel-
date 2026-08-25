@@ -234,8 +234,15 @@ export default function LiveTrackerPage() {
   }, []);
 
   const onPrecipRingToggle = useCallback(() => {
-    setPrecipRingActive(v => !v);
-  }, []);
+    if (!precipRingActive) setLayer('radar', true);
+    setPrecipRingActive(!precipRingActive);
+  }, [precipRingActive, setLayer]);
+
+  useEffect(() => {
+    if (activeMapTab !== MAP_TABS.weather && activeMapTab !== MAP_TABS.allhazard) {
+      setPrecipRingActive(false);
+    }
+  }, [activeMapTab]);
 
   useEffect(() => {
     if (!criticalInfraEntitled && layers.criticalInfrastructure) {
@@ -944,6 +951,7 @@ const flightBounds = useMemo(() => {
             onMeasureActivate={onMeasureActivate}
             onMeasureClose={onMeasureClose}
             precipRingActive={precipRingActive}
+            onPrecipRingToggle={onPrecipRingToggle}
             waterGaugesGeoJSON={waterGaugesGeoJSON}
             nexradSitesGeoJSON={nexradSitesGeoJSON}
             nexradScanUrl={radarRaster?.dataUrl}
