@@ -97,4 +97,16 @@ describe('LayerControl — Infrastructure & Modeling group', () => {
     renderPanel({ activeMapTab: 'wildfire' });
     expect(screen.queryByRole('button', { name: 'Toggle dBZ radar probe' })).not.toBeInTheDocument();
   });
+
+  it('does not expose the unwired 7-day Fire Risk toggle', () => {
+    renderPanel({ activeMapTab: 'wildfire' });
+    expect(screen.queryByText('7-day Fire Risk')).not.toBeInTheDocument();
+    renderPanel({ activeMapTab: 'allhazard' });
+    expect(screen.queryByText('7-day Fire Risk')).not.toBeInTheDocument();
+  });
+
+  it('does not expose the unwired GOES Fire Temperature toggle', () => {
+    renderPanel({ activeMapTab: 'wildfire' });
+    expect(screen.queryByText('GOES Fire Temperature')).not.toBeInTheDocument();
+  });
 });

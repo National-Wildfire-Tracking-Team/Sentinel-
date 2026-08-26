@@ -10,7 +10,6 @@ import {
   ArrowRight,
 } from 'lucide-react';
 
-// TODO: Replace with your actual Google Form URL
 const GOOGLE_FORM_URL = 'https://docs.google.com/forms/d/e/1FAIpQLSfTcBRvksqEWIujHeb1cgqAtisKUjJ4yRmVBVX6H_7FVnLgaA/viewform?usp=header';
 
 const roles = [

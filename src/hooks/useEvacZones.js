@@ -21,10 +21,17 @@ export function useEvacZones(enabled = true) {
     if (!enabled) return;
     setLoading(true);
     setError(null);
-    const data = await fetchCAEvacZones();
-    if (!mountedRef.current) return;
-    setGeoJSON(data);
-    setLoading(false);
+    try {
+      const data = await fetchCAEvacZones();
+      if (!mountedRef.current) return;
+      setGeoJSON(data);
+    } catch (err) {
+      if (!mountedRef.current) return;
+      setError(err?.message || 'Failed to load evacuation zones');
+      setGeoJSON(EMPTY_GEOJSON);
+    } finally {
+      if (mountedRef.current) setLoading(false);
+    }
   }, [enabled]);
 
   useEffect(() => {

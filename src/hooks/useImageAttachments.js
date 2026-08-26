@@ -8,7 +8,7 @@
  */
 
 import { useCallback, useState } from 'react';
-import { MAX_PHOTOS_PER_POST, MAX_PHOTO_BYTES } from '../api/incidentPhotos';
+import { MAX_PHOTOS_PER_POST, MAX_PHOTO_BYTES, isAllowedPhotoFile } from '../api/incidentPhotos';
 
 export function useImageAttachments() {
   const [images, setImages] = useState([]);
@@ -16,7 +16,7 @@ export function useImageAttachments() {
 
   const addFiles = useCallback((files) => {
     setError(null);
-    const incoming = Array.from(files).filter((f) => f.type.startsWith('image/'));
+    const incoming = Array.from(files).filter(isAllowedPhotoFile);
 
     setImages((prev) => {
       const oversized = incoming.some((f) => f.size > MAX_PHOTO_BYTES);

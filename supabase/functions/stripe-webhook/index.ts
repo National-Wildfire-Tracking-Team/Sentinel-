@@ -188,6 +188,12 @@ async function verifyStripeSignature(
     const expectedSig = parts['v1'];
     if (!timestamp || !expectedSig) return false;
 
+    const ts = Number(timestamp);
+    if (!Number.isFinite(ts)) return false;
+    const ageSeconds = Math.abs(Math.floor(Date.now() / 1000) - ts);
+    // Stripe recommends rejecting signatures older than 5 minutes.
+    if (ageSeconds > 300) return false;
+
     const payload = `${timestamp}.${new TextDecoder().decode(body)}`;
     const enc = new TextEncoder();
     const key = await crypto.subtle.importKey(
@@ -202,10 +208,20 @@ async function verifyStripeSignature(
       .map(b => b.toString(16).padStart(2, '0'))
       .join('');
 
-    return hex === expectedSig;
+    return timingSafeEqual(hex, expectedSig);
   } catch {
     return false;
   }
+}
+
+/** Constant-time string compare to avoid leaking the expected HMAC via timing. */
+function timingSafeEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  let out = 0;
+  for (let i = 0; i < a.length; i++) {
+    out |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  }
+  return out === 0;
 }
 
 async function stripeGet(secretKey: string, path: string): Promise<Response> {

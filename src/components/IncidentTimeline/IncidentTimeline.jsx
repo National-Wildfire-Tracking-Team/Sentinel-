@@ -12,6 +12,7 @@ import { useIncidentUpdates } from '../../hooks/useIncidentUpdates';
 import { useImageAttachments } from '../../hooks/useImageAttachments';
 import { uploadIncidentPhotos } from '../../api/incidentPhotos';
 import { useAuth } from '../../context/AuthContext';
+import { sanitizePhotoUrls } from '../../utils/safeUrl';
 import PhotoPickerButton from '../PhotoAttachments/PhotoPickerButton';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -53,6 +54,7 @@ function UpdateCard({ update, isLatest, currentUserId, onEdit, onDelete }) {
   const isAutomated = update.source_type === 'automated';
   const badge = sourceBadgeLabel(update.source_name);
   const { date, time } = splitTimestamp(update.created_at);
+  const safePhotos = sanitizePhotoUrls(update.photo_urls);
 
   const badgeClasses = isAutomated
     ? 'bg-red-950/60 text-red-400 border-red-800/50'
@@ -96,9 +98,9 @@ function UpdateCard({ update, isLatest, currentUserId, onEdit, onDelete }) {
         {updateDescription(update)}
       </p>
 
-      {Array.isArray(update.photo_urls) && update.photo_urls.length > 0 && (
+      {safePhotos.length > 0 && (
         <div className="flex flex-wrap gap-1.5 mt-2">
-          {update.photo_urls.map((url, i) => (
+          {safePhotos.map((url, i) => (
             <a key={url} href={url} target="_blank" rel="noopener noreferrer" className="shrink-0">
               <img
                 src={url}

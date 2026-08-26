@@ -27,9 +27,16 @@ async function checkTableExists() {
       tableAvailable = true;
     }
   } catch {
-    tableAvailable = false;
+    // Network / transient errors must not permanently disable the table
+    // for the rest of the session. Treat as available and let load() report.
+    return true;
   }
   return tableAvailable;
+}
+
+/** Test-only: reset the module-level availability latch. */
+export function resetReporterEvacZonesAvailability() {
+  tableAvailable = null;
 }
 
 /**

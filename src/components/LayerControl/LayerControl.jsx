@@ -18,12 +18,12 @@ const LAYER_DEFS = {
   firePerimeters:    { label: 'Fire Perimeters',     sublabel: 'NIFC WFIGS',                  icon: MapPin,       color: '#ff6600' },
   calFireHistoricalPerimeters: { label: 'Historical Fire Perimeters', sublabel: 'CAL FIRE FRAP · past fire scars', icon: History, color: '#92400e' },
   incidentLocations: { label: 'Incident Locations',  sublabel: 'WFIGS · NWTT verified',       icon: Flame,        color: '#f59e0b' },
-  goesFireTemperature:  { label: 'GOES Fire Temperature', sublabel: 'NOAA GOES-19 · Fire Temperature RGB', icon: Thermometer, color: '#ef4444' },
+  goesFireTemperature:  { label: 'GOES Fire Temperature', sublabel: 'NOAA GOES-19 · Fire Temperature RGB', icon: Thermometer, color: '#ef4444' }, // unwired — keep def, omit from TAB_SECTIONS
   evacZones:         { label: 'Evacuation Zones',    sublabel: 'Cal OES + IPAWS + field-reported zones', icon: AlertTriangle, color: '#ef4444' },
   ndgdSmokeForecast: { label: 'Smoke Concentration', sublabel: 'NOAA NDGD hourly (48h)',      icon: CloudRain,    color: '#eab308' },
   droughtOutlook:    { label: 'Drought Outlook',     sublabel: 'NOAA CPC Monthly Outlook',    icon: Droplets,     color: '#f59e0b' },
   fireWeatherOutlooks: { label: 'Fire Weather Outlooks', sublabel: 'SPC Day 1-8 fire weather', icon: Zap,          color: '#ff6b35' },
-  fireRiskOutlook: { label: '7-day Fire Risk', sublabel: 'NIFC/NWCG Significant Fire Potential', icon: Flame, color: '#f97316' },
+  fireRiskOutlook: { label: '7-day Fire Risk', sublabel: 'NIFC/NWCG Significant Fire Potential', icon: Flame, color: '#f97316' }, // unwired / file does not parse
   rawsStations:      { label: 'RAWS Stations',       sublabel: 'Fire weather stations',       icon: Thermometer,  color: '#f97316' },
   airNowMonitors:    { label: 'Air Quality Monitors', sublabel: 'EPA AirNow sensor network',  icon: Activity,     color: '#38bdf8' },
   weatherAlerts:     { label: 'NWS & mesoscale',     sublabel: 'NWS active alerts + SPC MDs', icon: Wind,         color: '#ef4444' },
@@ -87,7 +87,7 @@ const TAB_SECTIONS = {
         },
         {
           label: 'Outlooks',
-          layers: ['spcWeatherOutlooks', 'fireWeatherOutlooks', 'fireRiskOutlook'],
+          layers: ['spcWeatherOutlooks', 'fireWeatherOutlooks'],
         },
       ],
     },
@@ -130,7 +130,7 @@ const TAB_SECTIONS = {
       groups: [
         {
           label: 'Core layers',
-          layers: ['fireHotspots', 'ngfsDetections', 'firePerimeters', 'calFireHistoricalPerimeters', 'incidentLocations', 'goesFireTemperature'],
+          layers: ['fireHotspots', 'ngfsDetections', 'firePerimeters', 'calFireHistoricalPerimeters', 'incidentLocations'],
         },
         {
           label: 'Modeling',
@@ -149,7 +149,7 @@ const TAB_SECTIONS = {
         },
         {
           label: 'Outlooks & smoke',
-          layers: ['fireRiskOutlook', 'ndgdSmokeForecast', 'droughtOutlook', 'fireWeatherOutlooks', 'goesFire16', 'goesFire18'],
+          layers: ['ndgdSmokeForecast', 'droughtOutlook', 'fireWeatherOutlooks', 'goesFire16', 'goesFire18'],
         },
       ],
     },

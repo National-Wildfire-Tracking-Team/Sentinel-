@@ -190,6 +190,11 @@ create index if not exists incident_updates_incident_idx
 create index if not exists incident_updates_created_idx
   on public.incident_updates(created_at desc);
 
+-- Dedupe automated rows that every open browser tab would otherwise insert.
+create unique index if not exists incident_updates_automated_dedupe
+  on public.incident_updates (incident_id, source_name, md5(content))
+  where source_type = 'automated';
+
 -- RLS for incident_updates
 alter table public.incident_updates enable row level security;
 
@@ -249,7 +254,11 @@ create policy "updates admin all"
   using (public.is_admin())
   with check (public.is_admin());
 
--- Automated sources can insert via service role (no user_id required)
+-- Automated sources can insert via service role (no user_id required).
+-- WARNING: this policy currently allows *any* client (anon key) to insert
+-- automated rows. It is the only writer today (browser hooks). Lock to
+-- service_role after moving persistence to an edge function / cron.
+-- Duplicate inserts are blocked by incident_updates_automated_dedupe.
 drop policy if exists "updates automated insert" on public.incident_updates;
 create policy "updates automated insert"
   on public.incident_updates for insert
@@ -298,6 +307,10 @@ create policy "incident photos delete own"
   using (
     bucket_id = 'incident-photos'
     and (storage.foldername(name))[1] = auth.uid()::text
+    and exists (
+      select 1 from public.profiles
+      where id = auth.uid() and role in ('reporter', 'admin')
+    )
   );
 
 

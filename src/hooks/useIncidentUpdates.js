@@ -8,6 +8,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { supabase, isSupabaseConfigured } from '../api/supabaseClient';
 import { subscribeToIncidentChanges } from '../utils/incidentChangeBus';
+import { sanitizePhotoUrls } from '../utils/safeUrl';
 
 /**
  * Subscribe to the live update feed for an incident.
@@ -138,7 +139,7 @@ export function useIncidentUpdates(incidentId) {
           source_type: 'reporter',
           source_name: sourceName,
           user_id: userId,
-          photo_urls: photoUrls ?? [],
+          photo_urls: sanitizePhotoUrls(photoUrls),
         })
         .select()
         .single();
@@ -194,7 +195,7 @@ export async function insertReporterUpdate({ incidentId, content, sourceName, us
       source_type: 'reporter',
       source_name: sourceName,
       user_id: userId,
-      photo_urls: photoUrls ?? [],
+      photo_urls: sanitizePhotoUrls(photoUrls),
     })
     .select()
     .single();

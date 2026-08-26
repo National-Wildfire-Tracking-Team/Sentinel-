@@ -66,7 +66,7 @@ export const PLANS = {
 };
 
 export function usePlan() {
-  const { subscription, isReporter } = useAuth();
+  const { subscription, isReporter, isAdmin } = useAuth();
 
   const planId =
     subscription?.status === 'active' || subscription?.status === 'trialing'
@@ -76,8 +76,8 @@ export function usePlan() {
   const plan = PLANS[planId] ?? PLANS.free;
 
   const isPaidPlan = planId === 'pro' || planId === 'team';
-  /** Pro-equivalent data access for field reporters (no subscription required). */
-  const hasProInfrastructureAccess = isPaidPlan || Boolean(isReporter);
+  /** Pro-equivalent data access for field reporters and admins (no subscription required). */
+  const hasProInfrastructureAccess = isPaidPlan || Boolean(isReporter) || Boolean(isAdmin);
   /** Fire behavior modeling (spread projection layer) — free & public, no plan or reporter status required. */
   const hasFireBehaviorModelingAccess = true;
 

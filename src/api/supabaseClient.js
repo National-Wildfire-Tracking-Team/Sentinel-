@@ -64,25 +64,12 @@ const sessionAwareStorage = {
  * Exported even when not configured so imports don't crash.
  * Calls will fail gracefully (401/404) until env vars are provided.
  *
- * Custom fetch wrapper intercepts requests for the reporter_evac_zones
- * table before they hit the network, returning a synthetic "not found"
- * response so the browser never logs a 404.
+ * Do not install a global fetch interceptor here. A previous wrapper
+ * short-circuited every reporter_evac_zones request (reads AND writes)
+ * with a fake 200 [], which silently broke the public evac-zone layer
+ * and reporter drawing. Missing-table 404s are handled in
+ * useReporterEvacZones.
  */
-const SILENT_404_TABLE = 'reporter_evac_zones';
-
-const suppressedFetch = (url, init) => {
-  const target = typeof url === 'string' ? url : url?.url ?? '';
-  if (target.includes(SILENT_404_TABLE)) {
-    return Promise.resolve(
-      new Response(JSON.stringify([]), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' },
-      })
-    );
-  }
-  return fetch(url, init);
-};
-
 export const supabase = createClient(
   SUPABASE_URL || 'https://placeholder.supabase.co',
   SUPABASE_ANON_KEY || 'placeholder-anon-key',
@@ -92,9 +79,6 @@ export const supabase = createClient(
       autoRefreshToken: true,
       detectSessionInUrl: true,
       storage: typeof window !== 'undefined' ? sessionAwareStorage : undefined,
-    },
-    global: {
-      fetch: suppressedFetch,
     },
   }
 );
