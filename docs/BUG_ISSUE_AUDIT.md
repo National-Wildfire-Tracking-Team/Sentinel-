@@ -17,7 +17,7 @@ This PR **fixes** the confirmed functional/security defects listed under “Fixe
 |----------|-------------------|------------|
 | Critical | 1 remaining (automated-update RLS — mitigated, not locked) | 1 (evac-zone fetch interceptor) |
 | High     | 4 (registration, proxies, nexrad trigger, client-side writers) | 3 (photo URLs, demoted-role RLS, duplicate automated rows) |
-| Medium   | Several (plan limits, proxy abuse, coverage) | 4 (Stripe replay window, admin entitlements, stuck evac loader, dead layer toggles) |
+| Medium   | Several (plan limits, proxy abuse, coverage) | 5 (Stripe replay, admin entitlements, stuck evac loader, dead layer toggles, evac centroid markers) |
 
 ---
 
@@ -93,6 +93,10 @@ Signature HMAC was checked but the `t=` timestamp was not. Captured valid payloa
 The Layers panel exposed **7-day Fire Risk** and **GOES Fire Temperature**. Neither is mounted in `MapView`. `FireRiskOutlook.jsx` does not even parse (`export default funtion`, mixed quotes, etc.).
 
 **Fix:** Removed those keys from `TAB_SECTIONS` so users cannot toggle a no-op layer. Left `LAYER_DEFS` / AppContext flags in place for a future wiring. ESLint ignores the broken WIP file so CI does not fail on a parse error.
+
+### M9. Evacuation zone centroid markers dropped (Medium) — **FIXED**
+
+`Tests/Vitest/EvacuationZonesLayer.test.jsx` still required `evac-zones-dot` / halo / `!` marker layers that stay visible at every zoom. The mobile/theme merge (`5df12c7`) removed those centroid markers, so at the default national zoom polygons disappear and zones look “off.” Restored the centroid source using `polygonCentroid` from `geoUtils.js` and wired the dots into MapView click/hover.
 
 ---
 

@@ -96,6 +96,8 @@ export default [
         scroll: 'readonly',
         scrollBy: 'readonly',
         getComputedStyle: 'readonly',
+        crypto: 'readonly',
+        DecompressionStream: 'readonly',
         matchMedia: 'readonly',
       },
     },

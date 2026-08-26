@@ -22,13 +22,14 @@
  * an official feed, matching the polygon drawn on EvacZoneDrawer.
  */
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useMemo } from 'react';
 import { Source, Layer, useMap } from 'react-map-gl';
 import {
   EVAC_ZONE_FILL_COLORS,
   EVAC_ZONE_FILL_OPACITY,
   EVAC_ZONE_LINE_OPACITY,
 } from './evacZonesPaint';
+import { polygonCentroid } from '../../../utils/geoUtils';
 
 const EMPTY_GEOJSON = { type: 'FeatureCollection', features: [] };
 
@@ -70,6 +71,24 @@ export default function EvacuationZonesLayer({ geoJSON, visible }) {
   const { current: map } = useMap();
   const prevCountRef = useRef(0);
 
+  // Centroid points so zones stay visible at national zoom (polygons vanish when small)
+  const dotsData = useMemo(() => {
+    if (!data?.features?.length) return EMPTY_GEOJSON;
+    const dots = data.features
+      .map((f, idx) => {
+        const center = polygonCentroid(f.geometry);
+        if (!center) return null;
+        return {
+          type: 'Feature',
+          id: `dot-${f.id || idx}`,
+          geometry: { type: 'Point', coordinates: center },
+          properties: f.properties,
+        };
+      })
+      .filter(Boolean);
+    return { type: 'FeatureCollection', features: dots };
+  }, [data]);
+
   // Force source data update when geoJSON changes
   useEffect(() => {
     if (!map) return;
@@ -84,7 +103,16 @@ export default function EvacuationZonesLayer({ geoJSON, visible }) {
     } catch {
       // source not yet added
     }
-  }, [data, map]);
+
+    try {
+      const dotSource = map.getSource('evac-zones-dots');
+      if (dotSource && dotSource.type === 'geojson') {
+        dotSource.setData(dotsData);
+      }
+    } catch {
+      // source not yet added
+    }
+  }, [data, dotsData, map]);
 
   return (
     <>
@@ -175,6 +203,67 @@ export default function EvacuationZonesLayer({ geoJSON, visible }) {
             'text-color': '#ffffff',
             'text-halo-color': 'rgba(0,0,0,0.85)',
             'text-halo-width': 2,
+          }}
+        />
+      </Source>
+
+      {/* Persistent centroid markers — visible at every zoom (polygons disappear at national scale) */}
+      <Source id="evac-zones-dots" type="geojson" data={dotsData}>
+        <Layer
+          id="evac-zones-dot-halo"
+          type="circle"
+          source="evac-zones-dots"
+          layout={{ visibility: vis }}
+          paint={{
+            'circle-color': '#111827',
+            'circle-opacity': 0.9,
+            'circle-radius': [
+              'interpolate', ['linear'], ['zoom'],
+              0, 7,
+              5, 11,
+              10, 14,
+            ],
+          }}
+        />
+        <Layer
+          id="evac-zones-dot"
+          type="circle"
+          source="evac-zones-dots"
+          layout={{ visibility: vis }}
+          paint={{
+            'circle-color': COLOR_MATCH,
+            'circle-opacity': 0.95,
+            'circle-radius': [
+              'interpolate', ['linear'], ['zoom'],
+              0, 5,
+              5, 8,
+              10, 11,
+            ],
+            'circle-stroke-color': '#ffffff',
+            'circle-stroke-width': 2,
+            'circle-stroke-opacity': 1,
+          }}
+        />
+        <Layer
+          id="evac-zones-dot-alert"
+          type="symbol"
+          source="evac-zones-dots"
+          layout={{
+            visibility: vis,
+            'text-field': '!',
+            'text-size': [
+              'interpolate', ['linear'], ['zoom'],
+              0, 9,
+              5, 12,
+              10, 15,
+            ],
+            'text-font': ['DIN Pro Bold', 'Arial Unicode MS Bold'],
+            'text-allow-overlap': true,
+          }}
+          paint={{
+            'text-color': '#ffffff',
+            'text-halo-color': 'rgba(0,0,0,0.45)',
+            'text-halo-width': 0.5,
           }}
         />
       </Source>

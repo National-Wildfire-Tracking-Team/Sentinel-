@@ -83,6 +83,7 @@ const MAP_STYLES = {
  * Tooltip shown on hover
  */
 const OUTLOOK_LAYER_IDS = new Set(['spc-outlook-fill', 'drought-outlook-fill', 'fire-weather-outlook-fill', 'nhc-disturbance-fill', 'nhc-track-circle', 'nhc-obs-circle']);
+const EVAC_CLICK_LAYER_IDS = new Set(['evac-zones-fill', 'evac-zones-dot', 'evac-zones-dot-alert']);
 
 function HoverTooltip({ feature, lngLat }) {
   if (!feature || !lngLat) return null;
@@ -353,7 +354,10 @@ function HoverTooltip({ feature, lngLat }) {
       );
       break;
     }
-    case 'evac-zones-fill': {
+    case 'evac-zones-fill':
+    case 'evac-zones-dot':
+    case 'evac-zones-dot-halo':
+    case 'evac-zones-dot-alert': {
       const isReporter = p.source === 'reporter';
       const isIpaws = p.source === 'ipaws';
 
@@ -1117,7 +1121,7 @@ export default function MapView({
       if (damageAssessmentPointsGeoJSON?.features?.length) ids.push('dat-points-circle');
     }
     if (layers.evacZones && evacZonesGeoJSON) {
-      ids.push('evac-zones-fill');
+      ids.push('evac-zones-fill', 'evac-zones-dot', 'evac-zones-dot-alert');
     }
     if (layers.flights && flightsGeoJSON)                                                                 ids.push('flights-symbol');
     if (layers.rawsStations && rawsGeoJSON)                                                               ids.push('raws-stations-circle');
@@ -1392,7 +1396,7 @@ export default function MapView({
         created_at:  p.created_at,
         user_id:     p.user_id,
       });
-    } else if (feature.layer.id === 'evac-zones-fill' && p.source === 'reporter') {
+    } else if (EVAC_CLICK_LAYER_IDS.has(feature.layer.id) && p.source === 'reporter') {
       selectFire({
         type:          'reporter-evacuation-zone',
         id:            p.id || null,
@@ -1409,7 +1413,7 @@ export default function MapView({
         lat:           evt.lngLat.lat,
         lng:           evt.lngLat.lng,
       });
-    } else if (feature.layer.id === 'evac-zones-fill') {
+    } else if (EVAC_CLICK_LAYER_IDS.has(feature.layer.id)) {
       const isIpaws = p.source === 'ipaws';
       selectFire({
         type:           'evacuation-zone',
