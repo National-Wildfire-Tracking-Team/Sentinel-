@@ -12,7 +12,11 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useApp } from "../context/AppContext";
 import { geometryAreaSqMi } from "../utils/geoArea";
-import { fetchNWSAlerts, flattenGeometry } from "../api/noaaWeather";
+import {
+  fetchNWSAlerts,
+  filterFireWeatherAlerts,
+  flattenGeometry,
+} from "../api/noaaWeather";
 import { fetchFemaAlerts } from "../api/fema";
 
 const REFRESH_MS = 60 * 1000;
@@ -267,7 +271,7 @@ export function useWeatherAlerts() {
   const loadIdRef = useRef(0);
 
   const applyGeoJSON = useCallback(() => {
-    const withArea = mergedRef.current.map((a) => {
+    const withArea = filterFireWeatherAlerts(mergedRef.current).map((a) => {
       const geom = getGeometry(a, zoneMapRef.current, countyMapRef.current, cwaMapRef.current);
       const areaSqMi = geom ? geometryAreaSqMi(geom) : null;
       return { ...a, areaSqMi };

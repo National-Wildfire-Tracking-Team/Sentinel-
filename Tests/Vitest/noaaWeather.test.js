@@ -1,5 +1,21 @@
 import { describe, it, expect } from 'vitest';
-import { alertsToGeoJSON } from '../../src/api/noaaWeather';
+import { alertsToGeoJSON, filterFireWeatherAlerts } from '../../src/api/noaaWeather';
+
+describe('filterFireWeatherAlerts', () => {
+  it('keeps only Red Flag Warnings and Fire Weather Watches', () => {
+    const alerts = [
+      { id: 'red-flag', type: 'Red Flag Warning' },
+      { id: 'fire-watch', type: 'Fire Weather Watch' },
+      { id: 'tornado', type: 'Tornado Warning' },
+      { id: 'flood', type: 'Flood Watch' },
+    ];
+
+    expect(filterFireWeatherAlerts(alerts).map(alert => alert.id)).toEqual([
+      'red-flag',
+      'fire-watch',
+    ]);
+  });
+});
 
 describe('alertsToGeoJSON', () => {
   it('converts alerts with geometry to GeoJSON FeatureCollection', () => {
