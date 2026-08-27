@@ -6,7 +6,7 @@
  */
 
 import { useRef, useCallback, useMemo, useState, useEffect } from 'react';
-import Map, { ScaleControl, Popup, Marker } from 'react-map-gl';
+import Map, { ScaleControl, Popup, Marker, Source } from 'react-map-gl';
 import { Navigation } from 'lucide-react';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import MapZoomControl from './MapZoomControl';
@@ -72,13 +72,29 @@ function ndgdFeatureToDateMs(feature) {
 }
 
 // ─── Base map styles ──────────────────────────────────────────────────────────
+// 'satellite' uses Mapbox's Standard Satellite ("Worldview") style — photoreal
+// satellite imagery with native support for 3D terrain, buildings, and lighting.
 const MAP_STYLES = {
   satellite: HAS_MAPBOX_TOKEN
-    ? 'mapbox://styles/mapbox/satellite-streets-v12'
+    ? 'mapbox://styles/mapbox/standard-satellite'
     : 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json',
   rendered: HAS_MAPBOX_TOKEN
     ? 'mapbox://styles/mapbox/dark-v11'
     : 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json',
+};
+
+// 3D terrain elevation source (Mapbox-hosted DEM tiles; requires a Mapbox token)
+const TERRAIN_SOURCE_ID = 'mapbox-dem';
+
+// Atmosphere/space styling for the globe projection — gives the map a
+// Google-Earth-like halo at the horizon and a starfield when zoomed out.
+const GLOBE_FOG = {
+  range: [0.5, 10],
+  color: 'rgb(30, 35, 45)',
+  'high-color': 'rgb(20, 30, 55)',
+  'horizon-blend': 0.03,
+  'space-color': 'rgb(2, 4, 10)',
+  'star-intensity': 0.3,
 };
 
 /**
@@ -1632,8 +1648,21 @@ export default function MapView({
         attributionControl={false}
         maxTileCacheSize={150}
         fadeDuration={150}
-        projection="mercator"
+        projection="globe"
+        fog={GLOBE_FOG}
+        terrain={HAS_MAPBOX_TOKEN ? { source: TERRAIN_SOURCE_ID, exaggeration: 1.5 } : undefined}
       >
+        {/* 3D terrain elevation (hillshaded relief when the map is pitched) */}
+        {HAS_MAPBOX_TOKEN && (
+          <Source
+            id={TERRAIN_SOURCE_ID}
+            type="raster-dem"
+            url="mapbox://mapbox.mapbox-terrain-dem-v1"
+            tileSize={512}
+            maxzoom={14}
+          />
+        )}
+
         {/* Navigation controls */}
         <ScaleControl position="bottom-left" style={{ marginLeft: '1rem', marginBottom: '1rem' }} />
         {/* GOESFireTemperatureLayer disabled — src/components/Map/GOESFireTemperatureLayer.jsx

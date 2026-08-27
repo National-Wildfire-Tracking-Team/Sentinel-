@@ -7,7 +7,7 @@
 import { useState, memo, useMemo, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  Layers, Flame, MapPin, Wind, CloudRain, CloudLightning, Eye, ChevronDown, ChevronRight, Radar, RadioTower, AlertTriangle, Ruler, Hexagon, PlaneTakeoff, Satellite, Map as MapIcon, Thermometer, Activity, Droplets, Zap, Lock, GraduationCap, Waves, History, TrendingUp, Crosshair, Camera,
+  Layers, Flame, MapPin, Wind, CloudRain, CloudLightning, Eye, ChevronDown, ChevronRight, Radar, RadioTower, AlertTriangle, Ruler, Hexagon, PlaneTakeoff, Satellite, Map as MapIcon, Thermometer, Activity, Droplets, Zap, Lock, GraduationCap, Waves, History, TrendingUp, Crosshair, Camera, Mountain,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 
@@ -381,7 +381,7 @@ const LayerControl = memo(function LayerControl({
   precipRingActive = false,
   onPrecipRingToggle,
 }) {
-  const { layerPanelOpen, toggleLayerPanel } = useApp();
+  const { layerPanelOpen, toggleLayerPanel, viewport, setViewport } = useApp();
   const [collapsed, setCollapsed] = useState({});
 
   const infraLayers = useMemo(() => [
@@ -443,6 +443,11 @@ const LayerControl = memo(function LayerControl({
     isAllHazardTab ? 'bg-red-600 text-white shadow'   :
                      'bg-fire-600 text-white shadow';
 
+  const isPitched = (viewport?.pitch ?? 0) > 0;
+  const toggleTerrainTilt = () => {
+    setViewport?.(isPitched ? { pitch: 0, bearing: 0 } : { pitch: 60, bearing: -20 });
+  };
+
   const mapTypeButtons = (
     <>
       <button
@@ -451,7 +456,7 @@ const LayerControl = memo(function LayerControl({
         className={`flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-semibold transition-all ${
           mapType === 'satellite' ? mapTypeActiveClass : 'text-zinc-300 hover:text-white'
         }`}
-        title="Satellite view"
+        title="Worldview satellite imagery"
       >
         <Satellite size={11} />
         <span>SAT</span>
@@ -466,6 +471,17 @@ const LayerControl = memo(function LayerControl({
       >
         <MapIcon size={11} />
         <span>MAP</span>
+      </button>
+      <button
+        type="button"
+        onClick={toggleTerrainTilt}
+        className={`flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-semibold transition-all ${
+          isPitched ? mapTypeActiveClass : 'text-zinc-300 hover:text-white'
+        }`}
+        title="Toggle 3D terrain"
+      >
+        <Mountain size={11} />
+        <span>3D</span>
       </button>
     </>
   );
