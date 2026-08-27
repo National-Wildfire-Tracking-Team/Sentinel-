@@ -87,6 +87,8 @@ const initialState = {
     longitude: -114.5,
     latitude:  44.0,
     zoom:      4.5,
+    pitch:     0,
+    bearing:   0,
   },
   // Whether the user has granted live location (only requested via the locate-me corner button)
   locationGranted: false,
