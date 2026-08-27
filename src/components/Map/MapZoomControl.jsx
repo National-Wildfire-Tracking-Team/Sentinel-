@@ -16,7 +16,7 @@ const MapZoomControl = memo(function MapZoomControl({ mapRef }) {
   const orientNorth = () => mapRef.current?.resetNorth();
 
   return (
-    <div className="absolute bottom-4 right-4 z-20 flex flex-col w-9 rounded-lg overflow-hidden border border-zinc-700 bg-black/90 backdrop-blur-sm shadow-xl">
+    <div className="absolute bottom-9 right-4 z-20 flex flex-col w-9 rounded-lg overflow-hidden border border-zinc-700 bg-black/90 backdrop-blur-sm shadow-xl">
       <button
         type="button"
         onClick={zoomIn}

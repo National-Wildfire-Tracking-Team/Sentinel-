@@ -7,6 +7,7 @@
 import { useApp } from '../context/AppContext';
 import { nwsAlertCategory } from '../utils/nwsColors';
 import { useSavedLocations } from '../hooks/useSavedLocations';
+import { useProximityAlerts } from '../hooks/useProximityAlerts';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 // Data hooks
@@ -40,6 +41,7 @@ import { usePlan } from '../hooks/usePlan';
 import { useWaterGauges } from '../hooks/useWaterGauges';
 import { useNexradSites } from '../hooks/useNexradSites';
 import { useNexradScan } from '../hooks/useNexradScan';
+import { useRadarViewerPresence } from '../hooks/useRadarViewerPresence';
 import { rasterizeSweep } from '../utils/radarRaster';
 import { useCalFirePerimeters } from '../hooks/useCalFirePerimeters';
 import { polygonCentroid } from '../utils/geoUtils';
@@ -53,6 +55,8 @@ import MapView from '../components/Map/MapView';
 import MapBottomBar from '../components/BottomBar/MapBottomBar';
 import MapCornerButtons from '../components/MapControls/MapCornerButtons';
 import FutureFeaturesPanel from '../components/MapControls/FutureFeaturesPanel';
+import ProximityAlertStack from '../components/ProximityAlerts/ProximityAlertStack';
+import MapFooterBar from '../components/Footer/MapFooterBar';
 import AccountPanel from '../components/AccountPanel/AccountPanel';
 import Legend from '../components/Legend/Legend';
 import FireDetailPanel from '../components/FireDetailPanel/FireDetailPanel';
@@ -212,7 +216,7 @@ function mergeIrwinAndCalFireIncidents(irwinIncidents, calFireIncidents) {
 const RAWS_MIN_ZOOM = 9;
 
 export default function LiveTrackerPage() {
-  const { layers, setLayer, setRefreshed, setLoading, feedFilter, viewport, selectedGauge, selectGauge, selectedFire, selectedRadarSite, selectRadarSite } = useApp();
+  const { layers, setLayer, setRefreshed, setLoading, feedFilter, viewport, setViewport, selectedGauge, selectGauge, selectedFire, selectedRadarSite, selectRadarSite } = useApp();
   const { hasProInfrastructureAccess, hasFireBehaviorModelingAccess } = usePlan();
   const criticalInfraEntitled = hasProInfrastructureAccess;
   const { locations: savedLocations } = useSavedLocations();
@@ -223,6 +227,7 @@ export default function LiveTrackerPage() {
   const [measureActive, setMeasureActive] = useState(false);
   const [measureMode, setMeasureMode] = useState('distance');
   const [precipRingActive, setPrecipRingActive] = useState(false);
+  const [terrainActive, setTerrainActive] = useState(false);
 
   const onMeasureActivate = useCallback((mode) => {
     setMeasureMode(mode);
@@ -237,6 +242,10 @@ export default function LiveTrackerPage() {
     if (!precipRingActive) setLayer('radar', true);
     setPrecipRingActive(!precipRingActive);
   }, [precipRingActive, setLayer]);
+
+  const onTerrainToggle = useCallback(() => {
+    setTerrainActive((t) => !t);
+  }, []);
 
   useEffect(() => {
     if (activeMapTab !== MAP_TABS.weather && activeMapTab !== MAP_TABS.allhazard) {
@@ -256,14 +265,16 @@ export default function LiveTrackerPage() {
     }
   }, [criticalInfraEntitled, layers.schoolsUniversities, setLayer]);
 
-  // Weather tab: dark streets map; all-hazard and wildfire tabs use satellite.
+  // Weather tab: dark streets map by default, but satellite once radar is on —
+  // the dark basemap flattens reflectivity colors, satellite is what makes them read.
+  // All-hazard and wildfire tabs always use satellite.
   useEffect(() => {
     if (activeMapTab === MAP_TABS.weather) {
-      setMapType('rendered');
+      setMapType(layers.radar ? 'satellite' : 'rendered');
     } else if (activeMapTab === MAP_TABS.wildfire || activeMapTab === MAP_TABS.allhazard) {
       setMapType('satellite');
     }
-  }, [activeMapTab]);
+  }, [activeMapTab, layers.radar]);
 
   // Apply layer presets only when switching between wildfire/weather/allhazard tabs.
   // The locations tab keeps whatever layers were already active.
@@ -364,6 +375,14 @@ export default function LiveTrackerPage() {
     () => incidentsToGeoJSON(mergedIncidentsList),
     [mergedIncidentsList]
   );
+
+  const {
+    events: proximityEvents,
+    dismiss: dismissProximityEvent,
+    history: proximityHistory,
+    unreadCount: proximityUnreadCount,
+    markAllRead: markProximityAlertsRead,
+  } = useProximityAlerts(savedLocations, mergedIncidentsList);
 
   const {
     geoJSON: stormReportsGeoJSON,
@@ -548,12 +567,86 @@ const flightBounds = useMemo(() => {
   const { meta: radarScanMeta, payload: radarScanPayload, status: radarScanStatus, error: radarScanError } =
     useNexradScan(selectedRadarSite?.id, radarProduct, Boolean(selectedRadarSite));
 
+  const radarViewerCount = useRadarViewerPresence(selectedRadarSite?.id, Boolean(selectedRadarSite));
+
   const radarRaster = useMemo(
     () => (selectedRadarSite && radarScanPayload
       ? rasterizeSweep(radarScanPayload, { lat: selectedRadarSite.lat, lng: selectedRadarSite.lng })
       : null),
     [selectedRadarSite, radarScanPayload]
   );
+
+  // Rolling client-side buffer of recent scans for this site+product, so the
+  // radar can be played back as a short loop. There's no server-side scan
+  // history to fetch (nexrad_scan_meta only ever holds the latest row per
+  // site+product — see the migration comment), so this loop only covers
+  // scans that arrived while this site was open, and starts empty each time
+  // a new site/product is selected.
+  const RADAR_FRAME_LIMIT = 10;
+  const [radarFrames, setRadarFrames] = useState([]);
+  const [radarPlaybackIndex, setRadarPlaybackIndex] = useState(null); // null = live (latest)
+  const [radarPlaying, setRadarPlaying] = useState(false);
+
+  useEffect(() => {
+    setRadarFrames([]);
+    setRadarPlaybackIndex(null);
+    setRadarPlaying(false);
+  }, [selectedRadarSite?.id, radarProduct]);
+
+  useEffect(() => {
+    const scanTime = radarScanMeta?.scan_time;
+    if (!scanTime || !radarRaster) return;
+    setRadarFrames((prev) => {
+      if (prev.length && prev[prev.length - 1].scanTime === scanTime) return prev;
+      const next = [...prev, { scanTime, raster: radarRaster }];
+      return next.length > RADAR_FRAME_LIMIT ? next.slice(next.length - RADAR_FRAME_LIMIT) : next;
+    });
+  }, [radarScanMeta?.scan_time, radarRaster]);
+
+  // Keep the scrub position in range if the buffer trims its oldest frame.
+  useEffect(() => {
+    setRadarPlaybackIndex((i) => (i === null ? null : Math.min(i, radarFrames.length - 1)));
+  }, [radarFrames.length]);
+
+  useEffect(() => {
+    if (!radarPlaying || radarFrames.length < 2) return undefined;
+    const id = setInterval(() => {
+      setRadarPlaybackIndex((i) => {
+        const current = i === null ? radarFrames.length - 1 : i;
+        return (current + 1) % radarFrames.length;
+      });
+    }, 700);
+    return () => clearInterval(id);
+  }, [radarPlaying, radarFrames.length]);
+
+  const handleRadarPlayToggle = useCallback(() => {
+    setRadarPlaying((p) => !p);
+  }, []);
+
+  const handleRadarScrub = useCallback((index) => {
+    setRadarPlaying(false);
+    setRadarPlaybackIndex(index);
+  }, []);
+
+  const handleRadarJumpLive = useCallback(() => {
+    setRadarPlaying(false);
+    setRadarPlaybackIndex(null);
+  }, []);
+
+  const handleRadarRecenter = useCallback(() => {
+    if (!selectedRadarSite) return;
+    setViewport({ longitude: selectedRadarSite.lng, latitude: selectedRadarSite.lat, zoom: 8 });
+  }, [selectedRadarSite, setViewport]);
+
+  const handleToggleSitesVisible = useCallback(() => {
+    setLayer('nexradSites', !layers.nexradSites);
+  }, [layers.nexradSites, setLayer]);
+
+  const activeRadarFrame =
+    radarPlaybackIndex !== null && radarFrames[radarPlaybackIndex]
+      ? radarFrames[radarPlaybackIndex]
+      : null;
+  const activeRadarRaster = activeRadarFrame?.raster ?? radarRaster;
 
   useEffect(() => {
     if (flightsError) console.error('[FlightTracking] Error:', flightsError);
@@ -885,10 +978,18 @@ const flightBounds = useMemo(() => {
   return (
     <div className="h-screen w-screen flex flex-col bg-sentinel-900 text-white overflow-hidden select-none">
       {/* ── Top bar ── */}
-      <Header onRefresh={handleRefresh} />
+      <Header
+        onRefresh={handleRefresh}
+        notificationHistory={proximityHistory}
+        notificationUnreadCount={proximityUnreadCount}
+        onOpenNotifications={markProximityAlertsRead}
+      />
 
       {/* ── Active alert banner ── */}
       <AlertBanner dismissed={bannerDismissed} onDismiss={() => setBannerDismissed(true)} />
+
+      {/* ── New alerts/incidents near saved zip codes ── */}
+      <ProximityAlertStack events={proximityEvents} onDismiss={dismissProximityEvent} />
 
       {/* ── Main content area (map fills full width; all controls float over it) ── */}
       <div className="flex-1 relative overflow-hidden">
@@ -952,10 +1053,11 @@ const flightBounds = useMemo(() => {
             onMeasureClose={onMeasureClose}
             precipRingActive={precipRingActive}
             onPrecipRingToggle={onPrecipRingToggle}
+            terrainActive={terrainActive}
             waterGaugesGeoJSON={waterGaugesGeoJSON}
             nexradSitesGeoJSON={nexradSitesGeoJSON}
-            nexradScanUrl={radarRaster?.dataUrl}
-            nexradScanCoordinates={radarRaster?.coordinates}
+            nexradScanUrl={activeRadarRaster?.dataUrl}
+            nexradScanCoordinates={activeRadarRaster?.coordinates}
             calFireHistoricalPerimetersGeoJSON={calFireHistoricalPerimetersGeoJSON}
           />
 
@@ -990,6 +1092,8 @@ const flightBounds = useMemo(() => {
             onMeasureClose={onMeasureClose}
             precipRingActive={precipRingActive}
             onPrecipRingToggle={onPrecipRingToggle}
+            terrainActive={terrainActive}
+            onTerrainToggle={onTerrainToggle}
           />
 
           <Legend
@@ -1016,8 +1120,20 @@ const flightBounds = useMemo(() => {
               status={radarScanStatus}
               error={radarScanError}
               onClose={() => selectRadarSite(null)}
+              frames={radarFrames}
+              playbackIndex={radarPlaybackIndex}
+              playing={radarPlaying}
+              onPlayToggle={handleRadarPlayToggle}
+              onScrub={handleRadarScrub}
+              onJumpLive={handleRadarJumpLive}
+              onRecenter={handleRadarRecenter}
+              sitesVisible={layers.nexradSites}
+              onToggleSitesVisible={handleToggleSitesVisible}
+              viewerCount={radarViewerCount}
             />
           )}
+
+          <MapFooterBar />
       </div>
 
     </div>

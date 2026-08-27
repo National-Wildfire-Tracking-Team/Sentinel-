@@ -6,8 +6,9 @@
  */
 
 import { useRef, useCallback, useMemo, useState, useEffect } from 'react';
-import Map, { ScaleControl, Popup, Marker } from 'react-map-gl';
+import Map, { ScaleControl, Popup, Marker, Source } from 'react-map-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
+import { MonitorX } from 'lucide-react';
 import MapZoomControl from './MapZoomControl';
 
 import { useApp } from '../../context/AppContext';
@@ -959,6 +960,7 @@ export default function MapView({
   onMeasureClose,
   precipRingActive = false,
   onPrecipRingToggle,
+  terrainActive = false,
   waterGaugesGeoJSON,
   nexradSitesGeoJSON,
   nexradScanUrl,
@@ -967,6 +969,16 @@ export default function MapView({
 }) {
   const { layers, alerts, selectFire, selectGauge, selectRadarSite, viewport, setViewport, sidebarOpen, locationGranted, userLocation, setUserLocation } = useApp();
   const mapRef = useRef(null);
+
+  // react-map-gl itself checks browser/WebGL support before constructing the
+  // underlying mapbox-gl instance; on failure it rejects internally and, with
+  // no onError handler, only logs to the console — leaving a blank map with
+  // no indication anything went wrong. Surface it instead.
+  const [mapError, setMapError] = useState(false);
+  const handleMapError = useCallback((e) => {
+    console.error('[MapView] Map failed to initialize:', e?.error || e);
+    setMapError(true);
+  }, []);
 
   // Resize the Mapbox canvas after the sidebar transition completes (300ms)
   useEffect(() => {
@@ -1532,6 +1544,29 @@ export default function MapView({
     setProbeMoving(false);
   }, []);
 
+  if (mapError) {
+    return (
+      <div className="absolute inset-0 bg-sentinel-900 flex items-center justify-center px-6">
+        <div className="max-w-sm text-center">
+          <MonitorX size={36} className="text-fire-500 mx-auto mb-4" />
+          <h2 className="text-white text-lg font-bold mb-2">Map unavailable in this browser</h2>
+          <p className="text-sentinel-300 text-sm leading-relaxed mb-4">
+            Sentinel's live map requires WebGL, which this browser or device doesn't support or has
+            disabled. Try updating your browser, enabling hardware acceleration, or switching to a
+            different browser (Chrome, Firefox, Edge, and Safari all support it).
+          </p>
+          <button
+            type="button"
+            onClick={() => window.location.reload()}
+            className="px-4 py-2 rounded-lg bg-fire-600 hover:bg-fire-500 text-white text-sm font-semibold transition-colors"
+          >
+            Try again
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="absolute inset-0 bg-sentinel-900">
       {/* Wildfire tab: fire weather outlook selector only (convective uses combined control on weather tab) */}
@@ -1587,14 +1622,29 @@ export default function MapView({
         onMouseLeave={handleMouseLeave}
         onMove={handleMove}
         onMoveEnd={handleMoveEnd}
+        onError={handleMapError}
         transformRequest={transformRequest}
         attributionControl={false}
         maxTileCacheSize={150}
         fadeDuration={150}
         projection="mercator"
+        terrain={terrainActive && HAS_MAPBOX_TOKEN ? { source: 'mapbox-dem', exaggeration: 1.5 } : undefined}
       >
+        {/* Elevation source for the 3D terrain toggle — kept mounted at all times
+            (raster-dem tiles aren't fetched until something references them) so
+            the source already exists the moment terrain is switched on. */}
+        {HAS_MAPBOX_TOKEN && (
+          <Source
+            id="mapbox-dem"
+            type="raster-dem"
+            url="mapbox://mapbox.mapbox-terrain-dem-v1"
+            tileSize={512}
+            maxzoom={14}
+          />
+        )}
+
         {/* Navigation controls */}
-        <ScaleControl position="bottom-left" style={{ marginLeft: '1rem', marginBottom: '1rem' }} />
+        <ScaleControl position="bottom-left" style={{ marginLeft: '1rem', marginBottom: '2.25rem' }} />
         {/* GOESFireTemperatureLayer disabled — src/components/Map/GOESFireTemperatureLayer.jsx
             has never built (wrong import path + syntax errors); re-enable once fixed. */}
 

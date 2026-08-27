@@ -8,7 +8,7 @@
  */
 
 import { memo, useState } from 'react';
-import { X, RadioTower, ChevronDown, ChevronUp } from 'lucide-react';
+import { X, RadioTower, ChevronDown, ChevronUp, Play, Pause, Rss, Crosshair, Map as MapIcon, Eye } from 'lucide-react';
 import { NEXRAD_STATUS } from '../../api/nexradSites';
 
 const PRODUCTS = [
@@ -45,13 +45,19 @@ function minutesAgo(scanTime) {
   return `${mins}m ago`;
 }
 
-const RadarSitePanel = memo(function RadarSitePanel({ site, product, onProductChange, meta, status, error, onClose }) {
+const RadarSitePanel = memo(function RadarSitePanel({
+  site, product, onProductChange, meta, status, error, onClose,
+  frames = [], playbackIndex = null, playing = false, onPlayToggle, onScrub, onJumpLive, onRecenter,
+  sitesVisible = true, onToggleSitesVisible, viewerCount = null,
+}) {
   const [collapsed, setCollapsed] = useState(false);
 
   if (!site) return null;
 
   const display = resolveDisplayStatus(site.status, status);
-  const scanTime = meta?.scan_time ?? null;
+  const isReplaying = playbackIndex !== null;
+  const scanTime = isReplaying ? frames[playbackIndex]?.scanTime : meta?.scan_time ?? null;
+  const canLoop = frames.length > 1;
 
   return (
     <div className="absolute top-4 right-4 z-30 w-64 bg-sentinel-900/95 backdrop-blur-sm border border-sentinel-700 rounded-xl shadow-2xl shadow-black/60 overflow-hidden animate-fade-in">
@@ -68,6 +74,27 @@ const RadarSitePanel = memo(function RadarSitePanel({ site, product, onProductCh
         >
           {display.label}
         </span>
+        {onToggleSitesVisible && (
+          <button
+            onClick={onToggleSitesVisible}
+            className={`shrink-0 transition-colors p-0.5 ${sitesVisible ? 'text-sentinel-400 hover:text-white' : 'text-cyan-400'}`}
+            aria-label={sitesVisible ? 'Hide other radar site markers' : 'Show other radar site markers'}
+            aria-pressed={!sitesVisible}
+            title={sitesVisible ? 'Hide other site markers' : 'Show other site markers'}
+          >
+            <MapIcon size={14} />
+          </button>
+        )}
+        {onRecenter && (
+          <button
+            onClick={onRecenter}
+            className="shrink-0 text-sentinel-400 hover:text-white transition-colors p-0.5"
+            aria-label="Center map on this radar site"
+            title="Center on site"
+          >
+            <Crosshair size={14} />
+          </button>
+        )}
         <button
           onClick={() => setCollapsed((c) => !c)}
           className="shrink-0 text-sentinel-400 hover:text-white transition-colors p-0.5"
@@ -88,12 +115,65 @@ const RadarSitePanel = memo(function RadarSitePanel({ site, product, onProductCh
         <div className="px-3 py-2.5">
           {/* Scan time row */}
           <div className="flex items-center justify-between mb-2.5 text-[11px]">
-            <span className="text-sentinel-400 uppercase tracking-wide font-semibold">Scan</span>
-            <span className="text-cyan-300 font-mono font-semibold">
-              {formatScanTime(scanTime) ?? '—'}
-              {scanTime && <span className="text-sentinel-500 ml-1.5 font-sans">({minutesAgo(scanTime)})</span>}
+            <span className="text-sentinel-400 uppercase tracking-wide font-semibold">
+              {isReplaying ? 'Replay' : 'Scan'}
             </span>
+            <div className="flex items-center gap-2">
+              <span className="text-cyan-300 font-mono font-semibold">
+                {formatScanTime(scanTime) ?? '—'}
+                {scanTime && !isReplaying && (
+                  <span className="text-sentinel-500 ml-1.5 font-sans">({minutesAgo(scanTime)})</span>
+                )}
+              </span>
+              {viewerCount != null && (
+                <span
+                  className="flex items-center gap-0.5 text-sentinel-400 font-sans"
+                  title="People currently viewing this radar site"
+                >
+                  <Eye size={11} />
+                  {viewerCount}
+                </span>
+              )}
+            </div>
           </div>
+
+          {/* Loop playback — only once at least 2 scans have been captured this session */}
+          {canLoop && (
+            <div className="flex items-center gap-1.5 mb-2.5">
+              <button
+                type="button"
+                onClick={onPlayToggle}
+                aria-label={playing ? 'Pause radar loop' : 'Play radar loop'}
+                className="shrink-0 w-6 h-6 flex items-center justify-center rounded bg-zinc-950 border border-zinc-700 text-cyan-300 hover:bg-zinc-800 transition-colors"
+              >
+                {playing ? <Pause size={11} /> : <Play size={11} />}
+              </button>
+              <input
+                type="range"
+                min={0}
+                max={frames.length - 1}
+                step={1}
+                value={playbackIndex ?? frames.length - 1}
+                onChange={(e) => onScrub(Number(e.target.value))}
+                className="flex-1 accent-cyan-400 h-1"
+                aria-label="Radar scan history scrubber"
+              />
+              <button
+                type="button"
+                onClick={onJumpLive}
+                disabled={!isReplaying}
+                title="Jump to live"
+                aria-label="Jump to live scan"
+                className={`shrink-0 w-6 h-6 flex items-center justify-center rounded border transition-colors ${
+                  isReplaying
+                    ? 'bg-zinc-950 border-zinc-700 text-sentinel-400 hover:text-cyan-300 hover:bg-zinc-800'
+                    : 'bg-cyan-500/20 border-cyan-500/40 text-cyan-300 cursor-default'
+                }`}
+              >
+                <Rss size={11} />
+              </button>
+            </div>
+          )}
 
           {/* Product selector — compact row */}
           <div className="grid grid-cols-5 gap-1 mb-2">

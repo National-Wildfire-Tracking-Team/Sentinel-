@@ -33,9 +33,11 @@ const RadarLayer = memo(function RadarLayer({ visible }) {
         source="nexrad-radar"
         layout={{ visibility: vis }}
         paint={{
-          'raster-opacity': 0.75,
+          'raster-opacity': 0.8,
           'raster-resampling': 'linear',
           'raster-fade-duration': 300,
+          'raster-saturation': 0.25,
+          'raster-contrast': 0.15,
         }}
       />
     </Source>

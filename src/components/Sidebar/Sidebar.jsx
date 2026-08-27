@@ -133,8 +133,8 @@ const Sidebar = memo(function Sidebar({
           </div>
         </div>
 
-        {/* Address alert search – weather and all-hazard tabs */}
-        {(isWeatherTab || isAllHazardTab) && <AddressAlertSearch />}
+        {/* Address search – jumps the map to any place/zip and shows active alerts there */}
+        <AddressAlertSearch />
 
         {/* All Hazard sub-feed tabs */}
         {isAllHazardTab && (

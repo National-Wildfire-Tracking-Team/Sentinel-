@@ -1,8 +1,9 @@
 import { useState, useCallback } from 'react';
-import { Search, MapPin, Loader2, CheckCircle, X } from 'lucide-react';
+import { Search, MapPin, Loader2, CheckCircle, X, Bell } from 'lucide-react';
 import { supabase, isSupabaseConfigured } from '../../api/supabaseClient';
 import { acquireSlot } from '../../utils/mapboxRateLimiter';
 import { useSavedLocations } from '../../hooks/useSavedLocations';
+import { useNotificationPermission } from '../../hooks/useProximityAlerts';
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN || '';
 
@@ -49,6 +50,7 @@ function PinIcon({ size = 9 }) {
 
 export default function MapAddressSearchPanel({ onClose, asPage = false }) {
   const { addLocation, removeLocation, locations, atLimit, limit } = useSavedLocations();
+  const { permission: notifyPermission, request: requestNotifyPermission } = useNotificationPermission();
   const [addressInput, setAddressInput] = useState('');
   const [geocoding, setGeocoding] = useState(false);
   const [geocodeError, setGeocodeError] = useState('');
@@ -182,6 +184,31 @@ export default function MapAddressSearchPanel({ onClose, asPage = false }) {
                 {saving ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle size={14} />}
                 {atLimit ? `Limit reached (${limit} max)` : 'Save & Mark on Map'}
               </button>
+            </div>
+          )}
+
+          {/* Notification opt-in */}
+          {notifyPermission !== 'unsupported' && (
+            <div className="flex items-center justify-between gap-3 rounded-xl border border-sentinel-700 bg-sentinel-800/40 px-4 py-3">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <Bell size={14} className="text-amber-400 shrink-0" />
+                <p className="text-xs text-sentinel-300 leading-snug">
+                  {notifyPermission === 'granted'
+                    ? "You'll get notified of new alerts or fires near your saved zip codes."
+                    : notifyPermission === 'denied'
+                    ? 'Notifications are blocked — enable them in your browser settings to get alerted.'
+                    : 'Get notified when a new weather alert or fire starts near a saved zip code.'}
+                </p>
+              </div>
+              {notifyPermission === 'default' && (
+                <button
+                  type="button"
+                  onClick={requestNotifyPermission}
+                  className="shrink-0 px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-xs font-semibold transition-colors"
+                >
+                  Enable
+                </button>
+              )}
             </div>
           )}
 

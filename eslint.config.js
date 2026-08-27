@@ -72,6 +72,7 @@ export default [
         FormData: 'readonly',
         XMLHttpRequest: 'readonly',
         WebSocket: 'readonly',
+        Notification: 'readonly',
         Worker: 'readonly',
         AudioContext: 'readonly',
         webkitAudioContext: 'readonly',

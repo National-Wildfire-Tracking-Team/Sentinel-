@@ -15,21 +15,30 @@ const GEOLOCATION_ERROR_MESSAGES = {
   3: 'Getting your location timed out. Try again.',
 };
 
-function CornerButton({ active, onClick, ariaLabel, children }) {
+function CornerButton({ active, onClick, ariaLabel, label, children }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-label={ariaLabel}
-      aria-pressed={active}
-      className={`flex items-center justify-center w-11 h-11 rounded-full border shadow-xl backdrop-blur-sm transition-colors ${
-        active
-          ? 'bg-fire-600 border-fire-500 text-white'
-          : 'bg-white/90 dark:bg-black/90 border-sentinel-200 dark:border-zinc-700 text-sentinel-700 dark:text-white hover:bg-sentinel-100 dark:hover:bg-zinc-800'
-      }`}
-    >
-      {children}
-    </button>
+    <div className="relative group">
+      <button
+        type="button"
+        onClick={onClick}
+        aria-label={ariaLabel}
+        aria-pressed={active}
+        className={`flex items-center justify-center w-11 h-11 rounded-full border shadow-xl backdrop-blur-sm transition-colors ${
+          active
+            ? 'bg-fire-600 border-fire-500 text-white'
+            : 'bg-white/90 dark:bg-black/90 border-sentinel-200 dark:border-zinc-700 text-sentinel-700 dark:text-white hover:bg-sentinel-100 dark:hover:bg-zinc-800'
+        }`}
+      >
+        {children}
+      </button>
+      {label && (
+        <span
+          className="absolute top-1/2 left-full ml-2 -translate-y-1/2 whitespace-nowrap rounded px-2 py-1 text-xs font-medium bg-gray-900 text-gray-100 shadow pointer-events-none z-50 opacity-0 group-hover:opacity-100 transition-opacity"
+        >
+          {label}
+        </span>
+      )}
+    </div>
   );
 }
 
@@ -97,16 +106,16 @@ const MapCornerButtons = memo(function MapCornerButtons() {
         panelOpen ? 'left-4 sm:left-[336px]' : 'left-4'
       } ${layerPanelOpen ? 'opacity-0 pointer-events-none sm:opacity-100 sm:pointer-events-auto' : ''}`}
     >
-      <CornerButton active={futurePanelOpen} onClick={toggleFuturePanel} ariaLabel="Open more features panel">
+      <CornerButton active={futurePanelOpen} onClick={toggleFuturePanel} ariaLabel="Open more features panel" label="More features">
         <Menu size={19} />
       </CornerButton>
 
-      <CornerButton active={sidebarOpen} onClick={toggleSidebar} ariaLabel="Open incident sidebar">
+      <CornerButton active={sidebarOpen} onClick={toggleSidebar} ariaLabel="Open incident sidebar" label="Incidents">
         <span className="text-lg font-black leading-none">!</span>
       </CornerButton>
 
       <div data-account-trigger>
-        <CornerButton active={accountPanelOpen} onClick={toggleAccountPanel} ariaLabel="Open account center">
+        <CornerButton active={accountPanelOpen} onClick={toggleAccountPanel} ariaLabel="Open account center" label="Account">
           {isAuthenticated ? (
             <span className="text-xs font-bold leading-none">{userInitial}</span>
           ) : (
@@ -116,7 +125,7 @@ const MapCornerButtons = memo(function MapCornerButtons() {
       </div>
 
       <div className="relative">
-        <CornerButton active={locationGranted} onClick={handleLocateMe} ariaLabel="Center map on my location">
+        <CornerButton active={locationGranted} onClick={handleLocateMe} ariaLabel="Center map on my location" label="My location">
           <LocateFixed size={18} />
         </CornerButton>
 

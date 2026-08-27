@@ -4,7 +4,42 @@
  * Manages: layer visibility, selected fire, sidebar, alerts, map state.
  */
 
-import { createContext, useContext, useReducer, useCallback } from 'react';
+import { createContext, useContext, useReducer, useCallback, useEffect } from 'react';
+
+// ─── Persistence ──────────────────────────────────────────────────────────────
+// Layer visibility and last map view survive a reload so users don't have to
+// re-enable their layers or re-find their area every visit.
+const LAYERS_STORAGE_KEY = 'nwtt-layer-visibility';
+const VIEWPORT_STORAGE_KEY = 'nwtt-map-viewport';
+
+function loadPersistedLayers(defaults) {
+  if (typeof window === 'undefined') return defaults;
+  try {
+    const stored = JSON.parse(window.localStorage.getItem(LAYERS_STORAGE_KEY));
+    if (!stored || typeof stored !== 'object') return defaults;
+    // Merge onto defaults so newly-added layers still get their coded default
+    // instead of `undefined` when an older persisted blob is missing the key.
+    const merged = { ...defaults };
+    for (const key of Object.keys(defaults)) {
+      if (typeof stored[key] === 'boolean') merged[key] = stored[key];
+    }
+    return merged;
+  } catch {
+    return defaults;
+  }
+}
+
+function loadPersistedViewport(defaults) {
+  if (typeof window === 'undefined') return defaults;
+  try {
+    const stored = JSON.parse(window.localStorage.getItem(VIEWPORT_STORAGE_KEY));
+    const { longitude, latitude, zoom } = stored || {};
+    if (![longitude, latitude, zoom].every(Number.isFinite)) return defaults;
+    return { longitude, latitude, zoom };
+  } catch {
+    return defaults;
+  }
+}
 
 // ─── Initial State ────────────────────────────────────────────────────────────
 const initialState = {
@@ -58,10 +93,13 @@ const initialState = {
   selectedGauge: null,
   // Currently selected NEXRAD radar site (properties from map feature, incl. lat/lng)
   selectedRadarSite: null,
-  // Sidebar open/closed (left panel) — closed by default, opened via the top-left corner buttons
+  // Sidebar open/closed (left panel) — open by default on wider screens so the
+  // incident list is the first thing visible (see initState below); closed by
+  // default on narrow/mobile screens, where it would otherwise cover the map.
   sidebarOpen: false,
-  // Layer control panel open/closed (right panel)
-  layerPanelOpen: true,
+  // Layer control panel open/closed (right panel) — closed by default so the
+  // map/incidents are visible on first load instead of a config panel.
+  layerPanelOpen: false,
   // Placeholder "future features" panel open/closed (top-left corner button 1)
   futurePanelOpen: false,
   // Account center panel open/closed (top-left corner button 3)
@@ -183,8 +221,43 @@ function reducer(state, action) {
 // ─── Context ─────────────────────────────────────────────────────────────────
 const AppContext = createContext(null);
 
+// Tailwind's `sm` breakpoint — matches the sidebar's own `w-full sm:w-80`, so
+// this only opens it by default where it won't cover the whole map.
+const SIDEBAR_AUTO_OPEN_MIN_WIDTH = 640;
+
+function initState(base) {
+  return {
+    ...base,
+    layers: loadPersistedLayers(base.layers),
+    viewport: loadPersistedViewport(base.viewport),
+    sidebarOpen: typeof window !== 'undefined' && window.innerWidth >= SIDEBAR_AUTO_OPEN_MIN_WIDTH,
+  };
+}
+
 export function AppProvider({ children }) {
-  const [state, dispatch] = useReducer(reducer, initialState);
+  const [state, dispatch] = useReducer(reducer, initialState, initState);
+
+  // Persist layer visibility immediately — toggles are infrequent user clicks.
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(LAYERS_STORAGE_KEY, JSON.stringify(state.layers));
+    } catch {
+      // localStorage unavailable — layers still apply for this session
+    }
+  }, [state.layers]);
+
+  // Persist the map view, debounced — `viewport` updates continuously while
+  // panning/zooming, so only write once movement settles.
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      try {
+        window.localStorage.setItem(VIEWPORT_STORAGE_KEY, JSON.stringify(state.viewport));
+      } catch {
+        // localStorage unavailable — last view just won't be restored
+      }
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [state.viewport]);
 
   const toggleLayer      = useCallback((layer) => dispatch({ type: A.TOGGLE_LAYER, layer }), []);
   const setLayer         = useCallback((layer, value) => dispatch({ type: A.SET_LAYER, layer, value }), []);

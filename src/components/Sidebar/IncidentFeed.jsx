@@ -7,17 +7,23 @@ import { useState } from 'react';
 import { Search, SortDesc, Loader2, AlertCircle } from 'lucide-react';
 import IncidentCard from './IncidentCard';
 import { useApp } from '../../context/AppContext';
+import { useSavedLocations } from '../../hooks/useSavedLocations';
+import { incidentSeverity } from '../../utils/colorUtils';
 
 const SORT_OPTIONS = [
+  { value: 'severity', label: 'Severity' },
   { value: 'acres',    label: 'Size' },
   { value: 'updated',  label: 'Recent' },
   { value: 'contained', label: 'Containment' },
 ];
 
+const SEVERITY_RANK = { critical: 0, normal: 1 };
+
 export default function IncidentFeed({ incidents, loading, error }) {
   const { selectedFire, feedFilter, setFeedFilter } = useApp();
   const [search, setSearch] = useState('');
-  const [sort,   setSort]   = useState('acres');
+  const [sort,   setSort]   = useState('severity');
+  const { locations: trackedLocations, addLocation, removeLocation, atLimit } = useSavedLocations();
 
   const THREE_DAYS_MS = 3 * 24 * 60 * 60 * 1000;
   const now = Date.now();
@@ -43,6 +49,10 @@ export default function IncidentFeed({ incidents, loading, error }) {
 
   // Sort
   const sorted = [...filtered].sort((a, b) => {
+    if (sort === 'severity') {
+      const diff = SEVERITY_RANK[incidentSeverity(a)] - SEVERITY_RANK[incidentSeverity(b)];
+      return diff !== 0 ? diff : b.acres - a.acres;
+    }
     if (sort === 'acres')     return b.acres - a.acres;
     if (sort === 'contained') return a.contained - b.contained;
     if (sort === 'updated')   return new Date(b.updated) - new Date(a.updated);
@@ -139,6 +149,10 @@ export default function IncidentFeed({ incidents, loading, error }) {
             key={inc.id}
             incident={inc}
             isSelected={selectedFire?.id === inc.id}
+            trackedLocations={trackedLocations}
+            onTrack={addLocation}
+            onUntrack={removeLocation}
+            atTrackingLimit={atLimit}
           />
         ))}
 
@@ -159,6 +173,10 @@ export default function IncidentFeed({ incidents, loading, error }) {
             key={inc.id}
             incident={inc}
             isSelected={selectedFire?.id === inc.id}
+            trackedLocations={trackedLocations}
+            onTrack={addLocation}
+            onUntrack={removeLocation}
+            atTrackingLimit={atLimit}
           />
         ))}
       </div>

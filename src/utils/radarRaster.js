@@ -11,7 +11,7 @@
  * radar viewers use.
  */
 
-const CANVAS_SIZE = 768; // px, square output — higher res + linear raster-resampling on the Mapbox layer softens the polar-to-grid blockiness
+const CANVAS_SIZE = 1024; // px, square output — higher res + linear raster-resampling on the Mapbox layer softens the polar-to-grid blockiness
 const METERS_PER_DEG_LAT = 111320;
 
 // Reuses the same band thresholds as Legend.jsx's RADAR_DBZ_SCALE so the
@@ -76,22 +76,56 @@ export function rasterizeSweep(payload, site) {
   // Sort radial indices by azimuth once, for nearest-azimuth binary search.
   const order = Array.from(azimuths.keys()).sort((a, b) => azimuths[a] - azimuths[b]);
   const sortedAz = order.map((i) => azimuths[i]);
+  const n = sortedAz.length;
 
-  function nearestRadialIndex(azDeg) {
-    const n = sortedAz.length;
-    if (azDeg <= sortedAz[0] || azDeg >= sortedAz[n - 1]) {
-      const dFirst = Math.min(Math.abs(azDeg - sortedAz[0]), 360 - Math.abs(azDeg - sortedAz[0]));
-      const dLast = Math.min(Math.abs(azDeg - sortedAz[n - 1]), 360 - Math.abs(azDeg - sortedAz[n - 1]));
-      return dFirst <= dLast ? order[0] : order[n - 1];
-    }
+  // Median azimuth spacing — used to tell a genuine radial-to-radial gap
+  // (normal beam spacing) from a real hole in the sweep (e.g. an unscanned
+  // sector), so interpolation doesn't smear a gap into fabricated color.
+  const gaps = sortedAz.map((az, i) => (i === 0 ? az + 360 - sortedAz[n - 1] : az - sortedAz[i - 1])).sort((a, b) => a - b);
+  const medianGapDeg = gaps[Math.floor(n / 2)] || 1;
+  const MAX_BRACKET_GAP_DEG = medianGapDeg * 3;
+
+  // Bracketing radial indices either side of azDeg, plus the interpolation
+  // weight toward the second one. Falls back to a single radial (weight 0)
+  // when the true neighbor is further away than a normal beam gap.
+  function bracketRadials(azDeg) {
     let lo = 0;
     let hi = n - 1;
-    while (lo < hi - 1) {
-      const mid = (lo + hi) >> 1;
-      if (sortedAz[mid] < azDeg) lo = mid;
-      else hi = mid;
+    let wrapGapDeg;
+    let loAz;
+    let hiAz;
+    if (azDeg <= sortedAz[0] || azDeg >= sortedAz[n - 1]) {
+      lo = n - 1;
+      hi = 0;
+      loAz = sortedAz[n - 1];
+      hiAz = sortedAz[0] + 360;
+      wrapGapDeg = hiAz - loAz;
+    } else {
+      while (lo < hi - 1) {
+        const mid = (lo + hi) >> 1;
+        if (sortedAz[mid] < azDeg) lo = mid;
+        else hi = mid;
+      }
+      loAz = sortedAz[lo];
+      hiAz = sortedAz[hi];
+      wrapGapDeg = hiAz - loAz;
     }
-    return azDeg - sortedAz[lo] <= sortedAz[hi] - azDeg ? order[lo] : order[hi];
+    if (wrapGapDeg > MAX_BRACKET_GAP_DEG) {
+      const dLo = Math.min(Math.abs(azDeg - loAz), 360 - Math.abs(azDeg - loAz));
+      const dHi = Math.min(Math.abs(azDeg - hiAz), 360 - Math.abs(azDeg - hiAz));
+      return dLo <= dHi ? [order[lo], order[lo], 0] : [order[hi % n], order[hi % n], 0];
+    }
+    const azNorm = azDeg < loAz ? azDeg + 360 : azDeg;
+    const t = wrapGapDeg > 0 ? (azNorm - loAz) / wrapGapDeg : 0;
+    return [order[lo], order[hi % n], t];
+  }
+
+  // Real (physical-unit) value at a given radial/gate, or null for no-data / out of range.
+  function realValueAt(radialIdx, gateIdx) {
+    if (gateIdx < 0 || gateIdx >= gateCount) return null;
+    const raw = values[radialIdx * gateCount + gateIdx];
+    if (raw === noDataByte) return null;
+    return raw * scale + offset;
   }
 
   const canvas = document.createElement('canvas');
@@ -115,16 +149,35 @@ export function rasterizeSweep(payload, site) {
       }
 
       const azDeg = (Math.atan2(xMeters, yMeters) * 180 / Math.PI + 360) % 360;
-      const radialIdx = nearestRadialIndex(azDeg);
-      const gateIdx = Math.min(gateCount - 1, Math.max(0, Math.floor((range - firstGateM) / gateSizeM)));
-      const raw = values[radialIdx * gateCount + gateIdx];
+      const [radialLo, radialHi, azT] = bracketRadials(azDeg);
+      const gatePos = (range - firstGateM) / gateSizeM;
+      const gateLo = Math.max(0, Math.floor(gatePos));
+      const gateHi = Math.min(gateCount - 1, gateLo + 1);
+      const gateT = Math.min(1, Math.max(0, gatePos - gateLo));
 
-      if (raw === noDataByte) {
+      const v00 = realValueAt(radialLo, gateLo);
+      const v01 = realValueAt(radialLo, gateHi);
+      const v10 = realValueAt(radialHi, gateLo);
+      const v11 = realValueAt(radialHi, gateHi);
+
+      let real;
+      if (v00 == null || v01 == null || v10 == null || v11 == null) {
+        // A no-data corner means we're at a real echo edge or scan gap —
+        // fall back to nearest-neighbor instead of blending in "no data".
+        const nearestRadial = azT < 0.5 ? radialLo : radialHi;
+        const nearestGate = gateT < 0.5 ? gateLo : gateHi;
+        real = realValueAt(nearestRadial, nearestGate);
+      } else {
+        const vLo = v00 + (v01 - v00) * gateT;
+        const vHi = v10 + (v11 - v10) * gateT;
+        real = vLo + (vHi - vLo) * azT;
+      }
+
+      if (real == null) {
         imageData.data[idx + 3] = 0;
         continue;
       }
 
-      const real = raw * scale + offset;
       const rgb = colorForProduct(product, real);
       if (!rgb) {
         imageData.data[idx + 3] = 0;

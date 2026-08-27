@@ -7,7 +7,7 @@
 import { useState, memo, useMemo, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  Layers, Flame, MapPin, Wind, CloudRain, CloudLightning, Eye, ChevronDown, ChevronRight, Radar, RadioTower, AlertTriangle, Ruler, Hexagon, PlaneTakeoff, Satellite, Map as MapIcon, Thermometer, Activity, Droplets, Zap, Lock, GraduationCap, Waves, History, TrendingUp, Crosshair,
+  Layers, Flame, MapPin, Wind, CloudRain, CloudLightning, Eye, ChevronDown, ChevronRight, Radar, RadioTower, AlertTriangle, Ruler, Hexagon, PlaneTakeoff, Satellite, Map as MapIcon, Thermometer, Activity, Droplets, Zap, Lock, GraduationCap, Waves, History, TrendingUp, Crosshair, Mountain,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 
@@ -375,6 +375,8 @@ const LayerControl = memo(function LayerControl({
   onMeasureClose,
   precipRingActive = false,
   onPrecipRingToggle,
+  terrainActive = false,
+  onTerrainToggle,
 }) {
   const { layerPanelOpen, toggleLayerPanel } = useApp();
   const [collapsed, setCollapsed] = useState({});
@@ -461,6 +463,18 @@ const LayerControl = memo(function LayerControl({
       >
         <MapIcon size={11} />
         <span>MAP</span>
+      </button>
+      <button
+        type="button"
+        onClick={() => onTerrainToggle?.()}
+        aria-pressed={terrainActive}
+        className={`flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-semibold transition-all ${
+          terrainActive ? mapTypeActiveClass : 'text-zinc-300 hover:text-white'
+        }`}
+        title="Toggle 3D terrain"
+      >
+        <Mountain size={11} />
+        <span>3D</span>
       </button>
     </>
   );

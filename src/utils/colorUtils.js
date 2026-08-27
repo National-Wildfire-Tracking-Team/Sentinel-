@@ -123,6 +123,31 @@ export function containmentToColor(pct) {
   return '#ef4444';
 }
 
+// ─── Incident severity ────────────────────────────────────────────────────────
+// A coarse "how bad is this one" tier layered on top of raw status/acres/
+// containment, so the sidebar reads at a glance the way competitor apps
+// (severity-badged incident lists) do — a fire isn't just "active", it's
+// "critical" once it's actually threatening life/property or burning large
+// and mostly uncontained.
+const CRITICAL_ACRES_THRESHOLD = 10_000;
+const CRITICAL_LOW_CONTAINMENT = 25;
+
+export function incidentSeverity(incident) {
+  if (!incident || incident.status !== 'active') return 'normal';
+  const acres = incident.acres || 0;
+  const contained = incident.contained ?? 0;
+  const isCritical =
+    incident.structures_destroyed > 0 ||
+    incident.evacuation_orders > 0 ||
+    (acres >= CRITICAL_ACRES_THRESHOLD && contained < CRITICAL_LOW_CONTAINMENT);
+  return isCritical ? 'critical' : 'normal';
+}
+
+export const SEVERITY_BADGE_STYLE = {
+  critical: 'bg-red-600 text-white',
+  normal:   null, // falls back to the existing status-based badge colors
+};
+
 // ─── Weather Alert severity ───────────────────────────────────────────────────
 // Official NWS palette lives in utils/nwsColors.js; re-export the lookup so
 // callers of alertTypeToColor() pick up every supported event type.

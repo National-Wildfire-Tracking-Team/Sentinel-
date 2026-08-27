@@ -20,6 +20,8 @@ const NexradScanLayer = memo(function NexradScanLayer({ dataUrl, coordinates, vi
           'raster-opacity': 0.85,
           'raster-fade-duration': 300,
           'raster-resampling': 'linear',
+          'raster-saturation': 0.25,
+          'raster-contrast': 0.15,
         }}
       />
     </Source>

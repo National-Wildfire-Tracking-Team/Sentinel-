@@ -20,11 +20,13 @@ const MapBottomBar = memo(function MapBottomBar({
   onMeasureClose,
   precipRingActive = false,
   onPrecipRingToggle,
+  terrainActive = false,
+  onTerrainToggle,
 }) {
   const isAllHazardTab = activeMapTab === 'allhazard';
 
   return (
-    <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1 px-2 py-1.5 bg-white/90 dark:bg-black/90 backdrop-blur-sm border border-sentinel-200 dark:border-zinc-700 rounded-2xl shadow-2xl shadow-black/10 dark:shadow-black/60">
+    <div className="absolute bottom-9 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1 px-2 py-1.5 bg-white/90 dark:bg-black/90 backdrop-blur-sm border border-sentinel-200 dark:border-zinc-700 rounded-2xl shadow-2xl shadow-black/10 dark:shadow-black/60">
       <LayerControl
         activeMapTab={activeMapTab}
         infrastructureLayersEntitled={infrastructureLayersEntitled}
@@ -36,6 +38,8 @@ const MapBottomBar = memo(function MapBottomBar({
         onMeasureClose={onMeasureClose}
         precipRingActive={precipRingActive}
         onPrecipRingToggle={onPrecipRingToggle}
+        terrainActive={terrainActive}
+        onTerrainToggle={onTerrainToggle}
       />
 
       <div className="w-px self-stretch my-1 bg-sentinel-200 dark:bg-zinc-700" />
