@@ -167,11 +167,30 @@ function filterStaleContainedGeoJSON(geoJSON, containedKey, updatedKey) {
   };
 }
 
+const ONE_MONTH_MS = 30 * 24 * 60 * 60 * 1000;
+const ONE_YEAR_MS = 365 * 24 * 60 * 60 * 1000;
+
 /**
- * Remove fully-contained fires that haven't been updated in 3+ days from an incidents array.
+ * Returns true if a timestamp is older than maxAgeMs. Missing or unparseable
+ * timestamps are treated as not-stale (kept), matching isStaleContained's
+ * conservative behavior elsewhere in this file.
  */
-function filterStaleContainedIncidents(incidents) {
-  return incidents.filter(inc => !isStaleContained(inc.contained, inc.updated));
+function isOlderThan(timestamp, maxAgeMs) {
+  if (!timestamp) return false;
+  const t = new Date(timestamp).getTime();
+  if (!Number.isFinite(t)) return false;
+  return Date.now() - t >= maxAgeMs;
+}
+
+/**
+ * Remove features from a GeoJSON collection that haven't been updated within maxAgeMs.
+ */
+function filterByMaxAge(geoJSON, updatedKey, maxAgeMs) {
+  if (!geoJSON?.features) return geoJSON;
+  return {
+    ...geoJSON,
+    features: geoJSON.features.filter(f => !isOlderThan(f.properties[updatedKey], maxAgeMs)),
+  };
 }
 
 /**
@@ -362,9 +381,15 @@ export default function LiveTrackerPage() {
     [incidents, calFireIncidents]
   );
 
-  const mergedIncidentsGeoJSON = useMemo(
-    () => incidentsToGeoJSON(mergedIncidentsList),
+  // Drop incidents with no update in 30+ days from both the map and sidebar feed.
+  const freshIncidentsList = useMemo(
+    () => mergedIncidentsList.filter(inc => !isOlderThan(inc.updated, ONE_MONTH_MS)),
     [mergedIncidentsList]
+  );
+
+  const mergedIncidentsGeoJSON = useMemo(
+    () => incidentsToGeoJSON(freshIncidentsList),
+    [freshIncidentsList]
   );
 
   const {
@@ -585,25 +610,26 @@ const flightBounds = useMemo(() => {
   );
 
   // ── Remove stale fully-contained fires (100% contained, no update in 3+ days) ──
-  const freshIncidents = useMemo(
-    () => filterStaleContainedIncidents(mergedIncidentsList),
-    [mergedIncidentsList]
-  );
-
+  // (mergedIncidentsGeoJSON is already limited to incidents updated within the
+  // last 30 days via freshIncidentsList — see above.)
   const freshIncidentsGeoJSON = useMemo(
     () => filterStaleContainedGeoJSON(mergedIncidentsGeoJSON, 'contained', 'updated'),
     [mergedIncidentsGeoJSON]
   );
 
-  const freshPerimetersGeoJSON = useMemo(
-    () => filterStaleContainedGeoJSON(perimetersGeoJSON, 'PercentContained', 'ModifiedOnDateTime'),
-    [perimetersGeoJSON]
-  );
+  // Perimeters: drop 100%-contained fires stale for 3+ days, and unconditionally
+  // drop any perimeter that hasn't been updated in a year.
+  const freshPerimetersGeoJSON = useMemo(() => {
+    const containedFiltered = filterStaleContainedGeoJSON(perimetersGeoJSON, 'PercentContained', 'ModifiedOnDateTime');
+    return filterByMaxAge(containedFiltered, 'ModifiedOnDateTime', ONE_YEAR_MS);
+  }, [perimetersGeoJSON]);
 
-  const freshIncidentDotsGeoJSON = useMemo(
-    () => filterStaleContainedGeoJSON(incidentDotsGeoJSON, 'PercentContained', 'ModifiedOnDateTime'),
-    [incidentDotsGeoJSON]
-  );
+  // Incident dots: drop 100%-contained fires stale for 3+ days, and unconditionally
+  // drop any dot that hasn't been updated in 30 days.
+  const freshIncidentDotsGeoJSON = useMemo(() => {
+    const containedFiltered = filterStaleContainedGeoJSON(incidentDotsGeoJSON, 'PercentContained', 'ModifiedOnDateTime');
+    return filterByMaxAge(containedFiltered, 'ModifiedOnDateTime', ONE_MONTH_MS);
+  }, [incidentDotsGeoJSON]);
 
   // ── Apply feed filter to map fire layers ──
   const isFocused = feedFilter === 'focused';
@@ -625,7 +651,7 @@ const flightBounds = useMemo(() => {
   // still appear in the sidebar feed.
   const perimeterOnlyIncidents = useMemo(() => {
     if (!filteredPerimetersGeoJSON?.features?.length) return [];
-    const existingNameKeys = new Set(mergedIncidentsList.map(i => getFireMatchKey(i.name)).filter(Boolean));
+    const existingNameKeys = new Set(freshIncidentsList.map(i => getFireMatchKey(i.name)).filter(Boolean));
     return filteredPerimetersGeoJSON.features
       .filter(f => {
         const key = getFireMatchKey(f.properties.IncidentName);
@@ -656,7 +682,7 @@ const flightBounds = useMemo(() => {
           source: p.Source || 'NIFC_WFIGS',
         };
       });
-  }, [filteredPerimetersGeoJSON, mergedIncidentsList]);
+  }, [filteredPerimetersGeoJSON, freshIncidentsList]);
 
   const filteredIncidentDotsGeoJSON = useMemo(() => {
     if (!isFocused) return freshIncidentDotsGeoJSON;
@@ -678,8 +704,8 @@ const flightBounds = useMemo(() => {
   // ── Combine IRWIN incidents with perimeter-only fires for sidebar ──
   // Perimeter-only fires have no IRWIN record; add them so they appear in the feed.
   const allIncidents = useMemo(
-    () => [...mergedIncidentsList, ...perimeterOnlyIncidents],
-    [mergedIncidentsList, perimeterOnlyIncidents]
+    () => [...freshIncidentsList, ...perimeterOnlyIncidents],
+    [freshIncidentsList, perimeterOnlyIncidents]
   );
 
   // ── Reporter incidents replace matching external data incidents ──
