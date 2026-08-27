@@ -40,6 +40,7 @@ import { usePlan } from '../hooks/usePlan';
 import { useWaterGauges } from '../hooks/useWaterGauges';
 import { useNexradSites } from '../hooks/useNexradSites';
 import { useNexradScan } from '../hooks/useNexradScan';
+import { useCaliforniaCameras } from '../hooks/useCaliforniaCameras';
 import { rasterizeSweep } from '../utils/radarRaster';
 import { useCalFirePerimeters } from '../hooks/useCalFirePerimeters';
 import { polygonCentroid } from '../utils/geoUtils';
@@ -58,6 +59,7 @@ import Legend from '../components/Legend/Legend';
 import FireDetailPanel from '../components/FireDetailPanel/FireDetailPanel';
 import WaterGaugePanel from '../components/WaterGaugePanel/WaterGaugePanel';
 import RadarSitePanel from '../components/RadarSitePanel/RadarSitePanel';
+import CameraPanel from '../components/CameraPanel/CameraPanel';
 
 // US continental bounding box for data fetches
 const US_BOUNDS = { west: -130, south: 24, east: -65, north: 50 };
@@ -212,7 +214,7 @@ function mergeIrwinAndCalFireIncidents(irwinIncidents, calFireIncidents) {
 const RAWS_MIN_ZOOM = 9;
 
 export default function LiveTrackerPage() {
-  const { layers, setLayer, setRefreshed, setLoading, feedFilter, viewport, selectedGauge, selectGauge, selectedFire, selectedRadarSite, selectRadarSite } = useApp();
+  const { layers, setLayer, setRefreshed, setLoading, feedFilter, viewport, selectedGauge, selectGauge, selectedFire, selectedRadarSite, selectRadarSite, selectedCamera, selectCamera } = useApp();
   const { hasProInfrastructureAccess, hasFireBehaviorModelingAccess } = usePlan();
   const criticalInfraEntitled = hasProInfrastructureAccess;
   const { locations: savedLocations } = useSavedLocations();
@@ -538,6 +540,11 @@ const flightBounds = useMemo(() => {
   const {
     geoJSON: nexradSitesGeoJSON,
   } = useNexradSites(layers.nexradSites);
+
+  // Live California highway cameras — Caltrans District CCTV
+  const {
+    geoJSON: californiaCamerasGeoJSON,
+  } = useCaliforniaCameras(layers.wildfireCameras);
 
   // Live Level II sweep for whichever radar site is currently selected
   const [radarProduct, setRadarProduct] = useState('reflectivity');
@@ -957,6 +964,7 @@ const flightBounds = useMemo(() => {
             nexradScanUrl={radarRaster?.dataUrl}
             nexradScanCoordinates={radarRaster?.coordinates}
             calFireHistoricalPerimetersGeoJSON={calFireHistoricalPerimetersGeoJSON}
+            californiaCamerasGeoJSON={californiaCamerasGeoJSON}
           />
 
           <MapCornerButtons />
@@ -1016,6 +1024,12 @@ const flightBounds = useMemo(() => {
               status={radarScanStatus}
               error={radarScanError}
               onClose={() => selectRadarSite(null)}
+            />
+          )}
+          {selectedCamera && (
+            <CameraPanel
+              camera={selectedCamera}
+              onClose={() => selectCamera(null)}
             />
           )}
       </div>
