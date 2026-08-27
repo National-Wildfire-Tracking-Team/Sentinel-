@@ -7,6 +7,7 @@
 
 import { useRef, useCallback, useMemo, useState, useEffect } from 'react';
 import Map, { ScaleControl, Popup, Marker } from 'react-map-gl';
+import { Navigation } from 'lucide-react';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import MapZoomControl from './MapZoomControl';
 
@@ -49,6 +50,7 @@ import NhcStormsLayer from './layers/NhcStormsLayer';
 import NHCTropicalWeatherLayer from './layers/NHCTropicalWeatherLayer';
 import WaterGaugesLayer from './layers/WaterGaugesLayer';
 import NexradSitesLayer from './layers/NexradSitesLayer';
+import CaliforniaCamerasLayer from './layers/CaliforniaCamerasLayer';
 import NexradScanLayer from './layers/NexradScanLayer';
 import CalFirePerimetersLayer from './layers/CalFirePerimetersLayer';
 import HazardEventsLayer from './layers/HazardEventsLayer';
@@ -83,6 +85,11 @@ const MAP_STYLES = {
  * Tooltip shown on hover
  */
 const OUTLOOK_LAYER_IDS = new Set(['spc-outlook-fill', 'drought-outlook-fill', 'fire-weather-outlook-fill', 'nhc-disturbance-fill', 'nhc-track-circle', 'nhc-obs-circle']);
+
+// Caltrans only reports a camera's facing as a cardinal direction (no
+// numeric bearing in the source data) — map it to degrees so the hover
+// tooltip can render a rotated direction arrow for quick recognition.
+const CAMERA_DIRECTION_DEGREES = { North: 0, East: 90, South: 180, West: 270 };
 
 function HoverTooltip({ feature, lngLat }) {
   if (!feature || !lngLat) return null;
@@ -698,6 +705,31 @@ function HoverTooltip({ feature, lngLat }) {
       );
       break;
     }
+    case 'ca-cameras-circle': {
+      const bearing = CAMERA_DIRECTION_DEGREES[p.direction];
+      content = (
+        <>
+          <div className="flex items-center gap-1.5">
+            <div className="font-semibold text-teal-300">{p.name}</div>
+            {bearing != null && (
+              <Navigation
+                size={13}
+                className="text-teal-400 shrink-0"
+                style={{ transform: `rotate(${bearing}deg)` }}
+                aria-label={`Facing ${p.direction}`}
+              />
+            )}
+          </div>
+          {p.route && <div className="text-gray-300 text-xs">{p.route}</div>}
+          {p.inService === false && (
+            <div className="text-red-400 text-xs font-medium mt-0.5">Out of service</div>
+          )}
+          {p.county && <div className="text-gray-400 text-[10px] mt-0.5">{p.county} Co.</div>}
+          <div className="text-gray-500 text-[10px] mt-1">Click for live feed · Caltrans CCTV</div>
+        </>
+      );
+      break;
+    }
     case 'nexrad-sites-circle': {
       const statusColors = {
         operate: 'text-green-400',
@@ -964,8 +996,9 @@ export default function MapView({
   nexradScanUrl,
   nexradScanCoordinates,
   calFireHistoricalPerimetersGeoJSON,
+  californiaCamerasGeoJSON,
 }) {
-  const { layers, alerts, selectFire, selectGauge, selectRadarSite, viewport, setViewport, sidebarOpen, locationGranted, userLocation, setUserLocation } = useApp();
+  const { layers, alerts, selectFire, selectGauge, selectRadarSite, selectCamera, viewport, setViewport, sidebarOpen, locationGranted, userLocation, setUserLocation } = useApp();
   const mapRef = useRef(null);
 
   // Resize the Mapbox canvas after the sidebar transition completes (300ms)
@@ -1149,6 +1182,7 @@ export default function MapView({
     }
     if (layers.waterGauges && waterGaugesGeoJSON?.features?.length) ids.push('water-gauges-circle');
     if ((isWeatherTab || isAllHazardTab) && layers.nexradSites && nexradSitesGeoJSON?.features?.length) ids.push('nexrad-sites-circle');
+    if (isWildfireTab && layers.wildfireCameras && californiaCamerasGeoJSON?.features?.length) ids.push('ca-cameras-circle');
     if (hazardEventsGeoJSON?.features?.length) ids.push('hazard-events-circle');
     return ids;
   }, [measureActive, isWildfireTab, isWeatherTab, isAllHazardTab, layers.fireHotspots, layers.firePerimeters, layers.incidentLocations, layers.aqi,
@@ -1166,6 +1200,7 @@ export default function MapView({
       nhcCentersGeoJSON,
       layers.waterGauges, waterGaugesGeoJSON,
       layers.nexradSites, nexradSitesGeoJSON,
+      layers.wildfireCameras, californiaCamerasGeoJSON,
       hazardEventsGeoJSON]);
 
   // Clear stale hover when layers change
@@ -1202,6 +1237,12 @@ export default function MapView({
     if (feature.layer.id === 'nexrad-sites-circle') {
       const [lng, lat] = feature.geometry?.coordinates ?? [evt.lngLat.lng, evt.lngLat.lat];
       selectRadarSite({ ...feature.properties, lat, lng });
+      return;
+    }
+
+    if (feature.layer.id === 'ca-cameras-circle') {
+      const [lng, lat] = feature.geometry?.coordinates ?? [evt.lngLat.lng, evt.lngLat.lat];
+      selectCamera({ ...feature.properties, lat, lng });
       return;
     }
 
@@ -1774,6 +1815,12 @@ export default function MapView({
         <NexradSitesLayer
           geoJSON={nexradSitesGeoJSON}
           visible={(isWeatherTab || isAllHazardTab) && layers.nexradSites}
+        />
+
+        {/* Live California highway cameras — Caltrans District CCTV */}
+        <CaliforniaCamerasLayer
+          geoJSON={californiaCamerasGeoJSON}
+          visible={isWildfireTab && layers.wildfireCameras}
         />
 
         {/* Live Level II sweep (reflectivity/velocity) for the selected radar site */}
