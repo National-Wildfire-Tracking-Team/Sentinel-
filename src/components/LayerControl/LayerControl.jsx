@@ -7,7 +7,7 @@
 import { useState, memo, useMemo, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  Layers, Flame, MapPin, Wind, CloudRain, CloudLightning, Eye, ChevronDown, ChevronRight, Radar, RadioTower, AlertTriangle, Ruler, Hexagon, PlaneTakeoff, Satellite, Map as MapIcon, Thermometer, Activity, Droplets, Zap, Lock, GraduationCap, Waves, History, TrendingUp, Crosshair,
+  Layers, Flame, MapPin, Wind, CloudRain, CloudLightning, Eye, ChevronDown, ChevronRight, Radar, RadioTower, AlertTriangle, Ruler, Hexagon, PlaneTakeoff, Satellite, Map as MapIcon, Thermometer, Activity, Droplets, Zap, Lock, GraduationCap, Waves, History, TrendingUp, Crosshair, Camera,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 
@@ -41,6 +41,7 @@ const LAYER_DEFS = {
   flights:           { label: 'Live Flight Tracking', sublabel: 'OpenSky Network ADS-B',      icon: PlaneTakeoff, color: '#ff5a00' },
   nhcTropicalWeather: { label: 'Tropical Weather',   sublabel: 'NHC storms · disturbance outlook', icon: Waves, color: '#38bdf8' },
   waterGauges:        { label: 'Water Gauges',        sublabel: 'NOAA NWPS river & coastal gauges', icon: Droplets, color: '#1e90ff' },
+  wildfireCameras:   { label: 'Live CA Cameras',      sublabel: 'Caltrans District CCTV · click for live feed', icon: Camera, color: '#14b8a6' },
   fireBehaviorModeling: { label: 'Fire Behavior Modeling', sublabel: 'Spread projection · select a fire', icon: TrendingUp, color: '#ff3b1f' },
 };
 
@@ -169,6 +170,10 @@ const TAB_SECTIONS = {
         {
           label: 'Overlays',
           layers: ['aqi'],
+        },
+        {
+          label: 'Live cameras',
+          layers: ['wildfireCameras'],
         },
       ],
     },

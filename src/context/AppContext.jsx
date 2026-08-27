@@ -32,6 +32,8 @@ const initialState = {
     radar:             false,
     /** NWS/NOAA NEXRAD Level 2 radar site locations + live operability status */
     nexradSites:       false,
+    /** Caltrans District CCTV — live California highway camera locations */
+    wildfireCameras:   false,
     evacZones:         true,
     flights:           false,
     rawsStations:          false,
@@ -58,6 +60,8 @@ const initialState = {
   selectedGauge: null,
   // Currently selected NEXRAD radar site (properties from map feature, incl. lat/lng)
   selectedRadarSite: null,
+  // Currently selected California highway camera (properties from map feature, incl. lat/lng)
+  selectedCamera: null,
   // Sidebar open/closed (left panel) — closed by default, opened via the top-left corner buttons
   sidebarOpen: false,
   // Layer control panel open/closed (right panel)
@@ -99,6 +103,7 @@ const A = {
   CLEAR_SELECTED:     'CLEAR_SELECTED',
   SELECT_GAUGE:       'SELECT_GAUGE',
   SELECT_RADAR_SITE:  'SELECT_RADAR_SITE',
+  SELECT_CAMERA:      'SELECT_CAMERA',
   TOGGLE_SIDEBAR:     'TOGGLE_SIDEBAR',
   TOGGLE_LAYER_PANEL: 'TOGGLE_LAYER_PANEL',
   TOGGLE_FUTURE_PANEL: 'TOGGLE_FUTURE_PANEL',
@@ -136,13 +141,15 @@ function reducer(state, action) {
         ),
       };
     case A.SELECT_FIRE:
-      return { ...state, selectedFire: action.fire, selectedGauge: null, selectedRadarSite: null };
+      return { ...state, selectedFire: action.fire, selectedGauge: null, selectedRadarSite: null, selectedCamera: null };
     case A.CLEAR_SELECTED:
-      return { ...state, selectedFire: null, selectedGauge: null, selectedRadarSite: null };
+      return { ...state, selectedFire: null, selectedGauge: null, selectedRadarSite: null, selectedCamera: null };
     case A.SELECT_GAUGE:
-      return { ...state, selectedGauge: action.gauge, selectedFire: null, selectedRadarSite: null };
+      return { ...state, selectedGauge: action.gauge, selectedFire: null, selectedRadarSite: null, selectedCamera: null };
     case A.SELECT_RADAR_SITE:
-      return { ...state, selectedRadarSite: action.site, selectedFire: null, selectedGauge: null };
+      return { ...state, selectedRadarSite: action.site, selectedFire: null, selectedGauge: null, selectedCamera: null };
+    case A.SELECT_CAMERA:
+      return { ...state, selectedCamera: action.camera, selectedFire: null, selectedGauge: null, selectedRadarSite: null };
     case A.TOGGLE_SIDEBAR: {
       const next = !state.sidebarOpen;
       return { ...state, sidebarOpen: next, futurePanelOpen: next ? false : state.futurePanelOpen, accountPanelOpen: next ? false : state.accountPanelOpen };
@@ -193,6 +200,7 @@ export function AppProvider({ children }) {
   const clearSelected    = useCallback(() => dispatch({ type: A.CLEAR_SELECTED }), []);
   const selectGauge      = useCallback((gauge) => dispatch({ type: A.SELECT_GAUGE, gauge }), []);
   const selectRadarSite  = useCallback((site) => dispatch({ type: A.SELECT_RADAR_SITE, site }), []);
+  const selectCamera     = useCallback((camera) => dispatch({ type: A.SELECT_CAMERA, camera }), []);
   const toggleSidebar    = useCallback(() => dispatch({ type: A.TOGGLE_SIDEBAR }), []);
   const toggleLayerPanel = useCallback(() => dispatch({ type: A.TOGGLE_LAYER_PANEL }), []);
   const toggleFuturePanel = useCallback(() => dispatch({ type: A.TOGGLE_FUTURE_PANEL }), []);
@@ -229,6 +237,7 @@ export function AppProvider({ children }) {
       clearSelected,
       selectGauge,
       selectRadarSite,
+      selectCamera,
       toggleSidebar,
       toggleLayerPanel,
       toggleFuturePanel,
