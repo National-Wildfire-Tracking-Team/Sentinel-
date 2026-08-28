@@ -10,13 +10,15 @@ import { Navigate, useNavigate, useSearchParams, Link } from 'react-router-dom';
 import {
   Flame, User, Mail, Shield, Calendar, Lock,
   CheckCircle2, AlertCircle, LogOut, ChevronLeft, MapPin,
-  CreditCard, Zap, ExternalLink, Star,
+  CreditCard, Zap, ExternalLink, Star, Bell,
 } from 'lucide-react';
 
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../api/supabaseClient';
 import { useSavedLocations } from '../hooks/useSavedLocations';
+import { useNotificationPreferences } from '../hooks/useNotificationPreferences';
 import { usePlan, PLANS } from '../hooks/usePlan';
+import { NOTIFIABLE_ALERT_TYPES } from '../utils/nwsColors';
 
 export default function AccountPage() {
   const { user, profile, isAuthenticated, loading, profileLoading, signOut } = useAuth();
@@ -24,6 +26,7 @@ export default function AccountPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { locations } = useSavedLocations();
+  const { nwsAlertTypes, toggleAlertType, error: notifyPrefsError } = useNotificationPreferences();
 
   const [resetSent, setResetSent] = useState(false);
   const [resetBusy, setResetBusy] = useState(false);
@@ -286,7 +289,7 @@ export default function AccountPage() {
                            hover:bg-fire-600/25 hover:text-fire-300 transition-colors"
               >
                 <Zap size={12} />
-                Upgrade to Pro — $9.99/mo
+                Upgrade to Pro — $4.99/mo
               </Link>
             )}
           </div>
@@ -343,6 +346,43 @@ export default function AccountPage() {
               ))}
             </ul>
           )}
+        </section>
+
+        {/* ── Email Notifications card ── */}
+        <section className="rounded-xl bg-sentinel-900 border border-sentinel-700 p-6 space-y-4">
+          <h2 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
+            <Bell size={14} className="text-sky-400" />
+            Email Notifications
+          </h2>
+
+          <p className="text-xs text-sentinel-400">
+            New wildfires are emailed automatically for any saved zip code with fire alerts enabled.
+            Choose which NWS weather alerts you'd also like emailed when they're issued for one of your saved zip codes.
+          </p>
+
+          {notifyPrefsError && (
+            <p className="text-xs text-red-400">{notifyPrefsError}</p>
+          )}
+
+          <div className="flex flex-wrap gap-2">
+            {NOTIFIABLE_ALERT_TYPES.map((type) => {
+              const active = nwsAlertTypes.includes(type);
+              return (
+                <button
+                  key={type}
+                  type="button"
+                  onClick={() => toggleAlertType(type)}
+                  className={`px-2.5 py-1 rounded-full text-[11px] font-medium border transition-colors ${
+                    active
+                      ? 'bg-sky-500/15 border-sky-500/50 text-sky-300'
+                      : 'bg-sentinel-800 border-sentinel-600 text-sentinel-400 hover:text-sentinel-200 hover:border-sentinel-500'
+                  }`}
+                >
+                  {type}
+                </button>
+              );
+            })}
+          </div>
         </section>
 
         {/* ── Security card ── */}
