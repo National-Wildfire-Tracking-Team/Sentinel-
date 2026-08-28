@@ -2,8 +2,8 @@
  * CaliforniaCamerasLayer.jsx
  * Live California highway CCTV camera locations (Caltrans District CCTV
  * network). Renders as teal dot markers with a small white camera glyph
- * on top (same icon-registration pattern as FlightLayer/HazardEventsLayer)
- * so they read as cameras at a glance rather than generic dots. Cameras
+ * on top (same icon-registration pattern as HazardEventsLayer) so they
+ * read as cameras at a glance rather than generic dots. Cameras
  * Caltrans reports as out of service get a red X over the dot instead of
  * the camera glyph. Hovering shows name/route/direction/status in
  * MapView's HoverTooltip, click opens CameraPanel with the live still image.
