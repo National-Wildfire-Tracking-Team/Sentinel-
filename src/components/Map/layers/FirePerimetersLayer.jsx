@@ -51,8 +51,12 @@ const FirePerimetersLayer = memo(function FirePerimetersLayer({ geoJSON, visible
     return { type: 'FeatureCollection', features };
   }, [geoJSON]);
 
-  // Grey out fully contained perimeters; active fires keep their normal color.
+  // Grey out fully contained perimeters, and perimeters that haven't been
+  // updated in 30+ days (isStaleFire, set in LiveTrackerPage); active fires
+  // keep their normal color.
   const isContained = ['>=', ['coalesce', ['get', 'PercentContained'], 0], 100];
+  const isStale = ['boolean', ['get', 'isStaleFire'], false];
+  const isGreyedOut = ['any', isContained, isStale];
 
   return (
     <>
@@ -63,10 +67,10 @@ const FirePerimetersLayer = memo(function FirePerimetersLayer({ geoJSON, visible
           source="fire-perimeters"
           layout={{ visibility: vis }}
           paint={{
-            'fill-color': ['case', isContained, '#6b7280', '#ff6600'],
+            'fill-color': ['case', isGreyedOut, '#6b7280', '#ff6600'],
             'fill-opacity': [
               'case',
-              isContained,
+              isGreyedOut,
               ['case', ['boolean', ['feature-state', 'selected'], false], 0.3, 0.15],
               ['case', ['boolean', ['feature-state', 'selected'], false], 0.35, 0.14],
             ],
@@ -98,7 +102,7 @@ const FirePerimetersLayer = memo(function FirePerimetersLayer({ geoJSON, visible
           paint={{
             'line-color': [
               'case',
-              isContained,
+              isGreyedOut,
               ['case', ['boolean', ['feature-state', 'selected'], false], '#9ca3af', '#6b7280'],
               ['boolean', ['feature-state', 'selected'], false],
               '#ffaa00',
@@ -121,7 +125,7 @@ const FirePerimetersLayer = memo(function FirePerimetersLayer({ geoJSON, visible
           id="fire-perimeter-centroids-glow"
           type="circle"
           source="fire-perimeter-centroids"
-          filter={['<', ['coalesce', ['get', 'PercentContained'], 0], 100]}
+          filter={['all', ['<', ['coalesce', ['get', 'PercentContained'], 0], 100], ['!', isStale]]}
           layout={{ visibility: vis }}
           paint={{
             'circle-radius': 14,
@@ -134,7 +138,7 @@ const FirePerimetersLayer = memo(function FirePerimetersLayer({ geoJSON, visible
           id="fire-perimeter-centroids-circle"
           type="circle"
           source="fire-perimeter-centroids"
-          filter={['<', ['coalesce', ['get', 'PercentContained'], 0], 100]}
+          filter={['all', ['<', ['coalesce', ['get', 'PercentContained'], 0], 100], ['!', isStale]]}
           layout={{ visibility: vis }}
           paint={{
             'circle-radius': 7,
@@ -159,7 +163,7 @@ const FirePerimetersLayer = memo(function FirePerimetersLayer({ geoJSON, visible
             'text-max-width': 10,
           }}
           paint={{
-            'text-color': ['case', isContained, '#9ca3af', '#ffffff'],
+            'text-color': ['case', isGreyedOut, '#9ca3af', '#ffffff'],
             'text-halo-color': 'rgba(0,0,0,0.8)',
             'text-halo-width': 2,
           }}

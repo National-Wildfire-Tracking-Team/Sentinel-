@@ -1,23 +1,24 @@
 /**
  * useNhcTropicalWeather.js
- * Loads NHC hurricane data from two complementary sources:
- *   - Esri Active_Hurricanes_v1 (named storm tracks + cones)
- *   - NOAA NHC MapServer layer 320 (pre-storm disturbance outlook)
- * Each source fails independently. Auto-refreshes every 5 minutes.
+ * Loads NHC tropical cyclone + tropical weather outlook data from the NOAA
+ * MapServer (see src/api/nhcTropicalWeather.js). Auto-refreshes every 5 minutes.
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { fetchNhcTropicalWeather, buildStormLabels } from '../api/nhcTropicalWeather';
 
 const REFRESH_MS = 5 * 60 * 1000;
-const EMPTY_FC = { type: 'FeatureCollection', features: [] };
 
 export function useNhcTropicalWeather(enabled = false) {
-  const [trackGeoJSON,         setTrackGeoJSON]         = useState(null);
-  const [observedTrackGeoJSON, setObservedTrackGeoJSON] = useState(null);
-  const [coneGeoJSON,          setConeGeoJSON]          = useState(null);
-  const [disturbanceGeoJSON,   setDisturbanceGeoJSON]   = useState(null);
-  const [loading,              setLoading]              = useState(false);
+  const [forecastPointsGeoJSON,    setForecastPointsGeoJSON]    = useState(null);
+  const [forecastTrackGeoJSON,     setForecastTrackGeoJSON]     = useState(null);
+  const [coneGeoJSON,              setConeGeoJSON]              = useState(null);
+  const [watchWarningGeoJSON,      setWatchWarningGeoJSON]      = useState(null);
+  const [pastPointsGeoJSON,        setPastPointsGeoJSON]        = useState(null);
+  const [pastTrackGeoJSON,         setPastTrackGeoJSON]         = useState(null);
+  const [disturbancePointsGeoJSON, setDisturbancePointsGeoJSON] = useState(null);
+  const [disturbanceAreasGeoJSON,  setDisturbanceAreasGeoJSON]  = useState(null);
+  const [loading, setLoading] = useState(false);
   const intervalRef = useRef(null);
   const mountedRef  = useRef(true);
 
@@ -25,12 +26,16 @@ export function useNhcTropicalWeather(enabled = false) {
     if (!enabled) return;
     setLoading(true);
     try {
-      const { track, observedTrack, cone, disturbance } = await fetchNhcTropicalWeather();
+      const data = await fetchNhcTropicalWeather();
       if (!mountedRef.current) return;
-      setTrackGeoJSON(track);
-      setObservedTrackGeoJSON(observedTrack);
-      setConeGeoJSON(cone);
-      setDisturbanceGeoJSON(disturbance);
+      setForecastPointsGeoJSON(data.forecastPointsGeoJSON);
+      setForecastTrackGeoJSON(data.forecastTrackGeoJSON);
+      setConeGeoJSON(data.coneGeoJSON);
+      setWatchWarningGeoJSON(data.watchWarningGeoJSON);
+      setPastPointsGeoJSON(data.pastPointsGeoJSON);
+      setPastTrackGeoJSON(data.pastTrackGeoJSON);
+      setDisturbancePointsGeoJSON(data.disturbancePointsGeoJSON);
+      setDisturbanceAreasGeoJSON(data.disturbanceAreasGeoJSON);
     } finally {
       if (mountedRef.current) setLoading(false);
     }
@@ -47,15 +52,19 @@ export function useNhcTropicalWeather(enabled = false) {
   }, [enabled, load]);
 
   const stormLabelsGeoJSON = useMemo(
-    () => buildStormLabels(trackGeoJSON),
-    [trackGeoJSON]
+    () => buildStormLabels(forecastPointsGeoJSON),
+    [forecastPointsGeoJSON]
   );
 
   return {
-    trackGeoJSON,
-    observedTrackGeoJSON,
+    forecastPointsGeoJSON,
+    forecastTrackGeoJSON,
     coneGeoJSON,
-    disturbanceGeoJSON,
+    watchWarningGeoJSON,
+    pastPointsGeoJSON,
+    pastTrackGeoJSON,
+    disturbancePointsGeoJSON,
+    disturbanceAreasGeoJSON,
     stormLabelsGeoJSON,
     loading,
     refresh: load,

@@ -73,21 +73,6 @@ export default defineConfig({
           return `/umbraco/api/IncidentApi/GeoJsonList${qs}`;
         },
       },
-      // NHC – nhc.noaa.gov lacks CORS headers; dev server proxies same paths as Netlify edge fn
-      '/api/nhc/current': {
-        target: 'https://www.nhc.noaa.gov',
-        changeOrigin: true,
-        rewrite: () => '/CurrentStorms.json',
-      },
-      '/api/nhc/gis': {
-        target: 'https://www.nhc.noaa.gov',
-        changeOrigin: true,
-        rewrite: (path) => {
-          const qs = path.includes('?') ? path.slice(path.indexOf('?') + 1) : '';
-          const file = new URLSearchParams(qs).get('file') || '';
-          return `/gis/forecast/archive/${file}`;
-        },
-      },
       '/api/census/counties': {
         target: 'https://tigerweb.geo.census.gov',
         changeOrigin: true,
@@ -162,20 +147,6 @@ export default defineConfig({
         rewrite: path => {
           const qs = path.includes('?') ? path.slice(path.indexOf('?')) : '';
           return `/umbraco/api/IncidentApi/GeoJsonList${qs}`;
-        },
-      },
-      '/api/nhc/current': {
-        target: 'https://www.nhc.noaa.gov',
-        changeOrigin: true,
-        rewrite: () => '/CurrentStorms.json',
-      },
-      '/api/nhc/gis': {
-        target: 'https://www.nhc.noaa.gov',
-        changeOrigin: true,
-        rewrite: (path) => {
-          const qs = path.includes('?') ? path.slice(path.indexOf('?') + 1) : '';
-          const file = new URLSearchParams(qs).get('file') || '';
-          return `/gis/forecast/archive/${file}`;
         },
       },
       '/api/census/counties': {

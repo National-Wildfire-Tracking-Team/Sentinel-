@@ -268,3 +268,32 @@ export function nwsColorMatchExpression() {
   const pairs = Object.entries(NWS_ALERT_COLORS).flat();
   return ['match', ['get', 'type'], ...pairs, DEFAULT_NWS_COLOR];
 }
+
+/**
+ * Curated subset of NWS event types offered as opt-in email notification
+ * preferences (src/pages/AccountPage.jsx) and matched against by
+ * scripts/notification-sync.mjs — a practical, high-signal list rather
+ * than the full ~100-entry palette above.
+ */
+export const NOTIFIABLE_ALERT_TYPES = [
+  'Red Flag Warning',
+  'Fire Weather Watch',
+  'Tornado Warning',
+  'Tornado Watch',
+  'Severe Thunderstorm Warning',
+  'Flash Flood Warning',
+  'Flash Flood Watch',
+  'Hurricane Warning',
+  'Hurricane Watch',
+  'Tropical Storm Warning',
+  'Tropical Storm Watch',
+  'Winter Storm Warning',
+  'Blizzard Warning',
+  'Extreme Heat Warning',
+  'High Wind Warning',
+  'Coastal Flood Warning',
+  'Storm Surge Warning',
+  'Tsunami Warning',
+  'Civil Emergency Message',
+  'Evacuation Immediate',
+];

@@ -76,7 +76,7 @@ function AlertBadge({ count, severity }) {
 
 // ── LocationCard ─────────────────────────────────────────────────────────────
 
-function LocationCard({ location, onDelete, onFlyTo }) {
+function LocationCard({ location, onDelete, onFlyTo, onToggleFireNotify }) {
   const [alerts, setAlerts]           = useState(null);   // null = not yet loaded
   const [loadingAlerts, setLoadingAlerts] = useState(false);
   const [alertError, setAlertError]   = useState(null);
@@ -147,6 +147,18 @@ function LocationCard({ location, onDelete, onFlyTo }) {
             className="p-1.5 rounded text-sentinel-400 hover:text-sky-400 hover:bg-sentinel-700 transition-colors"
           >
             <MapPin size={12} />
+          </button>
+
+          <button
+            onClick={onToggleFireNotify}
+            title={location.notify_new_fires ? 'New fire emails on — click to turn off' : 'New fire emails off — click to turn on'}
+            className={`p-1.5 rounded transition-colors ${
+              location.notify_new_fires
+                ? 'text-fire-400 hover:bg-sentinel-700'
+                : 'text-sentinel-500 hover:text-sentinel-300 hover:bg-sentinel-700'
+            }`}
+          >
+            <Bell size={12} />
           </button>
 
           {hasAlerts && (
@@ -339,7 +351,7 @@ export default function SavedLocationsPanel() {
   const { setViewport } = useApp();
   const {
     locations, loading, error,
-    addLocation, removeLocation,
+    addLocation, removeLocation, updateLocation,
     atLimit, limit,
   } = useSavedLocations();
 
@@ -496,6 +508,7 @@ export default function SavedLocationsPanel() {
           location={loc}
           onDelete={removeLocation}
           onFlyTo={handleFlyTo}
+          onToggleFireNotify={() => updateLocation(loc.id, { notify_new_fires: !loc.notify_new_fires })}
         />
       ))}
     </div>
