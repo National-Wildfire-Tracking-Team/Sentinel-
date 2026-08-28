@@ -4,7 +4,9 @@
  *
  * Endpoints used:
  * - Active alerts: https://api.weather.gov/alerts/active
- * - Returns active Red Flag Warnings and Fire Weather Watches
+ * - Returns all active NWS alerts nationwide; callers filter down to
+ *   fire-specific types (Red Flag Warning / Fire Weather Watch) as needed
+ *   via filterFireWeatherAlerts().
  *
  * Docs: https://www.weather.gov/documentation/services-web-api
  */
@@ -160,10 +162,10 @@ export async function enrichAlertsWithGeometry(alerts) {
 }
 
 /**
- * Fetch active NOAA/NWS alerts nationwide, following NWS API pagination, then
- * retain only Red Flag Warnings and Fire Weather Watches for wildfire tracking.
- * Results are cached for 5 minutes.
- * @returns {Promise<Array>}  Normalized alert objects
+ * Filter a list of normalized alerts down to fire-specific types
+ * (Red Flag Warning / Fire Weather Watch) for wildfire-focused views.
+ * @param {Array} alerts  Normalized alert objects
+ * @returns {Array}  Alerts whose type is fire-related
  */
 export function filterFireWeatherAlerts(alerts) {
   return alerts.filter(alert =>
@@ -171,8 +173,14 @@ export function filterFireWeatherAlerts(alerts) {
   );
 }
 
+/**
+ * Fetch all active NOAA/NWS alerts nationwide, following NWS API pagination.
+ * Results are cached for 5 minutes. Callers that only want fire-related
+ * alerts should apply filterFireWeatherAlerts() to the result.
+ * @returns {Promise<Array>}  Normalized alert objects
+ */
 export async function fetchNWSAlerts() {
-  const cacheKey = 'noaa:fire-weather-alerts';
+  const cacheKey = 'noaa:nws-alerts-active';
   const cached = getCached(cacheKey);
   if (cached !== null) return cached;
 
@@ -192,7 +200,7 @@ export async function fetchNWSAlerts() {
     }
 
     if (!allFeatures.length) throw new Error('No active alerts');
-    const normalized = filterFireWeatherAlerts(normalizeAlerts(allFeatures));
+    const normalized = normalizeAlerts(allFeatures);
     setCached(cacheKey, normalized, 5 * 60 * 1000);
     return normalized;
   } catch (err) {
