@@ -1,25 +1,32 @@
 /**
  * nhcTropicalWeather.js
- * Fetches NHC hurricane data from two complementary sources:
+ * Single source of truth for NHC tropical weather data: the public NOAA
+ * MapServer at mapservices.weather.noaa.gov/tropical/rest/services/tropical/NHC_tropical_weather.
  *
- * SOURCE A – Esri Active_Hurricanes_v1 FeatureServer (vannizhang/hurricane)
- *   FeatureServer/0 – Forecast track positions (future, points)
- *   FeatureServer/2 – Observed track positions (past, points)
- *   FeatureServer/4 – Forecast error cone (polygon)
+ * That service publishes a fixed schema of 15 storm "slots" (AT1-AT5, EP1-EP5,
+ * CP1-CP5 — Atlantic/East Pacific/Central Pacific), each with its own set of
+ * sublayers (Forecast Points, Forecast Track, Forecast Cone, Watch-Warning,
+ * Past Points, Past Track, ...). A slot is "active" when its Forecast Points
+ * layer returns features; inactive slots return empty results, which is how
+ * NHC signals "no storm here right now" rather than omitting the layer.
  *
- * SOURCE B – NOAA NHC tropical weather MapServer
- *   Layer 320       – Tropical disturbance outlook areas (pre-named-storm)
+ * Basin-wide (non-slot) layers 1 and 3 carry the Tropical Weather Outlook —
+ * pre-genesis disturbance locations and their 7-day formation-potential areas.
  *
- * Each source fails independently; the other still renders.
+ * Layer IDs aren't stable across service updates, so they're resolved by name
+ * once per session via /layers?f=json rather than hardcoded.
  */
 
 import { fetchWithCache } from '../utils/dataCache';
 
-const ESRI_SERVICE =
-  'https://services9.arcgis.com/RHVPKKiFTONKtxq3/arcgis/rest/services/Active_Hurricanes_v1/FeatureServer';
-
-const NOAA_MAPSERVER =
+const BASE =
   'https://mapservices.weather.noaa.gov/tropical/rest/services/tropical/NHC_tropical_weather/MapServer';
+
+const STORM_SLOTS = [
+  'AT1', 'AT2', 'AT3', 'AT4', 'AT5',
+  'EP1', 'EP2', 'EP3', 'EP4', 'EP5',
+  'CP1', 'CP2', 'CP3', 'CP4', 'CP5',
+];
 
 // Standard NHC/SSHWS category colors
 export const HURRICANE_CATEGORY_COLORS = {
@@ -32,30 +39,39 @@ export const HURRICANE_CATEGORY_COLORS = {
   'Category 5':          { fill: '#ff6060', stroke: '#cc0000' },
 };
 
-// NHC disturbance formation probability colors
+// NHC tropical weather outlook formation-probability colors
 export const DISTURBANCE_COLORS = {
   HIGH:   { fill: '#FF4444', stroke: '#BB0000' },
   MEDIUM: { fill: '#FFA040', stroke: '#CC5500' },
   LOW:    { fill: '#FFE566', stroke: '#CCAA00' },
 };
 
-// NHC coastal watch/warning colors (standard NHC map convention)
+// Official NHC watch/warning legend colors (from the Watch-Warning layer's
+// own renderer — see MapServer/<id>?f=json drawingInfo.renderer).
 export const WATCH_WARNING_COLORS = {
-  'Hurricane Warning':       { fill: '#FF0000', stroke: '#B30000' },
-  'Hurricane Watch':         { fill: '#FF00FF', stroke: '#B300B3' },
-  'Tropical Storm Warning':  { fill: '#FF8C00', stroke: '#B36200' },
-  'Tropical Storm Watch':    { fill: '#F0E68C', stroke: '#B3A400' },
-  'Storm Surge Warning':     { fill: '#C71585', stroke: '#8B0F5E' },
-  'Storm Surge Watch':       { fill: '#DB7FF7', stroke: '#9B4FC7' },
-  Advisory:                  { fill: '#94a3b8', stroke: '#64748b' },
+  'Hurricane Warning':      '#FF0000',
+  'Hurricane Watch':        '#FF7F7F',
+  'Tropical Storm Warning': '#004DA8',
+  'Tropical Storm Watch':   '#FFFF00',
+  Advisory:                 '#94a3b8',
+};
+
+// tcww codes as published by the Watch-Warning layer's renderer
+const WATCH_WARNING_LABELS = {
+  HWA: 'Hurricane Watch',
+  HWR: 'Hurricane Warning',
+  TWA: 'Tropical Storm Watch',
+  TWR: 'Tropical Storm Warning',
 };
 
 const EMPTY_FC = { type: 'FeatureCollection', features: [] };
+const KT_TO_MPH = 1.15078;
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-export function getHurricaneCategory(maxWindMph) {
-  const w = Number(maxWindMph);
+/** Saffir-Simpson category from sustained wind speed in knots. */
+export function getHurricaneCategory(windKt) {
+  const w = Number(windKt);
   if (isNaN(w))  return 'Tropical Depression';
   if (w > 136)   return 'Category 5';
   if (w > 112)   return 'Category 4';
@@ -66,173 +82,198 @@ export function getHurricaneCategory(maxWindMph) {
   return 'Tropical Depression';
 }
 
-function detectFormationChance(p = {}) {
-  const raw = [p.PROB2DAY, p.PROB5DAY, p.FormationChance, p.label, p.LABEL]
-    .filter(Boolean).map(v => String(v).toUpperCase()).join(' ');
-  if (raw.includes('HIGH'))   return 'HIGH';
-  if (raw.includes('MEDIUM')) return 'MEDIUM';
-  if (raw.includes('LOW'))    return 'LOW';
-  return 'LOW';
+// Esri's sentinel value for "not reported" on this service is 9999.
+function cleanNumber(v) {
+  const n = Number(v);
+  if (!Number.isFinite(n) || n >= 9000) return null;
+  return n;
 }
 
-/**
- * Best-effort extraction of a 0-100 formation-probability percentage from an
- * Esri feature's attributes. The exact field name published by NHC's
- * Tropical Weather Outlook GIS layer isn't guaranteed to be stable, so this
- * scans every property whose name matches the given pattern and pulls the
- * first 0-100 number out of its value (handles "40", "40%", "40 percent").
- * @param {object} properties
- * @param {RegExp} keyPattern
- * @returns {number|null}
- */
-function extractFormationPercent(properties, keyPattern) {
-  for (const [key, value] of Object.entries(properties || {})) {
-    if (!keyPattern.test(key) || value == null) continue;
-    const m = String(value).match(/(\d{1,3})/);
-    if (!m) continue;
-    const n = Number(m[1]);
-    if (n >= 0 && n <= 100) return n;
+// ─── Layer-id resolution ──────────────────────────────────────────────────────
+// Resolved once per session by name; retried if a prior attempt came back empty.
+let layerIdMapPromise = null;
+
+async function getLayerIdMap() {
+  if (layerIdMapPromise) {
+    const map = await layerIdMapPromise;
+    if (map.size > 0) return map;
   }
-  return null;
+  layerIdMapPromise = (async () => {
+    try {
+      const res = await fetch(`${BASE}/layers?f=json`);
+      if (!res.ok) return new Map();
+      const data = await res.json();
+      const map = new Map();
+      for (const l of [...(data.layers || []), ...(data.tables || [])]) {
+        map.set(l.name, l.id);
+      }
+      return map;
+    } catch {
+      return new Map();
+    }
+  })();
+  return layerIdMapPromise;
 }
 
-/**
- * Best-effort extraction of the Tropical Weather Outlook narrative text from
- * an Esri feature's attributes. Prefers a property whose name suggests it
- * holds discussion text; falls back to the longest string-valued property
- * (narrative fields are far longer than codes/IDs).
- * @param {object} properties
- * @returns {string}
- */
-function extractOutlookText(properties) {
-  const entries = Object.entries(properties || {}).filter(
-    ([, v]) => typeof v === 'string' && v.trim().length > 40
-  );
-  if (!entries.length) return '';
-  const named = entries.filter(([k]) => /text|discuss|desc|remark|outlook|summary/i.test(k));
-  const pool = named.length ? named : entries;
-  return pool.sort((a, b) => b[1].length - a[1].length)[0][1].trim();
+// ─── Query helper ─────────────────────────────────────────────────────────────
+
+function buildQuery(id, orderBy) {
+  const params = new URLSearchParams({
+    where: '1=1', outFields: '*', f: 'geojson', resultRecordCount: '1000',
+  });
+  if (orderBy) params.set('orderByFields', orderBy);
+  return `${BASE}/${id}/query?${params}`;
 }
 
-function ensureFC(data, normalizeFn) {
-  if (data?.type === 'FeatureCollection' && Array.isArray(data.features)) {
-    return { ...data, features: data.features.map((f, i) => normalizeFn(f, i)) };
-  }
-  return EMPTY_FC;
-}
-
-function buildEsriQuery(layerId) {
-  return `${ESRI_SERVICE}/${layerId}/query?${new URLSearchParams({
-    where: '1=1', outFields: '*', f: 'geojson', resultRecordCount: '500',
-  })}`;
-}
-
-function buildNoaaQuery(layerId) {
-  return `${NOAA_MAPSERVER}/${layerId}/query?${new URLSearchParams({
-    where: '1=1', outFields: '*', f: 'geojson', resultRecordCount: '500',
-  })}`;
-}
-
-// Wrap fetch so a single layer failure returns EMPTY_FC instead of throwing
-async function safeFetch(url, cacheKey, ttlMs = 5 * 60 * 1000) {
+async function queryLayer(id, cacheKey, ttlMs, orderBy) {
   try {
-    const data = await fetchWithCache(url, cacheKey, {}, ttlMs);
-    return data;
+    const data = await fetchWithCache(buildQuery(id, orderBy), cacheKey, {}, ttlMs);
+    if (data?.type === 'FeatureCollection' && Array.isArray(data.features)) return data;
+    return EMPTY_FC;
   } catch {
     return EMPTY_FC;
   }
 }
 
-// ─── Normalizers ──────────────────────────────────────────────────────────────
+// ─── Normalizers (NOAA MapServer fields are lowercase) ────────────────────────
 
-function normalizeForecast(feature, idx) {
+function normalizeForecastPoint(feature, idx, slot) {
   const p = feature?.properties || {};
-  const category = getHurricaneCategory(p.MAXWIND);
+  const maxWindKt = cleanNumber(p.maxwind) || 0;
+  const category = getHurricaneCategory(maxWindKt);
   const colors = HURRICANE_CATEGORY_COLORS[category];
+  const tau = cleanNumber(p.tau) ?? 0;
   return {
     ...feature,
     properties: {
-      ...p,
-      id:          p.OBJECTID != null ? `nhc-track-${p.OBJECTID}` : `nhc-track-${idx}`,
-      stormName:   p.STORMNAME || '',
-      stormType:   p.TCDVLP   || '',
-      maxWind:     p.MAXWIND   || 0,
-      gust:        p.GUST      || 0,
-      basin:       p.BASIN     || '',
-      dateLabel:   p.DATELBL   || p.FLDATELBL || '',
+      id: `nhc-fp-${slot}-${p.objectid ?? idx}`,
+      slot,
+      stormName:    p.stormname || '',
+      stormType:    p.tcdvlp || p.dvlbl || '',
+      maxWindKt,
+      maxWindMph:   Math.round(maxWindKt * KT_TO_MPH),
+      gustKt:       cleanNumber(p.gust) || 0,
+      mslp:         cleanNumber(p.mslp),
+      tau,
+      isCurrent:    tau === 0,
+      advisoryNum:  p.advisnum || '',
+      dateLabel:    p.datelbl || '',
+      fullDateLabel: p.fldatelbl || '',
       category,
-      fillColor:   colors.fill,
+      fillColor:    colors.fill,
+      strokeColor:  colors.stroke,
+    },
+  };
+}
+
+function normalizePastPoint(feature, idx, slot) {
+  const p = feature?.properties || {};
+  const intensityKt = cleanNumber(p.intensity) || 0;
+  const category = getHurricaneCategory(intensityKt);
+  const dateLabel = p.month && p.day != null && p.hhmm ? `${p.month} ${p.day}, ${p.hhmm} UTC` : '';
+  return {
+    ...feature,
+    properties: {
+      id: `nhc-pp-${slot}-${p.objectid ?? idx}`,
+      slot,
+      stormName:    p.stormname || '',
+      stormType:    p.stormtype || '',
+      intensityKt,
+      intensityMph: Math.round(intensityKt * KT_TO_MPH),
+      mslp:         cleanNumber(p.mslp),
+      category,
+      observed:     true,
+      dateLabel,
+    },
+  };
+}
+
+function normalizeTrackOrCone(feature, idx, slot, prefix) {
+  const p = feature?.properties || {};
+  return {
+    ...feature,
+    properties: {
+      id: `${prefix}-${slot}-${p.objectid ?? idx}`,
+      slot,
+      stormName: p.stormname || '',
+      advisoryNum: p.advisnum || '',
+    },
+  };
+}
+
+function normalizeWatchWarning(feature, idx, slot) {
+  const p = feature?.properties || {};
+  const code = String(p.tcww || '').toUpperCase();
+  const wwType = WATCH_WARNING_LABELS[code] || 'Advisory';
+  return {
+    ...feature,
+    properties: {
+      id: `nhc-ww-${slot}-${p.objectid ?? idx}`,
+      slot,
+      stormName: p.stormname || '',
+      wwType,
+      color: WATCH_WARNING_COLORS[wwType] || WATCH_WARNING_COLORS.Advisory,
+    },
+  };
+}
+
+function classifyRisk(p) {
+  const risk = String(p.risk7day || p.risk2day || '').toUpperCase();
+  if (risk.includes('HIGH')) return 'HIGH';
+  if (risk.includes('MEDIUM')) return 'MEDIUM';
+  return 'LOW';
+}
+
+function parsePercent(v) {
+  if (v == null) return null;
+  const m = String(v).match(/(\d{1,3})/);
+  return m ? Number(m[1]) : null;
+}
+
+function normalizeDisturbance(feature, idx, prefix) {
+  const p = feature?.properties || {};
+  const formationChance = classifyRisk(p);
+  const colors = DISTURBANCE_COLORS[formationChance];
+  return {
+    ...feature,
+    properties: {
+      id: `${prefix}-${p.objectid ?? idx}`,
+      basin: p.basin || '',
+      formationChance,
+      day2Percent: parsePercent(p.prob2day),
+      day7Percent: parsePercent(p.prob7day),
+      risk2day: p.risk2day || '',
+      risk7day: p.risk7day || '',
+      fillColor: colors.fill,
       strokeColor: colors.stroke,
     },
   };
 }
 
-function normalizeObserved(feature, idx) {
-  const p = feature?.properties || {};
-  const category = getHurricaneCategory(p.MAXWIND);
-  return {
-    ...feature,
-    properties: {
-      ...p,
-      id:        p.OBJECTID != null ? `nhc-obs-${p.OBJECTID}` : `nhc-obs-${idx}`,
-      stormName: p.STORMNAME || '',
-      stormType: p.TCDVLP   || '',
-      maxWind:   p.MAXWIND   || 0,
-      gust:      p.GUST      || 0,
-      dateLabel: p.DATELBL   || p.FLDATELBL || '',
-      category,
-      observed:  true,
-    },
-  };
+function normalizeAll(fc, normalizeFn, ...args) {
+  if (!fc?.features?.length) return EMPTY_FC;
+  return { type: 'FeatureCollection', features: fc.features.map((f, i) => normalizeFn(f, i, ...args)) };
 }
 
-function normalizeCone(feature, idx) {
-  const p = feature?.properties || {};
-  return {
-    ...feature,
-    properties: {
-      ...p,
-      id:        p.OBJECTID != null ? `nhc-cone-${p.OBJECTID}` : `nhc-cone-${idx}`,
-      stormName: p.STORMNAME || '',
-    },
-  };
-}
+// ─── Storm labels ─────────────────────────────────────────────────────────────
 
-function normalizeDisturbance(feature, idx) {
-  const p = feature?.properties || {};
-  const formationChance = detectFormationChance(p);
-  const colors = DISTURBANCE_COLORS[formationChance];
-  return {
-    ...feature,
-    properties: {
-      ...p,
-      id:             p.OBJECTID != null ? `nhc-dist-${p.OBJECTID}` : `nhc-dist-${idx}`,
-      formationChance,
-      day2Percent:    extractFormationPercent(p, /2.?day|48.?h/i),
-      day7Percent:    extractFormationPercent(p, /7.?day|168.?h/i),
-      outlookText:    extractOutlookText(p),
-      fillColor:      colors.fill,
-      strokeColor:    colors.stroke,
-    },
-  };
-}
-
-// ─── Exports ──────────────────────────────────────────────────────────────────
-
-/** Derive one label point per storm from forecast track features */
-export function buildStormLabels(trackFC) {
-  if (!trackFC?.features?.length) return EMPTY_FC;
-  const storms = {};
-  for (const f of trackFC.features) {
-    const name = f.properties?.stormName || '';
-    if (!name || !f.geometry?.coordinates) continue;
-    if (!storms[name]) storms[name] = f;
+/** One label point per active storm, at its current (lowest-tau) forecast position. */
+export function buildStormLabels(forecastPointsFC) {
+  if (!forecastPointsFC?.features?.length) return EMPTY_FC;
+  const bySlot = new Map();
+  for (const f of forecastPointsFC.features) {
+    const slot = f.properties?.slot;
+    if (!slot || !f.geometry) continue;
+    const existing = bySlot.get(slot);
+    if (!existing || (f.properties.tau ?? Infinity) < (existing.properties.tau ?? Infinity)) {
+      bySlot.set(slot, f);
+    }
   }
   return {
     type: 'FeatureCollection',
-    features: Object.values(storms).map(f => ({
+    features: [...bySlot.values()].map(f => ({
       type: 'Feature',
-      geometry: { type: 'Point', coordinates: f.geometry.coordinates },
+      geometry: f.geometry,
       properties: {
         stormName: f.properties.stormName,
         stormType: f.properties.stormType,
@@ -242,114 +283,93 @@ export function buildStormLabels(trackFC) {
   };
 }
 
-/** Forecast track – FeatureServer/0 */
-export async function fetchNhcTrack() {
-  const data = await safeFetch(buildEsriQuery(0), 'nhc:track');
-  return ensureFC(data, normalizeForecast);
+// ─── Active-storm discovery + per-slot fetch ──────────────────────────────────
+
+async function findActiveStorms(idMap) {
+  const results = await Promise.allSettled(
+    STORM_SLOTS.map(async (slot) => {
+      const id = idMap.get(`${slot} Forecast Points`);
+      if (id == null) return null;
+      const fc = await queryLayer(id, `nhc:${slot}:fp`, 3 * 60 * 1000, 'tau');
+      return fc.features.length ? { slot, forecastPoints: fc } : null;
+    })
+  );
+  return results.map(r => (r.status === 'fulfilled' ? r.value : null)).filter(Boolean);
 }
 
-/** Observed (past) track – FeatureServer/2 */
-export async function fetchNhcObservedTrack() {
-  const data = await safeFetch(buildEsriQuery(2), 'nhc:observed');
-  return ensureFC(data, normalizeObserved);
-}
-
-/** Forecast error cone – FeatureServer/4 */
-export async function fetchNhcCone() {
-  const data = await safeFetch(buildEsriQuery(4), 'nhc:cone');
-  return ensureFC(data, normalizeCone);
-}
-
-/** Tropical disturbance outlook – NOAA MapServer layer 320 */
-export async function fetchNhcDisturbanceOutlook() {
-  const data = await safeFetch(buildNoaaQuery(320), 'nhc:disturbance', 10 * 60 * 1000);
-  return ensureFC(data, normalizeDisturbance);
-}
-
-// ─── Coastal watches / warnings ───────────────────────────────────────────────
-// The NOAA_MAPSERVER layer holding coastal watch/warning breakpoints isn't a
-// fixed, documented ID the way layer 320 is, so the layer id is resolved once
-// per session by name-matching the service's own layer list. If discovery
-// fails for any reason the layer simply renders nothing — it never breaks
-// the rest of the map.
-let watchWarningLayerIdPromise = null;
-
-async function resolveWatchWarningLayerId() {
-  if (watchWarningLayerIdPromise) return watchWarningLayerIdPromise;
-  watchWarningLayerIdPromise = (async () => {
-    try {
-      const res = await fetch(`${NOAA_MAPSERVER}?f=json`);
-      if (!res.ok) return null;
-      const meta = await res.json();
-      const candidates = [...(meta.layers || []), ...(meta.tables || [])];
-      const match = candidates.find((l) => /watch|warning/i.test(l.name || ''));
-      return match ? match.id : null;
-    } catch {
-      return null;
-    }
-  })();
-  return watchWarningLayerIdPromise;
-}
-
-function detectWatchWarningType(properties = {}) {
-  const raw = Object.entries(properties)
-    .filter(([k]) => /type|category|status|advisory/i.test(k))
-    .map(([, v]) => String(v ?? ''))
-    .join(' ')
-    .toUpperCase();
-  const hasWarn = raw.includes('WARNING');
-  const hasWatch = raw.includes('WATCH');
-  if (raw.includes('STORM SURGE')) return hasWarn ? 'Storm Surge Warning' : hasWatch ? 'Storm Surge Watch' : 'Advisory';
-  if (raw.includes('HURRICANE'))    return hasWarn ? 'Hurricane Warning'    : hasWatch ? 'Hurricane Watch'    : 'Advisory';
-  if (raw.includes('TROPICAL STORM')) return hasWarn ? 'Tropical Storm Warning' : hasWatch ? 'Tropical Storm Watch' : 'Advisory';
-  return 'Advisory';
-}
-
-function normalizeWatchWarning(feature, idx) {
-  const p = feature?.properties || {};
-  const wwType = detectWatchWarningType(p);
-  const colors = WATCH_WARNING_COLORS[wwType] || WATCH_WARNING_COLORS.Advisory;
-  return {
-    ...feature,
-    properties: {
-      ...p,
-      id:          p.OBJECTID != null ? `nhc-ww-${p.OBJECTID}` : `nhc-ww-${idx}`,
-      stormName:   p.STORMNAME || '',
-      wwType,
-      fillColor:   colors.fill,
-      strokeColor: colors.stroke,
-    },
+async function fetchStormSlotData(slot, idMap) {
+  const id = (suffix) => idMap.get(`${slot} ${suffix}`);
+  const query = (suffix, cacheSuffix, ttlMs) => {
+    const layerId = id(suffix);
+    return layerId == null ? Promise.resolve(EMPTY_FC) : queryLayer(layerId, `nhc:${slot}:${cacheSuffix}`, ttlMs);
   };
+  const [track, cone, ww, pastPoints, pastTrack] = await Promise.all([
+    query('Forecast Track', 'track', 5 * 60 * 1000),
+    query('Forecast Cone',  'cone',  5 * 60 * 1000),
+    query('Watch-Warning',  'ww',    5 * 60 * 1000),
+    query('Past Points',    'pp',    10 * 60 * 1000),
+    query('Past Track',     'pt',    10 * 60 * 1000),
+  ]);
+  return { track, cone, ww, pastPoints, pastTrack };
 }
 
-/**
- * Coastal watch/warning breakpoints for active tropical cyclones.
- * Returns an empty FeatureCollection (never throws) if the layer can't be
- * located on the NOAA service or the request fails.
- */
-export async function fetchNhcWatchesWarnings() {
-  const layerId = await resolveWatchWarningLayerId();
-  if (layerId == null) return EMPTY_FC;
-  const data = await safeFetch(buildNoaaQuery(layerId), 'nhc:ww', 10 * 60 * 1000);
-  return ensureFC(data, normalizeWatchWarning);
+async function queryDisturbanceLayer(idMap, name, cacheKey) {
+  const id = idMap.get(name);
+  if (id == null) return EMPTY_FC;
+  return queryLayer(id, cacheKey, 10 * 60 * 1000, 'objectid');
 }
 
+// ─── Top-level fetch ──────────────────────────────────────────────────────────
+
 /**
- * Fetch all four NHC layers. Each resolves independently — a failure in
- * one source never prevents the others from rendering.
+ * Fetch every active NHC tropical cyclone (forecast points/track/cone,
+ * watch-warnings, past track) plus the basin-wide Tropical Weather Outlook
+ * (pre-genesis disturbances). Never throws — failures degrade to empty
+ * FeatureCollections so one bad layer never blanks the whole map.
  */
 export async function fetchNhcTropicalWeather() {
-  const [trackRes, observedRes, coneRes, disturbanceRes] = await Promise.allSettled([
-    fetchNhcTrack(),
-    fetchNhcObservedTrack(),
-    fetchNhcCone(),
-    fetchNhcDisturbanceOutlook(),
+  const idMap = await getLayerIdMap();
+
+  const [activeStormsRes, disturbancePointsRes, disturbanceAreasRes] = await Promise.allSettled([
+    findActiveStorms(idMap),
+    queryDisturbanceLayer(idMap, 'Two-Day: Current Location', 'nhc:dist:pts'),
+    queryDisturbanceLayer(idMap, 'Seven-Day: Potential Development Region', 'nhc:dist:areas'),
   ]);
 
+  const activeStorms = activeStormsRes.status === 'fulfilled' ? activeStormsRes.value : [];
+  const slotDataList = await Promise.allSettled(
+    activeStorms.map(({ slot }) => fetchStormSlotData(slot, idMap))
+  );
+
+  const forecastPoints = [];
+  const forecastTracks = [];
+  const cones = [];
+  const watchWarnings = [];
+  const pastPoints = [];
+  const pastTracks = [];
+
+  activeStorms.forEach(({ slot, forecastPoints: fpFC }, i) => {
+    fpFC.features.forEach((f, idx) => forecastPoints.push(normalizeForecastPoint(f, idx, slot)));
+    const slotData = slotDataList[i].status === 'fulfilled' ? slotDataList[i].value : null;
+    if (!slotData) return;
+    slotData.track.features.forEach((f, idx) => forecastTracks.push(normalizeTrackOrCone(f, idx, slot, 'nhc-track')));
+    slotData.cone.features.forEach((f, idx) => cones.push(normalizeTrackOrCone(f, idx, slot, 'nhc-cone')));
+    slotData.ww.features.forEach((f, idx) => watchWarnings.push(normalizeWatchWarning(f, idx, slot)));
+    slotData.pastPoints.features.forEach((f, idx) => pastPoints.push(normalizePastPoint(f, idx, slot)));
+    slotData.pastTrack.features.forEach((f, idx) => pastTracks.push(normalizeTrackOrCone(f, idx, slot, 'nhc-past-track')));
+  });
+
+  const disturbancePoints = disturbancePointsRes.status === 'fulfilled' ? disturbancePointsRes.value : EMPTY_FC;
+  const disturbanceAreas  = disturbanceAreasRes.status  === 'fulfilled' ? disturbanceAreasRes.value  : EMPTY_FC;
+
   return {
-    track:       trackRes.status       === 'fulfilled' ? trackRes.value       : EMPTY_FC,
-    observedTrack: observedRes.status  === 'fulfilled' ? observedRes.value     : EMPTY_FC,
-    cone:        coneRes.status        === 'fulfilled' ? coneRes.value         : EMPTY_FC,
-    disturbance: disturbanceRes.status === 'fulfilled' ? disturbanceRes.value  : EMPTY_FC,
+    forecastPointsGeoJSON:    { type: 'FeatureCollection', features: forecastPoints },
+    forecastTrackGeoJSON:     { type: 'FeatureCollection', features: forecastTracks },
+    coneGeoJSON:              { type: 'FeatureCollection', features: cones },
+    watchWarningGeoJSON:      { type: 'FeatureCollection', features: watchWarnings },
+    pastPointsGeoJSON:        { type: 'FeatureCollection', features: pastPoints },
+    pastTrackGeoJSON:         { type: 'FeatureCollection', features: pastTracks },
+    disturbancePointsGeoJSON: normalizeAll(disturbancePoints, normalizeDisturbance, 'nhc-dist-pt'),
+    disturbanceAreasGeoJSON:  normalizeAll(disturbanceAreas, normalizeDisturbance, 'nhc-dist-area'),
   };
 }

@@ -6,6 +6,7 @@
 
 import { useApp } from '../context/AppContext';
 import { nwsAlertCategory } from '../utils/nwsColors';
+import { FIRE_WEATHER_ALERT_TYPES } from '../api/noaaWeather';
 import { useSavedLocations } from '../hooks/useSavedLocations';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
@@ -25,7 +26,6 @@ import { useFireReports, reportsToGeoJSON } from '../hooks/useFireReports';
 import { useHazardEvents, hazardEventsToGeoJSON } from '../hooks/useHazardEvents';
 import { useCombinedEvacZones } from '../hooks/useCombinedEvacZones';
 import { useReporterEvacZones, reporterEvacZonesToGeoJSON } from '../hooks/useReporterEvacZones';
-import { useFlightData } from '../hooks/useFlightData';
 import { useRAWSData } from '../hooks/useRAWSData';
 import { useFireBehaviorModeling } from '../hooks/useFireBehaviorModeling';
 import { useAirNowMonitors } from '../hooks/useAirNowMonitors';
@@ -34,7 +34,6 @@ import { useNdgdSmokeForecast } from '../hooks/useNdgdSmokeForecast';
 import { useFireWeatherOutlooks } from '../hooks/useFireWeatherOutlooks';
 import { useNhcTropicalWeather } from '../hooks/useNhcTropicalWeather';
 import { useCriticalInfrastructure } from '../hooks/useCriticalInfrastructure';
-import { useNhcStorms } from '../hooks/useNhcStorms';
 import { useNationalMapColleges } from '../hooks/useNationalMapColleges';
 import { usePlan } from '../hooks/usePlan';
 import { useWaterGauges } from '../hooks/useWaterGauges';
@@ -75,7 +74,7 @@ const WILDFIRE_LAYER_PRESET = {
   fireHotspots: false,
   firePerimeters: true,
   incidentLocations: true,
-  weatherAlerts: false,
+  weatherAlerts: true,
   smoke: false,
   goesEast: false,
   goesWest: false,
@@ -85,7 +84,6 @@ const WILDFIRE_LAYER_PRESET = {
   radar: false,
   evacZones: true,
   rawsStations: false,
-  flights: false,
   airNowMonitors: false,
   ndgdSmokeForecast: false,
   fireWeatherOutlooks: false,
@@ -107,7 +105,6 @@ const ALL_HAZARD_LAYER_PRESET = {
   radar: true,
   evacZones: true,
   rawsStations: false,
-  flights: false,
   airNowMonitors: false,
   ndgdSmokeForecast: false,
   fireWeatherOutlooks: false,
@@ -117,8 +114,8 @@ const ALL_HAZARD_LAYER_PRESET = {
   nhcTropicalWeather: false,
 };
 
-// Weather tab: only auto-enable NWS alerts (includes SPC MDs on map), and NEXRAD;
-// other weather layers are opt-in via the layer panel.
+// Weather tab: only auto-enable NWS alerts (includes SPC MDs on map);
+// other weather layers, including NEXRAD, are opt-in via the layer panel.
 const WEATHER_LAYER_PRESET = {
   fireHotspots: false,
   firePerimeters: false,
@@ -131,11 +128,10 @@ const WEATHER_LAYER_PRESET = {
   goesFire18: false,
   spcWeatherOutlooks: false,
   stormReports: false,
-  radar: true,
+  radar: false,
   criticalInfrastructure: false,
   evacZones: true,
   rawsStations: false,
-  flights: false,
   airNowMonitors: false,
   ndgdSmokeForecast: false,
   schoolsUniversities: false,
@@ -168,7 +164,6 @@ function filterStaleContainedGeoJSON(geoJSON, containedKey, updatedKey) {
 }
 
 const ONE_MONTH_MS = 30 * 24 * 60 * 60 * 1000;
-const ONE_YEAR_MS = 365 * 24 * 60 * 60 * 1000;
 
 /**
  * Returns true if a timestamp is older than maxAgeMs. Missing or unparseable
@@ -190,6 +185,25 @@ function filterByMaxAge(geoJSON, updatedKey, maxAgeMs) {
   return {
     ...geoJSON,
     features: geoJSON.features.filter(f => !isOlderThan(f.properties[updatedKey], maxAgeMs)),
+  };
+}
+
+/**
+ * Mark (but don't remove) features that haven't been updated within maxAgeMs
+ * by setting properties.isStaleFire. Used for perimeters, which stay on the
+ * map indefinitely but render greyed-out and without a dot once stale.
+ */
+function tagStaleFire(geoJSON, updatedKey, maxAgeMs) {
+  if (!geoJSON?.features) return geoJSON;
+  return {
+    ...geoJSON,
+    features: geoJSON.features.map(f => ({
+      ...f,
+      properties: {
+        ...f.properties,
+        isStaleFire: isOlderThan(f.properties[updatedKey], maxAgeMs),
+      },
+    })),
   };
 }
 
@@ -277,11 +291,13 @@ export default function LiveTrackerPage() {
     }
   }, [criticalInfraEntitled, layers.schoolsUniversities, setLayer]);
 
-  // Weather tab: dark streets map; all-hazard and wildfire tabs use satellite.
+  // Wildfire, weather, and all-hazard tabs all default to satellite view.
   useEffect(() => {
-    if (activeMapTab === MAP_TABS.weather) {
-      setMapType('rendered');
-    } else if (activeMapTab === MAP_TABS.wildfire || activeMapTab === MAP_TABS.allhazard) {
+    if (
+      activeMapTab === MAP_TABS.weather ||
+      activeMapTab === MAP_TABS.wildfire ||
+      activeMapTab === MAP_TABS.allhazard
+    ) {
       setMapType('satellite');
     }
   }, [activeMapTab]);
@@ -359,15 +375,25 @@ export default function LiveTrackerPage() {
     refresh: refreshAlerts,
   } = useWeatherAlerts();
 
+  // Wildfire tab: only fire-related alerts (Red Flag Warning / Fire Weather Watch).
+  // Weather and all-hazard tabs: every active NWS alert, optionally narrowed by
+  // the warning/watch/advisory category filter in the sidebar.
   const filteredAlertsGeoJSON = useMemo(() => {
-    if (weatherAlertFilter === 'all' || !alertsGeoJSON?.features) return alertsGeoJSON;
-    return {
-      ...alertsGeoJSON,
-      features: alertsGeoJSON.features.filter(
+    if (!alertsGeoJSON?.features) return alertsGeoJSON;
+    let features = alertsGeoJSON.features;
+    if (activeMapTab === MAP_TABS.wildfire) {
+      features = features.filter(f =>
+        FIRE_WEATHER_ALERT_TYPES.has(f.properties.type?.trim().toLowerCase())
+      );
+    }
+    if (weatherAlertFilter !== 'all') {
+      features = features.filter(
         f => nwsAlertCategory(f.properties.type) === weatherAlertFilter
-      ),
-    };
-  }, [alertsGeoJSON, weatherAlertFilter]);
+      );
+    }
+    if (features === alertsGeoJSON.features) return alertsGeoJSON;
+    return { ...alertsGeoJSON, features };
+  }, [alertsGeoJSON, weatherAlertFilter, activeMapTab]);
 
   const {
     incidents,
@@ -450,38 +476,6 @@ export default function LiveTrackerPage() {
     ],
   }), [officialEvacZonesGeoJSON, reporterEvacZonesGeoJSON]);
 
-const flightBounds = useMemo(() => {
-  if (!viewport) return null;
-
-  const lng = Number(viewport.longitude);
-  const lat = Number(viewport.latitude);
-  const zoom = Number(viewport.zoom ?? 0);
-
-  if (!Number.isFinite(lng) || !Number.isFinite(lat)) return null;
-
-  let lonSpan = 360 / Math.pow(2, zoom - 1);
-  let latSpan = 170 / Math.pow(2, zoom - 1);
-
-  lonSpan = Math.max(lonSpan, 8);
-  latSpan = Math.max(latSpan, 6);
-
-  return {
-    west: lng - lonSpan / 2,
-    east: lng + lonSpan / 2,
-    south: lat - latSpan / 2,
-    north: lat + latSpan / 2,
-    zoom,
-  };
-}, [viewport]);
-
-  // Live flight tracking (OpenSky Network ADS-B)
-  const {
-    geoJSON: flightsGeoJSON,
-    loading: flightsLoading,
-    error: flightsError,
-    refresh: refreshFlights,
-} = useFlightData(flightBounds, layers.flights);
-
   // RAWS weather stations – only fetch when layer is on AND zoomed in enough
   const rawsEnabled = layers.rawsStations && (viewport?.zoom ?? 0) >= RAWS_MIN_ZOOM;
   const {
@@ -541,17 +535,14 @@ const flightBounds = useMemo(() => {
 
   const nhcTropicalWeatherEnabled = weatherDataEnabled && layers.nhcTropicalWeather;
   const {
-    centersGeoJSON: nhcCentersGeoJSON,
-    conesGeoJSON:   nhcConesGeoJSON,
-    tracksGeoJSON:  nhcTracksGeoJSON,
-    refresh:        refreshNhcStorms,
-  } = useNhcStorms(nhcTropicalWeatherEnabled);
-
-  const {
-    trackGeoJSON: nhcTrackGeoJSON,
-    observedTrackGeoJSON: nhcObservedTrackGeoJSON,
+    forecastPointsGeoJSON: nhcForecastPointsGeoJSON,
+    forecastTrackGeoJSON: nhcForecastTrackGeoJSON,
     coneGeoJSON: nhcConeGeoJSON,
-    disturbanceGeoJSON: nhcDisturbanceGeoJSON,
+    watchWarningGeoJSON: nhcWatchWarningGeoJSON,
+    pastPointsGeoJSON: nhcPastPointsGeoJSON,
+    pastTrackGeoJSON: nhcPastTrackGeoJSON,
+    disturbancePointsGeoJSON: nhcDisturbancePointsGeoJSON,
+    disturbanceAreasGeoJSON: nhcDisturbanceAreasGeoJSON,
     stormLabelsGeoJSON: nhcStormLabelsGeoJSON,
     refresh: refreshNhcTropicalWeather,
   } = useNhcTropicalWeather(nhcTropicalWeatherEnabled);
@@ -587,10 +578,6 @@ const flightBounds = useMemo(() => {
     [selectedRadarSite, radarScanPayload]
   );
 
-  useEffect(() => {
-    if (flightsError) console.error('[FlightTracking] Error:', flightsError);
-  }, [flightsError]);
-
   // Community-submitted reports – only approved ones, realtime-subscribed
   const { reports: approvedReports, refresh: refreshUserReports } = useFireReports('approved');
   const reporterReports = useMemo(
@@ -617,11 +604,12 @@ const flightBounds = useMemo(() => {
     [mergedIncidentsGeoJSON]
   );
 
-  // Perimeters: drop 100%-contained fires stale for 3+ days, and unconditionally
-  // drop any perimeter that hasn't been updated in a year.
+  // Perimeters: drop 100%-contained fires stale for 3+ days. Any remaining
+  // perimeter that hasn't been updated in 30+ days is kept but tagged
+  // isStaleFire so FirePerimetersLayer renders it grey with no centroid dot.
   const freshPerimetersGeoJSON = useMemo(() => {
     const containedFiltered = filterStaleContainedGeoJSON(perimetersGeoJSON, 'PercentContained', 'ModifiedOnDateTime');
-    return filterByMaxAge(containedFiltered, 'ModifiedOnDateTime', ONE_YEAR_MS);
+    return tagStaleFire(containedFiltered, 'ModifiedOnDateTime', ONE_MONTH_MS);
   }, [perimetersGeoJSON]);
 
   // Incident dots: drop 100%-contained fires stale for 3+ days, and unconditionally
@@ -885,7 +873,6 @@ const flightBounds = useMemo(() => {
     refreshEvacZones();
     refreshReporterEvacZones();
     if (layers.aqi) refreshAQI();
-    if (layers.flights) refreshFlights();
     if (rawsEnabled) refreshRAWS();
     if (layers.airNowMonitors) refreshAirNowMonitors();
     if (layers.droughtOutlook) refreshDroughtOutlook();
@@ -896,19 +883,17 @@ const flightBounds = useMemo(() => {
       refreshFireWeatherOutlooks();
     }
     if (nhcTropicalWeatherEnabled) {
-      refreshNhcStorms();
       refreshNhcTropicalWeather();
     }
   }, [
     refreshHotspots, refreshNgfs, refreshPerimeters, refreshAlerts, refreshIncidents, refreshCalFireIncidents, refreshStormReports,
     refreshDamageAssessment,
     refreshSpcMd, refreshSpcOutlooks, refreshUserReports, refreshEvacZones, refreshReporterEvacZones,
-    refreshAQI, refreshFlights, refreshRAWS, refreshAirNowMonitors, refreshDroughtOutlook, refreshNdgdSmokeForecast, refreshFireWeatherOutlooks,
+    refreshAQI, refreshRAWS, refreshAirNowMonitors, refreshDroughtOutlook, refreshNdgdSmokeForecast, refreshFireWeatherOutlooks,
     refreshCriticalInfrastructure,
     refreshNationalMapColleges,
-    refreshNhcStorms,
     refreshNhcTropicalWeather,
-    activeMapTab, weatherDataEnabled, damageAssessmentEnabled, layers.aqi, layers.flights, rawsEnabled, layers.airNowMonitors, layers.droughtOutlook, layers.ndgdSmokeForecast,
+    activeMapTab, weatherDataEnabled, damageAssessmentEnabled, layers.aqi, rawsEnabled, layers.airNowMonitors, layers.droughtOutlook, layers.ndgdSmokeForecast,
     layers.fireWeatherOutlooks, layers.spcWeatherOutlooks, spcWeatherOutlookMode, layers.stormReports,
     nhcTropicalWeatherEnabled,
     criticalInfraEnabled,
@@ -951,7 +936,6 @@ const flightBounds = useMemo(() => {
             userReportsGeoJSON={userReportsGeoJSON}
             hazardEventsGeoJSON={hazardEventsGeoJSON}
             evacZonesGeoJSON={evacZonesGeoJSON}
-            flightsGeoJSON={flightsGeoJSON}
             rawsGeoJSON={rawsGeoJSON}
             airNowMonitorsGeoJSON={airNowMonitorsGeoJSON}
             droughtOutlookGeoJSON={droughtOutlookGeoJSON}
@@ -961,13 +945,14 @@ const flightBounds = useMemo(() => {
             criticalInfrastructureVisible={criticalInfraEnabled}
             nationalMapCollegesGeoJSON={nationalMapCollegesGeoJSON}
             nationalMapCollegesVisible={schoolsLayerEnabled}
-            nhcCentersGeoJSON={nhcCentersGeoJSON}
-            nhcConesGeoJSON={nhcConesGeoJSON}
-            nhcTracksGeoJSON={nhcTracksGeoJSON}
-            nhcTrackGeoJSON={nhcTrackGeoJSON}
-            nhcObservedTrackGeoJSON={nhcObservedTrackGeoJSON}
+            nhcForecastPointsGeoJSON={nhcForecastPointsGeoJSON}
+            nhcForecastTrackGeoJSON={nhcForecastTrackGeoJSON}
             nhcConeGeoJSON={nhcConeGeoJSON}
-            nhcDisturbanceGeoJSON={nhcDisturbanceGeoJSON}
+            nhcWatchWarningGeoJSON={nhcWatchWarningGeoJSON}
+            nhcPastPointsGeoJSON={nhcPastPointsGeoJSON}
+            nhcPastTrackGeoJSON={nhcPastTrackGeoJSON}
+            nhcDisturbancePointsGeoJSON={nhcDisturbancePointsGeoJSON}
+            nhcDisturbanceAreasGeoJSON={nhcDisturbanceAreasGeoJSON}
             nhcStormLabelsGeoJSON={nhcStormLabelsGeoJSON}
             fireWeatherOutlooksGeoJSON={fireWeatherOutlooksGeoJSON}
             fireWxOutlookType={fireWxOutlookType}

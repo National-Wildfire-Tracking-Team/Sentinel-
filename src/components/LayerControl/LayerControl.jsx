@@ -7,7 +7,7 @@
 import { useState, memo, useMemo, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  Layers, Flame, MapPin, Wind, CloudRain, CloudLightning, Eye, ChevronDown, ChevronRight, Radar, RadioTower, AlertTriangle, Ruler, Hexagon, PlaneTakeoff, Satellite, Map as MapIcon, Thermometer, Activity, Droplets, Zap, Lock, GraduationCap, Waves, History, TrendingUp, Crosshair, Camera, Mountain,
+  Layers, Flame, MapPin, Wind, CloudRain, CloudLightning, Eye, ChevronDown, ChevronRight, Radar, RadioTower, AlertTriangle, Ruler, Hexagon, Satellite, Map as MapIcon, Thermometer, Activity, Droplets, Zap, Lock, GraduationCap, Waves, History, TrendingUp, Crosshair, Camera, Mountain,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 
@@ -38,7 +38,6 @@ const LAYER_DEFS = {
   nexradSites:       { label: 'NEXRAD Sites',        sublabel: 'Level 2 radar station status', icon: RadioTower,   color: '#06b6d4' },
   aqi:               { label: 'AQI Heatmap',          sublabel: 'EPA AirNow gradient overlay',  icon: Wind,         color: '#3b82f6' },
   smoke:             { label: 'Smoke Forecast',      sublabel: 'NOAA HRRR',                   icon: CloudRain,    color: '#94a3b8' },
-  flights:           { label: 'Live Flight Tracking', sublabel: 'OpenSky Network ADS-B',      icon: PlaneTakeoff, color: '#ff5a00' },
   nhcTropicalWeather: { label: 'Tropical Weather',   sublabel: 'NHC storms · disturbance outlook', icon: Waves, color: '#38bdf8' },
   waterGauges:        { label: 'Water Gauges',        sublabel: 'NOAA NWPS river & coastal gauges', icon: Droplets, color: '#1e90ff' },
   wildfireCameras:   { label: 'Live CA Cameras',      sublabel: 'Caltrans District CCTV · click for live feed', icon: Camera, color: '#14b8a6' },
@@ -108,17 +107,6 @@ const TAB_SECTIONS = {
         {
           label: 'Satellite & stations',
           layers: ['goesEast', 'goesWest', 'rawsStations'],
-        },
-      ],
-    },
-    {
-      id: 'ah-other',
-      title: 'Aviation',
-      subtitle: 'ADS-B live traffic',
-      groups: [
-        {
-          label: 'Traffic',
-          layers: ['flights'],
         },
       ],
     },
@@ -225,17 +213,6 @@ const TAB_SECTIONS = {
         {
           label: 'Imagery',
           layers: ['radar', 'nexradSites', 'goesEast', 'goesWest'],
-        },
-      ],
-    },
-    {
-      id: 'wx-aviation',
-      title: 'Aviation',
-      subtitle: 'ADS-B traffic',
-      groups: [
-        {
-          label: 'Traffic',
-          layers: ['flights'],
         },
       ],
     },

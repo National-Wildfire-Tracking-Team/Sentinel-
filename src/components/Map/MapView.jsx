@@ -36,7 +36,6 @@ import EvacuationZonesLayer from './layers/EvacuationZonesLayer';
 import { MeasurementLayer, MeasurementPanel } from './MeasurementTool';
 import { PrecipitationRing } from './PrecipitationRing';
 import SPCWeatherTabOutlookControls from './SPCWeatherTabOutlookControls';
-import FlightLayer from './layers/FlightLayer';
 import RAWSLayer from './layers/RAWSLayer';
 import AirNowMonitorsLayer from './layers/AirNowMonitorsLayer';
 import DroughtOutlookLayer from './layers/DroughtOutlookLayer';
@@ -46,7 +45,6 @@ import FireWeatherOutlookLayer from './layers/FireWeatherOutlookLayer';
 import FireWeatherOutlookSelector from './FireWeatherOutlookSelector';
 import CriticalInfrastructureLayer from './layers/CriticalInfrastructureLayer';
 import NationalMapCollegesLayer from './layers/NationalMapCollegesLayer';
-import NhcStormsLayer from './layers/NhcStormsLayer';
 import NHCTropicalWeatherLayer from './layers/NHCTropicalWeatherLayer';
 import WaterGaugesLayer from './layers/WaterGaugesLayer';
 import NexradSitesLayer from './layers/NexradSitesLayer';
@@ -100,7 +98,7 @@ const GLOBE_FOG = {
 /**
  * Tooltip shown on hover
  */
-const OUTLOOK_LAYER_IDS = new Set(['spc-outlook-fill', 'drought-outlook-fill', 'fire-weather-outlook-fill', 'nhc-disturbance-fill', 'nhc-track-circle', 'nhc-obs-circle']);
+const OUTLOOK_LAYER_IDS = new Set(['spc-outlook-fill', 'drought-outlook-fill', 'fire-weather-outlook-fill', 'nhc-disturbance-fill', 'nhc-disturbance-circle', 'nhc-track-circle', 'nhc-obs-circle', 'nhc-watch-warning-line']);
 
 // Caltrans only reports a camera's facing as a cardinal direction (no
 // numeric bearing in the source data) — map it to degrees so the hover
@@ -319,23 +317,6 @@ function HoverTooltip({ feature, lngLat }) {
         </>
       );
       break;
-    case 'flights-symbol': {
-      const alt   = p.baro_altitude != null ? `${Math.round(p.baro_altitude).toLocaleString()} m` : 'N/A';
-      const spd   = p.velocity      != null ? `${Math.round(p.velocity * 1.94384)} kts` : 'N/A';
-      const hdg   = p.true_track    != null ? `${Math.round(p.true_track)}°` : 'N/A';
-      content = (
-        <>
-          <div className="font-semibold text-orange-400">{p.callsign || p.icao24}</div>
-          <div className="text-gray-300 text-xs mt-0.5">
-            Alt: <span className="text-white font-medium">{alt}</span>
-            {' '}· Spd: <span className="text-white font-medium">{spd}</span>
-          </div>
-          <div className="text-gray-400 text-xs">Hdg: {hdg} · {p.origin_country}</div>
-          <div className="text-gray-500 text-[10px] mt-0.5">Click for full details</div>
-        </>
-      );
-      break;
-    }
     case 'raws-stations-circle': {
       const fmt  = (v, unit) => v != null ? `${Math.round(v)}${unit}` : '—';
       const fmtD = (v) => v != null ? `${Math.round(v)}°` : '—';
@@ -571,18 +552,23 @@ function HoverTooltip({ feature, lngLat }) {
       );
       break;
     }
-    case 'nhc-disturbance-fill': {
+    case 'nhc-disturbance-fill':
+    case 'nhc-disturbance-circle': {
       const chanceColors = { HIGH: 'text-red-400', MEDIUM: 'text-orange-400', LOW: 'text-yellow-300' };
       const chanceClass  = chanceColors[p.formationChance] || 'text-yellow-300';
       content = (
         <>
-          <div className="font-semibold text-sky-300">NHC Tropical Disturbance</div>
+          <div className="font-semibold text-sky-300">NHC Tropical Weather Outlook</div>
           {p.formationChance && (
             <div className={`text-xs mt-0.5 font-medium ${chanceClass}`}>
               {p.formationChance} formation probability
             </div>
           )}
-          <div className="text-zinc-400 text-[10px] mt-0.5">2–5 day outlook area</div>
+          <div className="text-zinc-300 text-xs mt-0.5">
+            {p.day2Percent != null && <span>2-day: {p.day2Percent}%</span>}
+            {p.day2Percent != null && p.day7Percent != null && <span> · </span>}
+            {p.day7Percent != null && <span>7-day: {p.day7Percent}%</span>}
+          </div>
         </>
       );
       break;
@@ -600,21 +586,42 @@ function HoverTooltip({ feature, lngLat }) {
       };
       const catClass = catColors[p.category] || 'text-sky-300';
       const isObserved = feature.layer.id === 'nhc-obs-circle';
+      const windKt  = isObserved ? p.intensityKt  : p.maxWindKt;
+      const windMph = isObserved ? p.intensityMph : p.maxWindMph;
       content = (
         <>
           <div className="font-semibold text-sky-300">
-            {p.stormName ? `${p.stormName} · ` : ''}{isObserved ? 'Observed' : 'Forecast'}
+            {p.stormName ? `${p.stormName} · ` : ''}
+            {isObserved ? 'Observed' : p.isCurrent ? 'Current position' : `Forecast +${p.tau}h`}
           </div>
           <div className={`text-xs mt-0.5 font-medium ${catClass}`}>
             {p.stormType || p.category}
           </div>
-          {p.maxWind > 0 && (
+          {windKt > 0 && (
             <div className="text-zinc-300 text-xs mt-0.5">
-              Max wind: {p.maxWind} mph · Gusts: {p.gust} mph
+              Winds: {windMph} mph ({windKt} kt){p.gustKt > 0 && ` · Gusts: ${p.gustKt} kt`}
             </div>
           )}
-          {p.dateLabel && (
-            <div className="text-zinc-400 text-[10px] mt-0.5">{p.dateLabel}</div>
+          {(p.dateLabel || p.fullDateLabel) && (
+            <div className="text-zinc-400 text-[10px] mt-0.5">{p.fullDateLabel || p.dateLabel}</div>
+          )}
+        </>
+      );
+      break;
+    }
+    case 'nhc-watch-warning-line': {
+      const wwColors = {
+        'Hurricane Warning':      'text-red-400',
+        'Hurricane Watch':        'text-red-300',
+        'Tropical Storm Warning': 'text-blue-300',
+        'Tropical Storm Watch':   'text-yellow-300',
+      };
+      const wwClass = wwColors[p.wwType] || 'text-slate-300';
+      content = (
+        <>
+          <div className={`font-semibold ${wwClass}`}>{p.wwType || 'Advisory'}</div>
+          {p.stormName && (
+            <div className="text-zinc-300 text-xs mt-0.5">{p.stormName}</div>
           )}
         </>
       );
@@ -656,44 +663,6 @@ function HoverTooltip({ feature, lngLat }) {
           {k('Operator', p.Operator)}
           {k('Status', p.Status)}
           <div className="text-gray-500 text-[10px] mt-1">EIA U.S. pipeline (public)</div>
-        </>
-      );
-      break;
-    }
-    case 'nhc-centers-circle': {
-      const windMph  = p.intensityMph ? `${p.intensityMph} mph` : null;
-      const windKts  = p.intensityKts ? `${p.intensityKts} kt`  : null;
-      const pressStr = p.pressure     ? `${p.pressure} mb`      : null;
-      content = (
-        <>
-          <div className="font-semibold text-sky-300">{p.name}</div>
-          <div className={`text-xs font-medium mt-0.5 ${
-            p.category?.includes('5') ? 'text-fuchsia-400' :
-            p.category?.includes('4') ? 'text-red-400' :
-            p.category?.includes('3') ? 'text-orange-400' :
-            p.category?.includes('2') ? 'text-amber-400' :
-            p.category?.includes('1') ? 'text-yellow-300' :
-            p.category?.includes('Storm') ? 'text-sky-300' :
-            'text-slate-400'
-          }`}>{p.category}</div>
-          {(windMph || windKts) && (
-            <div className="text-gray-300 text-xs mt-0.5">
-              Winds: <span className="text-white font-medium">{windMph}</span>
-              {windKts && <span className="text-gray-400"> ({windKts})</span>}
-            </div>
-          )}
-          {pressStr && (
-            <div className="text-gray-300 text-xs">
-              Pressure: <span className="text-white font-medium">{pressStr}</span>
-            </div>
-          )}
-          {p.movement && (
-            <div className="text-gray-400 text-xs">Movement: {p.movement}</div>
-          )}
-          {p.lastUpdate && (
-            <div className="text-gray-500 text-[10px] mt-1">{p.lastUpdate}</div>
-          )}
-          <div className="text-sky-500 text-[10px] mt-0.5 uppercase tracking-wide">NHC · nhc.noaa.gov</div>
         </>
       );
       break;
@@ -840,63 +809,6 @@ function HoverTooltip({ feature, lngLat }) {
   );
 }
 
-const FLIGHT_FIELDS = [
-  { key: 'icao24',        label: 'ICAO24' },
-  { key: 'callsign',      label: 'Callsign' },
-  { key: 'squawk',        label: 'Squawk' },
-  { key: 'true_track',    label: 'Heading', fmt: v => v != null ? `${Math.round(v)}°` : '—' },
-  { key: 'baro_altitude', label: 'Altitude', fmt: v => v != null ? `${Math.round(v).toLocaleString()} m` : '—' },
-  { key: 'velocity',      label: 'Speed', fmt: v => v != null ? `${Math.round(v * 1.94384)} kts` : '—' },
-  { key: 'vertical_rate', label: 'Vert. Rate', fmt: v => v != null ? `${v > 0 ? '+' : ''}${v.toFixed(1)} m/s` : '—' },
-  { key: 'category',      label: 'Category' },
-];
-
-function FlightDetailPopup({ flight, lngLat, onClose }) {
-  return (
-    <Popup
-      longitude={lngLat.lng}
-      latitude={lngLat.lat}
-      closeButton={false}
-      closeOnClick={false}
-      anchor="top"
-      offset={[0, 8]}
-      className="sentinel-popup"
-    >
-      <div className="bg-sentinel-800 border border-sentinel-600 rounded-lg shadow-2xl text-sm min-w-[200px] overflow-hidden">
-        {/* Header */}
-        <div className="flex items-center justify-between px-3 py-2 border-b border-sentinel-600 bg-sentinel-700/50">
-          <div className="flex items-center gap-2">
-            <span className="text-[10px]" style={{ color: '#ff5a00' }}>✈</span>
-            <span className="font-semibold text-orange-400">
-              {flight.callsign || flight.icao24}
-            </span>
-          </div>
-          <button
-            onClick={onClose}
-            className="text-sentinel-300 hover:text-white transition-colors text-xs leading-none ml-3"
-            aria-label="Close"
-          >
-            ✕
-          </button>
-        </div>
-        {/* Fields */}
-        <div className="px-3 py-2 space-y-1">
-          {FLIGHT_FIELDS.map(({ key, label, fmt }) => {
-            const raw = flight[key];
-            const display = fmt ? fmt(raw) : (raw != null && raw !== '' ? String(raw) : '—');
-            return (
-              <div key={key} className="flex items-baseline justify-between gap-4">
-                <span className="text-sentinel-300 text-[10px] uppercase tracking-wide shrink-0">{label}</span>
-                <span className="text-white text-xs font-mono text-right">{display}</span>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-    </Popup>
-  );
-}
-
 /**
  * @param {object} props
  * @param {object|null} props.hotspotsGeoJSON
@@ -922,7 +834,6 @@ function FlightDetailPopup({ flight, lngLat, onClose }) {
  * @param {object|null} props.userReportsGeoJSON
  * @param {object|null} props.hazardEventsGeoJSON
  * @param {object|null} props.evacZonesGeoJSON - combined official (Cal OES/IPAWS) + reporter-drawn zones
- * @param {object|null} props.flightsGeoJSON
  * @param {object|null} props.rawsGeoJSON
  * @param {object|null} props.airNowMonitorsGeoJSON
  * @param {object|null} props.droughtOutlookGeoJSON
@@ -932,9 +843,15 @@ function FlightDetailPopup({ flight, lngLat, onClose }) {
  * @param {boolean}     [props.criticalInfrastructureVisible]
  * @param {object|null} props.nationalMapCollegesGeoJSON
  * @param {boolean}     [props.nationalMapCollegesVisible]
- * @param {object|null} props.nhcCentersGeoJSON
- * @param {object|null} props.nhcConesGeoJSON
- * @param {object|null} props.nhcTracksGeoJSON
+ * @param {object|null} props.nhcForecastPointsGeoJSON
+ * @param {object|null} props.nhcForecastTrackGeoJSON
+ * @param {object|null} props.nhcConeGeoJSON
+ * @param {object|null} props.nhcWatchWarningGeoJSON
+ * @param {object|null} props.nhcPastPointsGeoJSON
+ * @param {object|null} props.nhcPastTrackGeoJSON
+ * @param {object|null} props.nhcDisturbancePointsGeoJSON
+ * @param {object|null} props.nhcDisturbanceAreasGeoJSON
+ * @param {object|null} props.nhcStormLabelsGeoJSON
  * @param {object|null} props.fireWeatherOutlooksGeoJSON
  * @param {string}      [props.fireWxOutlookType]
  * @param {string}      [props.fireWxActiveDay]
@@ -973,7 +890,6 @@ export default function MapView({
   userReportsGeoJSON,
   hazardEventsGeoJSON,
   evacZonesGeoJSON,
-  flightsGeoJSON,
   rawsGeoJSON,
   airNowMonitorsGeoJSON,
   droughtOutlookGeoJSON,
@@ -983,9 +899,15 @@ export default function MapView({
   criticalInfrastructureVisible = false,
   nationalMapCollegesGeoJSON,
   nationalMapCollegesVisible = false,
-  nhcCentersGeoJSON,
-  nhcConesGeoJSON,
-  nhcTracksGeoJSON,
+  nhcForecastPointsGeoJSON,
+  nhcForecastTrackGeoJSON,
+  nhcConeGeoJSON,
+  nhcWatchWarningGeoJSON,
+  nhcPastPointsGeoJSON,
+  nhcPastTrackGeoJSON,
+  nhcDisturbancePointsGeoJSON,
+  nhcDisturbanceAreasGeoJSON,
+  nhcStormLabelsGeoJSON,
   fireWeatherOutlooksGeoJSON,
   fireWxOutlookType = 'winds_low_humidity',
   fireWxActiveDay = 'day1',
@@ -995,11 +917,6 @@ export default function MapView({
   onFireWxActiveDayChange,
   spcWeatherOutlookMode = 'convective',
   onSpcWeatherOutlookModeChange,
-  nhcTrackGeoJSON,
-  nhcObservedTrackGeoJSON,
-  nhcConeGeoJSON,
-  nhcDisturbanceGeoJSON,
-  nhcStormLabelsGeoJSON,
   savedLocations = [],
   measureActive = false,
   measureMode = 'distance',
@@ -1063,10 +980,6 @@ export default function MapView({
       features: feats.filter((f) => ndgdFeatureToDateMs(f) === targetMs),
     };
   }, [ndgdSmokeForecastGeoJSON, ndgdForecastHoursMs, ndgdSmokeHourIndex]);
-
-  // Selected aircraft popup state
-  const [selectedFlight,       setSelectedFlight]       = useState(null);
-  const [selectedFlightLngLat, setSelectedFlightLngLat] = useState(null);
 
   // Measurement tool state (active/mode lifted to LiveTrackerPage; points/preview stay local)
   const [measurePoints,  setMeasurePoints]  = useState([]);   // [{lng, lat}, ...]
@@ -1168,7 +1081,6 @@ export default function MapView({
     if (layers.evacZones && evacZonesGeoJSON) {
       ids.push('evac-zones-fill');
     }
-    if (layers.flights && flightsGeoJSON)                                                                 ids.push('flights-symbol');
     if (layers.rawsStations && rawsGeoJSON)                                                               ids.push('raws-stations-circle');
     if ((isWildfireTab || isAllHazardTab) && layers.airNowMonitors && airNowMonitorsGeoJSON)              ids.push('airnow-monitors-circle');
     if ((isWildfireTab || isAllHazardTab) && layers.droughtOutlook && droughtOutlookGeoJSON)              ids.push('drought-outlook-fill');
@@ -1188,13 +1100,12 @@ export default function MapView({
     if (isWeatherTab && layers.spcWeatherOutlooks && spcWeatherOutlookMode === 'fireWx' && fireWeatherOutlooksGeoJSON) {
       ids.push('fire-weather-outlook-fill');
     }
-    if ((isWeatherTab || isAllHazardTab) && layers.nhcTropicalWeather && nhcCentersGeoJSON?.features?.length) {
-      ids.push('nhc-centers-circle');
-    }
     if ((isWeatherTab || isAllHazardTab) && layers.nhcTropicalWeather) {
-      if (nhcDisturbanceGeoJSON?.features?.length) ids.push('nhc-disturbance-fill');
-      if (nhcTrackGeoJSON?.features?.length) ids.push('nhc-track-circle');
-      if (nhcObservedTrackGeoJSON?.features?.length) ids.push('nhc-obs-circle');
+      if (nhcDisturbanceAreasGeoJSON?.features?.length) ids.push('nhc-disturbance-fill');
+      if (nhcDisturbancePointsGeoJSON?.features?.length) ids.push('nhc-disturbance-circle');
+      if (nhcForecastPointsGeoJSON?.features?.length) ids.push('nhc-track-circle');
+      if (nhcPastPointsGeoJSON?.features?.length) ids.push('nhc-obs-circle');
+      if (nhcWatchWarningGeoJSON?.features?.length) ids.push('nhc-watch-warning-line');
     }
     if (layers.waterGauges && waterGaugesGeoJSON?.features?.length) ids.push('water-gauges-circle');
     if ((isWeatherTab || isAllHazardTab) && layers.nexradSites && nexradSitesGeoJSON?.features?.length) ids.push('nexrad-sites-circle');
@@ -1203,17 +1114,16 @@ export default function MapView({
     return ids;
   }, [measureActive, isWildfireTab, isWeatherTab, isAllHazardTab, layers.fireHotspots, layers.firePerimeters, layers.incidentLocations, layers.aqi,
       layers.weatherAlerts, layers.spcWeatherOutlooks, spcWeatherOutlookMode, layers.stormReports, layers.evacZones, spcMdGeoJSON,
-      layers.flights, layers.rawsStations, layers.airNowMonitors, layers.droughtOutlook, layers.ndgdSmokeForecast, layers.fireWeatherOutlooks,
+      layers.rawsStations, layers.airNowMonitors, layers.droughtOutlook, layers.ndgdSmokeForecast, layers.fireWeatherOutlooks,
       layers.nhcTropicalWeather, layers.damageAssessment,
       layers.ngfsDetections, ngfsGeoJSON,
       hotspotsGeoJSON, perimetersGeoJSON, incidentsGeoJSON, aqiGeoJSON, alertsGeoJSON, spcOutlooksGeoJSON,
       stormReportsGeoJSON, userReportsGeoJSON, evacZonesGeoJSON,
       damageAssessmentPointsGeoJSON, damageAssessmentLinesGeoJSON, damageAssessmentPolygonsGeoJSON,
-      flightsGeoJSON, rawsGeoJSON, airNowMonitorsGeoJSON, droughtOutlookGeoJSON, ndgdSmokeFilteredGeoJSON, fireWeatherOutlooksGeoJSON,
-      nhcTrackGeoJSON, nhcObservedTrackGeoJSON, nhcDisturbanceGeoJSON,
+      rawsGeoJSON, airNowMonitorsGeoJSON, droughtOutlookGeoJSON, ndgdSmokeFilteredGeoJSON, fireWeatherOutlooksGeoJSON,
+      nhcForecastPointsGeoJSON, nhcPastPointsGeoJSON, nhcDisturbanceAreasGeoJSON, nhcDisturbancePointsGeoJSON, nhcWatchWarningGeoJSON,
       criticalInfrastructureVisible, criticalInfrastructureTransGeoJSON, criticalInfrastructureGasGeoJSON,
       nationalMapCollegesVisible, nationalMapCollegesGeoJSON,
-      nhcCentersGeoJSON,
       layers.waterGauges, waterGaugesGeoJSON,
       layers.nexradSites, nexradSitesGeoJSON,
       layers.wildfireCameras, californiaCamerasGeoJSON,
@@ -1237,8 +1147,6 @@ export default function MapView({
     if (!features?.length) {
       selectFire(null);
       selectGauge(null);
-      setSelectedFlight(null);
-      setSelectedFlightLngLat(null);
       return;
     }
 
@@ -1262,15 +1170,7 @@ export default function MapView({
       return;
     }
 
-    if (feature.layer.id === 'flights-symbol') {
-      setSelectedFlight(feature.properties);
-      setSelectedFlightLngLat(evt.lngLat);
-      return;
-    }
-
     if (feature.layer.id === 'cmra-transmission-lines') {
-      setSelectedFlight(null);
-      setSelectedFlightLngLat(null);
       selectFire({
         type: 'transmission-line',
         id: p.OBJECTID ?? p.ID ?? `${evt.lngLat.lng},${evt.lngLat.lat}`,
@@ -1290,8 +1190,6 @@ export default function MapView({
     }
 
     if (feature.layer.id === 'eia-gas-pipelines') {
-      setSelectedFlight(null);
-      setSelectedFlightLngLat(null);
       selectFire({
         type: 'gas-pipeline',
         id: p.FID ?? p.OBJECTID ?? `${evt.lngLat.lng},${evt.lngLat.lat}`,
@@ -1308,8 +1206,6 @@ export default function MapView({
     }
 
     if (feature.layer.id === 'national-map-colleges-circle') {
-      setSelectedFlight(null);
-      setSelectedFlightLngLat(null);
       selectFire({
         type: 'national-map-college',
         id: p.OBJECTID ?? p.FID ?? `${evt.lngLat.lng},${evt.lngLat.lat}`,
@@ -1321,10 +1217,6 @@ export default function MapView({
       });
       return;
     }
-
-    // Clicking any non-flight feature closes the flight popup
-    setSelectedFlight(null);
-    setSelectedFlightLngLat(null);
 
     if (feature.layer.id === 'fire-hotspots-circle') {
       selectFire({
@@ -1694,14 +1586,6 @@ export default function MapView({
           visible={(isWeatherTab || isAllHazardTab) && layers.weatherAlerts}
         />
 
-        {/* NHC tropical storm / hurricane centres, forecast cone, and track */}
-        <NhcStormsLayer
-          centersGeoJSON={nhcCentersGeoJSON}
-          conesGeoJSON={nhcConesGeoJSON}
-          tracksGeoJSON={nhcTracksGeoJSON}
-          visible={(isWeatherTab || isAllHazardTab) && layers.nhcTropicalWeather}
-        />
-
         {/* SPC convective outlook polygons */}
         <SPCOutlookLayer
           geoJSON={spcOutlooksGeoJSON}
@@ -1800,12 +1684,16 @@ export default function MapView({
           outlookType={fireWxOutlookType}
         />
 
-        {/* NHC hurricane tracks + disturbance outlook – weather tab */}
+        {/* NHC hurricane tracks, cone, watch/warnings, and tropical weather outlook – weather tab */}
         <NHCTropicalWeatherLayer
-          trackGeoJSON={nhcTrackGeoJSON}
-          observedTrackGeoJSON={nhcObservedTrackGeoJSON}
+          forecastPointsGeoJSON={nhcForecastPointsGeoJSON}
+          forecastTrackGeoJSON={nhcForecastTrackGeoJSON}
           coneGeoJSON={nhcConeGeoJSON}
-          disturbanceGeoJSON={nhcDisturbanceGeoJSON}
+          watchWarningGeoJSON={nhcWatchWarningGeoJSON}
+          pastPointsGeoJSON={nhcPastPointsGeoJSON}
+          pastTrackGeoJSON={nhcPastTrackGeoJSON}
+          disturbancePointsGeoJSON={nhcDisturbancePointsGeoJSON}
+          disturbanceAreasGeoJSON={nhcDisturbanceAreasGeoJSON}
           stormLabelsGeoJSON={nhcStormLabelsGeoJSON}
           visible={(isWeatherTab || isAllHazardTab) && layers.nhcTropicalWeather}
         />
@@ -1863,12 +1751,6 @@ export default function MapView({
         <CalFirePerimetersLayer
           geoJSON={calFireHistoricalPerimetersGeoJSON}
           visible={(isWildfireTab || isAllHazardTab) && layers.calFireHistoricalPerimeters}
-        />
-
-        {/* Live flight tracking – always on top of all fire/weather layers */}
-        <FlightLayer
-          geoJSON={flightsGeoJSON}
-          visible={layers.flights}
         />
 
         {/* User live location marker */}
@@ -1938,15 +1820,6 @@ export default function MapView({
 
         {/* Hover tooltip */}
         <HoverTooltip feature={hoverFeature} lngLat={hoverLngLat} />
-
-        {/* Flight detail popup – shown on aircraft click */}
-        {selectedFlight && selectedFlightLngLat && (
-          <FlightDetailPopup
-            flight={selectedFlight}
-            lngLat={selectedFlightLngLat}
-            onClose={() => { setSelectedFlight(null); setSelectedFlightLngLat(null); }}
-          />
-        )}
       </Map>
 
       <MapZoomControl mapRef={mapRef} />

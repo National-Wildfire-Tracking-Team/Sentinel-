@@ -14,7 +14,6 @@ import { useApp } from "../context/AppContext";
 import { geometryAreaSqMi } from "../utils/geoArea";
 import {
   fetchNWSAlerts,
-  filterFireWeatherAlerts,
   flattenGeometry,
 } from "../api/noaaWeather";
 import { fetchFemaAlerts } from "../api/fema";
@@ -230,6 +229,7 @@ function toGeoJSON(alerts, zoneMap, countyMap, cwaMap) {
           id: a.id,
           type: a.type,
           headline: a.headline,
+          description: a.description,
           severity: a.severity,
           urgency: a.urgency,
           source: a.source,
@@ -271,7 +271,7 @@ export function useWeatherAlerts() {
   const loadIdRef = useRef(0);
 
   const applyGeoJSON = useCallback(() => {
-    const withArea = filterFireWeatherAlerts(mergedRef.current).map((a) => {
+    const withArea = mergedRef.current.map((a) => {
       const geom = getGeometry(a, zoneMapRef.current, countyMapRef.current, cwaMapRef.current);
       const areaSqMi = geom ? geometryAreaSqMi(geom) : null;
       return { ...a, areaSqMi };

@@ -2,8 +2,8 @@
  * HazardEventsLayer.jsx
  * Renders community-submitted hazard event pins on the map — wildfire,
  * flooding, hazmat, and other. Each category gets its own pin gradient +
- * glyph, registered as a Mapbox image (same pattern as FlightLayer's
- * airplane icon) and driven by a single symbol layer keyed off `category`.
+ * glyph, registered as a Mapbox image and driven by a single symbol layer
+ * keyed off `category`.
  */
 
 import { useState, useEffect, memo } from 'react';

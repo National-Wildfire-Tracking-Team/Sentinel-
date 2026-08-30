@@ -4,7 +4,7 @@
  *
  * Plans:
  *   free  – permanent free tier; core situational awareness
- *   pro   – Sentinel Pro ($9.99/mo); field intelligence + infrastructure layers
+ *   pro   – Sentinel Pro ($4.99/mo); field intelligence + infrastructure layers
  *   team  – org/team tier; max limits + API + multi-seat
  */
 
@@ -23,7 +23,7 @@ export const PLANS = {
     infrastructureLayers: false,
     evacuationRoutes: false,
     federalLandLayers: false,
-    fireBehaviorModeling: true,    // free & public
+    fireBehaviorModeling: false,   // Pro-only
     camerasAircraft: true,
     apiAccess: false,
     priorityAlerts: false,
@@ -32,7 +32,7 @@ export const PLANS = {
   pro: {
     id: 'pro',
     label: 'Sentinel Pro',
-    price: 9.99,
+    price: 4.99,
     savedLocationsLimit: 25,
     alertsEnabled: true,
     basicAlerts: true,
@@ -78,8 +78,8 @@ export function usePlan() {
   const isPaidPlan = planId === 'pro' || planId === 'team';
   /** Pro-equivalent data access for field reporters (no subscription required). */
   const hasProInfrastructureAccess = isPaidPlan || Boolean(isReporter);
-  /** Fire behavior modeling (spread projection layer) — free & public, no plan or reporter status required. */
-  const hasFireBehaviorModelingAccess = true;
+  /** Fire behavior modeling (spread projection layer) — Pro plan or field reporter status required. */
+  const hasFireBehaviorModelingAccess = isPaidPlan || Boolean(isReporter);
 
   return {
     planId,

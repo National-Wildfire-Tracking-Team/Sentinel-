@@ -35,7 +35,6 @@ const initialState = {
     /** Caltrans District CCTV — live California highway camera locations */
     wildfireCameras:   false,
     evacZones:         true,
-    flights:           false,
     rawsStations:          false,
     airNowMonitors:        false,
     droughtOutlook:        false,

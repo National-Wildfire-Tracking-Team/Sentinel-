@@ -1,17 +1,17 @@
 /**
  * PricingPage.jsx
  * Public pricing page — Free Tier (situational awareness) and
- * Sentinel Pro (field intelligence, $9.99/month).
+ * Sentinel Pro (field intelligence, $4.99/month).
  */
 
 import { useState, useEffect, createElement } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import {
   Flame, Check, X, Zap, ChevronRight, AlertCircle,
-  Radio, Wind, Camera, Plane, MapPin, Bell,
+  Radio, Camera, Plane, MapPin, Bell,
   Layers, Shield, AlertTriangle, Building2, Train,
   Bolt, Droplets, Factory, Cross, GraduationCap,
-  Users, Landmark, TreePine, Ban, Clock,
+  Users, Landmark, TreePine, Ban, Clock, Ruler, MessageSquare,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { usePlan } from '../hooks/usePlan';
@@ -20,13 +20,18 @@ import { supabase } from '../api/supabaseClient';
 // ─── Feature data ─────────────────────────────────────────────────────────────
 
 const FREE_FEATURES = [
-  { icon: <Layers size={14} />,       label: 'Wildfire, weather, and all-hazard map tabs' },
-  { icon: <Radio size={14} />,        label: 'NWS alerts, radar, and satellite imagery' },
-  { icon: <Wind size={14} />,         label: 'AQI and wind data' },
-  { icon: <MapPin size={14} />,       label: 'Up to 4 saved locations with basic alerts' },
-  { icon: <Camera size={14} />,       label: 'Cameras and aircraft when available' },
-  { icon: <Flame size={14} />,        label: 'Fire behavior modeling — spread projection rings (+1h / +3h / +6h)' },
+  { icon: <MapPin size={14} />,        label: '4 saved locations with notifications' },
+  { icon: <Layers size={14} />,        label: 'Wildfire, weather, and all-hazard map tabs' },
+  { icon: <Ruler size={14} />,         label: 'Polygon + distance tools' },
+  { icon: <Radio size={14} />,         label: 'NWS/SPC/WPC/NHC outlooks' },
+  { icon: <MessageSquare size={14} />, label: 'Mesoscale discussions' },
+  { icon: <Camera size={14} />,        label: 'Cameras in available areas' },
+  { icon: <Droplets size={14} />,      label: 'Water Level Gauges' },
 ];
+
+const PRO_HEADLINE_FEATURE = {
+  icon: <Flame size={14} />, label: 'Fire behavior modeling — spread projection rings (+1h / +3h / +6h)',
+};
 
 const PRO_INFRA_LIVE = [
   { icon: <AlertTriangle size={14} />, label: 'Highways & evacuation routes' },
@@ -93,12 +98,12 @@ export default function PricingPage() {
   const checkoutResult = searchParams.get('checkout');
 
   useEffect(() => {
-    const scriptId = 'stripe-buy-button-js';
+    const scriptId = 'stripe-pricing-table-js';
     if (document.getElementById(scriptId)) return;
     const script = document.createElement('script');
     script.id = scriptId;
     script.async = true;
-    script.src = 'https://js.stripe.com/v3/buy-button.js';
+    script.src = 'https://js.stripe.com/v3/pricing-table.js';
     document.body.appendChild(script);
   }, []);
 
@@ -235,12 +240,18 @@ export default function PricingPage() {
               </span>
             </div>
             <div className="flex items-baseline gap-1 mb-1">
-              <span className="text-5xl font-extrabold text-white">$9.99</span>
+              <span className="text-5xl font-extrabold text-white">$4.99</span>
               <span className="text-sentinel-400 text-sm ml-1">/month</span>
             </div>
             <p className="text-sentinel-400 text-sm mb-6">
               Weather enthusiasts, wildfire trackers, media, and the prepared public.
             </p>
+
+            <div className="flex items-start gap-2.5 text-sm text-sentinel-200 mb-6
+                            rounded-lg border border-fire-500/25 bg-fire-500/5 px-3 py-2.5">
+              <span className="shrink-0 mt-0.5 text-fire-400">{PRO_HEADLINE_FEATURE.icon}</span>
+              {PRO_HEADLINE_FEATURE.label}
+            </div>
 
             {alreadyPro ? (
               <button
@@ -252,9 +263,9 @@ export default function PricingPage() {
                 Current Plan
               </button>
             ) : (
-              <div className="w-full flex justify-center mb-8 min-h-[42px] items-center">
-                {createElement('stripe-buy-button', {
-                  'buy-button-id': 'buy_btn_1TRMm6HwBOQlFhO30vGZ8D9I',
+              <div className="w-full mb-8">
+                {createElement('stripe-pricing-table', {
+                  'pricing-table-id': 'prctbl_1U9Sw8HwBOQlFhO3hjVt5sTK',
                   'publishable-key':
                     'pk_live_51SZkn9HwBOQlFhO3YobFxbtHGSnTn8pbIY9dW5lmwVdGdgOg9pBbkDSALGoAOvftveH3wnRxkMdkkJ0JuciZ6BVL00CX0sXEss',
                 })}
@@ -331,12 +342,14 @@ export default function PricingPage() {
             <tbody className="divide-y divide-sentinel-800">
               {[
                 { label: 'Wildfire, weather & all-hazard map tabs',    free: true,  pro: true  },
-                { label: 'NWS alerts, radar & satellite imagery',       free: true,  pro: true  },
-                { label: 'AQI and wind data',                           free: true,  pro: true  },
-                { label: 'Cameras & aircraft (when available)',         free: true,  pro: true  },
-                { label: 'Fire Behavior Modeling',                      free: true,  pro: true  },
+                { label: 'Polygon + distance tools',                    free: true,  pro: true  },
+                { label: 'NWS/SPC/WPC/NHC outlooks',                    free: true,  pro: true  },
+                { label: 'Mesoscale discussions',                       free: true,  pro: true  },
+                { label: 'Cameras (when available)',                    free: true,  pro: true  },
+                { label: 'Water level gauges',                          free: true,  pro: true  },
+                { label: 'Fire Behavior Modeling',                      free: false, pro: true  },
                 { label: 'Saved locations',                             free: '4',   pro: '25'  },
-                { label: 'Basic location alerts',                       free: true,  pro: true  },
+                { label: 'Location notifications',                      free: true,  pro: true  },
                 { label: 'Priority alert delivery',                     free: false, pro: true  },
                 { label: 'Evacuation routes',                           free: false, pro: true  },
                 { label: 'Highways layer',                              free: false, pro: true  },
@@ -448,7 +461,7 @@ export default function PricingPage() {
               className="px-6 py-3 rounded-xl text-sm font-semibold bg-fire-600 hover:bg-fire-500
                          text-white transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
             >
-              {busy ? 'Redirecting…' : alreadyPro ? 'Manage Plan' : 'Start Pro — $9.99/mo'}
+              {busy ? 'Redirecting…' : alreadyPro ? 'Manage Plan' : 'Start Pro — $4.99/mo'}
             </button>
           </div>
         </div>
