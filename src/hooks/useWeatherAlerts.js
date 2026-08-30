@@ -229,6 +229,7 @@ function toGeoJSON(alerts, zoneMap, countyMap, cwaMap) {
           id: a.id,
           type: a.type,
           headline: a.headline,
+          description: a.description,
           severity: a.severity,
           urgency: a.urgency,
           source: a.source,
