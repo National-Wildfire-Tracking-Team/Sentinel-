@@ -11,6 +11,7 @@ import { Source, Layer } from 'react-map-gl';
 import {
   nwsWwaAwareColorMatchExpression,
   nwsWwaStyleMatchExpression,
+  sortAlertFeaturesByTier,
 } from '../../../utils/nwsColors';
 
 const EMPTY_GEOJSON = { type: 'FeatureCollection', features: [] };
@@ -68,9 +69,13 @@ const WeatherAlertsLayer = memo(function WeatherAlertsLayer({
 
     if (!alertFeatures.length && !mdFeatures.length) return EMPTY_GEOJSON;
 
+    // Draw by priority so overlapping polygons stack correctly:
+    // Emergencies > Warnings > Watches > Advisories > Statements.
+    const orderedAlertFeatures = sortAlertFeaturesByTier(alertFeatures);
+
     return {
       type: 'FeatureCollection',
-      features: [...alertFeatures, ...mdFeatures],
+      features: [...orderedAlertFeatures, ...mdFeatures],
     };
   }, [geoJSON, spcMdGeoJSON]);
 

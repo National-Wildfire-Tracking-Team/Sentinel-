@@ -270,6 +270,75 @@ export function nwsColorMatchExpression() {
 }
 
 /**
+ * ─── Rendering-priority tiers ──────────────────────────────────────────────
+ * Controls stacking order when alert polygons overlap on the map: higher
+ * tier = drawn later = appears on top. Mirrors NWS operational priority:
+ *   5. Emergencies  (Tornado/Flash Flood Emergency, PDS-tagged Warnings)
+ *   4. Warnings     (hazard occurring/imminent — act now)
+ *   3. Watches      (conditions favorable — be prepared)
+ *   2. Advisories   (less severe, but hazardous without precautions)
+ *   1. Statements / Outlooks (informational)
+ */
+export const ALERT_TIER = {
+  STATEMENT: 1,
+  ADVISORY: 2,
+  WATCH: 3,
+  WARNING: 4,
+  EMERGENCY: 5,
+};
+
+const TIER_BY_CATEGORY = {
+  statement: ALERT_TIER.STATEMENT,
+  other: ALERT_TIER.STATEMENT,
+  advisory: ALERT_TIER.ADVISORY,
+  watch: ALERT_TIER.WATCH,
+  warning: ALERT_TIER.WARNING,
+  eas: ALERT_TIER.WARNING,
+};
+
+/**
+ * "Emergency" and "Particularly Dangerous Situation" (PDS) are not standalone
+ * NWS product types — they're enhanced wording embedded in the headline/
+ * description of an existing Tornado Warning or Flash Flood Warning.
+ */
+const EMERGENCY_CAPABLE_EVENTS = new Set(['Tornado Warning', 'Flash Flood Warning']);
+const EMERGENCY_TAG_RE = /tornado emergency|flash flood emergency|particularly dangerous situation|\bPDS\b/i;
+
+/**
+ * True if a Warning's text carries "Emergency" or "PDS" enhanced wording.
+ * Pass any available free text (headline, description, NWSheadline param).
+ */
+export function isEmergencyTagged(event, ...texts) {
+  if (!EMERGENCY_CAPABLE_EVENTS.has(event)) return false;
+  return texts.some((t) => typeof t === 'string' && EMERGENCY_TAG_RE.test(t));
+}
+
+/**
+ * Rendering-priority tier for an alert (see ALERT_TIER). Pass any available
+ * headline/description text so Emergency/PDS tagging can be detected.
+ */
+export function nwsAlertTier(event, ...texts) {
+  if (isEmergencyTagged(event, ...texts)) return ALERT_TIER.EMERGENCY;
+  return TIER_BY_CATEGORY[nwsAlertCategory(event)] ?? ALERT_TIER.STATEMENT;
+}
+
+/**
+ * Sorts GeoJSON alert features so higher-priority alerts (Emergencies >
+ * Warnings > Watches > Advisories > Statements) are drawn last — i.e. on
+ * top — when polygons overlap. Reads `type`/`headline`/`description` off
+ * each feature's properties. Returns a new array; does not mutate input.
+ */
+export function sortAlertFeaturesByTier(features) {
+  return [...features].sort((a, b) => {
+    const pa = a?.properties || {};
+    const pb = b?.properties || {};
+    const ta = nwsAlertTier(pa.type, pa.headline, pa.description);
+    const tb = nwsAlertTier(pb.type, pb.headline, pb.description);
+    return ta - tb;
+  });
+}
+
+/**
  * Curated subset of NWS event types offered as opt-in email notification
  * preferences (src/pages/AccountPage.jsx) and matched against by
  * scripts/notification-sync.mjs — a practical, high-signal list rather
