@@ -32,6 +32,10 @@ import { useAirNowMonitors } from '../hooks/useAirNowMonitors';
 import { useDroughtOutlook } from '../hooks/useDroughtOutlook';
 import { useNdgdSmokeForecast } from '../hooks/useNdgdSmokeForecast';
 import { useFireWeatherOutlooks } from '../hooks/useFireWeatherOutlooks';
+import { useWpcEro } from '../hooks/useWpcEro';
+import { useWpcWssi } from '../hooks/useWpcWssi';
+import { useWpcQpf } from '../hooks/useWpcQpf';
+import { useWpcFronts } from '../hooks/useWpcFronts';
 import { useNhcTropicalWeather } from '../hooks/useNhcTropicalWeather';
 import { useCriticalInfrastructure } from '../hooks/useCriticalInfrastructure';
 import { useNationalMapColleges } from '../hooks/useNationalMapColleges';
@@ -90,7 +94,6 @@ const WILDFIRE_LAYER_PRESET = {
   stormReports: false,
   criticalInfrastructure: false,
   schoolsUniversities: false,
-  nhcTropicalWeather: false,
 };
 
 const ALL_HAZARD_LAYER_PRESET = {
@@ -111,7 +114,6 @@ const ALL_HAZARD_LAYER_PRESET = {
   stormReports: false,
   criticalInfrastructure: false,
   schoolsUniversities: false,
-  nhcTropicalWeather: false,
 };
 
 // Weather tab: only auto-enable NWS alerts (includes SPC MDs on map);
@@ -135,7 +137,6 @@ const WEATHER_LAYER_PRESET = {
   airNowMonitors: false,
   ndgdSmokeForecast: false,
   schoolsUniversities: false,
-  nhcTropicalWeather: false,
 };
 
 const THREE_DAYS_MS = 3 * 24 * 60 * 60 * 1000;
@@ -247,7 +248,7 @@ function mergeIrwinAndCalFireIncidents(irwinIncidents, calFireIncidents) {
 const RAWS_MIN_ZOOM = 9;
 
 export default function LiveTrackerPage() {
-  const { layers, setLayer, setRefreshed, setLoading, feedFilter, viewport, selectedGauge, selectGauge, selectedFire, selectedRadarSite, selectRadarSite, selectedCamera, selectCamera } = useApp();
+  const { layers, setLayer, setRefreshed, setLoading, feedFilter, viewport, selectedGauge, selectGauge, selectedFire, selectedRadarSite, selectRadarSite, selectedCamera, selectCamera, wpcOutlookDay } = useApp();
   const { hasProInfrastructureAccess, hasFireBehaviorModelingAccess } = usePlan();
   const criticalInfraEntitled = hasProInfrastructureAccess;
   const { locations: savedLocations } = useSavedLocations();
@@ -527,13 +528,35 @@ export default function LiveTrackerPage() {
     validTime: fireWxValidTime,
     refresh:   refreshFireWeatherOutlooks,
   } = useFireWeatherOutlooks(
-    (layers.fireWeatherOutlooks && (activeMapTab === MAP_TABS.wildfire || activeMapTab === MAP_TABS.allhazard))
+    layers.fireWeatherOutlooks
       || (layers.spcWeatherOutlooks && spcWeatherOutlookMode === 'fireWx' && weatherDataEnabled),
     fireWxActiveDay,
     fireWxOutlookType
   );
 
-  const nhcTropicalWeatherEnabled = weatherDataEnabled && layers.nhcTropicalWeather;
+  // WPC outlooks — each independently toggleable, Day 1-3 selected in the layer panel
+  const {
+    geoJSON: wpcEroGeoJSON,
+    refresh: refreshWpcEro,
+  } = useWpcEro(weatherDataEnabled && layers.wpcEro, wpcOutlookDay.ero);
+
+  const {
+    geoJSON: wpcWssiGeoJSON,
+    refresh: refreshWpcWssi,
+  } = useWpcWssi(weatherDataEnabled && layers.wpcWssi, wpcOutlookDay.wssi);
+
+  const {
+    geoJSON: wpcQpfGeoJSON,
+    refresh: refreshWpcQpf,
+  } = useWpcQpf(weatherDataEnabled && layers.wpcQpf, wpcOutlookDay.qpf);
+
+  const {
+    geoJSON: wpcFrontsGeoJSON,
+    refresh: refreshWpcFronts,
+  } = useWpcFronts(weatherDataEnabled && layers.wpcFronts, wpcOutlookDay.fronts);
+
+  // Permanent layer (not user-toggleable) — fetches whenever the weather/all-hazard tab is active.
+  const nhcTropicalWeatherEnabled = weatherDataEnabled;
   const {
     forecastPointsGeoJSON: nhcForecastPointsGeoJSON,
     forecastTrackGeoJSON: nhcForecastTrackGeoJSON,
@@ -885,6 +908,10 @@ export default function LiveTrackerPage() {
     if (nhcTropicalWeatherEnabled) {
       refreshNhcTropicalWeather();
     }
+    if (weatherDataEnabled && layers.wpcEro) refreshWpcEro();
+    if (weatherDataEnabled && layers.wpcWssi) refreshWpcWssi();
+    if (weatherDataEnabled && layers.wpcQpf) refreshWpcQpf();
+    if (weatherDataEnabled && layers.wpcFronts) refreshWpcFronts();
   }, [
     refreshHotspots, refreshNgfs, refreshPerimeters, refreshAlerts, refreshIncidents, refreshCalFireIncidents, refreshStormReports,
     refreshDamageAssessment,
@@ -893,6 +920,8 @@ export default function LiveTrackerPage() {
     refreshCriticalInfrastructure,
     refreshNationalMapColleges,
     refreshNhcTropicalWeather,
+    refreshWpcEro, refreshWpcWssi, refreshWpcQpf, refreshWpcFronts,
+    layers.wpcEro, layers.wpcWssi, layers.wpcQpf, layers.wpcFronts,
     activeMapTab, weatherDataEnabled, damageAssessmentEnabled, layers.aqi, rawsEnabled, layers.airNowMonitors, layers.droughtOutlook, layers.ndgdSmokeForecast,
     layers.fireWeatherOutlooks, layers.spcWeatherOutlooks, spcWeatherOutlookMode, layers.stormReports,
     nhcTropicalWeatherEnabled,
@@ -976,6 +1005,10 @@ export default function LiveTrackerPage() {
             nexradScanCoordinates={radarRaster?.coordinates}
             calFireHistoricalPerimetersGeoJSON={calFireHistoricalPerimetersGeoJSON}
             californiaCamerasGeoJSON={californiaCamerasGeoJSON}
+            wpcEroGeoJSON={wpcEroGeoJSON}
+            wpcWssiGeoJSON={wpcWssiGeoJSON}
+            wpcQpfGeoJSON={wpcQpfGeoJSON}
+            wpcFrontsGeoJSON={wpcFrontsGeoJSON}
           />
 
           <MapCornerButtons />

@@ -28,15 +28,19 @@ const STORM_SLOTS = [
   'CP1', 'CP2', 'CP3', 'CP4', 'CP5',
 ];
 
-// Standard NHC/SSHWS category colors
+// Storm category colors — matched to weatherwise.app's track-point palette
+// (sampled directly from their rendered map: cyan → pale yellow → gold →
+// orange → coral-pink as category increases). Tropical Depression and
+// Category 5 weren't observed in a live storm at sample time, so those two
+// are extrapolated to continue the same progression.
 export const HURRICANE_CATEGORY_COLORS = {
-  'Tropical Depression': { fill: '#5ebaff', stroke: '#2e8fbf' },
-  'Tropical Storm':      { fill: '#00faf4', stroke: '#00b8b3' },
-  'Category 1':          { fill: '#ffffcc', stroke: '#cccc66' },
-  'Category 2':          { fill: '#ffe775', stroke: '#ccaa00' },
-  'Category 3':          { fill: '#ffc140', stroke: '#cc8800' },
-  'Category 4':          { fill: '#ff8f20', stroke: '#cc5500' },
-  'Category 5':          { fill: '#ff6060', stroke: '#cc0000' },
+  'Tropical Depression': { fill: '#a3e8f0', stroke: '#5fb8c4' },
+  'Tropical Storm':      { fill: '#4dffff', stroke: '#00b8b3' },
+  'Category 1':          { fill: '#ffffd9', stroke: '#d9d9a3' },
+  'Category 2':          { fill: '#ffd98c', stroke: '#cc9a4d' },
+  'Category 3':          { fill: '#ff9e59', stroke: '#cc6a2e' },
+  'Category 4':          { fill: '#ff738a', stroke: '#cc3d59' },
+  'Category 5':          { fill: '#ff4d70', stroke: '#b81f4d' },
 };
 
 // NHC tropical weather outlook formation-probability colors

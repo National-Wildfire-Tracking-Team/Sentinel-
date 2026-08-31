@@ -42,17 +42,25 @@ const initialState = {
     criticalInfrastructure: false,
     /** USGS National Map — colleges/universities (structures layer 56); Pro */
     schoolsUniversities: false,
-    /** NHC tropical tracks, cone, and disturbances */
-    nhcTropicalWeather: false,
     /** NOAA NWPS water gauges */
     waterGauges: false,
     /** NWS Damage Assessment Toolkit — post-storm survey points/tracks/polygons */
     damageAssessment: false,
     /** Rothermel-based spread projection rings for the selected fire */
     fireBehaviorModeling: false,
+    /** WPC Excessive Rainfall Outlook (Day 1-3) */
+    wpcEro: false,
+    /** WPC Winter Storm Severity Index — Overall Impact (Day 1-3) */
+    wpcWssi: false,
+    /** WPC Quantitative Precipitation Forecast (Day 1-3) */
+    wpcQpf: false,
+    /** WPC surface-analysis fronts (Day 1-3) */
+    wpcFronts: false,
   },
   // Currently selected 7-day fire risk forecast (1-7)
   fireRiskDay: 1,
+  // Active day ('day1'|'day2'|'day3') per WPC outlook layer
+  wpcOutlookDay: { ero: 'day1', wssi: 'day1', qpf: 'day1', fronts: 'day1' },
   // Currently clicked/selected fire feature (hotspot or perimeter)
   selectedFire: null,
   // Currently selected water gauge (properties from map feature)
@@ -100,6 +108,7 @@ const A = {
   TOGGLE_LAYER:       'TOGGLE_LAYER',
   SET_LAYER:          'SET_LAYER',
   SET_FIRE_RISK_DAY:  'SET_FIRE_RISK_DAY',
+  SET_WPC_OUTLOOK_DAY: 'SET_WPC_OUTLOOK_DAY',
   SELECT_FIRE:        'SELECT_FIRE',
   CLEAR_SELECTED:     'CLEAR_SELECTED',
   SELECT_GAUGE:       'SELECT_GAUGE',
@@ -140,6 +149,11 @@ function reducer(state, action) {
           7,
           Math.max(1, Number(action.day) || 1)
         ),
+      };
+    case A.SET_WPC_OUTLOOK_DAY:
+      return {
+        ...state,
+        wpcOutlookDay: { ...state.wpcOutlookDay, [action.product]: action.day },
       };
     case A.SELECT_FIRE:
       return { ...state, selectedFire: action.fire, selectedGauge: null, selectedRadarSite: null, selectedCamera: null };
@@ -196,7 +210,8 @@ export function AppProvider({ children }) {
 
   const toggleLayer      = useCallback((layer) => dispatch({ type: A.TOGGLE_LAYER, layer }), []);
   const setLayer         = useCallback((layer, value) => dispatch({ type: A.SET_LAYER, layer, value }), []);
-  const setFireRiskDay     = useCallback((day) => dispatch({ type: A.SET_FIRE_RISK_DAY, day }), [] ); 
+  const setFireRiskDay     = useCallback((day) => dispatch({ type: A.SET_FIRE_RISK_DAY, day }), [] );
+  const setWpcOutlookDay = useCallback((product, day) => dispatch({ type: A.SET_WPC_OUTLOOK_DAY, product, day }), []);
   const selectFire       = useCallback((fire) => dispatch({ type: A.SELECT_FIRE, fire }), []);
   const clearSelected    = useCallback(() => dispatch({ type: A.CLEAR_SELECTED }), []);
   const selectGauge      = useCallback((gauge) => dispatch({ type: A.SELECT_GAUGE, gauge }), []);
@@ -234,6 +249,7 @@ export function AppProvider({ children }) {
       toggleLayer,
       setLayer,
       setFireRiskDay,
+      setWpcOutlookDay,
       selectFire,
       clearSelected,
       selectGauge,

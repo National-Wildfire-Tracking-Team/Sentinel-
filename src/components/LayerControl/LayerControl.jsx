@@ -7,7 +7,7 @@
 import { useState, memo, useMemo, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  Layers, Flame, MapPin, Wind, CloudRain, CloudLightning, Eye, ChevronDown, ChevronRight, Radar, RadioTower, AlertTriangle, Ruler, Hexagon, Satellite, Map as MapIcon, Thermometer, Activity, Droplets, Zap, Lock, GraduationCap, Waves, History, TrendingUp, Crosshair, Camera, Mountain,
+  Layers, Flame, MapPin, Wind, CloudRain, CloudLightning, Eye, ChevronDown, ChevronRight, Radar, RadioTower, AlertTriangle, Ruler, Hexagon, Satellite, Map as MapIcon, Thermometer, Activity, Droplets, Zap, Lock, GraduationCap, History, TrendingUp, Crosshair, Camera, Mountain, Snowflake,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 
@@ -24,6 +24,10 @@ const LAYER_DEFS = {
   droughtOutlook:    { label: 'Drought Outlook',     sublabel: 'NOAA CPC Monthly Outlook',    icon: Droplets,     color: '#f59e0b' },
   fireWeatherOutlooks: { label: 'Fire Weather Outlooks', sublabel: 'SPC Day 1-8 fire weather', icon: Zap,          color: '#ff6b35' },
   fireRiskOutlook: { label: '7-day Fire Risk', sublabel: 'NIFC/NWCG Significant Fire Potential', icon: Flame, color: '#f97316' },
+  wpcEro:    { label: 'Excessive Rainfall Outlook', sublabel: 'WPC Day 1-3 flash-flood risk',      icon: CloudRain,  color: '#38bdf8' },
+  wpcWssi:   { label: 'Winter Storm Severity',      sublabel: 'WPC Day 1-3 overall impact',        icon: Snowflake,  color: '#93c5fd' },
+  wpcQpf:    { label: 'Precipitation Forecast',     sublabel: 'WPC Day 1-3 QPF (24hr)',            icon: Droplets,   color: '#0ea5e9' },
+  wpcFronts: { label: 'Surface Analysis Fronts',    sublabel: 'WPC Day 1-3 fronts & troughs',       icon: Wind,       color: '#a78bfa' },
   rawsStations:      { label: 'RAWS Stations',       sublabel: 'Fire weather stations',       icon: Thermometer,  color: '#f97316' },
   airNowMonitors:    { label: 'Air Quality Monitors', sublabel: 'EPA AirNow sensor network',  icon: Activity,     color: '#38bdf8' },
   weatherAlerts:     { label: 'NWS & mesoscale',     sublabel: 'NWS active alerts + SPC MDs', icon: Wind,         color: '#ef4444' },
@@ -38,7 +42,6 @@ const LAYER_DEFS = {
   nexradSites:       { label: 'NEXRAD Sites',        sublabel: 'Level 2 radar station status', icon: RadioTower,   color: '#06b6d4' },
   aqi:               { label: 'AQI Heatmap',          sublabel: 'EPA AirNow gradient overlay',  icon: Wind,         color: '#3b82f6' },
   smoke:             { label: 'Smoke Forecast',      sublabel: 'NOAA HRRR',                   icon: CloudRain,    color: '#94a3b8' },
-  nhcTropicalWeather: { label: 'Tropical Weather',   sublabel: 'NHC storms · disturbance outlook', icon: Waves, color: '#38bdf8' },
   waterGauges:        { label: 'Water Gauges',        sublabel: 'NOAA NWPS river & coastal gauges', icon: Droplets, color: '#1e90ff' },
   wildfireCameras:   { label: 'Live CA Cameras',      sublabel: 'Caltrans District CCTV · click for live feed', icon: Camera, color: '#14b8a6' },
   fireBehaviorModeling: { label: 'Fire Behavior Modeling', sublabel: 'Spread projection · select a fire', icon: TrendingUp, color: '#ff3b1f' },
@@ -78,16 +81,12 @@ const TAB_SECTIONS = {
           layers: ['weatherAlerts', 'stormReports', 'damageAssessment', 'radar', 'nexradSites'],
         },
         {
-          label: 'Tropical',
-          layers: ['nhcTropicalWeather'],
-        },
-        {
           label: 'Flood & water',
           layers: ['waterGauges'],
         },
         {
           label: 'Outlooks',
-          layers: ['spcWeatherOutlooks', 'fireWeatherOutlooks', 'fireRiskOutlook'],
+          layers: ['spcWeatherOutlooks', 'fireWeatherOutlooks', 'fireRiskOutlook', 'wpcEro', 'wpcWssi', 'wpcQpf', 'wpcFronts'],
         },
       ],
     },
@@ -174,15 +173,15 @@ const TAB_SECTIONS = {
       groups: [
         {
           label: 'Active weather',
-          layers: ['weatherAlerts', 'stormReports', 'damageAssessment', 'spcWeatherOutlooks'],
+          layers: ['weatherAlerts', 'stormReports', 'damageAssessment'],
         },
         {
           label: 'Evacuation',
           layers: ['evacZones'],
         },
         {
-          label: 'Tropical',
-          layers: ['nhcTropicalWeather'],
+          label: 'Outlooks',
+          layers: ['spcWeatherOutlooks', 'fireWeatherOutlooks', 'fireRiskOutlook', 'wpcEro', 'wpcWssi', 'wpcQpf', 'wpcFronts'],
         },
         {
           label: 'Flood & water',
@@ -342,6 +341,69 @@ function FireRiskDaySelector() {
       <span>Today</span>
       <span>+7 days</span>
     </div>
+    </div>
+  );
+}
+
+const WPC_DAYS = [
+  { key: 'day1', label: 'Day 1' },
+  { key: 'day2', label: 'Day 2' },
+  { key: 'day3', label: 'Day 3' },
+];
+
+/**
+ * Shared Day 1-3 selector for the WPC outlook layers (ERO, WSSI, QPF,
+ * fronts) — same inline-under-the-toggle pattern as FireRiskDaySelector,
+ * parameterized so the four layers don't each need a near-duplicate
+ * component.
+ */
+function WpcDaySelector({ layerKey, product, subtitle, accentColor }) {
+  const { layers, wpcOutlookDay, setWpcOutlookDay } = useApp();
+
+  if (!layers[layerKey]) {
+    return null;
+  }
+
+  const activeDay = wpcOutlookDay[product];
+
+  return (
+    <div className="px-2.5 py-2.5 bg-zinc-900/70 border-t border-zinc-800">
+      <div className="flex items-center justify-between mb-2">
+        <div>
+          <div className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400">
+            Forecast Day
+          </div>
+          <div className="text-[10px] text-zinc-500 mt-0.5">
+            {subtitle}
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-3 gap-1">
+        {WPC_DAYS.map(({ key, label }) => {
+          const active = activeDay === key;
+          return (
+            <button
+              key={key}
+              type="button"
+              onClick={() => setWpcOutlookDay(product, key)}
+              aria-pressed={active}
+              aria-label={`Show ${subtitle} ${label}`}
+              className={`
+                h-8 rounded-md text-[10px] font-semibold
+                transition-all border
+                ${active
+                  ? 'text-white shadow-lg border-transparent'
+                  : 'bg-zinc-950 text-zinc-400 border-zinc-700 hover:bg-zinc-800 hover:text-white hover:border-zinc-600'
+                }
+              `}
+              style={active ? { backgroundColor: accentColor } : undefined}
+            >
+              {label.replace('Day ', 'D')}
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -622,6 +684,18 @@ const LayerControl = memo(function LayerControl({
 
                                   {layerRef === 'fireRiskOutlook' && (
                                     <FireRiskDaySelector />
+                                  )}
+                                  {layerRef === 'wpcEro' && (
+                                    <WpcDaySelector layerKey="wpcEro" product="ero" subtitle="WPC Excessive Rainfall Outlook" accentColor="#38bdf8" />
+                                  )}
+                                  {layerRef === 'wpcWssi' && (
+                                    <WpcDaySelector layerKey="wpcWssi" product="wssi" subtitle="WPC Winter Storm Severity Index" accentColor="#93c5fd" />
+                                  )}
+                                  {layerRef === 'wpcQpf' && (
+                                    <WpcDaySelector layerKey="wpcQpf" product="qpf" subtitle="WPC Precipitation Forecast" accentColor="#0ea5e9" />
+                                  )}
+                                  {layerRef === 'wpcFronts' && (
+                                    <WpcDaySelector layerKey="wpcFronts" product="fronts" subtitle="WPC Surface Analysis Fronts" accentColor="#a78bfa" />
                                   )}
                                 </div>
                               );

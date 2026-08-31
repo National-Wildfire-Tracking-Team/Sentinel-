@@ -112,6 +112,46 @@ const FIRE_WX_LIGHTNING_SCALE = [
   { color: '#3C6FCD', label: 'CRITICAL – Dry Lightning (Scattered)' },
 ];
 
+// WPC outlook palettes
+const WPC_ERO_SCALE = [
+  { color: '#7FBF7F', label: 'Marginal' },
+  { color: '#FFE066', label: 'Slight' },
+  { color: '#FF6666', label: 'Moderate' },
+  { color: '#FF00FF', label: 'High' },
+];
+
+const WPC_WSSI_SCALE = [
+  { color: '#B0B8C0', label: 'Winter Weather Area' },
+  { color: '#8FC1E3', label: 'Minor' },
+  { color: '#3A7CA5', label: 'Moderate' },
+  { color: '#8E5BA6', label: 'Major' },
+  { color: '#C0392B', label: 'Extreme' },
+];
+
+const WPC_QPF_SCALE = [
+  { color: '#7fff00', label: '≥ 0.0"' },
+  { color: '#00cd00', label: '≥ 0.1"' },
+  { color: '#008b00', label: '≥ 0.3"' },
+  { color: '#104e8b', label: '≥ 0.5"' },
+  { color: '#1e90ff', label: '≥ 0.8"' },
+  { color: '#00b2ee', label: '≥ 1.0"' },
+  { color: '#00eeee', label: '≥ 1.3"' },
+  { color: '#8968cd', label: '≥ 1.5"' },
+  { color: '#912cee', label: '≥ 1.8"' },
+  { color: '#8b008b', label: '≥ 2.0"' },
+  { color: '#8b0000', label: '≥ 2.5"' },
+  { color: '#cd0000', label: '≥ 3.0"' },
+  { color: '#ee4000', label: '≥ 4.0"' },
+];
+
+const WPC_FRONTS_SCALE = [
+  { color: '#2E6FDB', label: 'Cold front' },
+  { color: '#DB2E2E', label: 'Warm front' },
+  { color: '#9B59B6', label: 'Stationary front' },
+  { color: '#7B4FA6', label: 'Occluded front' },
+  { color: '#D97706', label: 'Trough' },
+];
+
 const FIRE_BEHAVIOR_SCALE = [
   { color: '#ffd11a', label: '+6h projected spread' },
   { color: '#ff8c1a', label: '+3h projected spread' },
@@ -280,32 +320,30 @@ const Legend = memo(function Legend({
               </Section>
             )}
 
-            {layers.nhcTropicalWeather && (
-              <Section title="NHC Tropical Weather">
-                <div className="text-sentinel-300 text-[10px] mb-1">Invests · disturbance outlook (✕ marker)</div>
-                <ColorRow color="#FFE566" label="Low formation chance" />
-                <ColorRow color="#FFA040" label="Medium formation chance" />
-                <ColorRow color="#FF4444" label="High formation chance" />
-                <div className="pt-1 mt-1 border-t border-sentinel-700" />
-                <div className="text-sentinel-300 text-[10px] mb-1">Active storms (SSHWS)</div>
-                <ColorRow color="#5ebaff" label="Tropical Depression" />
-                <ColorRow color="#00faf4" label="Tropical Storm" />
-                <ColorRow color="#ffffcc" label="Category 1" />
-                <ColorRow color="#ffe775" label="Category 2" />
-                <ColorRow color="#ffc140" label="Category 3" />
-                <ColorRow color="#ff8f20" label="Category 4" />
-                <ColorRow color="#ff6060" label="Category 5" />
-                <div className="pt-1 mt-1 border-t border-sentinel-700" />
-                <ColorRow color="#888888" label="Past track (observed)" />
-                <ColorRow color="#c0c0c0" label="Forecast cone" />
-                <div className="pt-1 mt-1 border-t border-sentinel-700" />
-                <div className="text-sentinel-300 text-[10px] mb-1">Watches / warnings</div>
-                <ColorRow color="#FF0000" label="Hurricane Warning" />
-                <ColorRow color="#FF00FF" label="Hurricane Watch" />
-                <ColorRow color="#FF8C00" label="Tropical Storm Warning" />
-                <ColorRow color="#F0E68C" label="Tropical Storm Watch" />
-              </Section>
-            )}
+            <Section title="NHC Tropical Weather">
+              <div className="text-sentinel-300 text-[10px] mb-1">Invests · disturbance outlook (✕ marker)</div>
+              <ColorRow color="#FFE566" label="Low formation chance" />
+              <ColorRow color="#FFA040" label="Medium formation chance" />
+              <ColorRow color="#FF4444" label="High formation chance" />
+              <div className="pt-1 mt-1 border-t border-sentinel-700" />
+              <div className="text-sentinel-300 text-[10px] mb-1">Active storms (SSHWS)</div>
+              <ColorRow color="#a3e8f0" label="Tropical Depression" />
+              <ColorRow color="#4dffff" label="Tropical Storm" />
+              <ColorRow color="#ffffd9" label="Category 1" />
+              <ColorRow color="#ffd98c" label="Category 2" />
+              <ColorRow color="#ff9e59" label="Category 3" />
+              <ColorRow color="#ff738a" label="Category 4" />
+              <ColorRow color="#ff4d70" label="Category 5" />
+              <div className="pt-1 mt-1 border-t border-sentinel-700" />
+              <ColorRow color="#888888" label="Past track (observed)" />
+              <ColorRow color="#c0c0c0" label="Forecast cone" />
+              <div className="pt-1 mt-1 border-t border-sentinel-700" />
+              <div className="text-sentinel-300 text-[10px] mb-1">Watches / warnings</div>
+              <ColorRow color="#FF0000" label="Hurricane Warning" />
+              <ColorRow color="#FF00FF" label="Hurricane Watch" />
+              <ColorRow color="#FF8C00" label="Tropical Storm Warning" />
+              <ColorRow color="#F0E68C" label="Tropical Storm Watch" />
+            </Section>
 
             {(layers.fireWeatherOutlooks || (layers.spcWeatherOutlooks && spcWeatherOutlookMode === 'fireWx'))
               && fireWxOutlookType === 'winds_low_humidity' && (
@@ -318,6 +356,30 @@ const Legend = memo(function Legend({
               && fireWxOutlookType === 'dry_thunderstorm' && (
               <Section title="Fire Weather – Dry Lightning">
                 {FIRE_WX_LIGHTNING_SCALE.map(row => <ColorRow key={row.label} {...row} />)}
+              </Section>
+            )}
+
+            {layers.wpcEro && (
+              <Section title="WPC Excessive Rainfall Outlook">
+                {WPC_ERO_SCALE.map(row => <ColorRow key={row.label} {...row} />)}
+              </Section>
+            )}
+
+            {layers.wpcWssi && (
+              <Section title="WPC Winter Storm Severity Index">
+                {WPC_WSSI_SCALE.map(row => <ColorRow key={row.label} {...row} />)}
+              </Section>
+            )}
+
+            {layers.wpcQpf && (
+              <Section title="WPC Precipitation Forecast (24hr)">
+                {WPC_QPF_SCALE.map(row => <ColorRow key={row.label} {...row} />)}
+              </Section>
+            )}
+
+            {layers.wpcFronts && (
+              <Section title="WPC Surface Analysis Fronts">
+                {WPC_FRONTS_SCALE.map(row => <ColorRow key={row.label} {...row} />)}
               </Section>
             )}
 

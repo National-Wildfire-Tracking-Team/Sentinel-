@@ -198,16 +198,19 @@ describe('fetchWaterGauges', () => {
   });
 
   it('reads gauges from the ArcGIS river-gauge source on the first attempt', async () => {
-    const fetchMock = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({ features: [arcgisFeature()] }),
+    const fetchMock = vi.fn((url) => {
+      if (url.includes('/api/river-gauges-forecast')) {
+        return Promise.resolve({ ok: true, json: async () => ({ features: [] }) });
+      }
+      return Promise.resolve({ ok: true, json: async () => ({ features: [arcgisFeature()] }) });
     });
     vi.stubGlobal('fetch', fetchMock);
 
     const geo = await fetchWaterGauges();
 
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(fetchMock.mock.calls[0][0]).toContain('/api/river-gauges?');
+    expect(fetchMock.mock.calls[1][0]).toContain('/api/river-gauges-forecast?');
     expect(geo.features).toHaveLength(1);
     const p = geo.features[0].properties;
     expect(p.lid).toBe('ARC1');
@@ -234,12 +237,13 @@ describe('fetchWaterGauges', () => {
     const fullPage = Array.from({ length: 10000 }, (_, i) => arcgisFeature({ gaugelid: `A${i}` }, [-100 + i * 0.0001, 40]));
     const fetchMock = vi.fn()
       .mockResolvedValueOnce({ ok: true, json: async () => ({ features: fullPage }) })
-      .mockResolvedValueOnce({ ok: true, json: async () => ({ features: [arcgisFeature({ gaugelid: 'LAST' })] }) });
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ features: [arcgisFeature({ gaugelid: 'LAST' })] }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ features: [] }) }); // forecast layer
     vi.stubGlobal('fetch', fetchMock);
 
     const geo = await fetchWaterGauges();
 
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
     expect(fetchMock.mock.calls[0][0]).toContain('resultOffset=0');
     expect(fetchMock.mock.calls[1][0]).toContain('resultOffset=10000');
     expect(geo.features).toHaveLength(10001);
@@ -248,12 +252,13 @@ describe('fetchWaterGauges', () => {
   it('falls back to the NWPS list endpoint when the ArcGIS source errors', async () => {
     const fetchMock = vi.fn()
       .mockResolvedValueOnce({ ok: false, status: 500 }) // ArcGIS attempt fails
-      .mockResolvedValueOnce({ ok: true, json: async () => ({ gauges: [{ lid: 'NWPS1', latitude: 1, longitude: 2 }] }) });
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ gauges: [{ lid: 'NWPS1', latitude: 1, longitude: 2 }] }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ features: [] }) }); // forecast layer
     vi.stubGlobal('fetch', fetchMock);
 
     const geo = await fetchWaterGauges();
 
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
     expect(fetchMock.mock.calls[1][0]).toBe('/api/nwps/gauges');
     expect(geo.features[0].properties.lid).toBe('NWPS1');
   });
@@ -262,12 +267,13 @@ describe('fetchWaterGauges', () => {
     const fetchMock = vi.fn()
       .mockResolvedValueOnce({ ok: true, json: async () => ({ features: [] }) }) // ArcGIS: empty
       .mockResolvedValueOnce({ ok: true, json: async () => ({ gauges: [] }) }) // NWPS unfiltered: empty
-      .mockResolvedValueOnce({ ok: true, json: async () => ({ gauges: [{ lid: 'B', latitude: 4, longitude: 5 }] }) });
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ gauges: [{ lid: 'B', latitude: 4, longitude: 5 }] }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ features: [] }) }); // forecast layer
     vi.stubGlobal('fetch', fetchMock);
 
     const geo = await fetchWaterGauges();
 
-    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(fetchMock).toHaveBeenCalledTimes(4);
     const bboxUrl = fetchMock.mock.calls[2][0];
     expect(bboxUrl).toContain('/api/nwps/gauges?');
     expect(bboxUrl).toContain('bbox.xmin=');
@@ -279,6 +285,75 @@ describe('fetchWaterGauges', () => {
   it('throws only when every attempt (ArcGIS + both NWPS attempts) errors', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 503 }));
     await expect(fetchWaterGauges()).rejects.toThrow('NWPS gauges HTTP 503');
+  });
+
+  it('marks a gauge forecastAboveAction=true when the forecast layer shows a category above no_flooding', async () => {
+    const fetchMock = vi.fn((url) => {
+      if (url.includes('/api/river-gauges-forecast')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            features: [{ properties: { gaugelid: 'ARC1', status: 'moderate', forecast: '30' } }],
+          }),
+        });
+      }
+      return Promise.resolve({ ok: true, json: async () => ({ features: [arcgisFeature({ action: '10' })] }) });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const geo = await fetchWaterGauges();
+    const p = geo.features[0].properties;
+    expect(p.forecastStage).toBe(30);
+    expect(p.forecastCategory).toBe('moderate');
+    expect(p.forecastAboveAction).toBe(true);
+  });
+
+  it.each(['fcst_not_current', 'out_of_service', 'not_defined', 'low_threshold', 'no_flooding'])(
+    'marks a gauge forecastAboveAction=false for forecast-layer status "%s" (not a real flood category)',
+    async (status) => {
+      const fetchMock = vi.fn((url) => {
+        if (url.includes('/api/river-gauges-forecast')) {
+          return Promise.resolve({
+            ok: true,
+            json: async () => ({ features: [{ properties: { gaugelid: 'ARC1', status, forecast: '-999' } }] }),
+          });
+        }
+        return Promise.resolve({ ok: true, json: async () => ({ features: [arcgisFeature({ action: '10' })] }) });
+      });
+      vi.stubGlobal('fetch', fetchMock);
+
+      const geo = await fetchWaterGauges();
+      expect(geo.features[0].properties.forecastAboveAction).toBe(false);
+    }
+  );
+
+  it('marks a gauge forecastAboveAction=false when the forecast layer has no entry for it', async () => {
+    const fetchMock = vi.fn((url) => {
+      if (url.includes('/api/river-gauges-forecast')) {
+        return Promise.resolve({ ok: true, json: async () => ({ features: [] }) });
+      }
+      return Promise.resolve({ ok: true, json: async () => ({ features: [arcgisFeature({ action: '10' })] }) });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const geo = await fetchWaterGauges();
+    const p = geo.features[0].properties;
+    expect(p.forecastStage).toBeNull();
+    expect(p.forecastCategory).toBeNull();
+    expect(p.forecastAboveAction).toBe(false);
+  });
+
+  it('falls back to forecastAboveAction=false for every gauge when the forecast layer fetch fails', async () => {
+    const fetchMock = vi.fn((url) => {
+      if (url.includes('/api/river-gauges-forecast')) {
+        return Promise.resolve({ ok: false, status: 500 });
+      }
+      return Promise.resolve({ ok: true, json: async () => ({ features: [arcgisFeature({ action: '10' })] }) });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const geo = await fetchWaterGauges();
+    expect(geo.features[0].properties.forecastAboveAction).toBe(false);
   });
 
   it('does NOT cache an empty result (no negative caching)', async () => {
