@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { geometryAreaSqMi } from '../../src/utils/geoArea';
+import { geometryAreaSqMi } from '../../src/app/utils/geoArea';
 
 describe('geometryAreaSqMi', () => {
   it('returns null for null geometry', () => {

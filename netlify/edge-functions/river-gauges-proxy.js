@@ -3,7 +3,7 @@
  *
  * mapservices.weather.noaa.gov does not send CORS headers for cross-origin
  * browser requests, so direct fetch() calls fail. This is a distinct NOAA
- * system from NWPS (api.water.noaa.gov) — see src/api/noaaWaterGauge.js for
+ * system from NWPS (api.water.noaa.gov) — see src/app/api/noaaWaterGauge.js for
  * why it's used as the primary gauge-list source instead of NWPS's own
  * /gauges list endpoint, which has been observed to hang indefinitely
  * server-side regardless of bounding box size.

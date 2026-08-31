@@ -2,10 +2,10 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import {
   fetchCalFireHistoricalPerimeters,
   normalizeCalFireHistoricalPerimeters,
-} from '../../src/api/calFirePerimeters';
-import { fetchWithCache } from '../../src/utils/dataCache';
+} from '../../src/app/api/calFirePerimeters';
+import { fetchWithCache } from '../../src/app/utils/dataCache';
 
-vi.mock('../../src/utils/dataCache');
+vi.mock('../../src/app/utils/dataCache');
 
 beforeEach(() => {
   vi.restoreAllMocks();

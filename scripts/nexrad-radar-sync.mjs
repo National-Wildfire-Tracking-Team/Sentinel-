@@ -45,7 +45,7 @@
 
 import { gzipSync } from 'node:zlib';
 import Level2Radar from 'nexrad-level-2-data';
-import { encodeScanPayload } from '../src/utils/nexradPayloadFormat.js';
+import { encodeScanPayload } from '../src/app/utils/nexradPayloadFormat.js';
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;

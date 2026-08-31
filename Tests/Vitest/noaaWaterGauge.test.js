@@ -5,15 +5,15 @@ import {
   fetchWaterGauges,
   fetchGaugeDetail,
   fetchGaugeStageFlow,
-} from '../../src/api/noaaWaterGauge';
+} from '../../src/app/api/noaaWaterGauge';
 
 // Bypass the module-level cache so every fetch test exercises the network path.
-vi.mock('../../src/utils/dataCache', () => ({
+vi.mock('../../src/app/utils/dataCache', () => ({
   getCached: vi.fn(() => null),
   setCached: vi.fn(),
 }));
 
-import { setCached } from '../../src/utils/dataCache';
+import { setCached } from '../../src/app/utils/dataCache';
 
 beforeEach(() => {
   vi.clearAllMocks();

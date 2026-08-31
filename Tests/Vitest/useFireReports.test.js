@@ -8,7 +8,7 @@ import {
   deleteFireReport,
   createExternalFireUpdate,
   appendFireReportUpdate,
-} from '../../src/hooks/useFireReports';
+} from '../../src/app/hooks/useFireReports';
 
 const { supabaseMock, mockChain } = vi.hoisted(() => {
   const mockChain = () => {
@@ -34,7 +34,7 @@ const { supabaseMock, mockChain } = vi.hoisted(() => {
   };
 });
 
-vi.mock('../../src/api/supabaseClient', () => ({
+vi.mock('../../src/shared/api/supabaseClient', () => ({
   supabase: supabaseMock,
   isSupabaseConfigured: true,
   REMEMBER_ME_KEY: 'sentinel_rmb',

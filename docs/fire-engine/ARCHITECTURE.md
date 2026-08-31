@@ -1,7 +1,7 @@
 # Fire Behavior Modeling Engine — Architecture (Phase 1)
 
 Status: **Phase 1 implemented and wired into the live map** (physics core in
-`src/fireEngine/`, driving the "Fire Behavior Modeling" layer toggle end-to-end). Phases
+`src/app/fireEngine/`, driving the "Fire Behavior Modeling" layer toggle end-to-end). Phases
 2+ are roadmap, not yet built. This doc is the reference for both.
 
 ## 0. Why this looks different from a from-scratch spec
@@ -11,7 +11,7 @@ persistence, Netlify (edge functions + regular functions) as the API/proxy layer
 Mapbox GL for rendering. There is **no Python/GDAL/Celery anywhere in the stack today**.
 
 A lighter heuristic model already existed at
-[`src/utils/fireBehaviorModel.js`](../../src/utils/fireBehaviorModel.js) (Byram flame
+[`src/app/utils/fireBehaviorModel.js`](../../src/app/utils/fireBehaviorModel.js) (Byram flame
 length + an Anderson-1983-style elliptical growth approximation driven by nearest-RAWS
 wind/fuel-moisture) along with a hook and map layer built for it
 (`useFireBehaviorModeling.js`, `FireBehaviorModelingLayer.jsx`) — but on inspection those
@@ -19,12 +19,12 @@ were never actually wired into `MapView`, `LayerControl`, or the fire-selection 
 files existed and had a passing unit test, but the feature did not render on the map.
 
 This work added the real Rothermel-based physics engine as a standalone, tested module
-(`src/fireEngine/`), **and** rewired `useFireBehaviorModeling.js` to call it instead of
+(`src/app/fireEngine/`), **and** rewired `useFireBehaviorModeling.js` to call it instead of
 the old heuristic, **and** finished the wiring that was missing: a `fireBehaviorModeling`
 entry in `AppContext`'s layer state, a toggle in `LayerControl`, a
 `FireBehaviorModelingLayer` mount in `MapView`, and a `selectedFireId` derived from
 `AppContext`'s `selectedFire` (set when the user clicks a fire dot or perimeter on the
-map) feeding the hook in `LiveTrackerPage.jsx`. `src/utils/fireBehaviorModel.js` itself is
+map) feeding the hook in `LiveTrackerPage.jsx`. `src/app/utils/fireBehaviorModel.js` itself is
 left in place, unused by the live feature now except for its `findNearestStation` helper
 — removing it wasn't asked for and it may still be useful as a cheap fallback later.
 
@@ -77,10 +77,10 @@ validated" requirement:**
   (1982) table rather than Albini's dynamic (load-transfer) live-extinction-moisture
   correction — a documented simplification, not an omission.
 
-## 2. Module map (implemented, `src/fireEngine/`)
+## 2. Module map (implemented, `src/app/fireEngine/`)
 
 ```
-src/fireEngine/
+src/app/fireEngine/
 ├── geo.js                    pure lat/lon math: bearing, destination point, ring resample
 ├── confidence.js              data-quality → confidence score/label
 ├── science/
@@ -107,12 +107,12 @@ Python/Rust service) without dragging geometry code along.
 | Input | Phase 1 (today) | Phase 2+ (production) |
 |---|---|---|
 | Fuel model | Caller-supplied Anderson-13 id per cell/vertex, or a single default | LANDFIRE 40 (Scott & Burgan) raster via LANDFIRE REST API, resampled to sim grid |
-| Fuel moisture | Caller-supplied % (1-hr/10-hr/100-hr/live), or derived from single RAWS reading like the existing model | NFDRS fuel moisture model driven by gridded HRRR + RAWS network, per NWTT's already-integrated `src/api/raws.js` |
-| Wind | Caller-supplied 20-ft speed/direction per cell | HRRR 3-km gridded wind, terrain-adjusted; NWS/NOAA already integrated (`src/api/noaaWeather.js`) as the coarse fallback |
+| Fuel moisture | Caller-supplied % (1-hr/10-hr/100-hr/live), or derived from single RAWS reading like the existing model | NFDRS fuel moisture model driven by gridded HRRR + RAWS network, per NWTT's already-integrated `src/app/api/raws.js` |
+| Wind | Caller-supplied 20-ft speed/direction per cell | HRRR 3-km gridded wind, terrain-adjusted; NWS/NOAA already integrated (`src/app/api/noaaWeather.js`) as the coarse fallback |
 | Slope/aspect | Caller-supplied % slope + aspect per cell | USGS 3DEP DEM (10–30m), precomputed slope/aspect rasters cached per fire AOI |
 | Canopy (cover/height/base height/bulk density) | Optional, defaults to no canopy (open fuel) | LANDFIRE canopy rasters |
 | Ignition/current perimeter | GeoJSON point or polygon, caller-supplied | NIFC WFIGS perimeters — already integrated in this app |
-| Satellite detections | Not consumed yet | VIIRS/MODIS via `src/api/nasaFirms.js` (already integrated) for data assimilation, §Phase 3 |
+| Satellite detections | Not consumed yet | VIIRS/MODIS via `src/app/api/nasaFirms.js` (already integrated) for data assimilation, §Phase 3 |
 
 ## 4. Simulation grid & resolution
 

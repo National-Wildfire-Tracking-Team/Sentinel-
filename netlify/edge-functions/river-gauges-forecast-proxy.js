@@ -6,7 +6,7 @@
  * rationale) but layer 15 instead of layer 0: one row per gauge with a
  * forecasted stage/flood-status (computed against the forecast value) rather
  * than the observed one. Joined to the observed gauge list by gaugelid in
- * src/api/noaaWaterGauge.js to decide which gauges have a forecast above
+ * src/app/api/noaaWaterGauge.js to decide which gauges have a forecast above
  * action stage.
  *
  * Source: https://mapservices.weather.noaa.gov/eventdriven/rest/services/water/riv_gauges/MapServer/15

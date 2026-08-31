@@ -22,7 +22,7 @@ export default defineConfig({
         'src/test/**',
         'src/**/*.test.*',
         'src/**/*.spec.*',
-        'src/data/**',
+        'src/app/data/**',
       ],
       thresholds: {
         statements: 10,
@@ -58,6 +58,9 @@ export default defineConfig({
   },
   server: {
     port: 3000,
+    // 'app.localhost' lets the hostname-based bootstrap in src/main.jsx mount
+    // the tracker app locally — see README for the /etc/hosts entry needed.
+    allowedHosts: ['localhost', 'app.localhost'],
     proxy: {
       '/alerts': {
         target: 'http://127.0.0.1:3847',

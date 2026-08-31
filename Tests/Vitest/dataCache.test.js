@@ -5,7 +5,7 @@ import {
   invalidateCache,
   clearCache,
   fetchWithCache,
-} from '../../src/utils/dataCache';
+} from '../../src/app/utils/dataCache';
 
 describe('dataCache', () => {
   beforeEach(() => {

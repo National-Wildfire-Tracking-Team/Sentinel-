@@ -1,9 +1,9 @@
 import { renderHook, waitFor, act } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { useWaterGauges } from '../../src/hooks/useWaterGauges';
-import * as noaaWaterGauge from '../../src/api/noaaWaterGauge';
+import { useWaterGauges } from '../../src/app/hooks/useWaterGauges';
+import * as noaaWaterGauge from '../../src/app/api/noaaWaterGauge';
 
-vi.mock('../../src/api/noaaWaterGauge');
+vi.mock('../../src/app/api/noaaWaterGauge');
 
 beforeEach(() => {
   vi.clearAllMocks();

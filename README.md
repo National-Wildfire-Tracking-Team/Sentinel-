@@ -30,7 +30,17 @@ cp .env.example .env
 npm run dev:all
 ```
 
-Open http://localhost:3000
+Open http://localhost:3000 for the marketing site.
+
+To test the tracker app locally, add this to `/etc/hosts`:
+
+```
+127.0.0.1 app.localhost
+```
+
+then open http://app.localhost:3000 — the marketing site and the tracker app
+are one build, split at runtime by hostname (see `src/main.jsx`). In
+production the tracker lives at `app.nationalwildfiretrackingteam.org`.
 
 ## API Keys Setup
 
@@ -70,29 +80,41 @@ exposes web map raster tiles (XYZ or WMS template).
 
 ## Architecture
 
+The marketing site and the tracker app are one Vite build, split at runtime
+by hostname (`src/main.jsx` picks a router based on `window.location.hostname`).
+
 ```
 src/
-├── api/          # Data fetching (FIRMS, NIFC, AirNow, NOAA)
-├── components/
-│   ├── Map/      # MapView + per-layer components
-│   ├── Sidebar/  # Incident feed
-│   ├── LayerControl/
-│   ├── AlertBanner/
-│   ├── FireDetailPanel/
-│   └── Legend/
-├── context/      # AppContext – global state
-├── data/         # Mock/demo data
-├── hooks/        # useFireHotspots, useAQIData, etc.
-└── utils/        # Colors, formatting, caching
+├── main/            # Marketing site (public domain) — router + pages
+│   ├── router.jsx
+│   └── pages/       # HomePage, AboutPage, VolunteerPage, PricingPage, ...
+├── app/             # Tracker app (app.* subdomain) — router root is "/"
+│   ├── router.jsx
+│   ├── pages/       # LiveTrackerPage, LoginPage, AccountPage, AdminDashboardPage, ...
+│   ├── components/
+│   │   ├── Map/     # MapView + per-layer components
+│   │   ├── Sidebar/ # Incident feed
+│   │   ├── LayerControl/
+│   │   ├── AlertBanner/
+│   │   ├── FireDetailPanel/
+│   │   └── Legend/
+│   ├── context/     # AppContext, ThemeContext
+│   ├── data/        # Mock/demo data
+│   ├── hooks/       # useFireHotspots, useAQIData, etc.
+│   ├── api/         # Data fetching (FIRMS, NIFC, AirNow, NOAA)
+│   ├── fireEngine/  # Fire spread simulation
+│   └── utils/       # Colors, formatting, caching
+└── shared/          # Used by both sides: Navbar, Footer, AuthContext,
+                      # ErrorBoundary, supabaseClient, error-logging pipeline
 ```
 
 ## Adding a New Data Layer
 
-1. Create `src/api/myNewSource.js` with fetch + normalize functions
-2. Create `src/hooks/useMyNewData.js`
-3. Create `src/components/Map/layers/MyNewLayer.jsx`
+1. Create `src/app/api/myNewSource.js` with fetch + normalize functions
+2. Create `src/app/hooks/useMyNewData.js`
+3. Create `src/app/components/Map/layers/MyNewLayer.jsx`
 4. Add toggle to `LAYER_GROUPS` in `LayerControl.jsx`
-5. Wire into `App.jsx` and `MapView.jsx`
+5. Wire into `app/router.jsx` and `MapView.jsx`
 
 ## Production Build
 

@@ -1,9 +1,9 @@
 import { renderHook, waitFor, act } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { useAirNowMonitors } from '../../src/hooks/useAirNowMonitors';
-import * as airnow from '../../src/api/airnow';
+import { useAirNowMonitors } from '../../src/app/hooks/useAirNowMonitors';
+import * as airnow from '../../src/app/api/airnow';
 
-vi.mock('../../src/api/airnow');
+vi.mock('../../src/app/api/airnow');
 
 beforeEach(() => {
   vi.restoreAllMocks();
