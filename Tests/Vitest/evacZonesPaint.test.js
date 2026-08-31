@@ -3,7 +3,7 @@ import {
   EVAC_ZONE_FILL_OPACITY,
   EVAC_ZONE_FILL_COLORS,
   EVAC_ZONE_LINE_OPACITY,
-} from '../../src/components/Map/layers/evacZonesPaint';
+} from '../../src/app/components/Map/layers/evacZonesPaint';
 
 const SEVERITIES = [
   'Evacuation Order',

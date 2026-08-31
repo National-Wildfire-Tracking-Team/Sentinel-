@@ -4,9 +4,9 @@ import {
   eccentricityFromLB,
   backingRateOfSpread,
   radialRateOfSpread,
-} from '../../src/fireEngine/simulation/fireEllipse';
-import { criticalIntensityForCrowning, assessCrownFire } from '../../src/fireEngine/science/crownFire';
-import { estimateMaxSpotDistance } from '../../src/fireEngine/spotting';
+} from '../../src/app/fireEngine/simulation/fireEllipse';
+import { criticalIntensityForCrowning, assessCrownFire } from '../../src/app/fireEngine/science/crownFire';
+import { estimateMaxSpotDistance } from '../../src/app/fireEngine/spotting';
 
 describe('fireEllipse', () => {
   it('returns a circle (LB=1) at zero wind', () => {

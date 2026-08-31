@@ -1,6 +1,6 @@
 import { test, expect, type Page } from '@playwright/test';
 
-const LOGIN_URL = '/login';
+const LOGIN_URL = 'http://app.localhost:3000/login';
 
 // ── Helpers ──
 
@@ -71,8 +71,8 @@ test.describe('LoginPage – Rendering', () => {
     await expect(link).toHaveAttribute('href', '/register');
   });
 
-  test('renders Back to home link', async ({ page }) => {
-    const link = page.getByRole('link', { name: /back to home/i });
+  test('renders Back to Sentinel link', async ({ page }) => {
+    const link = page.getByRole('link', { name: /back to sentinel/i });
     await expect(link).toBeVisible();
     await expect(link).toHaveAttribute('href', '/');
   });
@@ -305,13 +305,13 @@ test.describe('LoginPage – Successful Login', () => {
     );
   }
 
-  test('redirects public user to /sentinel after login', async ({ page }) => {
+  test('redirects public user to the app root after login', async ({ page }) => {
     await page.goto(LOGIN_URL);
     await mockSupabaseAuth(page, 'user-123', 'public@example.com');
     await fillEmail(page, 'public@example.com');
     await fillPassword(page, 'password123');
     await submitLoginForm(page);
-    await expect(page).toHaveURL(/\/sentinel/);
+    await expect(page).toHaveURL(/^http:\/\/app\.localhost:3000\/$/);
   });
 
   test('redirects reporter to /reporter-dashboard after login', async ({ page }) => {
@@ -520,10 +520,10 @@ test.describe('LoginPage – Navigation', () => {
     await expect(page).toHaveURL(/\/register/);
   });
 
-  test('Back to home link navigates to /', async ({ page }) => {
-    const link = page.getByRole('link', { name: /back to home/i });
+  test('Back to Sentinel link navigates to app root', async ({ page }) => {
+    const link = page.getByRole('link', { name: /back to sentinel/i });
     await link.click();
-    await expect(page).toHaveURL('/');
+    await expect(page).toHaveURL('http://app.localhost:3000/');
   });
 });
 
@@ -631,7 +631,7 @@ test.describe('LoginPage – Post-Login Error Resilience', () => {
     );
   }
 
-  test('reaches /sentinel when profiles endpoint returns 500 after auth', async ({ page }) => {
+  test('reaches the app root when profiles endpoint returns 500 after auth', async ({ page }) => {
     await page.goto(LOGIN_URL);
     await mockSuccessfulAuth(page, 'user-err-1', 'profilefail@example.com');
 
@@ -658,12 +658,12 @@ test.describe('LoginPage – Post-Login Error Resilience', () => {
     await fillPassword(page, 'password123');
     await submitLoginForm(page);
 
-    // Should still reach sentinel (fallback to 'public' role), NOT the error boundary
-    await expect(page).toHaveURL(/\/sentinel/, { timeout: 10000 });
+    // Should still reach the app root (fallback to 'public' role), NOT the error boundary
+    await expect(page).toHaveURL(/^http:\/\/app\.localhost:3000\/$/, { timeout: 10000 });
     await expect(page.getByText('Something went wrong')).not.toBeVisible();
   });
 
-  test('reaches /sentinel when profiles endpoint times out after auth', async ({ page }) => {
+  test('reaches the app root when profiles endpoint times out after auth', async ({ page }) => {
     await page.goto(LOGIN_URL);
     await mockSuccessfulAuth(page, 'user-err-2', 'timeout@example.com');
 
@@ -692,8 +692,8 @@ test.describe('LoginPage – Post-Login Error Resilience', () => {
     await fillPassword(page, 'password123');
     await submitLoginForm(page);
 
-    // Should reach sentinel — timeout should not crash the app
-    await expect(page).toHaveURL(/\/sentinel/, { timeout: 15000 });
+    // Should reach the app root — timeout should not crash the app
+    await expect(page).toHaveURL(/^http:\/\/app\.localhost:3000\/$/, { timeout: 15000 });
     await expect(page.getByText('Something went wrong')).not.toBeVisible();
   });
 
@@ -723,7 +723,7 @@ test.describe('LoginPage – Post-Login Error Resilience', () => {
     await fillPassword(page, 'password123');
     await submitLoginForm(page);
 
-    await expect(page).toHaveURL(/\/sentinel/);
+    await expect(page).toHaveURL(/^http:\/\/app\.localhost:3000\/$/);
     // Verify ErrorBoundary is NOT shown
     await expect(page.getByText('Something went wrong')).not.toBeVisible();
     await expect(page.getByText('An unexpected error occurred')).not.toBeVisible();
@@ -811,7 +811,7 @@ test.describe('LoginPage – Inline Error Feedback', () => {
     await expect(page).toHaveURL(/\/login/);
   });
 
-  test('stays on login page after auth failure (no redirect to sentinel)', async ({ page }) => {
+  test('stays on login page after auth failure (no redirect to the app)', async ({ page }) => {
     await page.route('**/auth/v1/token**', (route) =>
       route.fulfill({
         status: 400,
@@ -840,12 +840,12 @@ test.describe('ErrorBoundary – Login-Aware Recovery', () => {
     await page.context().addCookies([{
       name: 'sentinel_auth',
       value: '1',
-      domain: 'localhost',
+      domain: 'app.localhost',
       path: '/',
     }]);
 
     // Navigate to the error test page — this throws and triggers ErrorBoundary
-    await page.goto('/error-test');
+    await page.goto('http://app.localhost:3000/error-test');
 
     // ErrorBoundary should detect the session and show login-aware message
     await expect(
@@ -860,7 +860,7 @@ test.describe('ErrorBoundary – Login-Aware Recovery', () => {
 
   test('shows generic message when user has no session', async ({ page }) => {
     // Ensure no sb- auth tokens exist (don't set any)
-    await page.goto('/error-test');
+    await page.goto('http://app.localhost:3000/error-test');
 
     // ErrorBoundary should show generic message (no session detected)
     await expect(
@@ -873,23 +873,23 @@ test.describe('ErrorBoundary – Login-Aware Recovery', () => {
     ).not.toBeVisible();
   });
 
-  test('ErrorBoundary recovery navigates to /sentinel', async ({ page }) => {
+  test('ErrorBoundary recovery navigates to the app root', async ({ page }) => {
     // Set auth cookie
     await page.context().addCookies([{
       name: 'sentinel_auth',
       value: '1',
-      domain: 'localhost',
+      domain: 'app.localhost',
       path: '/',
     }]);
 
     // Trigger ErrorBoundary
-    await page.goto('/error-test');
+    await page.goto('http://app.localhost:3000/error-test');
     await expect(
       page.getByRole('heading', { name: 'Something went wrong' }),
     ).toBeVisible({ timeout: 10000 });
 
-    // Click "Go to Live Map" — should navigate to /sentinel
+    // Click "Go to Live Map" — should navigate to the app root
     await page.getByRole('button', { name: /go to live map/i }).click();
-    await expect(page).toHaveURL(/\/sentinel/);
+    await expect(page).toHaveURL(/^http:\/\/app\.localhost:3000\/$/);
   });
 });

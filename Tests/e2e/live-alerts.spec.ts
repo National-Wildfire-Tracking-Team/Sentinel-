@@ -1,6 +1,9 @@
 import { test, expect, type Page } from '@playwright/test';
 
-const TRACKER_URL = '/sentinel';
+// The tracker now lives at the root of the app subdomain, not "/sentinel"
+// on the main domain — requires an /etc/hosts entry mapping app.localhost
+// to 127.0.0.1 for local dev/test (see README).
+const TRACKER_URL = 'http://app.localhost:3000/';
 
 // ── Mock Data ──
 

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { nhcStormColor } from '../../src/api/nhcStorms';
+import { nhcStormColor } from '../../src/app/api/nhcStorms';
 
 describe('nhcStormColor', () => {
   it('returns fuchsia for Category 5 Hurricane', () => {

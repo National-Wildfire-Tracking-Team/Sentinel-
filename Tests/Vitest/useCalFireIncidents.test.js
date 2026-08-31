@@ -1,9 +1,9 @@
 import { renderHook, waitFor, act } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { useCalFireIncidents } from '../../src/hooks/useCalFireIncidents';
-import * as calFire from '../../src/api/calFire';
+import { useCalFireIncidents } from '../../src/app/hooks/useCalFireIncidents';
+import * as calFire from '../../src/app/api/calFire';
 
-vi.mock('../../src/api/calFire');
+vi.mock('../../src/app/api/calFire');
 
 beforeEach(() => {
   vi.restoreAllMocks();

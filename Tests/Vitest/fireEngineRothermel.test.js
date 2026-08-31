@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { getFuelModel } from '../../src/fireEngine/science/fuelModels';
-import { computeSurfaceFireBehavior, estimateMoistureProfile } from '../../src/fireEngine/science/rothermel';
+import { getFuelModel } from '../../src/app/fireEngine/science/fuelModels';
+import { computeSurfaceFireBehavior, estimateMoistureProfile } from '../../src/app/fireEngine/science/rothermel';
 
 const shortGrass = getFuelModel(1);
 const chaparral = getFuelModel(4);

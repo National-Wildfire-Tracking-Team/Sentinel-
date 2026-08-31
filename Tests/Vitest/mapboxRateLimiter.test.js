@@ -5,7 +5,7 @@ describe('mapboxRateLimiter', () => {
 
   beforeEach(async () => {
     vi.useFakeTimers();
-    const mod = await import('../../src/utils/mapboxRateLimiter');
+    const mod = await import('../../src/app/utils/mapboxRateLimiter');
     remaining = mod.remaining;
     msUntilSlotAvailable = mod.msUntilSlotAvailable;
     recordRequest = mod.recordRequest;

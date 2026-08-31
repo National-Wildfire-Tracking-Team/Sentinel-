@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { calFireFeatureToIncident, normalizeCalFireIncidents } from '../../src/api/calFire';
+import { calFireFeatureToIncident, normalizeCalFireIncidents } from '../../src/app/api/calFire';
 
 describe('calFireFeatureToIncident', () => {
   it('converts a valid CAL FIRE feature to incident object', () => {
