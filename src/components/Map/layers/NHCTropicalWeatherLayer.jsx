@@ -47,8 +47,8 @@ const PAST_POINT_PAINT = {
 // ─── Forecast track ───────────────────────────────────────────────────────────
 const FORECAST_TRACK_LINE_PAINT = { 'line-color': '#ffffff', 'line-opacity': 0.6, 'line-width': 1.5, 'line-dasharray': [4, 3] };
 
-const CAT_FILL = ['coalesce', ['get', 'fillColor'], '#5ebaff'];
-const CAT_STROKE = ['coalesce', ['get', 'strokeColor'], '#2e8fbf'];
+const CAT_FILL = ['coalesce', ['get', 'fillColor'], '#a3e8f0'];
+const CAT_STROKE = ['coalesce', ['get', 'strokeColor'], '#5fb8c4'];
 const FORECAST_POINT_PAINT = {
   'circle-radius': [
     'interpolate', ['linear'], ['zoom'],

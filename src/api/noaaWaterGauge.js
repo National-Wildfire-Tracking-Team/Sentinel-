@@ -279,6 +279,81 @@ async function fetchArcgisRiverGauges() {
   return features.map(arcgisFeatureToFeature).filter(Boolean);
 }
 
+// ─── Forecast overlay (layer 15 – "Full Forecast Period Stages") ──────────
+//
+// Same MapServer as the observed-stage source above, but layer 15 computes
+// its flood status against the forecasted stage instead of the observed one.
+// Used only to decide which gauges have a forecast above action stage for
+// map declutter (see WaterGaugesLayer) — the observed gauge list above stays
+// the source of truth for position/current stage/color.
+
+const FORECAST_ARCGIS_BASE = '/api/river-gauges-forecast';
+const FORECAST_CACHE_KEY = 'noaa-water-gauges-forecast';
+
+/** Fetch { lid -> { forecastStage, forecastCategory } } from the forecast layer. */
+async function fetchArcgisForecastGauges() {
+  const cached = getCached(FORECAST_CACHE_KEY);
+  if (cached) return cached;
+
+  const byLid = new Map();
+  for (let page = 0; page < ARCGIS_MAX_PAGES; page++) {
+    const offset = page * ARCGIS_PAGE_SIZE;
+    const url = `${FORECAST_ARCGIS_BASE}?resultRecordCount=${ARCGIS_PAGE_SIZE}&resultOffset=${offset}`;
+    const res = await fetchWithTimeout(url, { headers: HEADERS });
+    if (!res.ok) throw new Error(`River gauges forecast HTTP ${res.status}`);
+    const json = await res.json();
+    const pageFeatures = Array.isArray(json?.features) ? json.features : [];
+    for (const feature of pageFeatures) {
+      const p = feature?.properties ?? {};
+      const lid = p.gaugelid;
+      if (!lid) continue;
+      // -999 is the layer's NODATA sentinel for an unavailable forecast
+      // (paired with status 'fcst_not_current'/'out_of_service'), not a
+      // real stage reading.
+      const forecastStage = toNum(p.forecast);
+      byLid.set(lid, {
+        forecastStage: forecastStage != null && forecastStage <= -999 ? null : forecastStage,
+        forecastCategory: normalizeCategory(p.status),
+      });
+    }
+    if (pageFeatures.length < ARCGIS_PAGE_SIZE) break; // last page
+  }
+
+  if (byLid.size > 0) setCached(FORECAST_CACHE_KEY, byLid, CACHE_TTL);
+  return byLid;
+}
+
+// Layer 15's `status` field carries several forecast-specific sentinel values
+// with no observed-layer equivalent — 'fcst_not_current' (stale/expired
+// forecast, the vast majority of gauges at any given time), 'out_of_service',
+// 'not_defined' (no flood thresholds configured for this gauge), and
+// 'low_threshold' (below action stage, a lesser advisory level) — none of
+// which mean "no_flooding" gets normalizeCategory()'d into one of these by
+// accident, but nor do they mean "above action stage" just because they
+// aren't literally 'no_flooding'. Only an explicit severity category counts.
+const ABOVE_ACTION_CATEGORIES = new Set(['action', 'minor', 'moderate', 'major']);
+
+/** True if a gauge's forecasted stage/category clears its action-stage threshold. */
+function computeForecastAboveAction(forecastEntry, actionStage) {
+  if (!forecastEntry) return false;
+  const { forecastStage, forecastCategory } = forecastEntry;
+  if (forecastCategory != null) return ABOVE_ACTION_CATEGORIES.has(forecastCategory);
+  if (forecastStage != null && actionStage != null) return forecastStage >= actionStage;
+  return false;
+}
+
+/** Merge forecast-layer data into an observed-gauge feature collection's properties, in place. */
+function applyForecastData(geoJSON, forecastByLid) {
+  for (const feature of geoJSON.features) {
+    const p = feature.properties;
+    const entry = forecastByLid.get(p.lid);
+    p.forecastStage = entry?.forecastStage ?? null;
+    p.forecastCategory = entry?.forecastCategory ?? null;
+    p.forecastAboveAction = computeForecastAboveAction(entry, p.actionStage);
+  }
+  return geoJSON;
+}
+
 function gaugesUrl(useBbox) {
   if (!useBbox) return `${BASE}/gauges`;
   const params = new URLSearchParams({
@@ -341,6 +416,19 @@ export async function fetchWaterGauges() {
   // Surface a hard failure so the UI shows an error instead of silently
   // pretending there are zero gauges (and re-fetches on the next interval).
   if (features.length === 0 && lastError) throw lastError;
+
+  // Best-effort: a failure here just means every gauge falls back to
+  // forecastAboveAction=false (hidden until the user zooms in), not a broken map.
+  try {
+    const forecastByLid = await fetchArcgisForecastGauges();
+    applyForecastData({ features }, forecastByLid);
+  } catch {
+    for (const feature of features) {
+      feature.properties.forecastStage = null;
+      feature.properties.forecastCategory = null;
+      feature.properties.forecastAboveAction = false;
+    }
+  }
 
   const geoJSON = { type: 'FeatureCollection', features };
   if (geoJSON.features.length > 0) setCached(cacheKey, geoJSON, CACHE_TTL);

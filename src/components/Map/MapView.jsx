@@ -42,6 +42,10 @@ import DroughtOutlookLayer from './layers/DroughtOutlookLayer';
 import NdgdSmokeForecastLayer from './layers/NdgdSmokeForecastLayer';
 import NdgdSmokeTimeSlider from './NdgdSmokeTimeSlider';
 import FireWeatherOutlookLayer from './layers/FireWeatherOutlookLayer';
+import WpcEroLayer from './layers/WpcEroLayer';
+import WpcWssiLayer from './layers/WpcWssiLayer';
+import WpcQpfLayer from './layers/WpcQpfLayer';
+import WpcFrontsLayer from './layers/WpcFrontsLayer';
 import FireWeatherOutlookSelector from './FireWeatherOutlookSelector';
 import CriticalInfrastructureLayer from './layers/CriticalInfrastructureLayer';
 import NationalMapCollegesLayer from './layers/NationalMapCollegesLayer';
@@ -98,7 +102,7 @@ const GLOBE_FOG = {
 /**
  * Tooltip shown on hover
  */
-const OUTLOOK_LAYER_IDS = new Set(['spc-outlook-fill', 'drought-outlook-fill', 'fire-weather-outlook-fill', 'nhc-disturbance-fill', 'nhc-disturbance-circle', 'nhc-track-circle', 'nhc-obs-circle', 'nhc-watch-warning-line']);
+const OUTLOOK_LAYER_IDS = new Set(['spc-outlook-fill', 'drought-outlook-fill', 'fire-weather-outlook-fill', 'nhc-disturbance-fill', 'nhc-disturbance-circle', 'nhc-track-circle', 'nhc-obs-circle', 'nhc-watch-warning-line', 'wpc-ero-fill', 'wpc-wssi-fill', 'wpc-qpf-fill', 'wpc-fronts-solid', 'wpc-fronts-dashed']);
 
 // Caltrans only reports a camera's facing as a cardinal direction (no
 // numeric bearing in the source data) — map it to degrees so the hover
@@ -552,6 +556,77 @@ function HoverTooltip({ feature, lngLat }) {
       );
       break;
     }
+    case 'wpc-ero-fill': {
+      const dayNum = String(p.day || '').replace('day', '');
+      const riskColors = {
+        MARGINAL: 'text-green-400',
+        SLIGHT:   'text-yellow-300',
+        MODERATE: 'text-red-400',
+        HIGH:     'text-fuchsia-400',
+      };
+      const riskClass = riskColors[p.riskCategory] || 'text-green-400';
+      content = (
+        <>
+          <div className="font-semibold text-sky-300">WPC Excessive Rainfall Outlook · Day {dayNum}</div>
+          <div className={`text-xs mt-0.5 font-medium ${riskClass}`}>
+            {p.outlookLabel || p.riskCategory || 'Excessive Rainfall Outlook'}
+          </div>
+        </>
+      );
+      break;
+    }
+    case 'wpc-wssi-fill': {
+      const dayNum = String(p.day || '').replace('day', '');
+      const impactColors = {
+        'WINTER WEATHER AREA': 'text-zinc-300',
+        MINOR:    'text-sky-300',
+        MODERATE: 'text-blue-400',
+        MAJOR:    'text-purple-400',
+        EXTREME:  'text-red-400',
+      };
+      const impactClass = impactColors[p.impactCategory] || 'text-zinc-300';
+      content = (
+        <>
+          <div className="font-semibold text-blue-300">WPC Winter Storm Severity Index · Day {dayNum}</div>
+          <div className={`text-xs mt-0.5 font-medium ${impactClass}`}>
+            {p.impactCategory || 'Overall Impact'}
+          </div>
+        </>
+      );
+      break;
+    }
+    case 'wpc-qpf-fill': {
+      const dayNum = String(p.day || '').replace('day', '');
+      content = (
+        <>
+          <div className="font-semibold text-sky-300">WPC 24hr QPF · Day {dayNum}</div>
+          <div className="text-xs mt-0.5 font-medium text-white">
+            {p.qpf != null ? `${p.qpf}"+ ${p.units || 'Inches'}` : 'Precipitation forecast'}
+          </div>
+        </>
+      );
+      break;
+    }
+    case 'wpc-fronts-solid':
+    case 'wpc-fronts-dashed': {
+      const frontColors = {
+        COLD: 'text-blue-400',
+        WARM: 'text-red-400',
+        STATIONARY: 'text-purple-400',
+        OCCLUDED: 'text-purple-300',
+        TROUGH: 'text-amber-400',
+      };
+      const frontClass = frontColors[p.frontType] || 'text-purple-300';
+      content = (
+        <>
+          <div className={`font-semibold ${frontClass}`}>
+            {p.frontType ? `${p.frontType.charAt(0)}${p.frontType.slice(1).toLowerCase()} Front` : 'Front'}
+          </div>
+          <div className="text-zinc-400 text-[10px] mt-0.5">WPC Surface Analysis</div>
+        </>
+      );
+      break;
+    }
     case 'nhc-disturbance-fill':
     case 'nhc-disturbance-circle': {
       const chanceColors = { HIGH: 'text-red-400', MEDIUM: 'text-orange-400', LOW: 'text-yellow-300' };
@@ -667,7 +742,8 @@ function HoverTooltip({ feature, lngLat }) {
       );
       break;
     }
-    case 'water-gauges-circle': {
+    case 'water-gauges-circle-priority':
+    case 'water-gauges-circle-other': {
       const stage = p.currentStage != null ? `${Number(p.currentStage).toFixed(2)} ft` : 'N/A';
       const catLabel = floodCategoryLabel(p.floodCategory);
       const catClass = FLOOD_CATEGORY_META[p.floodCategory]?.textClass ?? FLOOD_CATEGORY_META.no_flooding.textClass;
@@ -930,6 +1006,10 @@ export default function MapView({
   nexradScanCoordinates,
   calFireHistoricalPerimetersGeoJSON,
   californiaCamerasGeoJSON,
+  wpcEroGeoJSON,
+  wpcWssiGeoJSON,
+  wpcQpfGeoJSON,
+  wpcFrontsGeoJSON,
 }) {
   const { layers, alerts, selectFire, selectGauge, selectRadarSite, selectCamera, viewport, setViewport, sidebarOpen, locationGranted, userLocation, setUserLocation } = useApp();
   const mapRef = useRef(null);
@@ -1100,28 +1180,38 @@ export default function MapView({
     if (isWeatherTab && layers.spcWeatherOutlooks && spcWeatherOutlookMode === 'fireWx' && fireWeatherOutlooksGeoJSON) {
       ids.push('fire-weather-outlook-fill');
     }
-    if ((isWeatherTab || isAllHazardTab) && layers.nhcTropicalWeather) {
+    if (isWeatherTab || isAllHazardTab) {
       if (nhcDisturbanceAreasGeoJSON?.features?.length) ids.push('nhc-disturbance-fill');
       if (nhcDisturbancePointsGeoJSON?.features?.length) ids.push('nhc-disturbance-circle');
       if (nhcForecastPointsGeoJSON?.features?.length) ids.push('nhc-track-circle');
       if (nhcPastPointsGeoJSON?.features?.length) ids.push('nhc-obs-circle');
       if (nhcWatchWarningGeoJSON?.features?.length) ids.push('nhc-watch-warning-line');
     }
-    if (layers.waterGauges && waterGaugesGeoJSON?.features?.length) ids.push('water-gauges-circle');
+    if (layers.waterGauges && waterGaugesGeoJSON?.features?.length) {
+      ids.push('water-gauges-circle-priority', 'water-gauges-circle-other');
+    }
     if ((isWeatherTab || isAllHazardTab) && layers.nexradSites && nexradSitesGeoJSON?.features?.length) ids.push('nexrad-sites-circle');
     if (isWildfireTab && layers.wildfireCameras && californiaCamerasGeoJSON?.features?.length) ids.push('ca-cameras-circle');
     if (hazardEventsGeoJSON?.features?.length) ids.push('hazard-events-circle');
+    if ((isWeatherTab || isAllHazardTab) && layers.wpcEro && wpcEroGeoJSON?.features?.length) ids.push('wpc-ero-fill');
+    if ((isWeatherTab || isAllHazardTab) && layers.wpcWssi && wpcWssiGeoJSON?.features?.length) ids.push('wpc-wssi-fill');
+    if ((isWeatherTab || isAllHazardTab) && layers.wpcQpf && wpcQpfGeoJSON?.features?.length) ids.push('wpc-qpf-fill');
+    if ((isWeatherTab || isAllHazardTab) && layers.wpcFronts && wpcFrontsGeoJSON?.features?.length) {
+      ids.push('wpc-fronts-solid', 'wpc-fronts-dashed');
+    }
     return ids;
   }, [measureActive, isWildfireTab, isWeatherTab, isAllHazardTab, layers.fireHotspots, layers.firePerimeters, layers.incidentLocations, layers.aqi,
       layers.weatherAlerts, layers.spcWeatherOutlooks, spcWeatherOutlookMode, layers.stormReports, layers.evacZones, spcMdGeoJSON,
       layers.rawsStations, layers.airNowMonitors, layers.droughtOutlook, layers.ndgdSmokeForecast, layers.fireWeatherOutlooks,
-      layers.nhcTropicalWeather, layers.damageAssessment,
+      layers.damageAssessment,
       layers.ngfsDetections, ngfsGeoJSON,
       hotspotsGeoJSON, perimetersGeoJSON, incidentsGeoJSON, aqiGeoJSON, alertsGeoJSON, spcOutlooksGeoJSON,
       stormReportsGeoJSON, userReportsGeoJSON, evacZonesGeoJSON,
       damageAssessmentPointsGeoJSON, damageAssessmentLinesGeoJSON, damageAssessmentPolygonsGeoJSON,
       rawsGeoJSON, airNowMonitorsGeoJSON, droughtOutlookGeoJSON, ndgdSmokeFilteredGeoJSON, fireWeatherOutlooksGeoJSON,
       nhcForecastPointsGeoJSON, nhcPastPointsGeoJSON, nhcDisturbanceAreasGeoJSON, nhcDisturbancePointsGeoJSON, nhcWatchWarningGeoJSON,
+      layers.wpcEro, layers.wpcWssi, layers.wpcQpf, layers.wpcFronts,
+      wpcEroGeoJSON, wpcWssiGeoJSON, wpcQpfGeoJSON, wpcFrontsGeoJSON,
       criticalInfrastructureVisible, criticalInfrastructureTransGeoJSON, criticalInfrastructureGasGeoJSON,
       nationalMapCollegesVisible, nationalMapCollegesGeoJSON,
       layers.waterGauges, waterGaugesGeoJSON,
@@ -1153,7 +1243,7 @@ export default function MapView({
     const feature = features[0];
     const p = feature.properties;
 
-    if (feature.layer.id === 'water-gauges-circle') {
+    if (feature.layer.id.startsWith('water-gauges-circle')) {
       selectGauge(feature.properties);
       return;
     }
@@ -1684,7 +1774,32 @@ export default function MapView({
           outlookType={fireWxOutlookType}
         />
 
-        {/* NHC hurricane tracks, cone, watch/warnings, and tropical weather outlook – weather tab */}
+        {/* WPC Excessive Rainfall Outlook (Day 1-3) */}
+        <WpcEroLayer
+          geoJSON={wpcEroGeoJSON}
+          visible={(isWeatherTab || isAllHazardTab) && layers.wpcEro}
+        />
+
+        {/* WPC Winter Storm Severity Index — Overall Impact (Day 1-3) */}
+        <WpcWssiLayer
+          geoJSON={wpcWssiGeoJSON}
+          visible={(isWeatherTab || isAllHazardTab) && layers.wpcWssi}
+        />
+
+        {/* WPC Quantitative Precipitation Forecast (Day 1-3) */}
+        <WpcQpfLayer
+          geoJSON={wpcQpfGeoJSON}
+          visible={(isWeatherTab || isAllHazardTab) && layers.wpcQpf}
+        />
+
+        {/* WPC surface-analysis fronts (Day 1-3) */}
+        <WpcFrontsLayer
+          geoJSON={wpcFrontsGeoJSON}
+          visible={(isWeatherTab || isAllHazardTab) && layers.wpcFronts}
+        />
+
+        {/* NHC hurricane tracks, cone, watch/warnings, and tropical weather outlook —
+            permanent layer, not user-toggleable; shows whenever weather/all-hazard data is in scope */}
         <NHCTropicalWeatherLayer
           forecastPointsGeoJSON={nhcForecastPointsGeoJSON}
           forecastTrackGeoJSON={nhcForecastTrackGeoJSON}
@@ -1695,7 +1810,7 @@ export default function MapView({
           disturbancePointsGeoJSON={nhcDisturbancePointsGeoJSON}
           disturbanceAreasGeoJSON={nhcDisturbanceAreasGeoJSON}
           stormLabelsGeoJSON={nhcStormLabelsGeoJSON}
-          visible={(isWeatherTab || isAllHazardTab) && layers.nhcTropicalWeather}
+          visible={isWeatherTab || isAllHazardTab}
         />
 
         {/* Fire hotspot points – rendered last (top) */}

@@ -115,6 +115,23 @@ export default defineConfig({
         },
         rewrite: (path) => path.replace(/^\/api\/nwps/, ''),
       },
+      // NOAA ArcGIS "Full Forecast Period Stages" (layer 15) – forecasted
+      // stage/status per gauge, joined to /api/river-gauges by gaugelid.
+      // Must be registered BEFORE /api/river-gauges below: Vite matches proxy
+      // keys with startsWith and takes the first match, so the shorter path
+      // would otherwise swallow every /api/river-gauges-forecast request.
+      '/api/river-gauges-forecast': {
+        target: 'https://mapservices.weather.noaa.gov',
+        changeOrigin: true,
+        secure: true,
+        rewrite: (path) => {
+          const qs = path.includes('?') ? path.slice(path.indexOf('?') + 1) : '';
+          const params = new URLSearchParams(qs);
+          const count = params.get('resultRecordCount') || '10000';
+          const offset = params.get('resultOffset') || '0';
+          return `/eventdriven/rest/services/water/riv_gauges/MapServer/15/query?where=1%3D1&outFields=gaugelid,status,forecast,action,flood,moderate,major&outSR=4326&f=geojson&resultRecordCount=${count}&resultOffset=${offset}`;
+        },
+      },
       // NOAA ArcGIS "Observed River Stages" – primary river-gauge list source
       // (more reliable than NWPS's own /gauges list endpoint); paginated via
       // resultOffset/resultRecordCount, forwarded through to the query string.
@@ -189,6 +206,21 @@ export default defineConfig({
           'User-Agent': 'Sentinel Wildfire Platform (contact@sentinel.app)',
         },
         rewrite: (path) => path.replace(/^\/api\/nwps/, ''),
+      },
+      // Must be registered BEFORE /api/river-gauges below: Vite matches proxy
+      // keys with startsWith and takes the first match, so the shorter path
+      // would otherwise swallow every /api/river-gauges-forecast request.
+      '/api/river-gauges-forecast': {
+        target: 'https://mapservices.weather.noaa.gov',
+        changeOrigin: true,
+        secure: true,
+        rewrite: (path) => {
+          const qs = path.includes('?') ? path.slice(path.indexOf('?') + 1) : '';
+          const params = new URLSearchParams(qs);
+          const count = params.get('resultRecordCount') || '10000';
+          const offset = params.get('resultOffset') || '0';
+          return `/eventdriven/rest/services/water/riv_gauges/MapServer/15/query?where=1%3D1&outFields=gaugelid,status,forecast,action,flood,moderate,major&outSR=4326&f=geojson&resultRecordCount=${count}&resultOffset=${offset}`;
+        },
       },
       '/api/river-gauges': {
         target: 'https://mapservices.weather.noaa.gov',
