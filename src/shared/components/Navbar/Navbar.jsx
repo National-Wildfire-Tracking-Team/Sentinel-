@@ -85,6 +85,12 @@ export default function Navbar() {
               Donate
             </a>
             <a
+              href={`${getAppOrigin()}/login`}
+              classname="ml-2 px-4 py-2 rounded-lg text-sm font-semibold text-sentinel-200 hover:text-white hover:bg-sentinel-700/60 transition-colors"
+            >
+              Login
+            </a>
+            <a
               href={`${getAppOrigin()}/`}
               className="ml-2 px-4 py-2 rounded-lg text-sm font-semibold bg-fire-600 text-white hover:bg-fire-500 transition-colors"
             >
@@ -173,6 +179,22 @@ export default function Navbar() {
             >
               <Heart size={15} />
               Donate
+            </a>
+            <a
+              href={`{getAppOrigin()}/login`}
+              onClick={() => setMobileOpen(false)}
+              classname="block px-4 py-2.5 rounded-lg text-sm font-medium text-sentinel-200 hover:text-white hover:bg-sentinel-700/60 transition-colors"
+            >
+              Login
+            </a>
+            <a
+              href={`{getAppOrigin()}/`}
+              onClick={() => setMobileOpen(false)}
+              className="block px-4 py-2.5 rounded-lg text-sm font-medium text-sentinel-200 hover:text-white hover:bg-sentinel-700/60 transition-colors"
+            >
+              Sentinel<sup className="block px-4 py-2.5 rounded-lg text-sm font-semibold bg-fire-600 text-white hover:bg-fire-500 transition-colors"
+                >Beta
+              </sup>
             </a>
 
             {isAuthenticated && (
