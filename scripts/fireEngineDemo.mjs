@@ -1,7 +1,7 @@
 /**
  * fireEngineDemo.mjs
  * Standalone demonstration of the Phase 1 fire behavior modeling engine
- * (src/fireEngine/). Run with:
+ * (src/app/fireEngine/). Run with:
  *
  *   node scripts/fireEngineDemo.mjs
  *
@@ -31,7 +31,7 @@ const {
   computeSurfaceFireBehavior,
   estimateMoistureProfile,
   assessCrownFire,
-} = await viteServer.ssrLoadModule('/src/fireEngine/index.js');
+} = await viteServer.ssrLoadModule('/src/app/fireEngine/index.js');
 
 const IGNITION_POINT = [-118.686, 34.088]; // Santa Monica Mountains, CA (illustrative)
 

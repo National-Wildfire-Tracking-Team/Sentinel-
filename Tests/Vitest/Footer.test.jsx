@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import Footer from '../../src/components/Footer/Footer';
+import Footer from '../../src/shared/components/Footer/Footer';
 
 const renderWithRouter = (component) => {
   return render(<MemoryRouter>{component}</MemoryRouter>);
@@ -29,7 +29,8 @@ describe('Footer', () => {
     expect(screen.getByRole('link', { name: /Home/i })).toHaveAttribute('href', '/');
     expect(screen.getByRole('link', { name: /About the Team/i })).toHaveAttribute('href', '/about');
     expect(screen.getByRole('link', { name: /Volunteer/i })).toHaveAttribute('href', '/volunteer');
-    expect(screen.getByRole('link', { name: /Live Wildfire Tracker/i })).toHaveAttribute('href', '/sentinel');
+    // jsdom's default location is http://localhost/, so getAppOrigin() resolves to app.localhost here.
+    expect(screen.getByRole('link', { name: /Live Wildfire Tracker/i })).toHaveAttribute('href', 'http://app.localhost/');
   });
 
   it('renders resources section', () => {

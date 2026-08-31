@@ -8,7 +8,7 @@ import {
   getNWSWWAStyle,
   nwsWwaStyleMatchExpression,
   nwsColorMatchExpression,
-} from '../../src/utils/nwsColors';
+} from '../../src/app/utils/nwsColors';
 
 describe('NWS_ALERT_COLORS', () => {
   it('contains warning entries', () => {

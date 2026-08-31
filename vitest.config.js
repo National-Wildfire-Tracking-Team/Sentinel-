@@ -19,7 +19,7 @@ export default defineConfig({
       exclude: [
         'src/main.jsx',
         'src/index.css',
-        'src/data/**',
+        'src/app/data/**',
         '**/*.test.*',
         '**/*.spec.*',
       ],

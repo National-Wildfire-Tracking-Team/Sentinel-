@@ -1,6 +1,6 @@
 /**
  * nexradPayloadFormat.js
- * Deno-side copy of src/utils/nexradPayloadFormat.js — kept byte-for-byte
+ * Deno-side copy of src/app/utils/nexradPayloadFormat.js — kept byte-for-byte
  * identical since it defines the wire format shared with the browser
  * decoder and the Node ingestion script. Uses only ArrayBuffer/DataView/
  * TypedArray, so it runs unchanged here. If the format ever changes, this

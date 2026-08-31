@@ -1,6 +1,6 @@
 import { render } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import EvacuationZonesLayer from '../../src/components/Map/layers/EvacuationZonesLayer';
+import EvacuationZonesLayer from '../../src/app/components/Map/layers/EvacuationZonesLayer';
 
 const layerProps = [];
 

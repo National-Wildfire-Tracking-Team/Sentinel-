@@ -1,9 +1,9 @@
 import { renderHook, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { useFireBehaviorModeling } from '../../src/hooks/useFireBehaviorModeling';
-import * as raws from '../../src/api/raws';
+import { useFireBehaviorModeling } from '../../src/app/hooks/useFireBehaviorModeling';
+import * as raws from '../../src/app/api/raws';
 
-vi.mock('../../src/api/raws');
+vi.mock('../../src/app/api/raws');
 
 beforeEach(() => {
   vi.restoreAllMocks();

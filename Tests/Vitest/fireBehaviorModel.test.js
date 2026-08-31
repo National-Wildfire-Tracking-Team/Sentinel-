@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { findNearestStation, estimateFireBehavior, buildSpreadPolygon, growPerimeterPolygon } from '../../src/utils/fireBehaviorModel';
+import { findNearestStation, estimateFireBehavior, buildSpreadPolygon, growPerimeterPolygon } from '../../src/app/utils/fireBehaviorModel';
 
 describe('findNearestStation', () => {
   const stations = [

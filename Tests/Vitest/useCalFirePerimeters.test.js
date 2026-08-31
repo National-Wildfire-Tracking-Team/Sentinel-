@@ -1,9 +1,9 @@
 import { renderHook, waitFor, act } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { useCalFirePerimeters } from '../../src/hooks/useCalFirePerimeters';
-import * as calFirePerimeters from '../../src/api/calFirePerimeters';
+import { useCalFirePerimeters } from '../../src/app/hooks/useCalFirePerimeters';
+import * as calFirePerimeters from '../../src/app/api/calFirePerimeters';
 
-vi.mock('../../src/api/calFirePerimeters');
+vi.mock('../../src/app/api/calFirePerimeters');
 
 beforeEach(() => {
   vi.restoreAllMocks();

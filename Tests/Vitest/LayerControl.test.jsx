@@ -1,9 +1,9 @@
 import { describe, it, expect, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import LayerControl from '../../src/components/LayerControl/LayerControl';
+import LayerControl from '../../src/app/components/LayerControl/LayerControl';
 
-vi.mock('../../src/context/AppContext', () => ({
+vi.mock('../../src/app/context/AppContext', () => ({
   useApp: vi.fn(() => ({
     layers: {},
     selectedFire: null,
