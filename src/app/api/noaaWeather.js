@@ -60,9 +60,11 @@ export function flattenGeometry(geom) {
 }
 
 /**
- * Batch-fetch zone geometries from the NWS /zones endpoint.
- * Splits codes by zone type and fetches in chunks of 50.
- * Results are stored in zoneGeometryCache.
+ * Fetch zone geometries from the NWS /zones/{type}/{id} endpoint.
+ * The list endpoint (/zones?id=...) doesn't return geometry regardless of
+ * query params — only the single-zone endpoint does — so this fetches one
+ * zone at a time through a small worker pool. Results are stored in
+ * zoneGeometryCache.
  * @param {string[]} codes  Array of UGC codes to fetch
  */
 async function fetchZoneGeometryBatch(codes) {
@@ -73,49 +75,31 @@ async function fetchZoneGeometryBatch(codes) {
   //   'C' = county             → query with type=county
   //   'F' = fire weather zone  → query with type=fire
   // Any other character is tried as 'forecast' as a best-effort fallback.
-  const forecastCodes = codes.filter(c => c[2] === 'Z');
-  const countyCodes   = codes.filter(c => c[2] === 'C');
-  const fireCodes     = codes.filter(c => c[2] === 'F');
-  const otherCodes    = codes.filter(c => c[2] !== 'Z' && c[2] !== 'C' && c[2] !== 'F');
-
-  const CHUNK = 50;
-
-  const fetchBatch = async (batch, type) => {
-    // Follow pagination — the zones endpoint may page results even when
-    // filtering by specific IDs, so consume all pages before returning.
-    let url = `${NOAA_BASE}/zones?id=${batch.join(',')}&type=${type}&include_geometry=true`;
-    try {
-      while (url) {
-        const res = await fetch(url, { headers: NWS_HEADERS });
-        if (!res.ok) return;
-        const data = await res.json();
-        for (const feature of (data.features || [])) {
-          const id = feature.properties?.id;
-          if (id && feature.geometry) {
-            zoneGeometryCache.set(id, feature.geometry);
-          }
-        }
-        url = data.pagination?.next ?? null;
-      }
-    } catch {
-      // Silently ignore errors for individual batches
-    }
+  const zoneType = (code) => {
+    if (code[2] === 'C') return 'county';
+    if (code[2] === 'F') return 'fire';
+    return 'forecast';
   };
 
-  const tasks = [];
-  for (let i = 0; i < forecastCodes.length; i += CHUNK) {
-    tasks.push(fetchBatch(forecastCodes.slice(i, i + CHUNK), 'forecast'));
+  const CONCURRENCY = 12;
+  const queue = [...codes];
+
+  async function worker() {
+    while (queue.length > 0) {
+      const code = queue.shift();
+      try {
+        const res = await fetch(`${NOAA_BASE}/zones/${zoneType(code)}/${code}`, { headers: NWS_HEADERS });
+        if (!res.ok) continue;
+        const data = await res.json();
+        const id = data.properties?.id || code;
+        if (data.geometry) zoneGeometryCache.set(id, data.geometry);
+      } catch {
+        // Silently ignore errors for individual zones
+      }
+    }
   }
-  for (let i = 0; i < countyCodes.length; i += CHUNK) {
-    tasks.push(fetchBatch(countyCodes.slice(i, i + CHUNK), 'county'));
-  }
-  for (let i = 0; i < fireCodes.length; i += CHUNK) {
-    tasks.push(fetchBatch(fireCodes.slice(i, i + CHUNK), 'fire'));
-  }
-  for (let i = 0; i < otherCodes.length; i += CHUNK) {
-    tasks.push(fetchBatch(otherCodes.slice(i, i + CHUNK), 'forecast'));
-  }
-  await Promise.all(tasks);
+
+  await Promise.all(Array.from({ length: Math.min(CONCURRENCY, codes.length) }, worker));
 }
 
 /**

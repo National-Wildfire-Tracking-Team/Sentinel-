@@ -73,6 +73,19 @@ export function formatRelativeTime(dateInput) {
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
+// User's Time Format preference ('12h' | '24h'), applied by formatDateTime
+// below. Set via PreferencesContext — kept as module state (like
+// ThemeContext toggling a class) so every formatDateTime call site picks it
+// up without threading a prop through each component.
+let hour12Preference = true;
+
+/**
+ * @param {'12h'|'24h'} format
+ */
+export function setTimeFormatPreference(format) {
+  hour12Preference = format !== '24h';
+}
+
 /**
  * Format a date for display in the detail panel
  * @param {string|Date} dateInput
@@ -87,6 +100,7 @@ export function formatDateTime(dateInput) {
     year: 'numeric',
     hour: 'numeric',
     minute: '2-digit',
+    hour12: hour12Preference,
     timeZoneName: 'short',
   });
 }

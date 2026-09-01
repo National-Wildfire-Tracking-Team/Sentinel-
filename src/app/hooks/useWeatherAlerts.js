@@ -15,6 +15,7 @@ import { geometryAreaSqMi } from "../utils/geoArea";
 import {
   fetchNWSAlerts,
   flattenGeometry,
+  enrichAlertsWithGeometry,
 } from "../api/noaaWeather";
 import { fetchFemaAlerts } from "../api/fema";
 
@@ -274,7 +275,13 @@ export function useWeatherAlerts() {
     const withArea = mergedRef.current.map((a) => {
       const geom = getGeometry(a, zoneMapRef.current, countyMapRef.current, cwaMapRef.current);
       const areaSqMi = geom ? geometryAreaSqMi(geom) : null;
-      return { ...a, areaSqMi };
+      // Many alerts (esp. county/zone-based ones like Storm Surge Warnings)
+      // arrive from NWS with no native `geometry` — only a UGC zone code.
+      // `getGeometry` resolves a fallback polygon from the zone/county/CWA
+      // maps above; persist it onto the alert itself (not just used locally
+      // for area/GeoJSON) so consumers like the sidebar's fly-to-location
+      // and the map popup's spotlight also get a usable geometry.
+      return { ...a, geometry: a.geometry || geom, areaSqMi };
     });
     mergedRef.current = withArea;
     const gj = toGeoJSON(
@@ -324,12 +331,25 @@ export function useWeatherAlerts() {
 
     if (myId !== loadIdRef.current || !mountedRef.current) return;
 
-    const enrichedNws = nws.map((a) => ({
+    let enrichedNws = nws.map((a) => ({
       ...a,
       geocodes: a.geocode?.UGC || [],
       response: a.response || null,
       source: a.source || "NWS",
     }));
+
+    // Zone/county-based alerts (e.g. Storm Surge Warnings, issued by UGC
+    // zone rather than a precise polygon) arrive with geometry: null. The
+    // zoneMap/countyMap/cwaMap fallback below is built from third-party
+    // mirrors that don't cover every zone (coastal zones in particular) —
+    // ask the authoritative NWS /zones API directly for whatever's missing.
+    try {
+      enrichedNws = await enrichAlertsWithGeometry(enrichedNws);
+    } catch (err) {
+      console.warn("[WeatherAlerts] Zone geometry enrichment error:", err?.message || err);
+    }
+
+    if (myId !== loadIdRef.current || !mountedRef.current) return;
 
     if (nwsError) {
       if (mergedRef.current.length > 0) {
