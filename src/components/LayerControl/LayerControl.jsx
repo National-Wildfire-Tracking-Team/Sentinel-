@@ -7,7 +7,7 @@
 import { useState, memo, useMemo, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  Layers, Flame, MapPin, Wind, CloudRain, CloudLightning, Eye, ChevronDown, ChevronRight, Radar, RadioTower, AlertTriangle, Ruler, Hexagon, PlaneTakeoff, Satellite, Map as MapIcon, Thermometer, Activity, Droplets, Zap, Lock, GraduationCap, Waves, History, TrendingUp, Crosshair, Camera, Mountain,
+  Layers, Flame, MapPin, Wind, CloudRain, CloudLightning, Eye, ChevronDown, ChevronRight, Radar, AlertTriangle, Ruler, Hexagon, PlaneTakeoff, Satellite, Map as MapIcon, Thermometer, Activity, Droplets, Zap, Lock, GraduationCap, Waves, History, TrendingUp, Crosshair, Camera, Mountain,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 
@@ -34,8 +34,7 @@ const LAYER_DEFS = {
   goesWest:          { label: 'GOES West Imagery',   sublabel: 'NOAA GOES West · visible',    icon: Eye,           color: '#7c3aed' },
   goesFire16:        { label: 'GOES East Fire RGB',  sublabel: 'NOAA GOES East · Day Land Cloud Fire RGB', icon: Eye, color: '#a855f7' },
   goesFire18:        { label: 'GOES West Fire RGB',  sublabel: 'NOAA GOES West · Day Land Cloud Fire RGB', icon: Eye, color: '#9333ea' },
-  radar:             { label: 'NEXRAD Reflectivity', sublabel: 'NEXRAD Level 2 composite',     icon: Radar,        color: '#10b981' },
-  nexradSites:       { label: 'NEXRAD Sites',        sublabel: 'Level 2 radar station status', icon: RadioTower,   color: '#06b6d4' },
+  radar:             { label: 'Radar',               sublabel: 'NEXRAD composite mosaic + per-site scans', icon: Radar, color: '#10b981' },
   aqi:               { label: 'AQI Heatmap',          sublabel: 'EPA AirNow gradient overlay',  icon: Wind,         color: '#3b82f6' },
   smoke:             { label: 'Smoke Forecast',      sublabel: 'NOAA HRRR',                   icon: CloudRain,    color: '#94a3b8' },
   flights:           { label: 'Live Flight Tracking', sublabel: 'OpenSky Network ADS-B',      icon: PlaneTakeoff, color: '#ff5a00' },
@@ -76,7 +75,7 @@ const TAB_SECTIONS = {
       groups: [
         {
           label: 'Active weather',
-          layers: ['weatherAlerts', 'stormReports', 'damageAssessment', 'radar', 'nexradSites'],
+          layers: ['weatherAlerts', 'stormReports', 'damageAssessment', 'radar'],
         },
         {
           label: 'Tropical',
@@ -144,6 +143,12 @@ const TAB_SECTIONS = {
       title: 'Evacuation & outlooks',
       subtitle: 'Zones, smoke, and fire-weather products',
       groups: [
+        {
+          label: 'Fire weather',
+          layers: [
+            { key: 'weatherAlerts', label: 'Red Flag Warnings', sublabel: 'NWS active Red Flag Warnings' },
+          ],
+        },
         {
           label: 'Evacuation',
           layers: ['evacZones'],
@@ -224,7 +229,7 @@ const TAB_SECTIONS = {
       groups: [
         {
           label: 'Imagery',
-          layers: ['radar', 'nexradSites', 'goesEast', 'goesWest'],
+          layers: ['radar', 'goesEast', 'goesWest'],
         },
       ],
     },
@@ -242,9 +247,10 @@ const TAB_SECTIONS = {
   ],
 };
 
-function LayerToggle({ layerKey, label, sublabel, icon: Icon, color, locked }) {
+function LayerToggle({ layerKey, label, sublabel, icon: Icon, color, locked, onToggle }) {
   const { layers, toggleLayer } = useApp();
   const active = layers[layerKey];
+  const handleClick = onToggle || (() => toggleLayer(layerKey));
 
   if (locked) {
     return (
@@ -274,7 +280,7 @@ function LayerToggle({ layerKey, label, sublabel, icon: Icon, color, locked }) {
   return (
     <button
       type="button"
-      onClick={() => toggleLayer(layerKey)}
+      onClick={handleClick}
       className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg
                       hover:bg-white/10 transition-colors group text-left"
       aria-pressed={active}
@@ -381,7 +387,7 @@ const LayerControl = memo(function LayerControl({
   precipRingActive = false,
   onPrecipRingToggle,
 }) {
-  const { layerPanelOpen, toggleLayerPanel, viewport, setViewport } = useApp();
+  const { layerPanelOpen, toggleLayerPanel, toggleLayer, viewport, setViewport } = useApp();
   const [collapsed, setCollapsed] = useState({});
 
   const infraLayers = useMemo(() => [
@@ -615,8 +621,14 @@ const LayerControl = memo(function LayerControl({
                           </div>
                           <div className="rounded-lg bg-zinc-950 border border-zinc-800 divide-y divide-zinc-800 overflow-hidden">
                             {group.layers.map((layerRef) => {
+                              // A group entry may be a plain layer key, or an object
+                              // overriding the label/sublabel for this tab's context
+                              // (e.g. the wildfire tab renaming "NWS & mesoscale" to
+                              // "Red Flag Warnings" for the same weatherAlerts layer).
+                              const layerKey = typeof layerRef === 'string' ? layerRef : layerRef.key;
+
                               if (section.infraLayers) {
-                                const layer = section.infraLayers.find((l) => l.key === layerRef);
+                                const layer = section.infraLayers.find((l) => l.key === layerKey);
                                 if (!layer) return null;
                                 return (
                                   <LayerToggle
@@ -630,20 +642,23 @@ const LayerControl = memo(function LayerControl({
                                   />
                                 );
                               }
-                              const def = LAYER_DEFS[layerRef];
+                              const def = LAYER_DEFS[layerKey];
                               if (!def) return null;
+                              const label = (typeof layerRef === 'object' && layerRef.label) || def.label;
+                              const sublabel = (typeof layerRef === 'object' && layerRef.sublabel) || def.sublabel;
                               return (
-                                <div key={layerRef}>
+                                <div key={layerKey}>
                                   <LayerToggle
-                                    key={layerRef}
-                                    layerKey={layerRef}
-                                    label={def.label}
-                                    sublabel={def.sublabel}
+                                    key={layerKey}
+                                    layerKey={layerKey}
+                                    label={label}
+                                    sublabel={sublabel}
                                     icon={def.icon}
                                     color={def.color}
+                                    onToggle={layerKey === 'radar' ? () => { toggleLayer('radar'); toggleLayerPanel(); } : undefined}
                                   />
 
-                                  {layerRef === 'fireRiskOutlook' && (
+                                  {layerKey === 'fireRiskOutlook' && (
                                     <FireRiskDaySelector />
                                   )}
                                 </div>
