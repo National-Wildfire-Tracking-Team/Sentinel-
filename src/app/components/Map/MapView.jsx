@@ -1280,6 +1280,7 @@ export default function MapView({
   onPrecipRingToggle,
   waterGaugesGeoJSON,
   nexradSitesGeoJSON,
+  radarMode = 'composite',
   nexradScanUrl,
   nexradScanCoordinates,
   calFireHistoricalPerimetersGeoJSON,
@@ -1289,8 +1290,7 @@ export default function MapView({
   wpcQpfGeoJSON,
   wpcFrontsGeoJSON,
 }) {
-  const { layers, alerts, selectedFire, selectFire, selectGauge, selectRadarSite, selectCamera, viewport, setViewport, sidebarOpen, locationGranted, userLocation, setUserLocation } = useApp();
-  const { prefs: displayPrefs } = usePreferences();
+  const { layers, alerts, selectFire, selectGauge, selectRadarSite, selectCamera, viewport, setViewport, sidebarOpen, locationGranted, userLocation, setUserLocation, layerPanelOpen, closeLayerPanel } = useApp();
   const mapRef = useRef(null);
 
   // Popup shown when a click hits multiple stacked features at once
@@ -1447,7 +1447,7 @@ export default function MapView({
     if ((isWildfireTab || isAllHazardTab) && layers.incidentLocations && incidentsGeoJSON)   ids.push('incident-locations-circle');
     if ((isWildfireTab || isAllHazardTab) && layers.incidentLocations && userReportsGeoJSON)  ids.push('user-reports-circle');
     if (layers.aqi && aqiGeoJSON)                                                             ids.push('aqi-stations-circle');
-    if ((isWeatherTab || isAllHazardTab) && layers.weatherAlerts && alertsGeoJSON) ids.push('weather-alerts-fill');
+    if ((isWildfireTab || isWeatherTab || isAllHazardTab) && layers.weatherAlerts && alertsGeoJSON) ids.push('weather-alerts-fill');
     if ((isWeatherTab || isAllHazardTab) && layers.spcWeatherOutlooks && spcWeatherOutlookMode === 'convective' && spcOutlooksGeoJSON) {
       ids.push('spc-outlook-fill');
     }
@@ -1490,7 +1490,7 @@ export default function MapView({
     if (layers.waterGauges && waterGaugesGeoJSON?.features?.length) {
       ids.push('water-gauges-circle-priority', 'water-gauges-circle-other');
     }
-    if ((isWeatherTab || isAllHazardTab) && layers.nexradSites && nexradSitesGeoJSON?.features?.length) ids.push('nexrad-sites-circle');
+    if ((isWeatherTab || isAllHazardTab) && layers.radar && radarMode === 'site' && nexradSitesGeoJSON?.features?.length) ids.push('nexrad-sites-circle');
     if (isWildfireTab && layers.wildfireCameras && californiaCamerasGeoJSON?.features?.length) ids.push('ca-cameras-circle');
     if (hazardEventsGeoJSON?.features?.length) ids.push('hazard-events-circle');
     if ((isWeatherTab || isAllHazardTab) && layers.wpcEro && wpcEroGeoJSON?.features?.length) ids.push('wpc-ero-fill');
@@ -1515,7 +1515,7 @@ export default function MapView({
       criticalInfrastructureVisible, criticalInfrastructureTransGeoJSON, criticalInfrastructureGasGeoJSON,
       nationalMapCollegesVisible, nationalMapCollegesGeoJSON,
       layers.waterGauges, waterGaugesGeoJSON,
-      layers.nexradSites, nexradSitesGeoJSON,
+      layers.radar, radarMode, nexradSitesGeoJSON,
       layers.wildfireCameras, californiaCamerasGeoJSON,
       hazardEventsGeoJSON]);
 
@@ -1528,6 +1528,11 @@ export default function MapView({
 
   // Handle map click – add measurement point OR select fire for detail panel
   const handleClick = useCallback((evt) => {
+    if (layerPanelOpen) {
+      closeLayerPanel();
+      return;
+    }
+
     if (measureActive) {
       const { lng, lat } = evt.lngLat;
       setMeasurePoints(prev => [...prev, { lng, lat }]);
@@ -1598,14 +1603,7 @@ export default function MapView({
       selectFire(records[0].record);
       return;
     }
-
-    selectFire(null);
-    setFeaturePopup({
-      items: records.map((r) => r.record),
-      mouseLngLat: evt.lngLat,
-      anchorFeature: records[0].feature,
-    });
-  }, [measureActive, alerts, selectFire, selectGauge, selectRadarSite, selectCamera]);
+  }, [measureActive, alerts, selectFire, selectGauge, layerPanelOpen, closeLayerPanel]);
 
   // Handle mouse move – update hover tooltip OR measurement preview
   const handleMouseMove = useCallback((evt) => {
@@ -1753,17 +1751,19 @@ export default function MapView({
           fire18Visible={(isWildfireTab || isAllHazardTab) && layers.goesFire18}
         />
 
-        {/* NEXRAD radar reflectivity */}
-        <RadarLayer visible={(isWeatherTab || isAllHazardTab) && layers.radar} />
+        {/* NEXRAD radar reflectivity — national composite mosaic, live only */}
+        <RadarLayer
+          visible={(isWeatherTab || isAllHazardTab) && layers.radar && radarMode === 'composite'}
+        />
 
         {/* Smoke forecast */}
         <SmokeLayer visible={(isWeatherTab || isAllHazardTab) && layers.smoke} />
 
-        {/* Weather alert zones */}
+        {/* Weather alert zones — wildfire tab shows Red Flag Warnings only, no SPC MDs */}
         <WeatherAlertsLayer
           geoJSON={alertsGeoJSON}
-          spcMdGeoJSON={spcMdGeoJSON}
-          visible={(isWeatherTab || isAllHazardTab) && layers.weatherAlerts}
+          spcMdGeoJSON={isWildfireTab ? null : spcMdGeoJSON}
+          visible={(isWildfireTab || isWeatherTab || isAllHazardTab) && layers.weatherAlerts}
         />
 
         {/* SPC convective outlook polygons */}
@@ -1936,7 +1936,7 @@ export default function MapView({
         {/* NWS NEXRAD Level 2 radar sites — live operability status */}
         <NexradSitesLayer
           geoJSON={nexradSitesGeoJSON}
-          visible={(isWeatherTab || isAllHazardTab) && layers.nexradSites}
+          visible={(isWeatherTab || isAllHazardTab) && layers.radar && radarMode === 'site'}
         />
 
         {/* Live California highway cameras — Caltrans District CCTV */}

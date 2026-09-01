@@ -19,12 +19,25 @@ const PRODUCTS = [
   { id: 'cc', label: 'CC', available: false },
 ];
 
+const MAX_HISTORY_MIN = 120;
+const HISTORY_STEP_MIN = 5;
+
+function formatHistoryOffset(minutesAgo) {
+  if (minutesAgo <= 0) return 'Live';
+  if (minutesAgo < 60) return `${minutesAgo}m ago`;
+  const hours = Math.floor(minutesAgo / 60);
+  const mins = minutesAgo % 60;
+  return mins ? `${hours}h ${mins}m ago` : `${hours}h ago`;
+}
+
 /** Combine the site's own RDA operability with the live scan-fetch status into one badge. */
 function resolveDisplayStatus(siteStatus, scanStatus) {
   if (siteStatus === 'offline') {
     return { label: 'OFFLINE', color: NEXRAD_STATUS.offline.color };
   }
   if (scanStatus === 'live') return { label: 'LIVE', color: NEXRAD_STATUS.operate.color };
+  if (scanStatus === 'historical') return { label: 'HISTORY', color: '#a78bfa' };
+  if (scanStatus === 'no-history') return { label: 'NO HISTORY', color: NEXRAD_STATUS.unknown.color };
   if (scanStatus === 'loading') return { label: 'LOADING', color: NEXRAD_STATUS.unknown.color };
   if (scanStatus === 'stale') return { label: 'UNAVAILABLE', color: NEXRAD_STATUS.alarm.color };
   return { label: 'UNAVAILABLE', color: NEXRAD_STATUS.unknown.color };
@@ -45,7 +58,7 @@ function minutesAgo(scanTime) {
   return `${mins}m ago`;
 }
 
-const RadarSitePanel = memo(function RadarSitePanel({ site, product, onProductChange, meta, status, error, onClose }) {
+const RadarSitePanel = memo(function RadarSitePanel({ site, product, onProductChange, meta, status, error, onClose, historyMinutesAgo = 0, onHistoryMinutesAgoChange }) {
   const [collapsed, setCollapsed] = useState(false);
 
   if (!site) return null;
@@ -127,6 +140,36 @@ const RadarSitePanel = memo(function RadarSitePanel({ site, product, onProductCh
               );
             })}
           </div>
+
+          {/* History scrub — past on the left, live on the right */}
+          <div className="mb-2">
+            <div className="flex items-center justify-between mb-1.5 text-[11px]">
+              <span className="text-sentinel-400 uppercase tracking-wide font-semibold">History</span>
+              <span className="text-cyan-300 font-mono font-semibold">{formatHistoryOffset(historyMinutesAgo)}</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="text-[9px] text-sentinel-500 shrink-0">-2h</span>
+              <div className="flex-1" style={{ transform: 'scaleX(-1)' }}>
+                <input
+                  type="range"
+                  min={0}
+                  max={MAX_HISTORY_MIN}
+                  step={HISTORY_STEP_MIN}
+                  value={historyMinutesAgo}
+                  onChange={(e) => onHistoryMinutesAgoChange?.(Number(e.target.value))}
+                  className="w-full accent-cyan-500"
+                  aria-label="Radar history — minutes ago"
+                />
+              </div>
+              <span className="text-[9px] text-sentinel-500 shrink-0">Now</span>
+            </div>
+          </div>
+
+          {status === 'no-history' && (
+            <div className="text-[10px] text-sentinel-400 bg-sentinel-800/50 border border-sentinel-700 rounded p-1.5 mb-1.5">
+              No history yet for this site — it builds up the longer this site stays actively viewed (up to 2 hours).
+            </div>
+          )}
 
           {status === 'loading' && !meta && (
             <div className="flex items-center gap-2 text-[10px] text-sentinel-400 py-1.5">

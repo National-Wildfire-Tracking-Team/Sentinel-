@@ -33,6 +33,24 @@ export async function fetchScanMeta(siteId, product) {
   return data;
 }
 
+// Matches the ingestion script's HISTORY_RETENTION_MS-backed prune window and
+// the site radar popup's 2-hour scrub bar.
+const HISTORY_WINDOW_MS = 2 * 60 * 60 * 1000;
+
+/** Every scan published for a site+product in the last 2 hours, oldest to newest. */
+export async function fetchScanHistory(siteId, product) {
+  const sinceIso = new Date(Date.now() - HISTORY_WINDOW_MS).toISOString();
+  const { data, error } = await supabase
+    .from('nexrad_scan_history')
+    .select('scan_time, storage_path')
+    .eq('site_id', siteId)
+    .eq('product', product)
+    .gte('scan_time', sinceIso)
+    .order('scan_time', { ascending: true });
+  if (error) throw error;
+  return data ?? [];
+}
+
 /** Decompress a gzip-compressed ArrayBuffer (the sync script gzips every payload). */
 async function gunzip(arrayBuffer) {
   const stream = new Blob([arrayBuffer]).stream().pipeThrough(new DecompressionStream('gzip'));
