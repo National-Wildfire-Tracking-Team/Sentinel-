@@ -98,6 +98,7 @@ const GOESLayer = memo(function GOESLayer({
         type="raster"
         tiles={[GOES_EAST_VISIBLE_TILE_URL]}
         tileSize={256}
+        maxzoom={10}
         attribution={GOES_EAST_ATTRIBUTION}
       >
         <Layer
@@ -118,6 +119,7 @@ const GOESLayer = memo(function GOESLayer({
         type="raster"
         tiles={[GOES_WEST_VISIBLE_TILE_URL]}
         tileSize={256}
+        maxzoom={10}
         attribution={GOES_WEST_ATTRIBUTION}
       >
         <Layer
@@ -139,6 +141,7 @@ const GOESLayer = memo(function GOESLayer({
         type="raster"
         tiles={[GOES_EAST_FIRE_RGB_TILE_URL]}
         tileSize={256}
+        maxzoom={10}
         attribution={GOES_EAST_FIRE_ATTRIBUTION}
       >
         <Layer
@@ -159,6 +162,7 @@ const GOESLayer = memo(function GOESLayer({
         type="raster"
         tiles={[GOES_WEST_FIRE_RGB_TILE_URL]}
         tileSize={256}
+        maxzoom={10}
         attribution={GOES_WEST_FIRE_ATTRIBUTION}
       >
         <Layer

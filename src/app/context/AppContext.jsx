@@ -88,14 +88,6 @@ const initialState = {
   lastRefreshed: null,
   // Whether any data fetch is in flight
   isLoading: false,
-  // Map viewport (controlled)
-  viewport: {
-    longitude: -114.5,
-    latitude:  44.0,
-    zoom:      4.5,
-    pitch:     0,
-    bearing:   0,
-  },
   // Whether the user has granted live location (only requested via the locate-me corner button)
   locationGranted: false,
   // Live user location {latitude, longitude}, once granted
@@ -123,7 +115,6 @@ const A = {
   SET_ALERTS_STATUS:  'SET_ALERTS_STATUS',
   SET_LOADING:        'SET_LOADING',
   SET_REFRESHED:      'SET_REFRESHED',
-  SET_VIEWPORT:       'SET_VIEWPORT',
   SET_FEED_FILTER:    'SET_FEED_FILTER',
   GRANT_LOCATION:     'GRANT_LOCATION',
   SET_USER_LOCATION:  'SET_USER_LOCATION',
@@ -191,8 +182,6 @@ function reducer(state, action) {
       return { ...state, isLoading: action.value };
     case A.SET_REFRESHED:
       return { ...state, lastRefreshed: action.time };
-    case A.SET_VIEWPORT:
-      return { ...state, viewport: { ...state.viewport, ...action.viewport } };
     case A.SET_FEED_FILTER:
       return { ...state, feedFilter: action.value };
     case A.GRANT_LOCATION:
@@ -229,22 +218,9 @@ export function AppProvider({ children }) {
   const setAlertsStatus  = useCallback((status) => dispatch({ type: A.SET_ALERTS_STATUS, status }), []);
   const setLoading       = useCallback((value) => dispatch({ type: A.SET_LOADING, value }), []);
   const setRefreshed     = useCallback((time = new Date()) => dispatch({ type: A.SET_REFRESHED, time }), []);
-  const setViewport      = useCallback((viewport) => dispatch({ type: A.SET_VIEWPORT, viewport }), []);
   const setFeedFilter    = useCallback((value) => dispatch({ type: A.SET_FEED_FILTER, value }), []);
   const grantLocation    = useCallback(() => dispatch({ type: A.GRANT_LOCATION }), []);
   const setUserLocation  = useCallback((location) => dispatch({ type: A.SET_USER_LOCATION, location }), []);
-
-  /** Fly the map to a specific fire incident */
-  const flyToFire = useCallback((incident) => {
-    const latitude = Number(incident?.lat);
-    const longitude = Number(incident?.lng);
-    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return;
-
-    dispatch({
-      type: A.SET_VIEWPORT,
-      viewport: { longitude, latitude, zoom: 10 },
-    });
-  }, []);
 
   return (
     <AppContext.Provider value={{
@@ -268,8 +244,6 @@ export function AppProvider({ children }) {
       setAlertsStatus,
       setLoading,
       setRefreshed,
-      setViewport,
-      flyToFire,
       setFeedFilter,
       grantLocation,
       setUserLocation,

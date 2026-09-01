@@ -3,7 +3,7 @@
  * Scrollable list of active wildfire incidents.
  */
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Search, SortDesc, Loader2, AlertCircle } from 'lucide-react';
 import IncidentCard from './IncidentCard';
 import { useApp } from '../../context/AppContext';
@@ -19,39 +19,42 @@ export default function IncidentFeed({ incidents, loading, error }) {
   const [search, setSearch] = useState('');
   const [sort,   setSort]   = useState('acres');
 
-  const THREE_DAYS_MS = 3 * 24 * 60 * 60 * 1000;
-  const now = Date.now();
+  const sorted = useMemo(() => {
+    const THREE_DAYS_MS = 3 * 24 * 60 * 60 * 1000;
+    const now = Date.now();
+    const searchLower = search.toLowerCase();
 
-  // Filter by search term and feed mode
-  const filtered = incidents.filter(inc => {
-    const matchesSearch =
-      inc.name.toLowerCase().includes(search.toLowerCase()) ||
-      inc.state.toLowerCase().includes(search.toLowerCase()) ||
-      inc.county.toLowerCase().includes(search.toLowerCase());
+    // Filter by search term and feed mode
+    const filtered = incidents.filter(inc => {
+      const matchesSearch =
+        inc.name.toLowerCase().includes(searchLower) ||
+        inc.state.toLowerCase().includes(searchLower) ||
+        inc.county.toLowerCase().includes(searchLower);
 
-    if (!matchesSearch) return false;
+      if (!matchesSearch) return false;
 
-    // Always remove fires that are 95%+ contained or haven't been updated in 3 days
-    if ((inc.contained ?? 0) >= 95) return false;
-    if (inc.updated && (now - new Date(inc.updated).getTime()) > THREE_DAYS_MS) return false;
+      // Always remove fires that are 95%+ contained or haven't been updated in 3 days
+      if ((inc.contained ?? 0) >= 95) return false;
+      if (inc.updated && (now - new Date(inc.updated).getTime()) > THREE_DAYS_MS) return false;
 
-    // 'focused' mode hides controlled fires
-    if (feedFilter === 'focused' && inc.status === 'controlled') return false;
+      // 'focused' mode hides controlled fires
+      if (feedFilter === 'focused' && inc.status === 'controlled') return false;
 
-    return true;
-  });
+      return true;
+    });
 
-  // Sort
-  const sorted = [...filtered].sort((a, b) => {
-    if (sort === 'acres')     return b.acres - a.acres;
-    if (sort === 'contained') return a.contained - b.contained;
-    if (sort === 'updated')   return new Date(b.updated) - new Date(a.updated);
-    return 0;
-  });
+    // Sort
+    return [...filtered].sort((a, b) => {
+      if (sort === 'acres')     return b.acres - a.acres;
+      if (sort === 'contained') return a.contained - b.contained;
+      if (sort === 'updated')   return new Date(b.updated) - new Date(a.updated);
+      return 0;
+    });
+  }, [incidents, search, feedFilter, sort]);
 
   // Active vs controlled
-  const active     = sorted.filter(i => i.status !== 'controlled');
-  const controlled = sorted.filter(i => i.status === 'controlled');
+  const active     = useMemo(() => sorted.filter(i => i.status !== 'controlled'), [sorted]);
+  const controlled = useMemo(() => sorted.filter(i => i.status === 'controlled'), [sorted]);
 
   return (
     <div className="flex flex-col h-full">
@@ -85,7 +88,7 @@ export default function IncidentFeed({ incidents, loading, error }) {
               {opt.label}
             </button>
           ))}
-          <span className="ml-auto text-sentinel-300 text-xs">{filtered.length} fires</span>
+          <span className="ml-auto text-sentinel-300 text-xs">{sorted.length} fires</span>
         </div>
 
         {/* Sidebar incident filter */}
