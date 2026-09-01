@@ -86,7 +86,7 @@ export default function Navbar() {
             </a>
             <a
               href={`${getAppOrigin()}/login`}
-              classname="ml-2 px-4 py-2 rounded-lg text-sm font-semibold text-sentinel-200 hover:text-white hover:bg-sentinel-700/60 transition-colors"
+              className="ml-2 px-4 py-2 rounded-lg text-sm font-semibold text-sentinel-200 hover:text-white hover:bg-sentinel-700/60 transition-colors"
             >
               Login
             </a>
@@ -181,20 +181,18 @@ export default function Navbar() {
               Donate
             </a>
             <a
-              href={`{getAppOrigin()}/login`}
+              href={`${getAppOrigin()}/login`}
               onClick={() => setMobileOpen(false)}
-              classname="block px-4 py-2.5 rounded-lg text-sm font-medium text-sentinel-200 hover:text-white hover:bg-sentinel-700/60 transition-colors"
+              className="block px-4 py-2.5 rounded-lg text-sm font-medium text-sentinel-200 hover:text-white hover:bg-sentinel-700/60 transition-colors"
             >
               Login
             </a>
             <a
-              href={`{getAppOrigin()}/`}
+              href={`${getAppOrigin()}/`}
               onClick={() => setMobileOpen(false)}
-              className="block px-4 py-2.5 rounded-lg text-sm font-medium text-sentinel-200 hover:text-white hover:bg-sentinel-700/60 transition-colors"
+              className="flex items-center px-4 py-2.5 rounded-lg text-sm font-semibold bg-fire-600 text-white hover:bg-fire-500 transition-colors"
             >
-              Sentinel<sup className="block px-4 py-2.5 rounded-lg text-sm font-semibold bg-fire-600 text-white hover:bg-fire-500 transition-colors"
-                >Beta
-              </sup>
+              Sentinel<sup className="ml-0.5 text-[0.6em] font-bold tracking-wider align-super">BETA</sup>
             </a>
 
             {isAuthenticated && (
