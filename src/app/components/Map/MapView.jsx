@@ -381,7 +381,7 @@ const GLOBE_FOG = {
 /**
  * Tooltip shown on hover
  */
-const OUTLOOK_LAYER_IDS = new Set(['spc-outlook-fill', 'drought-outlook-fill', 'fire-weather-outlook-fill', 'nhc-disturbance-fill', 'nhc-disturbance-circle', 'nhc-track-circle', 'nhc-obs-circle', 'nhc-watch-warning-line', 'wpc-ero-fill', 'wpc-wssi-fill', 'wpc-qpf-fill', 'wpc-fronts-solid', 'wpc-fronts-dashed']);
+const OUTLOOK_LAYER_IDS = new Set(['spc-outlook-fill', 'drought-outlook-fill', 'fire-weather-outlook-fill', 'nhc-disturbance-fill', 'nhc-disturbance-circle', 'nhc-track-circle', 'nhc-obs-circle', 'nhc-watch-warning-line', 'wpc-ero-fill', 'wpc-wssi-fill', 'wpc-qpf-fill', 'wpc-fronts-solid', 'wpc-fronts-dashed', 'wpc-fronts-stationary-line']);
 
 // Caltrans only reports a camera's facing as a cardinal direction (no
 // numeric bearing in the source data) — map it to degrees so the hover
@@ -887,7 +887,8 @@ function HoverTooltip({ feature, lngLat }) {
       break;
     }
     case 'wpc-fronts-solid':
-    case 'wpc-fronts-dashed': {
+    case 'wpc-fronts-dashed':
+    case 'wpc-fronts-stationary-line': {
       const frontColors = {
         COLD: 'text-blue-400',
         WARM: 'text-red-400',
@@ -1500,7 +1501,7 @@ export default function MapView({
     if ((isWeatherTab || isAllHazardTab) && layers.wpcWssi && wpcWssiGeoJSON?.features?.length) ids.push('wpc-wssi-fill');
     if ((isWeatherTab || isAllHazardTab) && layers.wpcQpf && wpcQpfGeoJSON?.features?.length) ids.push('wpc-qpf-fill');
     if ((isWeatherTab || isAllHazardTab) && layers.wpcFronts && wpcFrontsGeoJSON?.features?.length) {
-      ids.push('wpc-fronts-solid', 'wpc-fronts-dashed');
+      ids.push('wpc-fronts-solid', 'wpc-fronts-dashed', 'wpc-fronts-stationary-line');
     }
     return ids;
   }, [measureActive, isWildfireTab, isWeatherTab, isAllHazardTab, layers.fireHotspots, layers.firePerimeters, layers.incidentLocations, layers.aqi,
