@@ -15,6 +15,7 @@ import DeferredAnalytics from './shared/components/DeferredScripts/DeferredAnaly
 import { ErrorLogger } from './shared/services/error-logger';
 import { AuthProvider } from './shared/context/AuthContext';
 import { ThemeProvider } from './app/context/ThemeContext';
+import { PreferencesProvider } from './app/context/PreferencesContext';
 import { AppProvider } from './app/context/AppContext';
 import MainRouter from './main/router';
 import AppRouter from './app/router';
@@ -30,9 +31,11 @@ createRoot(document.getElementById('root')).render(
       <AuthProvider>
         {isAppHost ? (
           <ThemeProvider>
-            <AppProvider>
-              <AppRouter />
-            </AppProvider>
+            <PreferencesProvider>
+              <AppProvider>
+                <AppRouter />
+              </AppProvider>
+            </PreferencesProvider>
           </ThemeProvider>
         ) : (
           <MainRouter />

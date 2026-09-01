@@ -4,14 +4,14 @@
  * Map style, Help, membership/donation links, saved places, and appearance.
  */
 
-import { memo, useState } from 'react';
+import { memo } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  Map as MapIcon, HelpCircle, Award, HeartHandshake, MapPin,
-  Moon, Sun, ChevronDown, Satellite,
+  Map as MapIcon, HelpCircle, Award, HeartHandshake, MapPin, Satellite,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { useTheme } from '../../context/ThemeContext';
+import { usePreferences } from '../../context/PreferencesContext';
 import { getMainOrigin } from '../../../shared/utils/getAppOrigin';
 
 const DONATE_URL = 'https://givebutter.com/national-wildfire-tracking-team-dvi6jx';
@@ -67,13 +67,89 @@ function SectionLabel({ children }) {
   );
 }
 
+/** One labeled preference row, with an optional helper line underneath the control. */
+function PrefRow({ label, description, children }) {
+  return (
+    <div className="px-4 py-2.5">
+      <div className="flex items-center justify-between gap-3">
+        <span className="text-sm font-medium text-sentinel-800 dark:text-sentinel-100">{label}</span>
+        {children}
+      </div>
+      {description && (
+        <p className="mt-1.5 text-xs text-sentinel-500 dark:text-sentinel-400">{description}</p>
+      )}
+    </div>
+  );
+}
+
+/** Two-or-more-way pill switcher, e.g. Center/Mouse or 12-hour/24-hour. */
+function SegmentedControl({ value, onChange, options }) {
+  return (
+    <div className="inline-flex rounded-lg bg-sentinel-100 dark:bg-sentinel-800 p-0.5 shrink-0">
+      {options.map((opt) => (
+        <button
+          key={opt.value}
+          type="button"
+          onClick={() => onChange(opt.value)}
+          className={`px-2.5 py-1 text-xs font-semibold rounded-md transition-colors ${
+            value === opt.value
+              ? 'bg-fire-600 text-white shadow-sm'
+              : 'text-sentinel-500 dark:text-sentinel-400 hover:text-sentinel-800 dark:hover:text-sentinel-200'
+          }`}
+        >
+          {opt.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/** iOS-style on/off switch. */
+function PrefSwitch({ checked, onChange }) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      onClick={() => onChange(!checked)}
+      className={`h-6 w-11 shrink-0 rounded-full p-0.5 transition-colors ${
+        checked ? 'bg-fire-600' : 'bg-sentinel-300 dark:bg-sentinel-700'
+      }`}
+    >
+      <span
+        className={`block h-5 w-5 rounded-full bg-white shadow transition-transform ${
+          checked ? 'translate-x-5' : 'translate-x-0'
+        }`}
+      />
+    </button>
+  );
+}
+
+/** 0-100 opacity slider with a live percentage readout. */
+function PrefSlider({ value, onChange, disabled }) {
+  return (
+    <div className={`flex items-center gap-2 transition-opacity ${disabled ? 'opacity-40' : ''}`}>
+      <input
+        type="range"
+        min={0}
+        max={100}
+        step={5}
+        value={value}
+        disabled={disabled}
+        onChange={(e) => onChange(Number(e.target.value))}
+        className="w-28 accent-fire-600"
+      />
+      <span className="w-9 text-right text-xs tabular-nums text-sentinel-500 dark:text-sentinel-400">{value}%</span>
+    </div>
+  );
+}
+
 const FutureFeaturesPanel = memo(function FutureFeaturesPanel({ mapType = 'satellite', onMapTypeChange }) {
   const { futurePanelOpen, toggleFuturePanel } = useApp();
   const { theme, setTheme } = useTheme();
-  const [appearanceOpen, setAppearanceOpen] = useState(false);
+  const { prefs, updatePrefs } = usePreferences();
 
   const closePanel = () => {
-    setAppearanceOpen(false);
     toggleFuturePanel();
   };
 
@@ -125,39 +201,64 @@ const FutureFeaturesPanel = memo(function FutureFeaturesPanel({ mapType = 'satel
           onClick={closePanel}
         />
 
-        <MenuRow
-          icon={theme === 'dark' ? Moon : Sun}
-          label={theme === 'dark' ? 'Dark mode' : 'Light mode'}
-          onClick={() => setAppearanceOpen((v) => !v)}
-          trailing={
-            <ChevronDown
-              size={18}
-              className={`text-sentinel-400 shrink-0 transition-transform ${appearanceOpen ? 'rotate-180' : ''}`}
-            />
-          }
-        />
-        {appearanceOpen && (
-          <div className="px-4 pb-2 flex flex-col gap-1">
-            {[
-              { value: 'light', label: 'Light', Icon: Sun },
-              { value: 'dark', label: 'Dark', Icon: Moon },
-            ].map(({ value, label, Icon }) => (
-              <button
-                key={value}
-                type="button"
-                onClick={() => { setTheme(value); setAppearanceOpen(false); }}
-                className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  theme === value
-                    ? 'bg-fire-600/15 text-fire-600 dark:text-fire-400'
-                    : 'text-sentinel-600 dark:text-sentinel-300 hover:bg-sentinel-100 dark:hover:bg-sentinel-800/60'
-                }`}
-              >
-                <Icon size={15} />
-                {label}
-              </button>
-            ))}
-          </div>
-        )}
+        <SectionLabel>Preferences</SectionLabel>
+
+        <PrefRow label="Dark Mode">
+          <SegmentedControl
+            value={theme === 'dark' ? 'on' : 'off'}
+            onChange={(v) => setTheme(v === 'on' ? 'dark' : 'light')}
+            options={[{ value: 'off', label: 'Off' }, { value: 'on', label: 'On' }]}
+          />
+        </PrefRow>
+
+        <PrefRow label="Data Picker">
+          <SegmentedControl
+            value={prefs.dataPickerAnchor}
+            onChange={(v) => updatePrefs({ dataPickerAnchor: v })}
+            options={[{ value: 'center', label: 'Center' }, { value: 'mouse', label: 'Mouse' }]}
+          />
+        </PrefRow>
+
+        <PrefRow label="Time Format">
+          <SegmentedControl
+            value={prefs.timeFormat}
+            onChange={(v) => updatePrefs({ timeFormat: v })}
+            options={[{ value: '12h', label: '12-hour' }, { value: '24h', label: '24-hour' }]}
+          />
+        </PrefRow>
+
+        <PrefRow
+          label="Map Popup UI"
+          description="'Single' shows one item at a time in map popups — swipe, drag or use the dots to flick between items."
+        >
+          <SegmentedControl
+            value={prefs.mapPopupMode}
+            onChange={(v) => updatePrefs({ mapPopupMode: v })}
+            options={[{ value: 'list', label: 'List' }, { value: 'single', label: 'Single' }]}
+          />
+        </PrefRow>
+
+        <PrefRow label="Popup Spotlight">
+          <PrefSwitch checked={prefs.popupSpotlight} onChange={(v) => updatePrefs({ popupSpotlight: v })} />
+        </PrefRow>
+
+        <PrefRow
+          label="Spotlight Opacity"
+          description="Dims the map outside a clicked polygon to make it stand out."
+        >
+          <PrefSlider
+            value={prefs.spotlightOpacity}
+            onChange={(v) => updatePrefs({ spotlightOpacity: v })}
+            disabled={!prefs.popupSpotlight}
+          />
+        </PrefRow>
+
+        <PrefRow
+          label="Popup Drag Handle"
+          description="Adds a grip to map popups so you can drag them aside and see the map underneath."
+        >
+          <PrefSwitch checked={prefs.popupDragHandle} onChange={(v) => updatePrefs({ popupDragHandle: v })} />
+        </PrefRow>
       </div>
     </aside>
   );
