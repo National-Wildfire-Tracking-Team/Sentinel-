@@ -7,6 +7,7 @@
 import { memo } from 'react';
 import { AlertTriangle, Flame, CloudSun } from 'lucide-react';
 import LayerControl from '../LayerControl/LayerControl';
+import RadarControlBar from './RadarControlBar';
 
 const MapBottomBar = memo(function MapBottomBar({
   activeMapTab = 'wildfire',
@@ -20,6 +21,10 @@ const MapBottomBar = memo(function MapBottomBar({
   onMeasureClose,
   precipRingActive = false,
   onPrecipRingToggle,
+  radarMode = 'composite',
+  onRadarModeChange,
+  radarExpanded = false,
+  onRadarExpandedToggle,
 }) {
   const isAllHazardTab = activeMapTab === 'allhazard';
 
@@ -36,6 +41,13 @@ const MapBottomBar = memo(function MapBottomBar({
         onMeasureClose={onMeasureClose}
         precipRingActive={precipRingActive}
         onPrecipRingToggle={onPrecipRingToggle}
+      />
+
+      <RadarControlBar
+        radarMode={radarMode}
+        onRadarModeChange={onRadarModeChange}
+        radarExpanded={radarExpanded}
+        onToggleExpanded={onRadarExpandedToggle}
       />
 
       <div className="w-px self-stretch my-1 bg-sentinel-200 dark:bg-zinc-700" />
