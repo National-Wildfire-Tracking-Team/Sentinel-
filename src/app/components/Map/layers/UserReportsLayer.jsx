@@ -10,7 +10,7 @@ import { Source, Layer } from 'react-map-gl';
 
 const EMPTY_GEOJSON = { type: 'FeatureCollection', features: [] };
 
-const USER_REPORT_COLOR = '#22d3ee'; // cyan-400 – distinct from fire orange/red
+const USER_REPORT_COLOR = '#ffaa00';//fire orange/red
 
 const UserReportsLayer = memo(function UserReportsLayer({ geoJSON, visible }) {
   const vis = visible ? 'visible' : 'none';
