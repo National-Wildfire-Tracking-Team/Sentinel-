@@ -75,7 +75,7 @@ const WILDFIRE_LAYER_PRESET = {
   fireHotspots: false,
   firePerimeters: true,
   incidentLocations: true,
-  weatherAlerts: false,
+  weatherAlerts: true,
   smoke: false,
   goesEast: false,
   goesWest: false,
@@ -245,6 +245,14 @@ export default function LiveTrackerPage() {
   const [measureMode, setMeasureMode] = useState('distance');
   const [precipRingActive, setPrecipRingActive] = useState(false);
 
+  // Radar: single "Radar" toggle (layers.radar) gates the mini control bar;
+  // radarMode picks which sub-layer it drives — the national composite
+  // mosaic (live only), or individual NEXRAD site markers + their Level 2
+  // scans (live or scrubbed back through that site's own history).
+  const [radarMode, setRadarMode] = useState('composite');
+  const [radarExpanded, setRadarExpanded] = useState(false);
+  const [radarSiteMinutesAgo, setRadarSiteMinutesAgo] = useState(0);
+
   const onMeasureActivate = useCallback((mode) => {
     setMeasureMode(mode);
     setMeasureActive(true);
@@ -255,15 +263,40 @@ export default function LiveTrackerPage() {
   }, []);
 
   const onPrecipRingToggle = useCallback(() => {
-    if (!precipRingActive) setLayer('radar', true);
+    if (!precipRingActive) {
+      setLayer('radar', true);
+      setRadarMode('composite');
+    }
     setPrecipRingActive(!precipRingActive);
   }, [precipRingActive, setLayer]);
+
+  const onRadarExpandedToggle = useCallback(() => {
+    setRadarExpanded((expanded) => !expanded);
+  }, []);
 
   useEffect(() => {
     if (activeMapTab !== MAP_TABS.weather && activeMapTab !== MAP_TABS.allhazard) {
       setPrecipRingActive(false);
     }
   }, [activeMapTab]);
+
+  // Radar turned off entirely → reset mode/expansion for next time.
+  useEffect(() => {
+    if (!layers.radar) {
+      setRadarMode('composite');
+      setRadarExpanded(false);
+    }
+  }, [layers.radar]);
+
+  // Leaving site mode (or radar off) closes any open site radar panel.
+  useEffect(() => {
+    if (radarMode !== 'site') selectRadarSite(null);
+  }, [radarMode, selectRadarSite]);
+
+  // A freshly-selected site (or no site) always starts live.
+  useEffect(() => {
+    setRadarSiteMinutesAgo(0);
+  }, [selectedRadarSite?.id]);
 
   useEffect(() => {
     if (!criticalInfraEntitled && layers.criticalInfrastructure) {
@@ -360,14 +393,25 @@ export default function LiveTrackerPage() {
   } = useWeatherAlerts();
 
   const filteredAlertsGeoJSON = useMemo(() => {
-    if (weatherAlertFilter === 'all' || !alertsGeoJSON?.features) return alertsGeoJSON;
+    if (!alertsGeoJSON?.features) return alertsGeoJSON;
+    // Wildfire tab only ever shows Red Flag Warnings, regardless of the
+    // weather-tab category filter.
+    if (activeMapTab === MAP_TABS.wildfire) {
+      return {
+        ...alertsGeoJSON,
+        features: alertsGeoJSON.features.filter(
+          f => f.properties.type === 'Red Flag Warning'
+        ),
+      };
+    }
+    if (weatherAlertFilter === 'all') return alertsGeoJSON;
     return {
       ...alertsGeoJSON,
       features: alertsGeoJSON.features.filter(
         f => nwsAlertCategory(f.properties.type) === weatherAlertFilter
       ),
     };
-  }, [alertsGeoJSON, weatherAlertFilter]);
+  }, [alertsGeoJSON, weatherAlertFilter, activeMapTab]);
 
   const {
     incidents,
@@ -564,21 +608,22 @@ const flightBounds = useMemo(() => {
   // NWS NEXRAD Level 2 radar sites — live operability status
   const {
     geoJSON: nexradSitesGeoJSON,
-  } = useNexradSites(layers.nexradSites);
+  } = useNexradSites(layers.radar && radarMode === 'site');
 
   // Live California highway cameras — Caltrans District CCTV
   const {
     geoJSON: californiaCamerasGeoJSON,
   } = useCaliforniaCameras(layers.wildfireCameras);
 
-  // Live Level II sweep for whichever radar site is currently selected
+  // Level II sweep for whichever radar site is currently selected — live, or
+  // scrubbed back through that site's own history via radarSiteMinutesAgo.
   const [radarProduct, setRadarProduct] = useState('reflectivity');
   useEffect(() => {
     setRadarProduct('reflectivity');
   }, [selectedRadarSite?.id]);
 
   const { meta: radarScanMeta, payload: radarScanPayload, status: radarScanStatus, error: radarScanError } =
-    useNexradScan(selectedRadarSite?.id, radarProduct, Boolean(selectedRadarSite));
+    useNexradScan(selectedRadarSite?.id, radarProduct, Boolean(selectedRadarSite), radarSiteMinutesAgo);
 
   const radarRaster = useMemo(
     () => (selectedRadarSite && radarScanPayload
@@ -987,6 +1032,7 @@ const flightBounds = useMemo(() => {
             onPrecipRingToggle={onPrecipRingToggle}
             waterGaugesGeoJSON={waterGaugesGeoJSON}
             nexradSitesGeoJSON={nexradSitesGeoJSON}
+            radarMode={radarMode}
             nexradScanUrl={radarRaster?.dataUrl}
             nexradScanCoordinates={radarRaster?.coordinates}
             calFireHistoricalPerimetersGeoJSON={calFireHistoricalPerimetersGeoJSON}
@@ -1024,6 +1070,10 @@ const flightBounds = useMemo(() => {
             onMeasureClose={onMeasureClose}
             precipRingActive={precipRingActive}
             onPrecipRingToggle={onPrecipRingToggle}
+            radarMode={radarMode}
+            onRadarModeChange={setRadarMode}
+            radarExpanded={radarExpanded}
+            onRadarExpandedToggle={onRadarExpandedToggle}
           />
 
           <Legend
@@ -1033,6 +1083,7 @@ const flightBounds = useMemo(() => {
             fireWxOutlookType={fireWxOutlookType}
             radarScanActive={Boolean(selectedRadarSite)}
             radarScanProduct={radarProduct}
+            radarMode={radarMode}
           />
           <FireDetailPanel />
           {selectedGauge && (
@@ -1050,6 +1101,8 @@ const flightBounds = useMemo(() => {
               status={radarScanStatus}
               error={radarScanError}
               onClose={() => selectRadarSite(null)}
+              historyMinutesAgo={radarSiteMinutesAgo}
+              onHistoryMinutesAgoChange={setRadarSiteMinutesAgo}
             />
           )}
           {selectedCamera && (

@@ -4,7 +4,7 @@
  *
  * Endpoints used:
  * - Active alerts: https://api.weather.gov/alerts/active
- * - Returns active Red Flag Warnings and Fire Weather Watches
+ * - Returns all active NWS alerts nationwide
  *
  * Docs: https://www.weather.gov/documentation/services-web-api
  */
@@ -12,11 +12,6 @@
 import { getCached, setCached } from '../utils/dataCache';
 
 const NOAA_BASE = 'https://api.weather.gov';
-
-export const FIRE_WEATHER_ALERT_TYPES = new Set([
-  'red flag warning',
-  'fire weather watch',
-]);
 
 const NWS_HEADERS = {
   'User-Agent': 'Sentinel Wildfire Platform (contact@sentinel.app)',
@@ -160,17 +155,10 @@ export async function enrichAlertsWithGeometry(alerts) {
 }
 
 /**
- * Fetch active NOAA/NWS alerts nationwide, following NWS API pagination, then
- * retain only Red Flag Warnings and Fire Weather Watches for wildfire tracking.
+ * Fetch all active NOAA/NWS alerts nationwide, following NWS API pagination.
  * Results are cached for 5 minutes.
  * @returns {Promise<Array>}  Normalized alert objects
  */
-export function filterFireWeatherAlerts(alerts) {
-  return alerts.filter(alert =>
-    FIRE_WEATHER_ALERT_TYPES.has(alert.type?.trim().toLowerCase())
-  );
-}
-
 export async function fetchNWSAlerts() {
   const cacheKey = 'noaa:fire-weather-alerts';
   const cached = getCached(cacheKey);
@@ -192,7 +180,7 @@ export async function fetchNWSAlerts() {
     }
 
     if (!allFeatures.length) throw new Error('No active alerts');
-    const normalized = filterFireWeatherAlerts(normalizeAlerts(allFeatures));
+    const normalized = normalizeAlerts(allFeatures);
     setCached(cacheKey, normalized, 5 * 60 * 1000);
     return normalized;
   } catch (err) {

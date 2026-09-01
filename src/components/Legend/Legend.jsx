@@ -138,6 +138,7 @@ const Legend = memo(function Legend({
   fireWxOutlookType = 'winds_low_humidity',
   radarScanActive = false,
   radarScanProduct = null,
+  radarMode = 'composite',
 }) {
   const { layers, legendOpen, toggleLegend } = useApp();
   const [collapsed, setCollapsed] = useState(true);
@@ -264,7 +265,7 @@ const Legend = memo(function Legend({
               </Section>
             )}
 
-            {layers.nexradSites && (
+            {layers.radar && radarMode === 'site' && (
               <Section title="NEXRAD Sites">
                 <ColorRow color={NEXRAD_STATUS.operate.color} label={NEXRAD_STATUS.operate.label} />
                 <ColorRow color={NEXRAD_STATUS.alarm.color} label={NEXRAD_STATUS.alarm.label} />
