@@ -26,6 +26,7 @@ const RadarLayer = memo(function RadarLayer({ visible }) {
       type="raster"
       tiles={[IEM_NEXRAD_WMS]}
       tileSize={256}
+      maxzoom={10}
       attribution="NEXRAD Level 2 via Iowa Environmental Mesonet"
     >
       <Layer

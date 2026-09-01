@@ -12,6 +12,7 @@ import 'mapbox-gl/dist/mapbox-gl.css';
 import MapZoomControl from './MapZoomControl';
 
 import { useApp } from '../../context/AppContext';
+import { useViewport } from '../../context/ViewportContext';
 import { usePreferences } from '../../context/PreferencesContext';
 import { formatAcres, formatContainment, formatFRP } from '../../utils/formatUtils';
 import MapFeaturePopup from './MapFeaturePopup';
@@ -1290,7 +1291,8 @@ export default function MapView({
   wpcQpfGeoJSON,
   wpcFrontsGeoJSON,
 }) {
-  const { layers, alerts, selectedFire, selectFire, selectGauge, selectRadarSite, selectCamera, viewport, setViewport, sidebarOpen, locationGranted, userLocation, setUserLocation, layerPanelOpen, closeLayerPanel } = useApp();
+  const { layers, alerts, selectedFire, selectFire, selectGauge, selectRadarSite, selectCamera, sidebarOpen, locationGranted, userLocation, setUserLocation, layerPanelOpen, closeLayerPanel } = useApp();
+  const { viewport, setViewport } = useViewport();
   const { prefs: displayPrefs } = usePreferences();
   const mapRef = useRef(null);
 

@@ -22,8 +22,8 @@
  * an official feed, matching the polygon drawn on EvacZoneDrawer.
  */
 
-import { useEffect, useRef } from 'react';
-import { Source, Layer, useMap } from 'react-map-gl';
+import { memo } from 'react';
+import { Source, Layer } from 'react-map-gl';
 import {
   EVAC_ZONE_FILL_COLORS,
   EVAC_ZONE_FILL_OPACITY,
@@ -64,27 +64,9 @@ const LINE_WIDTH_MATCH = [
   /* default */         1.5,
 ];
 
-export default function EvacuationZonesLayer({ geoJSON, visible }) {
+function EvacuationZonesLayer({ geoJSON, visible }) {
   const vis = visible ? 'visible' : 'none';
   const data = geoJSON || EMPTY_GEOJSON;
-  const { current: map } = useMap();
-  const prevCountRef = useRef(0);
-
-  // Force source data update when geoJSON changes
-  useEffect(() => {
-    if (!map) return;
-
-    prevCountRef.current = data?.features?.length ?? 0;
-
-    try {
-      const source = map.getSource('evac-zones');
-      if (source && source.type === 'geojson') {
-        source.setData(data);
-      }
-    } catch {
-      // source not yet added
-    }
-  }, [data, map]);
 
   return (
     <>
@@ -181,3 +163,5 @@ export default function EvacuationZonesLayer({ geoJSON, visible }) {
     </>
   );
 }
+
+export default memo(EvacuationZonesLayer);

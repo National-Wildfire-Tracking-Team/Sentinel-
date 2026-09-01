@@ -7,6 +7,7 @@
 import { memo, useCallback, useEffect, useState } from 'react';
 import { Menu, LocateFixed, User } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
+import { useViewport } from '../../context/ViewportContext';
 import { useAuth } from '../../../shared/context/AuthContext';
 
 const GEOLOCATION_ERROR_MESSAGES = {
@@ -40,8 +41,8 @@ const MapCornerButtons = memo(function MapCornerButtons() {
     accountPanelOpen, toggleAccountPanel,
     layerPanelOpen,
     locationGranted, grantLocation, setUserLocation,
-    setViewport,
   } = useApp();
+  const { setViewport } = useViewport();
   const { isAuthenticated, user } = useAuth();
 
   const userInitial = user?.email ? user.email[0].toUpperCase() : '?';
