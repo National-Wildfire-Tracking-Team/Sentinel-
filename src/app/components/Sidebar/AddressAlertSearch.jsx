@@ -7,7 +7,7 @@
 import { useState, useRef } from 'react';
 import { Search, MapPin, Loader2, X, AlertTriangle, ShieldAlert, Info } from 'lucide-react';
 import { fetchAlertsByPoint } from '../../api/noaaWeather';
-import { useApp } from '../../context/AppContext';
+import { useViewport } from '../../context/ViewportContext';
 import { supabase, isSupabaseConfigured } from '../../../shared/api/supabaseClient';
 import { acquireSlot } from '../../utils/mapboxRateLimiter';
 
@@ -108,7 +108,7 @@ function AlertCard({ alert }) {
 }
 
 export default function AddressAlertSearch() {
-  const { setViewport } = useApp();
+  const { setViewport } = useViewport();
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);

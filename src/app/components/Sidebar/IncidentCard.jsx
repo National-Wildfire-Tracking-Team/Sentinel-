@@ -4,12 +4,15 @@
  */
 
 import { Flame, MapPin, Users, Home, ChevronRight } from 'lucide-react';
+import { memo } from 'react';
 import { useApp } from '../../context/AppContext';
+import { useViewport } from '../../context/ViewportContext';
 import { formatAcres, formatContainment, formatRelativeTime, formatPersonnel } from '../../utils/formatUtils';
 import { containmentToColor } from '../../utils/colorUtils';
 
-export default function IncidentCard({ incident, isSelected }) {
-  const { selectFire, flyToFire } = useApp();
+function IncidentCard({ incident, isSelected }) {
+  const { selectFire } = useApp();
+  const { flyToFire } = useViewport();
 
   const handleClick = () => {
     selectFire({ type: 'incident', ...incident });
@@ -94,3 +97,5 @@ export default function IncidentCard({ incident, isSelected }) {
     </button>
   );
 }
+
+export default memo(IncidentCard);

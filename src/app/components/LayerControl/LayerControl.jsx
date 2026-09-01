@@ -10,6 +10,7 @@ import {
   Layers, Flame, MapPin, Wind, CloudRain, CloudLightning, Eye, ChevronDown, ChevronRight, Radar, AlertTriangle, Ruler, Hexagon, Satellite, Map as MapIcon, Thermometer, Activity, Droplets, Zap, Lock, GraduationCap, History, TrendingUp, Crosshair, Camera, Mountain, Snowflake,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
+import { useViewport } from '../../context/ViewportContext';
 
 /** Layer row definitions — grouped under tab-specific sections below */
 const LAYER_DEFS = {
@@ -426,7 +427,8 @@ const LayerControl = memo(function LayerControl({
   precipRingActive = false,
   onPrecipRingToggle,
 }) {
-  const { layerPanelOpen, toggleLayerPanel, toggleLayer, viewport, setViewport } = useApp();
+  const { layerPanelOpen, toggleLayerPanel, toggleLayer } = useApp();
+  const { viewport, setViewport } = useViewport();
   const [collapsed, setCollapsed] = useState({});
 
   const infraLayers = useMemo(() => [
