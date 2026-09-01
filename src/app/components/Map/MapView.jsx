@@ -12,7 +12,10 @@ import 'mapbox-gl/dist/mapbox-gl.css';
 import MapZoomControl from './MapZoomControl';
 
 import { useApp } from '../../context/AppContext';
+import { usePreferences } from '../../context/PreferencesContext';
 import { formatAcres, formatContainment, formatFRP } from '../../utils/formatUtils';
+import MapFeaturePopup from './MapFeaturePopup';
+import SpotlightMaskLayer from './layers/SpotlightMaskLayer';
 import { frpToLabel } from '../../utils/colorUtils';
 import * as hrrRateLimiter from '../../utils/hrrRateLimiter';
 import { FLOOD_CATEGORY_META, floodCategoryLabel } from '../../api/noaaWaterGauge';
@@ -63,6 +66,281 @@ const HAS_MAPBOX_TOKEN = Boolean(MAPBOX_TOKEN.trim());
 
 // Quick helper if you don't already have one exported from utils
 const num = (val) => Number(val);
+
+/**
+ * Turns one clicked Mapbox feature into the "fire" record shape selectFire
+ * expects, keyed off the layer it came from. Pulled out of handleClick so a
+ * click can build a record for every feature at the point (not just the
+ * topmost one) when more than one stacks up, e.g. an evac zone over a fire
+ * perimeter. Returns null for layers with their own selection slot (water
+ * gauges, radar sites, cameras) or that aren't selectable (SPC MD, which
+ * opens a link instead) — those stay handled directly in handleClick.
+ */
+function buildFeatureRecord(feature, lngLat, alerts) {
+  const p = feature.properties;
+
+  switch (feature.layer.id) {
+    case 'cmra-transmission-lines':
+      return {
+        type: 'transmission-line',
+        id: p.OBJECTID ?? p.ID ?? `${lngLat.lng},${lngLat.lat}`,
+        name: p.ID || 'Transmission line',
+        lat: lngLat.lat,
+        lng: lngLat.lng,
+        lineId: p.ID,
+        voltage: p.VOLTAGE,
+        voltClass: p.VOLT_CLASS,
+        lineType: p.TYPE,
+        status: p.STATUS,
+        owner: p.OWNER,
+        naicsDesc: p.NAICS_DESC,
+        source: p.SOURCE,
+      };
+
+    case 'eia-gas-pipelines':
+      return {
+        type: 'gas-pipeline',
+        id: p.FID ?? p.OBJECTID ?? `${lngLat.lng},${lngLat.lat}`,
+        name: p.Operator || 'Natural gas pipeline',
+        lat: lngLat.lat,
+        lng: lngLat.lng,
+        pipeType: p.TYPEPIPE,
+        operator: p.Operator,
+        status: p.Status,
+        shapeLeng: p.Shape_Leng,
+        shapeLength: p.Shape__Length,
+      };
+
+    case 'national-map-colleges-circle':
+      return {
+        type: 'national-map-college',
+        id: p.OBJECTID ?? p.FID ?? `${lngLat.lng},${lngLat.lat}`,
+        name: p.NAME || p.name || 'School / university',
+        lat: lngLat.lat,
+        lng: lngLat.lng,
+        ftype: p.FTYPE,
+        properties: p,
+      };
+
+    case 'fire-hotspots-circle':
+      return {
+        type: 'hotspot',
+        id:   p.id,
+        lat:  num(p.latitude) || lngLat.lat,
+        lng:  num(p.longitude) || lngLat.lng,
+        frp:  num(p.frp),
+        total_frp:       num(p.total_frp) || num(p.frp),
+        brightness:      num(p.brightness),
+        confidence:      p.confidence,
+        satellite:       p.satellite,
+        source:          p.source,
+        acq_date:        p.acq_date,
+        acq_time:        p.acq_time,
+        detection_count: num(p.detection_count) || 1,
+      };
+
+    case 'fire-perimeters-fill':
+    case 'fire-perimeter-centroids-circle':
+      return {
+        type:        'perimeter',
+        id:          p.UniqueFireIdentifier,
+        name:        p.IncidentName,
+        lat:         lngLat.lat,
+        lng:         lngLat.lng,
+        acres:       num(p.GISAcres),
+        contained:   num(p.PercentContained),
+        state:       p.POOState,
+        county:      p.POOCounty,
+        personnel:   num(p.TotalIncidentPersonnel),
+        destroyed:   num(p.StructuresDestroyed),
+        damaged:     num(p.StructuresDamaged),
+        discovered:  p.FireDiscoveryDateTime,
+        updated:     p.ModifiedOnDateTime,
+        orgType:     p.IncidentManagementOrganization,
+        cause:       p.FireCause || null,
+        source:      p.Source || null,
+      };
+
+    case 'fire-incidents-circle':
+      return {
+        type:       'incident',
+        id:         p.UniqueFireIdentifier,
+        name:       p.IncidentName,
+        lat:        lngLat.lat,
+        lng:        lngLat.lng,
+        acres:      p.GISAcres,
+        contained:  p.PercentContained,
+        state:      p.POOState,
+        county:     p.POOCounty,
+        personnel:  p.TotalIncidentPersonnel,
+        cause:      p.FireCause,
+        started:    p.FireDiscoveryDateTime
+                      ? new Date(p.FireDiscoveryDateTime).toISOString()
+                      : null,
+        updated:    p.ModifiedOnDateTime
+                      ? new Date(p.ModifiedOnDateTime).toISOString()
+                      : null,
+      };
+
+    case 'incident-locations-circle': {
+      let updates = [];
+      let evacuationLines = [];
+      try {
+        updates = p.updates_json ? JSON.parse(p.updates_json) : [];
+      } catch {
+        updates = [];
+      }
+      try {
+        evacuationLines = p.evacuation_order_lines_json ? JSON.parse(p.evacuation_order_lines_json) : [];
+      } catch {
+        evacuationLines = [];
+      }
+      return {
+        type:      'incident',
+        id:        p.id,
+        name:      p.name,
+        lat:       lngLat.lat,
+        lng:       lngLat.lng,
+        acres:     num(p.acres),
+        contained: num(p.contained),
+        state:     p.state,
+        county:    p.county,
+        personnel: num(p.personnel),
+        status:    p.status,
+        cause:     p.cause || 'Under Investigation',
+        source:    p.source,
+        started:   p.started,
+        updated:   p.updated,
+        url:       p.url,
+        created_by: p.created_by,
+        createdAt: p.createdAt,
+        location_description: p.location_description,
+        evacuation_title: p.evacuation_title,
+        evacuation_summary: p.evacuation_summary,
+        evacuation_orders: num(p.evacuation_orders) || 0,
+        evacuation_warnings: num(p.evacuation_warnings) || 0,
+        evacuation_order_lines: evacuationLines,
+        updates,
+      };
+    }
+
+    case 'user-reports-circle':
+      return {
+        type:        'user-report',
+        id:          p.id,
+        name:        p.title,
+        title:       p.title,
+        description: p.description,
+        lat:         lngLat.lat,
+        lng:         lngLat.lng,
+        created_at:  p.created_at,
+        user_id:     p.user_id,
+      };
+
+    case 'hazard-events-circle':
+      return {
+        type:        'hazard-event',
+        id:          p.id,
+        name:        p.title,
+        title:       p.title,
+        category:    p.category,
+        description: p.description,
+        severity:    p.severity,
+        status:      p.status,
+        lat:         lngLat.lat,
+        lng:         lngLat.lng,
+        created_at:  p.created_at,
+        user_id:     p.user_id,
+      };
+
+    case 'evac-zones-fill':
+      if (p.source === 'reporter') {
+        return {
+          type:          'reporter-evacuation-zone',
+          id:            p.id || null,
+          name:          p.title || 'Reporter Evacuation Zone',
+          title:         p.title,
+          zone_type:     p.zone_type,
+          incident_name: p.incident_name,
+          description:   p.description,
+          county:        p.county,
+          state:         p.state,
+          effective_at:  p.effective_at,
+          expires_at:    p.expires_at,
+          source:        'reporter',
+          lat:           lngLat.lat,
+          lng:           lngLat.lng,
+          geometry:      feature.geometry,
+        };
+      } else {
+        const isIpaws = p.source === 'ipaws';
+        return {
+          type:           'evacuation-zone',
+          id:             p.id || null,
+          name:           p.zoneName || 'Evacuation Zone',
+          warningType:    p.warningType,
+          zoneName:       p.zoneName,
+          county:         p.county,
+          agency:         p.agency         || null,
+          jurisdiction:   p.jurisdiction   || null,
+          instructions:   p.instructions   || null,
+          comments:       p.comments       || null,
+          externalURL:    p.externalURL,
+          effectiveDate:  p.effectiveDate,
+          expirationDate: p.expirationDate,
+          source:         p.source         || null,
+          lat:            lngLat.lat,
+          lng:            lngLat.lng,
+          geometry:       feature.geometry,
+          ...(isIpaws && {
+            ipawsIdentifier: p.ipawsIdentifier,
+            ipawsHeadline: p.ipawsHeadline,
+            ipawsDescription: p.ipawsDescription,
+            ipawsEvent: p.ipawsEvent,
+            ipawsSent: p.ipawsSent,
+            ipawsExpires: p.ipawsExpires,
+            ipawsSenderName: p.ipawsSenderName,
+            ipawsInstruction: p.ipawsInstruction,
+            ipawsAreaDesc: p.ipawsAreaDesc,
+          }),
+        };
+      }
+
+    case 'aqi-stations-circle':
+      return {
+        type:    'aqi',
+        id:      p.id,
+        name:    p.reportingArea,
+        lat:     lngLat.lat,
+        lng:     lngLat.lng,
+        aqi:     num(p.aqi),
+        category: p.category,
+        pm25:    num(p.pm25),
+      };
+
+    case 'weather-alerts-fill': {
+      // Look up the full alert object from context so we get description, instruction, etc.
+      // We spread full alert but override `type` with the routing key 'weather-alert',
+      // preserving the NOAA event name as `eventType` (e.g. "Flood Advisory").
+      const full = alerts?.find(a => a.id === p.id);
+      if (full) {
+        return { ...full, type: 'weather-alert', eventType: full.type };
+      }
+      return {
+        type:      'weather-alert',
+        eventType: p.type,
+        id:        p.id,
+        headline:  p.headline,
+        severity:  p.severity,
+        expires:   p.expires,
+        geometry:  feature.geometry,
+      };
+    }
+
+    default:
+      return null;
+  }
+}
 
 /** NDGD GeoJSON uses epoch ms in `todate` / `Todate` for the valid forecast hour */
 function ndgdFeatureToDateMs(feature) {
@@ -1011,8 +1289,30 @@ export default function MapView({
   wpcQpfGeoJSON,
   wpcFrontsGeoJSON,
 }) {
-  const { layers, alerts, selectFire, selectGauge, selectRadarSite, selectCamera, viewport, setViewport, sidebarOpen, locationGranted, userLocation, setUserLocation } = useApp();
+  const { layers, alerts, selectedFire, selectFire, selectGauge, selectRadarSite, selectCamera, viewport, setViewport, sidebarOpen, locationGranted, userLocation, setUserLocation } = useApp();
+  const { prefs: displayPrefs } = usePreferences();
   const mapRef = useRef(null);
+
+  // Popup shown when a click hits multiple stacked features at once
+  const [featurePopup, setFeaturePopup] = useState(null);
+
+  // Close the multi-feature popup whenever a selection is made through any
+  // other path (sidebar feed, alert banner) so it never lingers behind a
+  // now-stale FireDetailPanel.
+  useEffect(() => {
+    if (selectedFire) setFeaturePopup(null);
+  }, [selectedFire]);
+
+  // Popup Spotlight for the currently selected weather alert or evacuation
+  // zone — works no matter how it was selected (map click, sidebar feed, or
+  // the Red Flag Warning banner), since all three carry the feature's
+  // GeoJSON geometry on the selectedFire record.
+  const spotlightGeometry = useMemo(() => {
+    if (!displayPrefs.popupSpotlight || !selectedFire) return null;
+    const spotlightTypes = ['weather-alert', 'evacuation-zone', 'reporter-evacuation-zone'];
+    if (!spotlightTypes.includes(selectedFire.type)) return null;
+    return selectedFire.geometry || null;
+  }, [displayPrefs.popupSpotlight, selectedFire]);
 
   // Resize the Mapbox canvas after the sidebar transition completes (300ms)
   useEffect(() => {
@@ -1223,6 +1523,7 @@ export default function MapView({
   useEffect(() => {
     setHoverFeature(null);
     setHoverLngLat(null);
+    setFeaturePopup(null);
   }, [layers]);
 
   // Handle map click – add measurement point OR select fire for detail panel
@@ -1237,6 +1538,7 @@ export default function MapView({
     if (!features?.length) {
       selectFire(null);
       selectGauge(null);
+      setFeaturePopup(null);
       return;
     }
 
@@ -1245,275 +1547,65 @@ export default function MapView({
 
     if (feature.layer.id.startsWith('water-gauges-circle')) {
       selectGauge(feature.properties);
+      setFeaturePopup(null);
       return;
     }
 
     if (feature.layer.id === 'nexrad-sites-circle') {
       const [lng, lat] = feature.geometry?.coordinates ?? [evt.lngLat.lng, evt.lngLat.lat];
       selectRadarSite({ ...feature.properties, lat, lng });
+      setFeaturePopup(null);
       return;
     }
 
     if (feature.layer.id === 'ca-cameras-circle') {
       const [lng, lat] = feature.geometry?.coordinates ?? [evt.lngLat.lng, evt.lngLat.lat];
       selectCamera({ ...feature.properties, lat, lng });
+      setFeaturePopup(null);
       return;
     }
 
-    if (feature.layer.id === 'cmra-transmission-lines') {
-      selectFire({
-        type: 'transmission-line',
-        id: p.OBJECTID ?? p.ID ?? `${evt.lngLat.lng},${evt.lngLat.lat}`,
-        name: p.ID || 'Transmission line',
-        lat: evt.lngLat.lat,
-        lng: evt.lngLat.lng,
-        lineId: p.ID,
-        voltage: p.VOLTAGE,
-        voltClass: p.VOLT_CLASS,
-        lineType: p.TYPE,
-        status: p.STATUS,
-        owner: p.OWNER,
-        naicsDesc: p.NAICS_DESC,
-        source: p.SOURCE,
-      });
-      return;
-    }
-
-    if (feature.layer.id === 'eia-gas-pipelines') {
-      selectFire({
-        type: 'gas-pipeline',
-        id: p.FID ?? p.OBJECTID ?? `${evt.lngLat.lng},${evt.lngLat.lat}`,
-        name: p.Operator || 'Natural gas pipeline',
-        lat: evt.lngLat.lat,
-        lng: evt.lngLat.lng,
-        pipeType: p.TYPEPIPE,
-        operator: p.Operator,
-        status: p.Status,
-        shapeLeng: p.Shape_Leng,
-        shapeLength: p.Shape__Length,
-      });
-      return;
-    }
-
-    if (feature.layer.id === 'national-map-colleges-circle') {
-      selectFire({
-        type: 'national-map-college',
-        id: p.OBJECTID ?? p.FID ?? `${evt.lngLat.lng},${evt.lngLat.lat}`,
-        name: p.NAME || p.name || 'School / university',
-        lat: evt.lngLat.lat,
-        lng: evt.lngLat.lng,
-        ftype: p.FTYPE,
-        properties: p,
-      });
-      return;
-    }
-
-    if (feature.layer.id === 'fire-hotspots-circle') {
-      selectFire({
-        type: 'hotspot',
-        id:   p.id,
-        lat:  num(p.latitude) || evt.lngLat.lat,
-        lng:  num(p.longitude) || evt.lngLat.lng,
-        frp:  num(p.frp),
-        total_frp:       num(p.total_frp) || num(p.frp),
-        brightness:      num(p.brightness),
-        confidence:      p.confidence,
-        satellite:       p.satellite,
-        source:          p.source,
-        acq_date:        p.acq_date,
-        acq_time:        p.acq_time,
-        detection_count: num(p.detection_count) || 1,
-      });
-    } else if (feature.layer.id === 'fire-perimeters-fill' || feature.layer.id === 'fire-perimeter-centroids-circle') {
-      selectFire({
-        type:        'perimeter',
-        id:          p.UniqueFireIdentifier,
-        name:        p.IncidentName,
-        lat:         evt.lngLat.lat,
-        lng:         evt.lngLat.lng,
-        acres:       num(p.GISAcres),
-        contained:   num(p.PercentContained),
-        state:       p.POOState,
-        county:      p.POOCounty,
-        personnel:   num(p.TotalIncidentPersonnel),
-        destroyed:   num(p.StructuresDestroyed),
-        damaged:     num(p.StructuresDamaged),
-        discovered:  p.FireDiscoveryDateTime,
-        updated:     p.ModifiedOnDateTime,
-        orgType:     p.IncidentManagementOrganization,
-        cause:       p.FireCause || null,
-        source:      p.Source || null,
-      });
-    } else if (feature.layer.id === 'fire-incidents-circle') {
-      selectFire({
-        type:       'incident',
-        id:         p.UniqueFireIdentifier,
-        name:       p.IncidentName,
-        lat:        evt.lngLat.lat,
-        lng:        evt.lngLat.lng,
-        acres:      p.GISAcres,
-        contained:  p.PercentContained,
-        state:      p.POOState,
-        county:     p.POOCounty,
-        personnel:  p.TotalIncidentPersonnel,
-        cause:      p.FireCause,
-        started:    p.FireDiscoveryDateTime
-                      ? new Date(p.FireDiscoveryDateTime).toISOString()
-                      : null,
-        updated:    p.ModifiedOnDateTime
-                      ? new Date(p.ModifiedOnDateTime).toISOString()
-                      : null,
-      });
-    } else if (feature.layer.id === 'incident-locations-circle') {
-      let updates = [];
-      let evacuationLines = [];
-      try {
-        updates = p.updates_json ? JSON.parse(p.updates_json) : [];
-      } catch {
-        updates = [];
-      }
-      try {
-        evacuationLines = p.evacuation_order_lines_json ? JSON.parse(p.evacuation_order_lines_json) : [];
-      } catch {
-        evacuationLines = [];
-      }
-      selectFire({
-        type:      'incident',
-        id:        p.id,
-        name:      p.name,
-        lat:       evt.lngLat.lat,
-        lng:       evt.lngLat.lng,
-        acres:     num(p.acres),
-        contained: num(p.contained),
-        state:     p.state,
-        county:    p.county,
-        personnel: num(p.personnel),
-        status:    p.status,
-        cause:     p.cause || 'Under Investigation',
-        source:    p.source,
-        started:   p.started,
-        updated:   p.updated,
-        url:       p.url,
-        created_by: p.created_by,
-        createdAt: p.createdAt,
-        location_description: p.location_description,
-        evacuation_title: p.evacuation_title,
-        evacuation_summary: p.evacuation_summary,
-        evacuation_orders: num(p.evacuation_orders) || 0,
-        evacuation_warnings: num(p.evacuation_warnings) || 0,
-        evacuation_order_lines: evacuationLines,
-        updates,
-      });
-    } else if (feature.layer.id === 'user-reports-circle') {
-      selectFire({
-        type:        'user-report',
-        id:          p.id,
-        name:        p.title,
-        title:       p.title,
-        description: p.description,
-        lat:         evt.lngLat.lat,
-        lng:         evt.lngLat.lng,
-        created_at:  p.created_at,
-        user_id:     p.user_id,
-      });
-    } else if (feature.layer.id === 'hazard-events-circle') {
-      selectFire({
-        type:        'hazard-event',
-        id:          p.id,
-        name:        p.title,
-        title:       p.title,
-        category:    p.category,
-        description: p.description,
-        severity:    p.severity,
-        status:      p.status,
-        lat:         evt.lngLat.lat,
-        lng:         evt.lngLat.lng,
-        created_at:  p.created_at,
-        user_id:     p.user_id,
-      });
-    } else if (feature.layer.id === 'evac-zones-fill' && p.source === 'reporter') {
-      selectFire({
-        type:          'reporter-evacuation-zone',
-        id:            p.id || null,
-        name:          p.title || 'Reporter Evacuation Zone',
-        title:         p.title,
-        zone_type:     p.zone_type,
-        incident_name: p.incident_name,
-        description:   p.description,
-        county:        p.county,
-        state:         p.state,
-        effective_at:  p.effective_at,
-        expires_at:    p.expires_at,
-        source:        'reporter',
-        lat:           evt.lngLat.lat,
-        lng:           evt.lngLat.lng,
-      });
-    } else if (feature.layer.id === 'evac-zones-fill') {
-      const isIpaws = p.source === 'ipaws';
-      selectFire({
-        type:           'evacuation-zone',
-        id:             p.id || null,
-        name:           p.zoneName || 'Evacuation Zone',
-        warningType:    p.warningType,
-        zoneName:       p.zoneName,
-        county:         p.county,
-        agency:         p.agency         || null,
-        jurisdiction:   p.jurisdiction   || null,
-        instructions:   p.instructions   || null,
-        comments:       p.comments       || null,
-        externalURL:    p.externalURL,
-        effectiveDate:  p.effectiveDate,
-        expirationDate: p.expirationDate,
-        source:         p.source         || null,
-        lat:            evt.lngLat.lat,
-        lng:            evt.lngLat.lng,
-        ...(isIpaws && {
-          ipawsIdentifier: p.ipawsIdentifier,
-          ipawsHeadline: p.ipawsHeadline,
-          ipawsDescription: p.ipawsDescription,
-          ipawsEvent: p.ipawsEvent,
-          ipawsSent: p.ipawsSent,
-          ipawsExpires: p.ipawsExpires,
-          ipawsSenderName: p.ipawsSenderName,
-          ipawsInstruction: p.ipawsInstruction,
-          ipawsAreaDesc: p.ipawsAreaDesc,
-        }),
-      });
-    } else if (feature.layer.id === 'aqi-stations-circle') {
-      selectFire({
-        type:    'aqi',
-        id:      p.id,
-        name:    p.reportingArea,
-        lat:     evt.lngLat.lat,
-        lng:     evt.lngLat.lng,
-        aqi:     num(p.aqi),
-        category: p.category,
-        pm25:    num(p.pm25),
-      });
-    } else if (feature.layer.id === 'weather-alerts-fill') {
-      // Look up the full alert object from context so we get description, instruction, etc.
-      // We spread full alert but override `type` with the routing key 'weather-alert',
-      // preserving the NOAA event name as `eventType` (e.g. "Flood Advisory").
-      const full = alerts?.find(a => a.id === p.id);
-      if (full) {
-        selectFire({ ...full, type: 'weather-alert', eventType: full.type });
-      } else {
-        selectFire({
-          type:      'weather-alert',
-          eventType: p.type,
-          id:        p.id,
-          headline:  p.headline,
-          severity:  p.severity,
-          expires:   p.expires,
-        });
-      }
-    } else if (feature.layer.id === 'spc-md-fill') {
+    if (feature.layer.id === 'spc-md-fill') {
       // Open the SPC MD page in a new tab when the user clicks a polygon
       if (p.url) {
         window.open(p.url, '_blank', 'noopener,noreferrer');
       }
+      return;
     }
-  }, [measureActive, alerts, selectFire, selectGauge]);
+
+    // Build a record for every clicked feature (not just the topmost one) so
+    // that features stacked at the same point — e.g. an evac zone over a
+    // fire perimeter — all surface, deduped by layer + id.
+    const seen = new Set();
+    const records = [];
+    for (const f of features) {
+      const record = buildFeatureRecord(f, evt.lngLat, alerts);
+      if (!record) continue;
+      const key = `${f.layer.id}:${record.id}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      records.push({ record, feature: f });
+    }
+
+    if (records.length === 0) {
+      selectFire(null);
+      setFeaturePopup(null);
+      return;
+    }
+
+    if (records.length === 1) {
+      setFeaturePopup(null);
+      selectFire(records[0].record);
+      return;
+    }
+
+    selectFire(null);
+    setFeaturePopup({
+      items: records.map((r) => r.record),
+      mouseLngLat: evt.lngLat,
+      anchorFeature: records[0].feature,
+    });
+  }, [measureActive, alerts, selectFire, selectGauge, selectRadarSite, selectCamera]);
 
   // Handle mouse move – update hover tooltip OR measurement preview
   const handleMouseMove = useCallback((evt) => {
@@ -1933,6 +2025,29 @@ export default function MapView({
 
         {/* Hover tooltip */}
         <HoverTooltip feature={hoverFeature} lngLat={hoverLngLat} />
+
+        {/* Popup Spotlight for the selected weather alert / evac zone, however it was selected */}
+        {spotlightGeometry && (
+          <SpotlightMaskLayer
+            id="selected-feature-spotlight-mask"
+            geometry={spotlightGeometry}
+            opacity={displayPrefs.spotlightOpacity / 100}
+          />
+        )}
+
+        {/* Multi-feature popup — shown when a click hits more than one stacked feature */}
+        {featurePopup && (
+          <MapFeaturePopup
+            items={featurePopup.items}
+            mouseLngLat={featurePopup.mouseLngLat}
+            anchorFeature={featurePopup.anchorFeature}
+            prefs={displayPrefs}
+            nexradSitesGeoJSON={nexradSitesGeoJSON}
+            onSelect={(item) => { setFeaturePopup(null); selectFire(item); }}
+            onSelectRadarSite={selectRadarSite}
+            onClose={() => setFeaturePopup(null)}
+          />
+        )}
       </Map>
 
       <MapZoomControl mapRef={mapRef} />
