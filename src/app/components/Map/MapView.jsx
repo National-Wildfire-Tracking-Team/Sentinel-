@@ -1290,7 +1290,8 @@ export default function MapView({
   wpcQpfGeoJSON,
   wpcFrontsGeoJSON,
 }) {
-  const { layers, alerts, selectFire, selectGauge, selectRadarSite, selectCamera, viewport, setViewport, sidebarOpen, locationGranted, userLocation, setUserLocation, layerPanelOpen, closeLayerPanel } = useApp();
+  const { layers, alerts, selectedFire, selectFire, selectGauge, selectRadarSite, selectCamera, viewport, setViewport, sidebarOpen, locationGranted, userLocation, setUserLocation, layerPanelOpen, closeLayerPanel } = useApp();
+  const { prefs: displayPrefs } = usePreferences();
   const mapRef = useRef(null);
 
   // Popup shown when a click hits multiple stacked features at once
