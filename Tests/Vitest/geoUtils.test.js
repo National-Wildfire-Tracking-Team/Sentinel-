@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { ringCentroid, polygonCentroid } from '../../src/utils/geoUtils';
+import { ringCentroid, polygonCentroid } from '../../src/app/utils/geoUtils';
 
 describe('ringCentroid', () => {
   it('returns null for ring with < 3 points', () => {

@@ -26,10 +26,6 @@
 
 # Edge functions
 [[edge_functions]]
-  function = "nhc-proxy"
-  path = "/api/nhc/*"
-
-[[edge_functions]]
   function = "firms-proxy"
   path = "/api/firms/*"
 
@@ -54,14 +50,22 @@
   path = "/api/river-gauges"
 
 [[edge_functions]]
+  function = "river-gauges-forecast-proxy"
+  path = "/api/river-gauges-forecast"
+
+[[edge_functions]]
   function = "noaa-proxy"
   path = "/api/noaa/*"
 
-# ✅ HOME REDIRECT (MUST be above fallback)
+# Backward-compat for old bookmarks/links to the tracker's old path.
+# The tracker now lives at the root of app.nationalwildfiretrackingteam.org
+# instead of "/sentinel" on the main domain — routing between the marketing
+# site and the app is now handled by hostname in src/main.jsx, not by
+# a path redirect here.
 [[redirects]]
-  from = "/"
-  to = "/sentinel"
-  status = 302
+  from = "/sentinel"
+  to = "https://app.nationalwildfiretrackingteam.org/"
+  status = 301
   force = true
 
 # SPA fallback – must be last

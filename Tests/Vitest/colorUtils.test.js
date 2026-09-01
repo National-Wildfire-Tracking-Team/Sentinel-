@@ -10,7 +10,7 @@ import {
   PERIMETER_COLORS,
   containmentToColor,
   alertTypeToColor,
-} from '../../src/utils/colorUtils';
+} from '../../src/app/utils/colorUtils';
 
 describe('frpToColor', () => {
   it('returns Extreme color for FRP >= 500', () => {

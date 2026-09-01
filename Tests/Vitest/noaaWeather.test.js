@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { alertsToGeoJSON, filterFireWeatherAlerts } from '../../src/api/noaaWeather';
+import { alertsToGeoJSON, filterFireWeatherAlerts } from '../../src/app/api/noaaWeather';
 
 describe('filterFireWeatherAlerts', () => {
   it('keeps only Red Flag Warnings and Fire Weather Watches', () => {

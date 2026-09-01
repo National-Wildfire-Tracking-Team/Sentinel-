@@ -5,7 +5,7 @@ import {
   latLngToWebMercator,
   parseRadarMetadata,
   radarColorToDbz,
-} from '../../src/services/radarProbe';
+} from '../../src/app/services/radarProbe';
 
 describe('radarProbe', () => {
   it.each([

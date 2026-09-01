@@ -45,7 +45,7 @@ jobs:
       # redirects/headers and the netlify/edge-functions/ directory actually get
       # processed — a plain publish-dir upload skips both, which is why prior
       # deploys done this way logged "No redirect rules processed" and "No edge
-      # functions deployed" and never correctly served the app at /sentinel.
+      # functions deployed" and never correctly served the tracker app.
       - run: npx --yes netlify-cli deploy --no-build --dir=dist --prod --site="$NETLIFY_SITE_ID" --auth="$NETLIFY_AUTH_TOKEN" --message="Deploy ${{ github.sha }}"
         env:
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}

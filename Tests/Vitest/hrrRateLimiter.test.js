@@ -5,7 +5,7 @@ describe('hrrRateLimiter', () => {
 
   beforeEach(async () => {
     vi.useFakeTimers();
-    const mod = await import('../../src/utils/hrrRateLimiter');
+    const mod = await import('../../src/app/utils/hrrRateLimiter');
     remaining = mod.remaining;
     msUntilSlotAvailable = mod.msUntilSlotAvailable;
     recordRequest = mod.recordRequest;

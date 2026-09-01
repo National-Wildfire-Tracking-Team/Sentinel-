@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { ipawsAlertsToEvacFeatures, classifyIpaWsSeverity } from '../../src/utils/ipawsEvacGeoJSON';
+import { ipawsAlertsToEvacFeatures, classifyIpaWsSeverity } from '../../src/app/utils/ipawsEvacGeoJSON';
 
 describe('classifyIpaWsSeverity', () => {
   it('classifies Evacuation Order from event type and headline', () => {

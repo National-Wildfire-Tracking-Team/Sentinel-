@@ -3,8 +3,8 @@ import {
   isInvestClassification,
   formatInvestId,
   filterByInvestStatus,
-} from '../../src/api/nhcStorms';
-import { matchInvestsToOutlookAreas } from '../../src/api/nhcInvests';
+} from '../../src/app/api/nhcStorms';
+import { matchInvestsToOutlookAreas } from '../../src/app/api/nhcInvests';
 
 describe('isInvestClassification', () => {
   it('treats DB, LO, and WV as pre-genesis Invests', () => {

@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { fetchCAEvacZones } from '../../src/api/caEvacZones';
-import { fetchWithCache } from '../../src/utils/dataCache';
+import { fetchCAEvacZones } from '../../src/app/api/caEvacZones';
+import { fetchWithCache } from '../../src/app/utils/dataCache';
 
-vi.mock('../../src/utils/dataCache');
+vi.mock('../../src/app/utils/dataCache');
 
 beforeEach(() => {
   vi.restoreAllMocks();
