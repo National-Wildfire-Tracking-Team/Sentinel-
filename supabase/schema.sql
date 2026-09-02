@@ -181,6 +181,11 @@ create table if not exists public.incident_updates (
   source_name   text not null,
   user_id       uuid references auth.users(id) on delete set null,
   photo_urls    text[] not null default '{}',
+  -- Stable key for automated updates that must only ever be posted once per
+  -- incident (e.g. the initial WildCAD "new fire reported" notice). NULL for
+  -- reporter posts and for automated updates that legitimately repeat over
+  -- time (containment/acreage/status changes).
+  dedup_key     text,
   created_at    timestamptz not null default now()
 );
 
@@ -189,6 +194,10 @@ create index if not exists incident_updates_incident_idx
 
 create index if not exists incident_updates_created_idx
   on public.incident_updates(created_at desc);
+
+create unique index if not exists incident_updates_dedup_key_idx
+  on public.incident_updates(dedup_key)
+  where dedup_key is not null;
 
 -- RLS for incident_updates
 alter table public.incident_updates enable row level security;

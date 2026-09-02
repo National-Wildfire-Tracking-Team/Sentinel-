@@ -38,22 +38,24 @@ export function useIncidents(minAcres = 0.1, enabled = true) {
           const old = prev[inc.id];
 
           if (!old) {
-            // New incident appeared since the last fetch.
+            // New incident appeared since the last fetch. Format the discovery
+            // time in a fixed zone (UTC) rather than the reporting browser's
+            // local zone — otherwise the same fire can render a different
+            // clock time/abbreviation (e.g. "9:22 PM (CDT)" vs "10:22 PM
+            // (EDT)") depending on which client happens to detect it.
             const discoveryDate = inc.started ? new Date(inc.started) : new Date();
             const timeStr = discoveryDate.toLocaleString('en-US', {
-              hour: 'numeric', minute: '2-digit', hour12: true,
+              hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'UTC',
             });
-            const weekday = discoveryDate.toLocaleString('en-US', { weekday: 'short' });
-            const monthDay = discoveryDate.toLocaleString('en-US', { month: 'short', day: 'numeric' });
+            const weekday = discoveryDate.toLocaleString('en-US', { weekday: 'short', timeZone: 'UTC' });
+            const monthDay = discoveryDate.toLocaleString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
             const ordinal = (d) => {
               const s = ['th', 'st', 'nd', 'rd'];
               const v = d % 100;
               return d + (s[(v - 20) % 10] || s[v] || s[0]);
             };
-            const day = discoveryDate.getDate();
-            const tzRaw = discoveryDate.toLocaleTimeString('en-US', { timeZoneName: 'short' });
-            const tzAbbr = tzRaw.split(' ').pop();
-            const content = `New fire reported by WildCAD at ${timeStr} ${weekday} ${monthDay.split(' ')[0]} ${ordinal(day)}${tzAbbr ? ` (${tzAbbr})` : ''}.`;
+            const day = discoveryDate.getUTCDate();
+            const content = `New fire reported by WildCAD at ${timeStr} ${weekday} ${monthDay.split(' ')[0]} ${ordinal(day)} (UTC).`;
             const newIncUpdate = {
               id:            `local-new-${Date.now()}-${inc.id}`,
               incident_id:   inc.id,
@@ -69,6 +71,7 @@ export function useIncidents(minAcres = 0.1, enabled = true) {
               incidentName: inc.name,
               content,
               sourceName:   'WildCAD',
+              dedupKey:     `${inc.id}:wildcad-new-fire`,
             }).catch(() => {});
             continue;
           }
