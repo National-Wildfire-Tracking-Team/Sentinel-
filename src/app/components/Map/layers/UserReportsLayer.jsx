@@ -1,8 +1,7 @@
 /**
  * UserReportsLayer.jsx
  * Renders community-submitted fire reports (Supabase) on the map.
- * Uses a distinct cyan/teal color so submitted reports are visually
- * separated from official NASA FIRMS / NIFC sources.
+ * Uses the same containment-based color scale as official incident dots.
  */
 
 import { memo } from 'react';
@@ -10,7 +9,22 @@ import { Source, Layer } from 'react-map-gl';
 
 const EMPTY_GEOJSON = { type: 'FeatureCollection', features: [] };
 
-const USER_REPORT_COLOR = '#ffaa00';//fire orange/red
+const USER_REPORT_COLOR = [
+  'case',
+  ['==', ['get', 'contained'], null],
+  '#9ca3af',
+  ['>=', ['get', 'contained'], 100],
+  '#6b7280',
+  [
+    'interpolate',
+    ['linear'],
+    ['get', 'contained'],
+    0, '#ef4444',
+    25, '#f97316',
+    50, '#eab308',
+    75, '#84cc16',
+  ],
+];
 
 const UserReportsLayer = memo(function UserReportsLayer({ geoJSON, visible }) {
   const vis = visible ? 'visible' : 'none';

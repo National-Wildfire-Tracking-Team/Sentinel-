@@ -15,6 +15,7 @@ import { useApp } from '../../context/AppContext';
 import {
   formatAcres, formatContainment, formatFRP, formatDateTime,
   formatDate, formatPersonnel, formatRelativeTime,
+  parseLatestAcreage, parseLatestContainment,
 } from '../../utils/formatUtils';
 import { frpToLabel, containmentToColor, aqiToColor, getAQICategory } from '../../utils/colorUtils';
 import { nwsAlertColor } from '../../utils/nwsColors';
@@ -610,41 +611,6 @@ function AlertDetail({ fire, alerts }) {
       )}
     </>
   );
-}
-
-/**
- * Parse the latest acreage value from a reporter description block.
- * Looks for lines like "Acreage: 129.7" or "SIZE: 2450 acres" written
- * by the reporter update system.
- */
-function parseLatestAcreage(description) {
-  if (!description) return null;
-  const lines = description.split('\n').reverse();
-  for (const line of lines) {
-    const m = line.match(/acreage[:\s]+([0-9,.]+)/i) || line.match(/size[:\s]+([0-9,.]+)\s*acres?/i);
-    if (m) {
-      const val = parseFloat(m[1].replace(/,/g, ''));
-      if (Number.isFinite(val)) return val;
-    }
-  }
-  return null;
-}
-
-/**
- * Parse the latest containment percentage from a reporter description.
- * Looks for lines like "Containment: 20%" or "20% contained".
- */
-function parseLatestContainment(description) {
-  if (!description) return null;
-  const lines = description.split('\n').reverse();
-  for (const line of lines) {
-    const m = line.match(/containment[:\s]+([0-9]+)\s*%/i) || line.match(/([0-9]+)\s*%\s*contained/i);
-    if (m) {
-      const val = parseInt(m[1], 10);
-      if (Number.isFinite(val)) return Math.min(100, Math.max(0, val));
-    }
-  }
-  return null;
 }
 
 /** Text after "INCIDENT NOTES:" in a community fire_reports description (initial submit). */

@@ -152,6 +152,55 @@ export function formatContainment(pct) {
   return `${pct}%`;
 }
 
+
+/**
+ * Parse the latest acreage value from a fire report description
+ * @param {string} description
+ * @returns {number|null}
+ */
+export function parseLatestAcreage(description) {
+  if (!description) return null;
+
+  const lines = description.split('\n').reverse();
+
+  for (const line of lines) {
+    const match =
+      line.match(/acreage[:\s]+([0-9,.]+)/i) ||
+      line.match(/size[:\s]+([0-9,.]+)\s*acres?/i);
+
+    if (match) {
+      const value = parseFloat(match[1].replace(/,/g, ''));
+      if (Number.isFinite(value)) return value;
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Parse the latest containment percentage from a fire report description
+ * @param {string} description
+ * @returns {number|null}
+ */
+export function parseLatestContainment(description) {
+  if (!description) return null;
+
+  const lines = description.split('\n').reverse();
+
+  for (const line of lines) {
+    const match =
+      line.match(/containment[:\s]+([0-9]+)\s*%/i) ||
+      line.match(/([0-9]+)\s*%\s*contained/i);
+
+    if (match) {
+      const value = parseInt(match[1], 10);
+      if (Number.isFinite(value)) return Math.min(100, Math.max(0, value));
+    }
+  }
+
+  return null;
+}
+
 /**
  * Returns a short status badge label
  * @param {string} status
