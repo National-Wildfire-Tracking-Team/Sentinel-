@@ -8,6 +8,7 @@
 import { memo } from 'react';
 import { Loader2, Waves, Wind, Navigation, ExternalLink } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
+import { useViewport } from '../../context/ViewportContext';
 import { formatRelativeTime } from '../../utils/formatUtils';
 
 const CHANCE_COLOR = { HIGH: '#FF4444', MEDIUM: '#FFA040', LOW: '#FFE566' };
@@ -110,7 +111,8 @@ const TropicalWeatherFeed = memo(function TropicalWeatherFeed({
   cyclones = [],
   loading = false,
 }) {
-  const { selectFire, setViewport } = useApp();
+  const { selectFire } = useApp();
+  const { setViewport } = useViewport();
 
   const handleSelectInvest = (invest) => {
     selectFire({ ...invest, type: 'nhc-invest' });

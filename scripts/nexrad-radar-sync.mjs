@@ -61,6 +61,11 @@ const CONCURRENCY = 4;
 const MIN_RADIALS = 300; // sanity floor: a real base-tilt cut has 360-720 radials
 const ELEVATION_CANDIDATES = [1, 2, 3, 4]; // see split-cut note above
 
+// The site radar popup's scrub bar exposes 2 hours of history; keep a little
+// past that so a scan at the very edge of the slider is never missing.
+const HISTORY_RETENTION_MS = 2 * 60 * 60 * 1000 + 15 * 60 * 1000;
+const HISTORY_PRUNE_BATCH = 500;
+
 function supabaseHeaders(extra = {}) {
   return {
     apikey: SUPABASE_SERVICE_ROLE_KEY,
@@ -96,6 +101,12 @@ async function main() {
   await Promise.all(
     Array.from({ length: Math.min(CONCURRENCY, activeSites.length) }, worker),
   );
+
+  try {
+    await pruneHistory();
+  } catch (err) {
+    console.warn('[nexrad-sync] prune failed:', err?.message || err);
+  }
 
   console.log('[nexrad-sync] done');
 }
@@ -324,6 +335,97 @@ async function publishProduct({ site, product, elevationDeg, azimuths, radials, 
   if (!metaResp.ok) {
     throw new Error(`Scan meta upsert failed for ${site}/${product}: ${metaResp.status} ${await metaResp.text().catch(() => '')}`);
   }
+
+  // Best-effort: append this scan to the rolling history table that backs the
+  // site radar popup's scrub bar. A failure here shouldn't fail the live feed.
+  await publishHistoryEntry({
+    site, product, scanTimeMs, elevationDeg, compressed, gateCount, radialCount: azimuths.length,
+  }).catch((err) => {
+    console.warn(`[nexrad-sync] ${site}/${product}: history publish failed:`, err?.message || err);
+  });
+}
+
+/** Append one scan to nexrad_scan_history — a separate object per scan (not overwritten in place like latest.bin). */
+async function publishHistoryEntry({ site, product, scanTimeMs, elevationDeg, compressed, gateCount, radialCount }) {
+  const scanTimeIso = new Date(scanTimeMs).toISOString();
+  const historyPath = `${site}/${product}/history/${scanTimeIso}.bin`;
+
+  const uploadResp = await fetch(
+    `${SUPABASE_URL}/storage/v1/object/${STORAGE_BUCKET}/${historyPath}`,
+    {
+      method: 'POST',
+      headers: supabaseHeaders({
+        'Content-Type': 'application/octet-stream',
+        'x-upsert': 'true',
+      }),
+      body: compressed,
+    },
+  );
+  if (!uploadResp.ok) {
+    throw new Error(`History storage upload failed for ${historyPath}: ${uploadResp.status} ${await uploadResp.text().catch(() => '')}`);
+  }
+
+  const insertResp = await fetch(
+    `${SUPABASE_URL}/rest/v1/nexrad_scan_history?on_conflict=site_id,product,scan_time`,
+    {
+      method: 'POST',
+      headers: supabaseHeaders({
+        'Content-Type': 'application/json',
+        Prefer: 'resolution=ignore-duplicates',
+      }),
+      body: JSON.stringify({
+        site_id: site,
+        product,
+        scan_time: scanTimeIso,
+        elevation_deg: elevationDeg,
+        storage_path: historyPath,
+        byte_size: compressed.byteLength,
+        gate_count: gateCount,
+        radial_count: radialCount,
+      }),
+    },
+  );
+  if (!insertResp.ok) {
+    throw new Error(`History row insert failed for ${site}/${product}@${scanTimeIso}: ${insertResp.status} ${await insertResp.text().catch(() => '')}`);
+  }
+}
+
+/** Delete history rows (and their storage objects) past the retention window. */
+async function pruneHistory() {
+  const cutoffIso = new Date(Date.now() - HISTORY_RETENTION_MS).toISOString();
+  const listResp = await fetch(
+    `${SUPABASE_URL}/rest/v1/nexrad_scan_history?select=id,storage_path&scan_time=lt.${encodeURIComponent(cutoffIso)}&limit=${HISTORY_PRUNE_BATCH}`,
+    { headers: supabaseHeaders() },
+  );
+  if (!listResp.ok) {
+    console.warn(`[nexrad-sync] prune: failed to list stale history rows: ${listResp.status}`);
+    return;
+  }
+
+  const rows = await listResp.json();
+  if (!rows.length) return;
+
+  const deleteObjResp = await fetch(`${SUPABASE_URL}/storage/v1/object/${STORAGE_BUCKET}`, {
+    method: 'DELETE',
+    headers: supabaseHeaders({ 'Content-Type': 'application/json' }),
+    body: JSON.stringify({ prefixes: rows.map((r) => r.storage_path) }),
+  });
+  if (!deleteObjResp.ok) {
+    // A dangling object in a public bucket is harmless (unreferenced once its
+    // row is gone) — still drop the rows below so the table doesn't grow forever.
+    console.warn(`[nexrad-sync] prune: storage delete failed: ${deleteObjResp.status} ${await deleteObjResp.text().catch(() => '')}`);
+  }
+
+  const idList = rows.map((r) => r.id).join(',');
+  const deleteRowsResp = await fetch(
+    `${SUPABASE_URL}/rest/v1/nexrad_scan_history?id=in.(${idList})`,
+    { method: 'DELETE', headers: supabaseHeaders() },
+  );
+  if (!deleteRowsResp.ok) {
+    console.warn(`[nexrad-sync] prune: row delete failed: ${deleteRowsResp.status} ${await deleteRowsResp.text().catch(() => '')}`);
+    return;
+  }
+  console.log(`[nexrad-sync] prune: removed ${rows.length} stale history row(s)`);
 }
 
 main().catch((err) => {

@@ -4,6 +4,7 @@
  * Uses the national NEXRAD mosaic (N0Q product — 0.5 deg base reflectivity)
  * sourced from NEXRAD Level 2 radar data across all WSR-88D stations.
  * Layer stays mounted; visibility is controlled via layout property.
+ * Live only — history scrubbing lives on the per-site radar popup instead.
  */
 
 import { memo } from 'react';
@@ -25,6 +26,7 @@ const RadarLayer = memo(function RadarLayer({ visible }) {
       type="raster"
       tiles={[IEM_NEXRAD_WMS]}
       tileSize={256}
+      maxzoom={10}
       attribution="NEXRAD Level 2 via Iowa Environmental Mesonet"
     >
       <Layer

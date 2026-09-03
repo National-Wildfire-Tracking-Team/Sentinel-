@@ -7,9 +7,10 @@
 import { useState, memo, useMemo, useEffect } from 'react';
 import { getMainOrigin } from '../../../shared/utils/getAppOrigin';
 import {
-  Layers, Flame, MapPin, Wind, CloudRain, CloudLightning, Eye, ChevronDown, ChevronRight, Radar, RadioTower, AlertTriangle, Ruler, Hexagon, Satellite, Map as MapIcon, Thermometer, Activity, Droplets, Zap, Lock, GraduationCap, History, TrendingUp, Crosshair, Camera, Mountain, Snowflake,
+  Layers, Flame, MapPin, Wind, CloudRain, CloudLightning, Eye, ChevronDown, ChevronRight, Radar, AlertTriangle, Ruler, Hexagon, Satellite, Map as MapIcon, Thermometer, Activity, Droplets, Zap, Lock, GraduationCap, History, TrendingUp, Crosshair, Camera, Mountain, Snowflake,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
+import { useViewport } from '../../context/ViewportContext';
 
 /** Layer row definitions — grouped under tab-specific sections below */
 const LAYER_DEFS = {
@@ -38,8 +39,7 @@ const LAYER_DEFS = {
   goesWest:          { label: 'GOES West Imagery',   sublabel: 'NOAA GOES West · visible',    icon: Eye,           color: '#7c3aed' },
   goesFire16:        { label: 'GOES East Fire RGB',  sublabel: 'NOAA GOES East · Day Land Cloud Fire RGB', icon: Eye, color: '#a855f7' },
   goesFire18:        { label: 'GOES West Fire RGB',  sublabel: 'NOAA GOES West · Day Land Cloud Fire RGB', icon: Eye, color: '#9333ea' },
-  radar:             { label: 'NEXRAD Reflectivity', sublabel: 'NEXRAD Level 2 composite',     icon: Radar,        color: '#10b981' },
-  nexradSites:       { label: 'NEXRAD Sites',        sublabel: 'Level 2 radar station status', icon: RadioTower,   color: '#06b6d4' },
+  radar:             { label: 'Radar',               sublabel: 'NEXRAD composite mosaic + per-site scans', icon: Radar, color: '#10b981' },
   aqi:               { label: 'AQI Heatmap',          sublabel: 'EPA AirNow gradient overlay',  icon: Wind,         color: '#3b82f6' },
   smoke:             { label: 'Smoke Forecast',      sublabel: 'NOAA HRRR',                   icon: CloudRain,    color: '#94a3b8' },
   waterGauges:        { label: 'Water Gauges',        sublabel: 'NOAA NWPS river & coastal gauges', icon: Droplets, color: '#1e90ff' },
@@ -78,7 +78,7 @@ const TAB_SECTIONS = {
       groups: [
         {
           label: 'Active weather',
-          layers: ['weatherAlerts', 'stormReports', 'damageAssessment', 'radar', 'nexradSites'],
+          layers: ['weatherAlerts', 'stormReports', 'damageAssessment', 'radar'],
         },
         {
           label: 'Flood & water',
@@ -131,6 +131,12 @@ const TAB_SECTIONS = {
       title: 'Evacuation & outlooks',
       subtitle: 'Zones, smoke, and fire-weather products',
       groups: [
+        {
+          label: 'Fire weather',
+          layers: [
+            { key: 'weatherAlerts', label: 'Red Flag Warnings', sublabel: 'NWS active Red Flag Warnings' },
+          ],
+        },
         {
           label: 'Evacuation',
           layers: ['evacZones'],
@@ -211,16 +217,17 @@ const TAB_SECTIONS = {
       groups: [
         {
           label: 'Imagery',
-          layers: ['radar', 'nexradSites', 'goesEast', 'goesWest'],
+          layers: ['radar', 'goesEast', 'goesWest'],
         },
       ],
     },
   ],
 };
 
-function LayerToggle({ layerKey, label, sublabel, icon: Icon, color, locked }) {
+function LayerToggle({ layerKey, label, sublabel, icon: Icon, color, locked, onToggle }) {
   const { layers, toggleLayer } = useApp();
   const active = layers[layerKey];
+  const handleClick = onToggle || (() => toggleLayer(layerKey));
 
   if (locked) {
     return (
@@ -250,7 +257,7 @@ function LayerToggle({ layerKey, label, sublabel, icon: Icon, color, locked }) {
   return (
     <button
       type="button"
-      onClick={() => toggleLayer(layerKey)}
+      onClick={handleClick}
       className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg
                       hover:bg-white/10 transition-colors group text-left"
       aria-pressed={active}
@@ -420,7 +427,8 @@ const LayerControl = memo(function LayerControl({
   precipRingActive = false,
   onPrecipRingToggle,
 }) {
-  const { layerPanelOpen, toggleLayerPanel, viewport, setViewport } = useApp();
+  const { layerPanelOpen, toggleLayerPanel, toggleLayer } = useApp();
+  const { viewport, setViewport } = useViewport();
   const [collapsed, setCollapsed] = useState({});
 
   const infraLayers = useMemo(() => [
@@ -654,8 +662,14 @@ const LayerControl = memo(function LayerControl({
                           </div>
                           <div className="rounded-lg bg-zinc-950 border border-zinc-800 divide-y divide-zinc-800 overflow-hidden">
                             {group.layers.map((layerRef) => {
+                              // A group entry may be a plain layer key, or an object
+                              // overriding the label/sublabel for this tab's context
+                              // (e.g. the wildfire tab renaming "NWS & mesoscale" to
+                              // "Red Flag Warnings" for the same weatherAlerts layer).
+                              const layerKey = typeof layerRef === 'string' ? layerRef : layerRef.key;
+
                               if (section.infraLayers) {
-                                const layer = section.infraLayers.find((l) => l.key === layerRef);
+                                const layer = section.infraLayers.find((l) => l.key === layerKey);
                                 if (!layer) return null;
                                 return (
                                   <LayerToggle
@@ -669,32 +683,35 @@ const LayerControl = memo(function LayerControl({
                                   />
                                 );
                               }
-                              const def = LAYER_DEFS[layerRef];
+                              const def = LAYER_DEFS[layerKey];
                               if (!def) return null;
+                              const label = (typeof layerRef === 'object' && layerRef.label) || def.label;
+                              const sublabel = (typeof layerRef === 'object' && layerRef.sublabel) || def.sublabel;
                               return (
-                                <div key={layerRef}>
+                                <div key={layerKey}>
                                   <LayerToggle
-                                    key={layerRef}
-                                    layerKey={layerRef}
-                                    label={def.label}
-                                    sublabel={def.sublabel}
+                                    key={layerKey}
+                                    layerKey={layerKey}
+                                    label={label}
+                                    sublabel={sublabel}
                                     icon={def.icon}
                                     color={def.color}
+                                    onToggle={layerKey === 'radar' ? () => { toggleLayer('radar'); toggleLayerPanel(); } : undefined}
                                   />
 
-                                  {layerRef === 'fireRiskOutlook' && (
+                                  {layerKey === 'fireRiskOutlook' && (
                                     <FireRiskDaySelector />
                                   )}
-                                  {layerRef === 'wpcEro' && (
+                                  {layerKey === 'wpcEro' && (
                                     <WpcDaySelector layerKey="wpcEro" product="ero" subtitle="WPC Excessive Rainfall Outlook" accentColor="#38bdf8" />
                                   )}
-                                  {layerRef === 'wpcWssi' && (
+                                  {layerKey === 'wpcWssi' && (
                                     <WpcDaySelector layerKey="wpcWssi" product="wssi" subtitle="WPC Winter Storm Severity Index" accentColor="#93c5fd" />
                                   )}
-                                  {layerRef === 'wpcQpf' && (
+                                  {layerKey === 'wpcQpf' && (
                                     <WpcDaySelector layerKey="wpcQpf" product="qpf" subtitle="WPC Precipitation Forecast" accentColor="#0ea5e9" />
                                   )}
-                                  {layerRef === 'wpcFronts' && (
+                                  {layerKey === 'wpcFronts' && (
                                     <WpcDaySelector layerKey="wpcFronts" product="fronts" subtitle="WPC Surface Analysis Fronts" accentColor="#a78bfa" />
                                   )}
                                 </div>

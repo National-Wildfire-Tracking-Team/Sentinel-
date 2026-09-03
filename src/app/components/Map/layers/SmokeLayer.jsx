@@ -62,6 +62,7 @@ const SmokeLayer = memo(function SmokeLayer({ visible }) {
       type="raster"
       tiles={[tileUrl]}
       tileSize={256}
+      maxzoom={10}
       attribution="NOAA NOMADS HRRR"
     >
       <Layer
