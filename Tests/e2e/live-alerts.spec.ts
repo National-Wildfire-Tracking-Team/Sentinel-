@@ -238,7 +238,9 @@ test.describe('Red Flag Warning Banner – Dismiss', () => {
     await page.getByRole('button', { name: /dismiss alert banner/i }).click();
     await expect(page.getByRole('button', { name: /dismiss alert banner/i })).not.toBeVisible();
     // Switch to weather tab — alerts should still be in the sidebar
-    await page.getByRole('button', { name: /weather/i }).first().click();
+    const weatherTab = page.getByRole('button', { name: 'Weather', exact: true });
+    await weatherTab.click();
+    await expect(weatherTab).toHaveAttribute('aria-pressed', 'true');
     await expect(page.locator('text=Red Flag Warning').first()).toBeVisible();
   });
 });

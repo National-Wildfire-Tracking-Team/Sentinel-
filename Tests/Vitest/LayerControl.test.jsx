@@ -35,6 +35,13 @@ vi.mock('../../src/app/context/AppContext', () => ({
   })),
 }));
 
+vi.mock('../../src/app/context/ViewportContext', () => ({
+  useViewport: vi.fn(() => ({
+    viewport: {},
+    setViewport: vi.fn(),
+  })),
+}));
+
 const renderPanel = (props = {}) =>
   render(
     <MemoryRouter>
