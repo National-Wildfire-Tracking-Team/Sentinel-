@@ -36,6 +36,8 @@ export function useNhcTropicalWeather(enabled = false) {
       setPastTrackGeoJSON(data.pastTrackGeoJSON);
       setDisturbancePointsGeoJSON(data.disturbancePointsGeoJSON);
       setDisturbanceAreasGeoJSON(data.disturbanceAreasGeoJSON);
+    } catch {
+      // Keep the last successful data and allow the next refresh to retry.
     } finally {
       if (mountedRef.current) setLoading(false);
     }

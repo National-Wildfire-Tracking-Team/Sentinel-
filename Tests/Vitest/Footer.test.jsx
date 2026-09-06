@@ -29,8 +29,8 @@ describe('Footer', () => {
     expect(screen.getByRole('link', { name: /Home/i })).toHaveAttribute('href', '/');
     expect(screen.getByRole('link', { name: /About the Team/i })).toHaveAttribute('href', '/about');
     expect(screen.getByRole('link', { name: /Volunteer/i })).toHaveAttribute('href', '/volunteer');
-    // jsdom's default location is http://localhost/, so getAppOrigin() resolves to app.localhost here.
-    expect(screen.getByRole('link', { name: /Live Wildfire Tracker/i })).toHaveAttribute('href', 'http://app.localhost/');
+    // Keep the current development port when switching to the app subdomain.
+    expect(screen.getByRole('link', { name: /Live Wildfire Tracker/i })).toHaveAttribute('href', 'http://app.localhost:3000/');
   });
 
   it('renders resources section', () => {

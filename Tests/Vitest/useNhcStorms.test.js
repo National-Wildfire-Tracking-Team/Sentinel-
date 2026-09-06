@@ -1,18 +1,18 @@
 import { renderHook, waitFor, act } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { useNhcStorms } from '../../src/app/hooks/useNhcStorms';
-import * as nhcStorms from '../../src/app/api/nhcStorms';
+import { useNhcTropicalWeather } from '../../src/app/hooks/useNhcTropicalWeather';
+import * as nhcTropicalWeather from '../../src/app/api/nhcTropicalWeather';
 
-vi.mock('../../src/app/api/nhcStorms');
+vi.mock('../../src/app/api/nhcTropicalWeather');
 
 beforeEach(() => {
-  vi.restoreAllMocks();
+  vi.clearAllMocks();
 });
 
 const EMPTY_FC = { type: 'FeatureCollection', features: [] };
 
 const mockNhcData = {
-  centers: {
+  forecastPointsGeoJSON: {
     type: 'FeatureCollection',
     features: [
       {
@@ -22,79 +22,82 @@ const mockNhcData = {
       },
     ],
   },
-  cones: EMPTY_FC,
-  tracks: EMPTY_FC,
+  forecastTrackGeoJSON: EMPTY_FC,
+  coneGeoJSON: EMPTY_FC,
+  watchWarningGeoJSON: EMPTY_FC,
+  pastPointsGeoJSON: EMPTY_FC,
+  pastTrackGeoJSON: EMPTY_FC,
+  disturbancePointsGeoJSON: EMPTY_FC,
+  disturbanceAreasGeoJSON: EMPTY_FC,
 };
 
-describe('useNhcStorms', () => {
+describe('useNhcTropicalWeather storm data', () => {
   it('starts with null GeoJSON and loading false when disabled', () => {
-    const { result } = renderHook(() => useNhcStorms(false));
+    const { result } = renderHook(() => useNhcTropicalWeather(false));
 
-    expect(result.current.centersGeoJSON).toBeNull();
-    expect(result.current.conesGeoJSON).toBeNull();
-    expect(result.current.tracksGeoJSON).toBeNull();
+    expect(result.current.forecastPointsGeoJSON).toBeNull();
+    expect(result.current.coneGeoJSON).toBeNull();
+    expect(result.current.forecastTrackGeoJSON).toBeNull();
     expect(result.current.loading).toBe(false);
   });
 
   it('fetches storm data when enabled', async () => {
-    nhcStorms.fetchAllNhcData.mockResolvedValue(mockNhcData);
+    nhcTropicalWeather.fetchNhcTropicalWeather.mockResolvedValue(mockNhcData);
 
-    const { result } = renderHook(() => useNhcStorms(true));
+    const { result } = renderHook(() => useNhcTropicalWeather(true));
 
     await waitFor(() => expect(result.current.loading).toBe(false));
 
-    expect(result.current.centersGeoJSON).toEqual(mockNhcData.centers);
-    expect(result.current.conesGeoJSON).toEqual(EMPTY_FC);
-    expect(result.current.tracksGeoJSON).toEqual(EMPTY_FC);
+    expect(result.current.forecastPointsGeoJSON).toEqual(mockNhcData.forecastPointsGeoJSON);
+    expect(result.current.coneGeoJSON).toEqual(EMPTY_FC);
+    expect(result.current.forecastTrackGeoJSON).toEqual(EMPTY_FC);
   });
 
   it('handles API errors gracefully', async () => {
-    nhcStorms.fetchAllNhcData.mockRejectedValue(new Error('NHC down'));
+    nhcTropicalWeather.fetchNhcTropicalWeather.mockRejectedValue(new Error('NHC down'));
 
-    const { result } = renderHook(() => useNhcStorms(true));
+    const { result } = renderHook(() => useNhcTropicalWeather(true));
 
     await waitFor(() => expect(result.current.loading).toBe(false));
 
-    expect(result.current.centersGeoJSON).toBeNull();
-    expect(result.current.conesGeoJSON).toBeNull();
-    expect(result.current.tracksGeoJSON).toBeNull();
+    expect(result.current.forecastPointsGeoJSON).toBeNull();
+    expect(result.current.coneGeoJSON).toBeNull();
+    expect(result.current.forecastTrackGeoJSON).toBeNull();
   });
 
-  it('nullifies data when disabled after being enabled', async () => {
-    nhcStorms.fetchAllNhcData.mockResolvedValue(mockNhcData);
+  it('does not refetch after being disabled', async () => {
+    nhcTropicalWeather.fetchNhcTropicalWeather.mockResolvedValue(mockNhcData);
 
     const { result, rerender } = renderHook(
-      ({ enabled }) => useNhcStorms(enabled),
+      ({ enabled }) => useNhcTropicalWeather(enabled),
       { initialProps: { enabled: true } }
     );
 
     await waitFor(() => expect(result.current.loading).toBe(false));
-    expect(result.current.centersGeoJSON).toEqual(mockNhcData.centers);
+    expect(result.current.forecastPointsGeoJSON).toEqual(mockNhcData.forecastPointsGeoJSON);
 
     rerender({ enabled: false });
 
-    await waitFor(() => {
-      expect(result.current.centersGeoJSON).toBeNull();
-    });
+    expect(nhcTropicalWeather.fetchNhcTropicalWeather).toHaveBeenCalledOnce();
   });
 
   it('refresh function re-fetches data', async () => {
-    nhcStorms.fetchAllNhcData.mockResolvedValue(mockNhcData);
+    nhcTropicalWeather.fetchNhcTropicalWeather.mockResolvedValue(mockNhcData);
 
-    const { result } = renderHook(() => useNhcStorms(true));
+    const { result } = renderHook(() => useNhcTropicalWeather(true));
 
     await waitFor(() => expect(result.current.loading).toBe(false));
 
     const updatedData = {
       ...mockNhcData,
-      centers: { type: 'FeatureCollection', features: [] },
+      forecastPointsGeoJSON: { type: 'FeatureCollection', features: [] },
     };
-    nhcStorms.fetchAllNhcData.mockResolvedValue(updatedData);
+    nhcTropicalWeather.fetchNhcTropicalWeather.mockResolvedValue(updatedData);
 
     await act(async () => {
       await result.current.refresh();
     });
 
-    expect(result.current.centersGeoJSON.features).toHaveLength(0);
+    expect(result.current.forecastPointsGeoJSON.features).toHaveLength(0);
   });
 });
