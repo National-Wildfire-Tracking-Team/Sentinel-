@@ -442,7 +442,6 @@ function sourceChipLabel(response, senderName) {
 }
 
 function AlertDetail({ fire, alerts }) {
-  const [tab, setTab] = useState('text');
   const [copyStatus, setCopyStatus] = useState('');
 
   const full = alerts?.find((a) => a.id === fire.id) || {};
@@ -543,71 +542,20 @@ function AlertDetail({ fire, alerts }) {
         </div>
       </div>
 
-      <div className="border-b border-sentinel-700 mb-3 flex gap-0">
-        <button
-          type="button"
-          onClick={() => setTab('text')}
-          className={`flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2.5 text-xs font-bold border-b-2 transition-colors ${
-            tab === 'text' ? 'border-sky-500 text-sky-400' : 'border-transparent text-sentinel-500 hover:text-sentinel-300'
-          }`}
-        >
+      <div className="flex items-center gap-1.5 mb-2 text-xs font-bold text-sentinel-300">
           <FileText size={14} />
-          Text
-        </button>
-        <button
-          type="button"
-          onClick={() => setTab('impacts')}
-          className={`flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2.5 text-xs font-bold border-b-2 transition-colors ${
-            tab === 'impacts' ? 'border-sky-500 text-sky-400' : 'border-transparent text-sentinel-500 hover:text-sentinel-300'
-          }`}
-        >
-          <MapPin size={14} />
-          Impacts
-        </button>
+        Official bulletin
       </div>
 
-      {tab === 'text' && (
-        <div className="rounded-lg border border-sentinel-700 bg-sentinel-950/80 p-3 mb-4 max-h-[min(55vh,420px)] overflow-y-auto">
-          {bulletinBody ? (
-            <pre className="text-[11px] leading-relaxed text-sentinel-200 font-mono whitespace-pre-wrap break-words">
-              {bulletinBody}
-            </pre>
-          ) : (
-            <p className="text-xs text-sentinel-400">No bulletin text available for this alert.</p>
-          )}
-        </div>
-      )}
-
-      {tab === 'impacts' && (
-        <div className="space-y-3 mb-4 text-xs text-sentinel-300">
-          {merged.headline && (
-            <div>
-              <div className="text-[10px] font-bold text-sentinel-500 uppercase tracking-widest mb-1">Headline</div>
-              <p className="leading-relaxed text-sentinel-200">{merged.headline}</p>
-            </div>
-          )}
-          {merged.affectedArea && (
-            <div className="flex items-start gap-2">
-              <MapPin size={14} className="shrink-0 mt-0.5 text-sky-400" />
-              <div>
-                <div className="text-[10px] font-bold text-sentinel-500 uppercase tracking-widest mb-1">Affected area</div>
-                <p className="leading-relaxed">{merged.affectedArea}</p>
-              </div>
-            </div>
-          )}
-          <div className="grid grid-cols-2 gap-2">
-            {merged.severity && <StatBlock label="Severity" value={merged.severity} color="text-white" />}
-            {merged.urgency && <StatBlock label="Urgency" value={merged.urgency} />}
-            {merged.certainty && <StatBlock label="Certainty" value={merged.certainty} />}
-          </div>
-          {merged.instruction && (
-            <div className="p-3 bg-red-950/30 border border-red-900/50 rounded-lg">
-              <div className="text-[10px] font-bold text-red-400 uppercase tracking-widest mb-1.5">Instructions</div>
-              <p className="text-red-200/90 leading-relaxed whitespace-pre-line">{merged.instruction}</p>
-            </div>
-          )}
-        </div>
-      )}
+      <div className="rounded-lg border border-sentinel-700 bg-sentinel-950/80 p-3 mb-4 max-h-[min(55vh,420px)] overflow-y-auto">
+        {bulletinBody ? (
+          <pre className="text-[11px] leading-relaxed text-sentinel-200 font-mono whitespace-pre-wrap break-words">
+            {bulletinBody}
+          </pre>
+        ) : (
+          <p className="text-xs text-sentinel-400">No bulletin text available for this alert.</p>
+        )}
+      </div>
     </>
   );
 }
