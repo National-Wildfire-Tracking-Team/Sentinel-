@@ -7,6 +7,7 @@ import { getAppOrigin } from '../../utils/getAppOrigin';
 const navLinks = [
   { to: '/', label: 'Home' },
   { to: '/about', label: 'About' },
+  { to: '/disaster-response', label: 'Disaster Response' },
   { to: '/volunteer', label: 'Volunteer' },
   { to: '/pricing', label: 'Pricing' },
 ];

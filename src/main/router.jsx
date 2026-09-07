@@ -12,6 +12,10 @@ import Footer from '../shared/components/Footer/Footer';
 
 const HomePage = lazy(() => import('./pages/HomePage'));
 const AboutPage = lazy(() => import('./pages/AboutPage'));
+const DisasterResponsePage = lazy(() => import('./pages/disaster-response'));
+const DisasterResponsePreparednessPage = lazy(() => import('./pages/disaster-response/PreparednessPage'));
+const DisasterResponseRecoveryPage = lazy(() => import('./pages/disaster-response/RecoveryPage'));
+const DisasterResponseGetInvolvedPage = lazy(() => import('./pages/disaster-response/GetInvolvedPage'));
 const VolunteerPage = lazy(() => import('./pages/VolunteerPage'));
 const PricingPage = lazy(() => import('./pages/PricingPage'));
 const PrivacyPolicyPage = lazy(() => import('./pages/PrivacyPolicyPage'));
@@ -53,6 +57,10 @@ export default function MainRouter() {
         <Routes>
           <Route path="/" element={<SiteLayout><HomePage /></SiteLayout>} />
           <Route path="/about" element={<SiteLayout><AboutPage /></SiteLayout>} />
+          <Route path="/disaster-response" element={<SiteLayout><DisasterResponsePage /></SiteLayout>} />
+          <Route path="/disaster-response/preparedness" element={<SiteLayout><DisasterResponsePreparednessPage /></SiteLayout>} />
+          <Route path="/disaster-response/recovery" element={<SiteLayout><DisasterResponseRecoveryPage /></SiteLayout>} />
+          <Route path="/disaster-response/get-involved" element={<SiteLayout><DisasterResponseGetInvolvedPage /></SiteLayout>} />
           <Route path="/volunteer" element={<SiteLayout><VolunteerPage /></SiteLayout>} />
           <Route path="/pricing" element={<SiteLayout><PricingPage /></SiteLayout>} />
           <Route path="/privacy-policy" element={<SiteLayout><PrivacyPolicyPage /></SiteLayout>} />
