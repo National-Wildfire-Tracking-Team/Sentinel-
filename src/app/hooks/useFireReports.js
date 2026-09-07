@@ -7,6 +7,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { supabase, isSupabaseConfigured } from '../../shared/api/supabaseClient';
+import { parseLatestContainment } from '../utils/formatUtils';
 
 /**
  * Subscribes to reports matching a given status filter.
@@ -110,6 +111,7 @@ export function reportsToGeoJSON(reports) {
           status:      r.status,
           created_at:  r.created_at,
           user_id:     r.user_id,
+          contained:    parseLatestContainment(r.description),
         },
       })),
   };
