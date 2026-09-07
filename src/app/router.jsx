@@ -17,6 +17,9 @@ const ReporterDashboardPage = lazy(() => import('./pages/ReporterDashboardPage')
 const AccountPage = lazy(() => import('./pages/AccountPage'));
 const ManageZipcodesPage = lazy(() => import('./pages/ManageZipcodesPage'));
 const AdminDashboardPage = lazy(() => import('./pages/AdminDashboardPage'));
+const DeploymentsPage = lazy(() => import('./pages/DeploymentsPage'));
+const VolunteerProfilePage = lazy(() => import('./pages/VolunteerProfilePage'));
+const ManageDeploymentsPage = lazy(() => import('./pages/ManageDeploymentsPage'));
 const ErrorTestPage = lazy(() => import('./pages/ErrorTestPage'));
 
 /** Scroll to top on route change */
@@ -60,6 +63,11 @@ export default function AppRouter() {
 
           {/* Admin — protected (see AdminDashboardPage's own auth/role gate), never exposed on the main domain */}
           <Route path="/admin" element={<AdminDashboardPage />} />
+          <Route path="/admin/deployments" element={<ManageDeploymentsPage />} />
+
+          {/* Disaster Response volunteer program */}
+          <Route path="/deployments" element={<DeploymentsPage />} />
+          <Route path="/volunteer-profile" element={<VolunteerProfilePage />} />
 
           {/* Test-only route for ErrorBoundary e2e testing */}
           <Route path="/error-test" element={<ErrorTestPage />} />

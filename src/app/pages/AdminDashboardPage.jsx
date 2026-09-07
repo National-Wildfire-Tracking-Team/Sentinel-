@@ -41,9 +41,14 @@ export default function AdminDashboardPage() {
 
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 py-10">
-      <div className="flex items-center gap-2 mb-2">
-        <ShieldCheck size={22} className="text-fire-500" />
-        <h1 className="text-2xl font-bold text-white">Admin – Fire Reports</h1>
+      <div className="flex items-center justify-between gap-4 mb-2">
+        <div className="flex items-center gap-2">
+          <ShieldCheck size={22} className="text-fire-500" />
+          <h1 className="text-2xl font-bold text-white">Admin – Fire Reports</h1>
+        </div>
+        <Link to="/admin/deployments" className="text-fire-400 hover:text-fire-300 text-sm transition-colors">
+          Manage Deployments →
+        </Link>
       </div>
       <p className="text-sentinel-300 text-sm mb-6">
         All reporter-submitted fires are automatically published on the live map. ({reports.length} total)

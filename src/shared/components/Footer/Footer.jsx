@@ -30,6 +30,9 @@ export default function Footer() {
                 <Link to="/about" className="text-sentinel-300 hover:text-fire-400 text-sm transition-colors">About the Team</Link>
               </li>
               <li>
+                <Link to="/disaster-response" className="text-sentinel-300 hover:text-fire-400 text-sm transition-colors">Disaster Response &amp; Recovery</Link>
+              </li>
+              <li>
                 <Link to="/volunteer" className="text-sentinel-300 hover:text-fire-400 text-sm transition-colors">Volunteer</Link>
               </li>
               <li>
@@ -51,6 +54,11 @@ export default function Footer() {
           <div>
             <h3 className="text-white font-semibold text-sm uppercase tracking-wider mb-4">Resources</h3>
             <ul className="space-y-2.5">
+              <li>
+                <a href={`${getAppOrigin()}/deployments`} className="text-sentinel-300 hover:text-fire-400 text-sm transition-colors">
+                  Disaster Response Deployments
+                </a>
+              </li>
               <li>
                 <a href="https://www.nifc.gov" target="_blank" rel="noopener noreferrer" className="text-sentinel-300 hover:text-fire-400 text-sm transition-colors">
                   NIFC (National Interagency Fire Center)
