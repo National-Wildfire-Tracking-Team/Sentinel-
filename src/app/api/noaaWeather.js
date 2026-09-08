@@ -29,6 +29,13 @@ const NWS_HEADERS = {
 // change rarely. Keyed by UGC code (e.g. "CAZ006"), value is a GeoJSON geometry.
 const zoneGeometryCache = new Map();
 
+// Negative cache for zone codes that failed to resolve (e.g. stale/renumbered
+// UGC codes that 404). Without this, enrichAlertsWithGeometry() re-fetches the
+// same dead codes on every poll (every 60s) for the life of the session.
+// Keyed by UGC code, value is the timestamp of the last failed attempt.
+const zoneGeometryFailureCache = new Map();
+const ZONE_FAILURE_COOLDOWN_MS = 60 * 60 * 1000; // retry a failed zone at most once/hour
+
 /**
  * Flatten any GeoJSON geometry into an array of Polygon coordinate arrays.
  * Handles Polygon, MultiPolygon, and GeometryCollection recursively.
@@ -89,12 +96,16 @@ async function fetchZoneGeometryBatch(codes) {
       const code = queue.shift();
       try {
         const res = await fetch(`${NOAA_BASE}/zones/${zoneType(code)}/${code}`, { headers: NWS_HEADERS });
-        if (!res.ok) continue;
+        if (!res.ok) {
+          zoneGeometryFailureCache.set(code, Date.now());
+          continue;
+        }
         const data = await res.json();
         const id = data.properties?.id || code;
         if (data.geometry) zoneGeometryCache.set(id, data.geometry);
       } catch {
-        // Silently ignore errors for individual zones
+        // Network error — treat the same as a failed lookup so it cools down too
+        zoneGeometryFailureCache.set(code, Date.now());
       }
     }
   }
@@ -113,11 +124,17 @@ export async function enrichAlertsWithGeometry(alerts) {
   const noGeo = alerts.filter(a => !a.geometry);
   if (noGeo.length === 0) return alerts;
 
-  // Collect UGC codes that aren't already cached
+  // Collect UGC codes that aren't already cached, skipping codes that failed
+  // recently (within the cooldown window) so dead zone IDs stop being retried
+  // on every poll.
+  const now = Date.now();
   const needed = new Set();
   for (const alert of noGeo) {
     for (const code of (alert.geocode?.UGC || [])) {
-      if (!zoneGeometryCache.has(code)) needed.add(code);
+      if (zoneGeometryCache.has(code)) continue;
+      const failedAt = zoneGeometryFailureCache.get(code);
+      if (failedAt && now - failedAt < ZONE_FAILURE_COOLDOWN_MS) continue;
+      needed.add(code);
     }
   }
 
