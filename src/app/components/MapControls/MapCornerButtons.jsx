@@ -40,7 +40,7 @@ const MapCornerButtons = memo(function MapCornerButtons() {
     futurePanelOpen, toggleFuturePanel,
     accountPanelOpen, toggleAccountPanel,
     layerPanelOpen,
-    locationGranted, grantLocation, setUserLocation,
+    locationGranted, grantLocation, setUserLocation, userLocation,
   } = useApp();
   const { setViewport } = useViewport();
   const { isAuthenticated, user } = useAuth();
@@ -68,19 +68,40 @@ const MapCornerButtons = memo(function MapCornerButtons() {
       return;
     }
     setLocationError(null);
-    navigator.geolocation.getCurrentPosition(
-      ({ coords }) => {
-        const location = { latitude: coords.latitude, longitude: coords.longitude };
-        setViewport({ ...location, zoom: 12 });
-        setUserLocation(location);
-        grantLocation();
-      },
-      (err) => {
-        setLocationError(GEOLOCATION_ERROR_MESSAGES[err?.code] || 'Could not get your location.');
-      },
-      { enableHighAccuracy: true, timeout: 10000 }
-    );
-  }, [setViewport, setUserLocation, grantLocation]);
+
+    // We're already tracking a live position — recenter on it immediately
+    // instead of making the user wait on (and risk a timeout from) a brand
+    // new GPS fix. A fresh fix is still requested below to update the dot.
+    if (locationGranted && userLocation) {
+      setViewport({ ...userLocation, zoom: 12 });
+    }
+
+    const onSuccess = ({ coords }) => {
+      const location = { latitude: coords.latitude, longitude: coords.longitude };
+      setViewport({ ...location, zoom: 12 });
+      setUserLocation(location);
+      grantLocation();
+    };
+
+    const onError = (err) => {
+      // A high-accuracy fix with no cache tolerance often times out on desktops
+      // or indoors — retry once with a looser, cache-friendly request before
+      // giving up (unless the user has denied permission outright).
+      if (err?.code !== 1) {
+        navigator.geolocation.getCurrentPosition(onSuccess, () => {
+          setLocationError(GEOLOCATION_ERROR_MESSAGES[err?.code] || 'Could not get your location.');
+        }, { enableHighAccuracy: false, timeout: 10000, maximumAge: 60000 });
+        return;
+      }
+      setLocationError(GEOLOCATION_ERROR_MESSAGES[err?.code] || 'Could not get your location.');
+    };
+
+    navigator.geolocation.getCurrentPosition(onSuccess, onError, {
+      enableHighAccuracy: true,
+      timeout: 10000,
+      maximumAge: 15000,
+    });
+  }, [setViewport, setUserLocation, grantLocation, locationGranted, userLocation]);
 
   // When a left overlay panel (sidebar or future-features) is open, slide the
   // button column out from over the panel to the right, over the map itself.
