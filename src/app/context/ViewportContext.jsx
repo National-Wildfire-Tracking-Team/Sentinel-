@@ -11,7 +11,7 @@
  * read the viewport.
  */
 
-import { createContext, useContext, useReducer, useCallback } from 'react';
+import { createContext, useContext, useReducer, useCallback, useMemo } from 'react';
 
 const initialViewport = {
   longitude: -114.5,
@@ -40,8 +40,15 @@ export function ViewportProvider({ children }) {
     dispatch({ viewport: { longitude, latitude, zoom: 10 } });
   }, []);
 
+  // Memoized so a parent re-render that doesn't actually change the viewport
+  // doesn't hand every useViewport() consumer a new object reference.
+  const value = useMemo(
+    () => ({ viewport, setViewport, flyToFire }),
+    [viewport, setViewport, flyToFire]
+  );
+
   return (
-    <ViewportContext.Provider value={{ viewport, setViewport, flyToFire }}>
+    <ViewportContext.Provider value={value}>
       {children}
     </ViewportContext.Provider>
   );
