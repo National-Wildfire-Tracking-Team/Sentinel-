@@ -238,6 +238,7 @@ export function useMergedFireData(minAcres = 0, enabled = true, calFireIncludeIn
   const [perimetersCount,     setPerimetersCount]     = useState(0);
   const [dotsCount,           setDotsCount]           = useState(0);
   const intervalRef = useRef(null);
+  const mountedRef = useRef(true);
 
   const load = useCallback(async () => {
     if (!enabled) return;
@@ -252,6 +253,7 @@ export function useMergedFireData(minAcres = 0, enabled = true, calFireIncludeIn
           features: [],
         })),
       ]);
+      if (!mountedRef.current) return;
 
       // Merge NIFC WFIGS + FIRIS perimeters. WFIGS takes priority for duplicates
       // (matched by normalized incident name); FIRIS adds CA-only fires not in WFIGS.
@@ -271,13 +273,14 @@ export function useMergedFireData(minAcres = 0, enabled = true, calFireIncludeIn
       setPerimetersCount(merged.features.length);
       setDotsCount(dots.features.length);
     } catch (err) {
-      setError(err.message);
+      if (mountedRef.current) setError(err.message);
     } finally {
-      setLoading(false);
+      if (mountedRef.current) setLoading(false);
     }
   }, [minAcres, enabled, calFireIncludeInactive]);
 
   useEffect(() => {
+    mountedRef.current = true;
     if (!enabled) {
       clearInterval(intervalRef.current);
       setLoading(false);
@@ -285,7 +288,10 @@ export function useMergedFireData(minAcres = 0, enabled = true, calFireIncludeIn
     }
     load();
     intervalRef.current = setInterval(load, REFRESH_MS);
-    return () => clearInterval(intervalRef.current);
+    return () => {
+      mountedRef.current = false;
+      clearInterval(intervalRef.current);
+    };
   }, [load, enabled]);
 
   return {
