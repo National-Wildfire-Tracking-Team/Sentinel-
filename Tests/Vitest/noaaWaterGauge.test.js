@@ -263,26 +263,25 @@ describe('fetchWaterGauges', () => {
     expect(geo.features[0].properties.lid).toBe('NWPS1');
   });
 
-  it('falls back to a US-wide bbox query when both the ArcGIS source and unfiltered NWPS endpoint are empty', async () => {
+  it('does not retry with a bbox-filtered query when the ArcGIS source and unfiltered NWPS endpoint are both empty', async () => {
+    // NWPS's /gauges endpoint hangs server-side regardless of bbox (see the
+    // comment in fetchWaterGauges), so a second bbox-filtered attempt after
+    // the first comes back empty just doubles the worst-case stall for no
+    // observed benefit — fetchWaterGauges makes exactly one NWPS attempt.
     const fetchMock = vi.fn()
       .mockResolvedValueOnce({ ok: true, json: async () => ({ features: [] }) }) // ArcGIS: empty
       .mockResolvedValueOnce({ ok: true, json: async () => ({ gauges: [] }) }) // NWPS unfiltered: empty
-      .mockResolvedValueOnce({ ok: true, json: async () => ({ gauges: [{ lid: 'B', latitude: 4, longitude: 5 }] }) })
       .mockResolvedValueOnce({ ok: true, json: async () => ({ features: [] }) }); // forecast layer
     vi.stubGlobal('fetch', fetchMock);
 
     const geo = await fetchWaterGauges();
 
-    expect(fetchMock).toHaveBeenCalledTimes(4);
-    const bboxUrl = fetchMock.mock.calls[2][0];
-    expect(bboxUrl).toContain('/api/nwps/gauges?');
-    expect(bboxUrl).toContain('bbox.xmin=');
-    expect(bboxUrl).toContain('srid=EPSG_4326');
-    expect(geo.features).toHaveLength(1);
-    expect(geo.features[0].properties.lid).toBe('B');
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(fetchMock.mock.calls[1][0]).toBe('/api/nwps/gauges');
+    expect(geo.features).toHaveLength(0);
   });
 
-  it('throws only when every attempt (ArcGIS + both NWPS attempts) errors', async () => {
+  it('throws only when every attempt (ArcGIS + NWPS) errors', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 503 }));
     await expect(fetchWaterGauges()).rejects.toThrow('NWPS gauges HTTP 503');
   });
