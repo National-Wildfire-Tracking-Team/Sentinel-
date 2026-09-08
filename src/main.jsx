@@ -12,6 +12,7 @@ import { createRoot } from 'react-dom/client';
 import './index.css';
 import ErrorBoundary from './shared/components/ErrorBoundary';
 import DeferredAnalytics from './shared/components/DeferredScripts/DeferredAnalytics';
+import PreventPinchZoom from './shared/components/PreventPinchZoom';
 import { ErrorLogger } from './shared/services/error-logger';
 import { AuthProvider } from './shared/context/AuthContext';
 import { ThemeProvider } from './app/context/ThemeContext';
@@ -35,6 +36,7 @@ createRoot(document.getElementById('root')).render(
             <PreferencesProvider>
               <AppProvider>
                 <ViewportProvider>
+                  <PreventPinchZoom />
                   <AppRouter />
                 </ViewportProvider>
               </AppProvider>
