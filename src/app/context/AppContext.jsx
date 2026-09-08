@@ -4,7 +4,7 @@
  * Manages: layer visibility, selected fire, sidebar, alerts, map state.
  */
 
-import { createContext, useContext, useReducer, useCallback } from 'react';
+import { createContext, useContext, useReducer, useCallback, useMemo } from 'react';
 
 // ─── Initial State ────────────────────────────────────────────────────────────
 const initialState = {
@@ -222,32 +222,62 @@ export function AppProvider({ children }) {
   const grantLocation    = useCallback(() => dispatch({ type: A.GRANT_LOCATION }), []);
   const setUserLocation  = useCallback((location) => dispatch({ type: A.SET_USER_LOCATION, location }), []);
 
+  // Memoized so a parent re-render that doesn't actually dispatch an action
+  // doesn't hand every useApp() consumer a new object reference. The action
+  // creators are already stable ([] deps), so the only real dependency is
+  // `state` itself, which useReducer only changes on an actual dispatch.
+  const value = useMemo(() => ({
+    ...state,
+    toggleLayer,
+    setLayer,
+    setFireRiskDay,
+    setWpcOutlookDay,
+    selectFire,
+    clearSelected,
+    selectGauge,
+    selectRadarSite,
+    selectCamera,
+    toggleSidebar,
+    toggleLayerPanel,
+    closeLayerPanel,
+    toggleFuturePanel,
+    toggleAccountPanel,
+    toggleLegend,
+    setAlerts,
+    setAlertsStatus,
+    setLoading,
+    setRefreshed,
+    setFeedFilter,
+    grantLocation,
+    setUserLocation,
+  }), [
+    state,
+    toggleLayer,
+    setLayer,
+    setFireRiskDay,
+    setWpcOutlookDay,
+    selectFire,
+    clearSelected,
+    selectGauge,
+    selectRadarSite,
+    selectCamera,
+    toggleSidebar,
+    toggleLayerPanel,
+    closeLayerPanel,
+    toggleFuturePanel,
+    toggleAccountPanel,
+    toggleLegend,
+    setAlerts,
+    setAlertsStatus,
+    setLoading,
+    setRefreshed,
+    setFeedFilter,
+    grantLocation,
+    setUserLocation,
+  ]);
+
   return (
-    <AppContext.Provider value={{
-      ...state,
-      toggleLayer,
-      setLayer,
-      setFireRiskDay,
-      setWpcOutlookDay,
-      selectFire,
-      clearSelected,
-      selectGauge,
-      selectRadarSite,
-      selectCamera,
-      toggleSidebar,
-      toggleLayerPanel,
-      closeLayerPanel,
-      toggleFuturePanel,
-      toggleAccountPanel,
-      toggleLegend,
-      setAlerts,
-      setAlertsStatus,
-      setLoading,
-      setRefreshed,
-      setFeedFilter,
-      grantLocation,
-      setUserLocation,
-    }}>
+    <AppContext.Provider value={value}>
       {children}
     </AppContext.Provider>
   );

@@ -394,22 +394,20 @@ export async function fetchWaterGauges() {
   }
 
   if (!features.length) {
-    const attempts = [gaugesUrl(false), gaugesUrl(true)];
-    for (const url of attempts) {
-      try {
-        const res = await fetchWithTimeout(url, { headers: HEADERS });
-        if (!res.ok) {
-          lastError = new Error(`NWPS gauges HTTP ${res.status}`);
-          continue;
-        }
+    // Only one attempt: per the notes above, this endpoint hangs server-side
+    // regardless of bbox, so a second (bbox-filtered) attempt after the first
+    // times out just doubles the worst-case stall (24s) with no observed
+    // benefit — it hits the same flaky endpoint for the same reason.
+    try {
+      const res = await fetchWithTimeout(gaugesUrl(false), { headers: HEADERS });
+      if (!res.ok) {
+        lastError = new Error(`NWPS gauges HTTP ${res.status}`);
+      } else {
         const parsed = extractGaugeList(await res.json());
-        if (parsed.length) {
-          features = gaugesToGeoJSON(parsed).features;
-          break;
-        }
-      } catch (err) {
-        lastError = err;
+        if (parsed.length) features = gaugesToGeoJSON(parsed).features;
       }
+    } catch (err) {
+      lastError = err;
     }
   }
 

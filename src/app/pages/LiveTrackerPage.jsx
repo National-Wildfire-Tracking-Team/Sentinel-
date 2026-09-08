@@ -487,11 +487,13 @@ export default function LiveTrackerPage() {
     refresh:  refreshSpcMd,
   } = useSpcMesoscaleDiscussion(weatherDataEnabled && layers.weatherAlerts);
 
-  // Active evacuation zones from the CalOES hosted view and IPAWS
+  // Active evacuation zones from the CalOES hosted view and IPAWS.
+  // Gated on the evacZones layer toggle so the 5-minute CalOES/IPAWS poll
+  // stops once the user turns the layer off (was previously always-on).
   const {
     geoJSON: officialEvacZonesGeoJSON,
     refresh: refreshEvacZones,
-  } = useCombinedEvacZones();
+  } = useCombinedEvacZones(layers.evacZones);
 
   // Reporter-drawn evacuation zones (Supabase, active only)
   const {
