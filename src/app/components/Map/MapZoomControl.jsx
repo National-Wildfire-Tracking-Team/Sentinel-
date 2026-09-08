@@ -6,14 +6,24 @@
 
 import { memo } from 'react';
 import { Plus, Minus, Compass } from 'lucide-react';
+import { useViewport } from '../../context/ViewportContext';
 
 const REPORT_BUG_URL =
   'https://docs.google.com/forms/d/e/1FAIpQLSej35yFro7KsQ349MzgQ6Lek4_M67qfoK59UFssX9CaTKf07Q/viewform?usp=header';
 
 const MapZoomControl = memo(function MapZoomControl({ mapRef }) {
+  const { viewport, setViewport } = useViewport();
   const zoomIn = () => mapRef.current?.zoomIn();
   const zoomOut = () => mapRef.current?.zoomOut();
-  const orientNorth = () => mapRef.current?.resetNorth();
+  const orientNorth = () => {
+    // In 3D (tilted) mode, orienting north also flattens the map back to a
+    // 2D overhead view. In 2D mode, only the bearing is reset.
+    if ((viewport?.pitch ?? 0) > 0) {
+      setViewport({ pitch: 0, bearing: 0 });
+    } else {
+      mapRef.current?.resetNorth();
+    }
+  };
 
   return (
     <div className="absolute bottom-4 right-4 z-20 flex flex-col w-9 rounded-lg overflow-hidden border border-zinc-700 bg-black/90 backdrop-blur-sm shadow-xl">

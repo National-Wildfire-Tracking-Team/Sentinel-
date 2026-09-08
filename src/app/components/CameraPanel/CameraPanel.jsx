@@ -17,6 +17,23 @@ const DEFAULT_WIDTH = 288; // matches the old w-72 default
 const RESIZE_MIN_WIDTH = 220;
 const RESIZE_MAX_WIDTH = 640;
 
+/**
+ * Safari will start painting its native text/element selection highlight
+ * across the rest of the page the moment the pointer moves during a
+ * mousedown-drag, even with `preventDefault()` on the initiating event and
+ * `touch-action: none` on the handle. Explicitly disabling selection on the
+ * document for the duration of a drag/resize gesture avoids that.
+ */
+function suppressPageSelection() {
+  document.documentElement.style.userSelect = 'none';
+  document.documentElement.style.webkitUserSelect = 'none';
+}
+
+function restorePageSelection() {
+  document.documentElement.style.userSelect = '';
+  document.documentElement.style.webkitUserSelect = '';
+}
+
 /** Small curved corner-drag glyph, mirrored per corner via the `flip` prop. */
 function ResizeGlyph({ flip }) {
   return (
@@ -58,6 +75,7 @@ const CameraPanel = memo(function CameraPanel({ camera, onClose }) {
     if (e.button != null && e.button !== 0) return;
     const panel = panelRef.current;
     if (!panel) return;
+    e.preventDefault();
 
     const parent = panel.offsetParent;
     const parentRect = parent
@@ -73,6 +91,7 @@ const CameraPanel = memo(function CameraPanel({ camera, onClose }) {
       maxTop: Math.max(0, parentRect.height - panel.offsetHeight),
     };
     e.currentTarget.setPointerCapture?.(e.pointerId);
+    suppressPageSelection();
   }, []);
 
   const handleDragMove = useCallback((e) => {
@@ -86,6 +105,7 @@ const CameraPanel = memo(function CameraPanel({ camera, onClose }) {
   const handleDragEnd = useCallback((e) => {
     dragRef.current = null;
     e.currentTarget.releasePointerCapture?.(e.pointerId);
+    restorePageSelection();
   }, []);
 
   /** Bottom-left and bottom-right corner handles both keep the panel's aspect ratio locked. */
@@ -93,6 +113,7 @@ const CameraPanel = memo(function CameraPanel({ camera, onClose }) {
     if (e.button != null && e.button !== 0) return;
     const panel = panelRef.current;
     if (!panel) return;
+    e.preventDefault();
     e.stopPropagation();
 
     const parent = panel.offsetParent;
@@ -127,6 +148,7 @@ const CameraPanel = memo(function CameraPanel({ camera, onClose }) {
     setSize({ width: startWidth, height: startHeight });
 
     e.currentTarget.setPointerCapture?.(e.pointerId);
+    suppressPageSelection();
   }, []);
 
   const handleResizeMove = useCallback((e) => {
@@ -146,6 +168,7 @@ const CameraPanel = memo(function CameraPanel({ camera, onClose }) {
   const handleResizeEnd = useCallback((e) => {
     resizeRef.current = null;
     e.currentTarget.releasePointerCapture?.(e.pointerId);
+    restorePageSelection();
   }, []);
 
   if (!camera) return null;
@@ -153,7 +176,7 @@ const CameraPanel = memo(function CameraPanel({ camera, onClose }) {
   const imageSrc = camera.imageUrl ? `${camera.imageUrl}${camera.imageUrl.includes('?') ? '&' : '?'}t=${cacheBust}` : null;
   const subtitle = [camera.route, camera.direction].filter(Boolean).join(' · ') || camera.nearbyPlace;
 
-  const resizeHandleClass = 'absolute z-10 w-5 h-5 flex items-center justify-center text-sentinel-400 hover:text-teal-400 transition-colors touch-none';
+  const resizeHandleClass = 'absolute z-10 w-5 h-5 flex items-center justify-center text-sentinel-400 hover:text-teal-400 transition-colors touch-none select-none';
 
   return (
     <div

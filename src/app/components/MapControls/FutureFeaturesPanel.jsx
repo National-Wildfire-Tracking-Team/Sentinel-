@@ -7,7 +7,7 @@
 import { memo } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  Map as MapIcon, HelpCircle, Award, HeartHandshake, MapPin, Satellite,
+  Home, Map as MapIcon, HelpCircle, Award, HeartHandshake, MapPin, Satellite,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { useTheme } from '../../context/ThemeContext';
@@ -168,6 +168,7 @@ const FutureFeaturesPanel = memo(function FutureFeaturesPanel({ mapType = 'satel
       `}
     >
       <div className="flex-1 overflow-y-auto py-2">
+        <MenuRow icon={Home} label="Home" href={getMainOrigin()} sameTab onClick={closePanel} />
         <MenuRow
           icon={isSatellite ? Satellite : MapIcon}
           label="Map"

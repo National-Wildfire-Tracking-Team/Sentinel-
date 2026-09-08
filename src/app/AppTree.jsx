@@ -9,6 +9,7 @@ import { ThemeProvider } from './context/ThemeContext';
 import { PreferencesProvider } from './context/PreferencesContext';
 import { AppProvider } from './context/AppContext';
 import { ViewportProvider } from './context/ViewportContext';
+import PreventPinchZoom from '../shared/components/PreventPinchZoom';
 import AppRouter from './router';
 
 export default function AppTree() {
@@ -17,6 +18,7 @@ export default function AppTree() {
       <PreferencesProvider>
         <AppProvider>
           <ViewportProvider>
+            <PreventPinchZoom />
             <AppRouter />
           </ViewportProvider>
         </AppProvider>

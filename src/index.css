@@ -136,6 +136,7 @@ body {
   -moz-osx-font-smoothing: grayscale;
   background: #0a0c0e;
   color: #f1f5f9;
+  -webkit-tap-highlight-color: transparent;
 }
 
 /* Match map background to sidebar (sentinel-900) */
