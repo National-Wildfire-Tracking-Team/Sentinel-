@@ -18,18 +18,23 @@ const LAYER_MAP = {
 const DEFAULT_VARIABLE = 'COLMD';
 const DEFAULT_FORECAST_HOUR = 0;
 
-function getLatestRunHour() {
-  const nowUtcHour = new Date().getUTCHours();
-  return Math.max(0, nowUtcHour - 1);
+// NOMADS typically publishes a run ~1h40m-2h after its nominal hour, and
+// `nowUtcHour - 1` alone isn't enough of a lag — right after each UTC hour
+// rolls over (and especially right after UTC midnight, where a naive
+// `max(0, hour - 1)` clamps to 0 instead of wrapping to the previous day's
+// 23z run) it can point at a run that isn't published yet, producing a WMS
+// 404. Lag by 2 hours and roll the date back when the hour goes negative.
+const RUN_LAG_HOURS = 2;
+
+function getLatestRunDateAndHour() {
+  const lagged = new Date(Date.now() - RUN_LAG_HOURS * 60 * 60 * 1000);
+  return {
+    ymd: `${lagged.getUTCFullYear()}${pad(lagged.getUTCMonth() + 1)}${pad(lagged.getUTCDate())}`,
+    runHour: lagged.getUTCHours(),
+  };
 }
 
-function getTodayUtcYmd() {
-  const date = new Date();
-  return `${date.getUTCFullYear()}${pad(date.getUTCMonth() + 1)}${pad(date.getUTCDate())}`;
-}
-
-function buildNomadsWmsUrl(runHour) {
-  const ymd = getTodayUtcYmd();
+function buildNomadsWmsUrl(ymd, runHour) {
   return `https://nomads.ncep.noaa.gov/dods/hrrr/hrrr${ymd}/hrrr_sfc.t${pad(runHour)}z/wms`;
 }
 
@@ -37,9 +42,9 @@ const SmokeLayer = memo(function SmokeLayer({ visible }) {
   const vis = visible ? 'visible' : 'none';
 
   const tileUrl = useMemo(() => {
-    const runHour = getLatestRunHour();
+    const { ymd, runHour } = getLatestRunDateAndHour();
     const layerName = LAYER_MAP[DEFAULT_VARIABLE];
-    const wmsUrl = buildNomadsWmsUrl(runHour);
+    const wmsUrl = buildNomadsWmsUrl(ymd, runHour);
 
     return `${wmsUrl}?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap`
       + `&LAYERS=${layerName}`
