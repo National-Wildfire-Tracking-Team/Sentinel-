@@ -358,9 +358,40 @@ export default function LiveTrackerPage() {
   }, [activeMapTab, setLayer]);
 
 
+  // ── Startup priority ──
+  // The map shell (auth, saved locations, the map itself) renders immediately
+  // and is never gated on data. Everything else waits for the map's own
+  // 'load' event (mapReady) so hotspot/alert/evac-zone fetches don't compete
+  // with map tile/style requests for bandwidth and main-thread time while the
+  // map is still initializing. A lower-priority ("tertiary") tier — the
+  // community-submitted overlays — is deferred a further step, kicked off
+  // only once the browser is idle after the map is ready.
+  const [mapReady, setMapReady] = useState(false);
+  const handleMapLoad = useCallback(() => setMapReady(true), []);
+
+  useEffect(() => {
+    if (mapReady) return undefined;
+    // Fallback in case the map never fires 'load' (missing Mapbox token,
+    // WebGL unavailable, etc.) — don't let that block secondary data forever.
+    const timer = setTimeout(() => setMapReady(true), 4000);
+    return () => clearTimeout(timer);
+  }, [mapReady]);
+
+  const [tertiaryReady, setTertiaryReady] = useState(false);
+  useEffect(() => {
+    if (!mapReady) return undefined;
+    let cancelled = false;
+    if (typeof requestIdleCallback === 'function') {
+      const id = requestIdleCallback(() => { if (!cancelled) setTertiaryReady(true); }, { timeout: 2000 });
+      return () => { cancelled = true; cancelIdleCallback(id); };
+    }
+    const id = setTimeout(() => { if (!cancelled) setTertiaryReady(true); }, 1000);
+    return () => { cancelled = true; clearTimeout(id); };
+  }, [mapReady]);
+
   // ── Data feeds ──
-  const wildfireDataEnabled = activeMapTab !== MAP_TABS.weather;
-  const weatherDataEnabled = activeMapTab === MAP_TABS.weather || activeMapTab === MAP_TABS.allhazard;
+  const wildfireDataEnabled = activeMapTab !== MAP_TABS.weather && mapReady;
+  const weatherDataEnabled = (activeMapTab === MAP_TABS.weather || activeMapTab === MAP_TABS.allhazard) && mapReady;
 
   const {
     geoJSON: hotspotsGeoJSON,
@@ -409,7 +440,7 @@ export default function LiveTrackerPage() {
     geoCount,
     lastRefresh: alertsLastRefresh,
     refresh: refreshAlerts,
-  } = useWeatherAlerts();
+  } = useWeatherAlerts(mapReady);
 
   // Wildfire tab: only fire-related alerts (Red Flag Warning / Fire Weather Watch).
   // Weather and all-hazard tabs: every active NWS alert, optionally narrowed by
@@ -493,13 +524,15 @@ export default function LiveTrackerPage() {
   const {
     geoJSON: officialEvacZonesGeoJSON,
     refresh: refreshEvacZones,
-  } = useCombinedEvacZones(layers.evacZones);
+  } = useCombinedEvacZones(layers.evacZones && mapReady);
 
-  // Reporter-drawn evacuation zones (Supabase, active only)
+  // Reporter-drawn evacuation zones (Supabase, active only) — community
+  // overlay, deferred to the tertiary tier so it doesn't compete with the
+  // official feeds above during startup.
   const {
     zones: reporterEvacZoneRows,
     refresh: refreshReporterEvacZones,
-  } = useReporterEvacZones('active');
+  } = useReporterEvacZones('active', tertiaryReady);
   const reporterEvacZonesGeoJSON = useMemo(
     () => reporterEvacZonesToGeoJSON(reporterEvacZoneRows),
     [reporterEvacZoneRows]
@@ -639,8 +672,9 @@ export default function LiveTrackerPage() {
     [selectedRadarSite, radarScanPayload]
   );
 
-  // Community-submitted reports – only approved ones, realtime-subscribed
-  const { reports: approvedReports, refresh: refreshUserReports } = useFireReports('approved');
+  // Community-submitted reports – only approved ones, realtime-subscribed.
+  // Tertiary tier: a supplemental overlay, not needed for first paint.
+  const { reports: approvedReports, refresh: refreshUserReports } = useFireReports('approved', tertiaryReady);
   const reporterReports = useMemo(
     () => (activeMapTab === MAP_TABS.wildfire || activeMapTab === MAP_TABS.allhazard ? approvedReports : []),
     [activeMapTab, approvedReports]
@@ -650,8 +684,9 @@ export default function LiveTrackerPage() {
     [reporterReports]
   );
 
-  // Community-submitted hazard events – wildfire, flooding, hazmat, other
-  const { events: activeHazardEvents } = useHazardEvents('active');
+  // Community-submitted hazard events – wildfire, flooding, hazmat, other.
+  // Tertiary tier: a supplemental overlay, not needed for first paint.
+  const { events: activeHazardEvents } = useHazardEvents('active', tertiaryReady);
   const hazardEventsGeoJSON = useMemo(
     () => hazardEventsToGeoJSON(activeHazardEvents),
     [activeHazardEvents]
@@ -978,6 +1013,7 @@ export default function LiveTrackerPage() {
       {/* ── Main content area (map fills full width; all controls float over it) ── */}
       <div className="flex-1 relative overflow-hidden">
         <MapView
+            onMapLoad={handleMapLoad}
             activeMapTab={activeMapTab}
             mapType={mapType}
             hotspotsGeoJSON={hotspotsGeoJSON}

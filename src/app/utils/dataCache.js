@@ -6,6 +6,12 @@
 
 const cache = new Map();
 
+// Requests currently in flight, keyed the same as the cache. Lets two
+// callers that ask for the same key at nearly the same moment (e.g. two
+// hooks both gated on the same "map ready" flag, firing in the same tick)
+// share one network request instead of each firing their own.
+const inflight = new Map();
+
 /**
  * Get a cached value if it's still fresh.
  * @param {string} key
@@ -50,6 +56,24 @@ export function clearCache() {
 }
 
 /**
+ * Coalesce concurrent callers requesting the same key: the first caller's
+ * async `fn` runs once; anyone else who asks for the same `key` before it
+ * settles gets that same promise instead of triggering a duplicate request.
+ * On rejection the key is cleared so a later call can retry.
+ * @param {string} key
+ * @param {() => Promise<any>} fn
+ * @returns {Promise<any>}
+ */
+export function dedupeInflight(key, fn) {
+  const existing = inflight.get(key);
+  if (existing) return existing;
+
+  const promise = Promise.resolve().then(fn).finally(() => inflight.delete(key));
+  inflight.set(key, promise);
+  return promise;
+}
+
+/**
  * Convenience wrapper: fetch a resource with caching.
  * @param {string} url          URL to fetch
  * @param {string} cacheKey     Cache key
@@ -61,14 +85,16 @@ export async function fetchWithCache(url, cacheKey, options = {}, ttlMs = 5 * 60
   const cached = getCached(cacheKey);
   if (cached !== null) return cached;
 
-  const res = await fetch(url, options);
-  if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
-  let data;
-  try {
-    data = await res.json();
-  } catch {
-    throw new Error(`Invalid JSON response from ${url}`);
-  }
-  setCached(cacheKey, data, ttlMs);
-  return data;
+  return dedupeInflight(cacheKey, async () => {
+    const res = await fetch(url, options);
+    if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+    let data;
+    try {
+      data = await res.json();
+    } catch {
+      throw new Error(`Invalid JSON response from ${url}`);
+    }
+    setCached(cacheKey, data, ttlMs);
+    return data;
+  });
 }

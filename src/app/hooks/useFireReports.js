@@ -12,14 +12,20 @@ import { parseLatestContainment } from '../utils/formatUtils';
 /**
  * Subscribes to reports matching a given status filter.
  * @param {'approved'|'pending'|'rejected'|'all'} status
+ * @param {boolean} [enabled=true]  Set false to defer this fetch and its
+ *   realtime subscription (e.g. until higher-priority map data has loaded).
  * @returns {{ reports, loading, error, refresh }}
  */
-export function useFireReports(status = 'approved') {
+export function useFireReports(status = 'approved', enabled = true) {
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError]     = useState(null);
 
   const load = useCallback(async () => {
+    if (!enabled) {
+      setLoading(false);
+      return;
+    }
     if (!isSupabaseConfigured) {
       setReports([]);
       setLoading(false);
@@ -42,13 +48,13 @@ export function useFireReports(status = 'approved') {
       setReports(data || []);
     }
     setLoading(false);
-  }, [status]);
+  }, [status, enabled]);
 
   useEffect(() => { load(); }, [load]);
 
   // Realtime subscription – listen for any change and re-filter locally
   useEffect(() => {
-    if (!isSupabaseConfigured) return undefined;
+    if (!enabled || !isSupabaseConfigured) return undefined;
 
     const channel = supabase
       .channel(`fire_reports_${status}`)
@@ -87,7 +93,7 @@ export function useFireReports(status = 'approved') {
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
-  }, [status]);
+  }, [status, enabled]);
 
   return { reports, loading, error, refresh: load };
 }

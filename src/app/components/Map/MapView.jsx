@@ -1291,6 +1291,7 @@ export default function MapView({
   wpcWssiGeoJSON,
   wpcQpfGeoJSON,
   wpcFrontsGeoJSON,
+  onMapLoad,
 }) {
   const { layers, alerts, selectedFire, selectFire, selectGauge, selectRadarSite, selectCamera, sidebarOpen, locationGranted, userLocation, setUserLocation, layerPanelOpen, closeLayerPanel } = useApp();
   const { viewport, setViewport } = useViewport();
@@ -1720,6 +1721,7 @@ export default function MapView({
         onMouseLeave={handleMouseLeave}
         onMove={handleMove}
         onMoveEnd={handleMoveEnd}
+        onLoad={onMapLoad}
         transformRequest={transformRequest}
         attributionControl={false}
         maxTileCacheSize={150}
