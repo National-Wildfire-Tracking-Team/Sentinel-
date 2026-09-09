@@ -35,12 +35,12 @@ const ZONE_TYPE_COLORS = {
 };
 
 const INPUT_CLS =
-  'w-full px-3 py-2.5 rounded-lg bg-[#0d1117] border border-[#30363d] text-white ' +
-  'placeholder-[#484f58] focus:outline-none focus:border-[#0096ff] ' +
-  'focus:ring-1 focus:ring-[#0096ff]/20 transition-colors text-sm';
+  'w-full px-3 py-2.5 rounded-lg bg-sentinel-800 border border-sentinel-600 text-white ' +
+  'placeholder-sentinel-500 focus:outline-none focus:border-fire-600 ' +
+  'focus:ring-1 focus:ring-fire-600/20 transition-colors text-sm';
 
 const LABEL_CLS =
-  'block text-xs font-semibold text-[#8b949e] uppercase tracking-wider mb-1.5';
+  'block text-xs font-semibold text-sentinel-300 uppercase tracking-wider mb-1.5';
 
 const US_STATES = [
   'Alabama','Alaska','Arizona','Arkansas','California','Colorado','Connecticut',
@@ -337,7 +337,7 @@ export default function EvacZoneDrawer({ onSave, onCancel, saving = false, saveE
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all ${
               zoneType === type
                 ? 'border-current text-white shadow-md'
-                : 'border-[#30363d] text-[#8b949e] hover:border-[#484f58] hover:text-white'
+                : 'border-sentinel-600 text-sentinel-300 hover:border-sentinel-500 hover:text-white'
             }`}
             style={zoneType === type ? { backgroundColor: ZONE_TYPE_COLORS[type] + '33', borderColor: ZONE_TYPE_COLORS[type], color: ZONE_TYPE_COLORS[type] } : {}}
           >
@@ -351,7 +351,7 @@ export default function EvacZoneDrawer({ onSave, onCancel, saving = false, saveE
       </div>
 
       {/* ── Interactive map ── */}
-      <div className="relative rounded-xl overflow-hidden border border-[#30363d]" style={{ height: 400 }}>
+      <div className="relative rounded-xl overflow-hidden border border-sentinel-600" style={{ height: 400 }}>
         <Map
           initialViewState={{ longitude: -114.5, latitude: 39.5, zoom: 5 }}
           style={{ width: '100%', height: '100%' }}
@@ -385,7 +385,7 @@ export default function EvacZoneDrawer({ onSave, onCancel, saving = false, saveE
                   {selectedFire.name}
                 </p>
                 {(selectedFire.acres != null || selectedFire.contained != null) && (
-                  <p className="text-xs text-[#8b949e] mt-0.5">
+                  <p className="text-xs text-sentinel-300 mt-0.5">
                     {selectedFire.acres != null ? `${selectedFire.acres.toLocaleString('en-US', { maximumFractionDigits: 0 })} acres` : ''}
                     {selectedFire.acres != null && selectedFire.contained != null ? ' · ' : ''}
                     {selectedFire.contained != null ? `${selectedFire.contained}% contained` : ''}
@@ -394,7 +394,7 @@ export default function EvacZoneDrawer({ onSave, onCancel, saving = false, saveE
                 <button
                   type="button"
                   onClick={() => { setIncidentName(selectedFire.name); setSelectedFire(null); }}
-                  className="mt-2 text-xs font-semibold text-[#0096ff] hover:underline"
+                  className="mt-2 text-xs font-semibold text-fire-600 hover:underline"
                 >
                   Use as linked incident
                 </button>
@@ -412,7 +412,7 @@ export default function EvacZoneDrawer({ onSave, onCancel, saving = false, saveE
             : `${perimetersCount + dotsCount} active wildfire${perimetersCount + dotsCount !== 1 ? 's' : ''} shown`}
         </div>
       </div>
-      <p className="text-xs text-[#484f58] -mt-3">
+      <p className="text-xs text-sentinel-500 -mt-3">
         Click a wildfire marker on the map to see its name and link it to your zone.
       </p>
 
@@ -432,7 +432,7 @@ export default function EvacZoneDrawer({ onSave, onCancel, saving = false, saveE
           type="button"
           onClick={deleteSelected}
           disabled={drawnFeatures.length === 0}
-          className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-[#8b949e] border border-[#30363d] hover:text-red-400 hover:border-red-800 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-sentinel-300 border border-sentinel-600 hover:text-red-400 hover:border-red-800 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
         >
           <Trash2 size={14} />
           Delete Selected
@@ -442,7 +442,7 @@ export default function EvacZoneDrawer({ onSave, onCancel, saving = false, saveE
           <button
             type="button"
             onClick={clearAll}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-[#8b949e] border border-[#30363d] hover:text-orange-400 hover:border-orange-800 transition-colors"
+            className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-sentinel-300 border border-sentinel-600 hover:text-orange-400 hover:border-orange-800 transition-colors"
           >
             <RotateCcw size={14} />
             Clear All
@@ -450,7 +450,7 @@ export default function EvacZoneDrawer({ onSave, onCancel, saving = false, saveE
         )}
 
         {acresLabel && (
-          <span className="ml-auto text-xs text-[#8b949e] flex items-center gap-1">
+          <span className="ml-auto text-xs text-sentinel-300 flex items-center gap-1">
             <MapPin size={11} />
             {drawnFeatures.length} polygon{drawnFeatures.length !== 1 ? 's' : ''} · {acresLabel}
           </span>
@@ -458,8 +458,8 @@ export default function EvacZoneDrawer({ onSave, onCancel, saving = false, saveE
       </div>
 
       {drawnFeatures.length === 0 && (
-        <p className="text-xs text-[#484f58] bg-[#0d1117] border border-[#21262d] rounded-lg px-4 py-3">
-          Click <strong className="text-[#8b949e]">Draw Polygon</strong> then click on the map to place vertices.
+        <p className="text-xs text-sentinel-500 bg-sentinel-800 border border-sentinel-700 rounded-lg px-4 py-3">
+          Click <strong className="text-sentinel-300">Draw Polygon</strong> then click on the map to place vertices.
           Double-click (or click the first point) to close the polygon.
           You can draw multiple polygons to create a multi-area zone.
         </p>
@@ -518,7 +518,7 @@ export default function EvacZoneDrawer({ onSave, onCancel, saving = false, saveE
                 <option value="">— Select state —</option>
                 {US_STATES.map((s) => <option key={s} value={s}>{s}</option>)}
               </select>
-              <ChevronDown size={13} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#484f58] pointer-events-none" />
+              <ChevronDown size={13} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-sentinel-500 pointer-events-none" />
             </div>
           </div>
 
@@ -543,7 +543,7 @@ export default function EvacZoneDrawer({ onSave, onCancel, saving = false, saveE
             placeholder="Evacuation instructions, road closures, shelter locations…"
             className={INPUT_CLS + ' resize-y min-h-[80px]'}
           />
-          <div className="text-right text-xs text-[#484f58] mt-0.5">{description.length} / 2000</div>
+          <div className="text-right text-xs text-sentinel-500 mt-0.5">{description.length} / 2000</div>
         </div>
 
         {(formError || saveError) && (
@@ -558,7 +558,7 @@ export default function EvacZoneDrawer({ onSave, onCancel, saving = false, saveE
             type="button"
             onClick={onCancel}
             disabled={saving}
-            className="flex-1 py-2.5 rounded-lg text-sm font-medium text-[#8b949e] border border-[#30363d] hover:text-white hover:border-[#484f58] transition-colors disabled:opacity-50"
+            className="flex-1 py-2.5 rounded-lg text-sm font-medium text-sentinel-300 border border-sentinel-600 hover:text-white hover:border-sentinel-500 transition-colors disabled:opacity-50"
           >
             <X size={13} className="inline mr-1.5" />
             Cancel

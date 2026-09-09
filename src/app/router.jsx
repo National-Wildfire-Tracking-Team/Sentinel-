@@ -7,13 +7,11 @@
 
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { lazy, Suspense, useEffect } from 'react';
+import { getReporterOrigin } from '../shared/utils/getAppOrigin';
 
 const LiveTrackerPage = lazy(() => import('./pages/LiveTrackerPage'));
 const LoginPage = lazy(() => import('./pages/LoginPage'));
 const RegisterPage = lazy(() => import('./pages/RegisterPage'));
-const ReporterLoginPage = lazy(() => import('./pages/ReporterLoginPage'));
-const ReporterRegisterPage = lazy(() => import('./pages/ReporterRegisterPage'));
-const ReporterDashboardPage = lazy(() => import('./pages/ReporterDashboardPage'));
 const AccountPage = lazy(() => import('./pages/AccountPage'));
 const ManageZipcodesPage = lazy(() => import('./pages/ManageZipcodesPage'));
 const AdminDashboardPage = lazy(() => import('./pages/AdminDashboardPage'));
@@ -39,6 +37,19 @@ function RouteLoader() {
   );
 }
 
+/**
+ * Backward-compat for old bookmarks/links to the reporter portal's former
+ * paths on the app subdomain — the portal now lives on its own subdomain
+ * (reporter.nationalwildfiretrackingteam.org), so redirect there instead of
+ * rendering it here.
+ */
+function ReporterPortalRedirect({ reporterPath }) {
+  useEffect(() => {
+    window.location.replace(`${getReporterOrigin()}${reporterPath}`);
+  }, [reporterPath]);
+  return <RouteLoader />;
+}
+
 export default function AppRouter() {
   return (
     <BrowserRouter>
@@ -52,10 +63,10 @@ export default function AppRouter() {
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
 
-          {/* Reporter portal — hidden (not linked in public nav), direct URL only */}
-          <Route path="/reporter-login" element={<ReporterLoginPage />} />
-          <Route path="/reporter-register" element={<ReporterRegisterPage />} />
-          <Route path="/reporter-dashboard" element={<ReporterDashboardPage />} />
+          {/* Reporter portal moved to its own subdomain — redirect old bookmarks/links */}
+          <Route path="/reporter-login" element={<ReporterPortalRedirect reporterPath="/login" />} />
+          <Route path="/reporter-register" element={<ReporterPortalRedirect reporterPath="/register" />} />
+          <Route path="/reporter-dashboard" element={<ReporterPortalRedirect reporterPath="/" />} />
 
           {/* Account settings — protected, not linked in public nav */}
           <Route path="/account" element={<AccountPage />} />

@@ -1,8 +1,9 @@
 /**
  * ReporterRegisterPage.jsx
- * Hidden account creation page for NWTT reporters.
- * Not linked anywhere in the public navigation — access by direct URL only.
- * Route: /reporter-register
+ * Account creation for the reporter portal, served on its own subdomain
+ * (reporter.nationalwildfiretrackingteam.org). Not linked anywhere in the
+ * public navigation — access by direct URL only.
+ * Route: /register (on the reporter.* subdomain)
  */
 
 import { useState } from 'react';
@@ -36,8 +37,8 @@ export default function ReporterRegisterPage() {
   })();
 
   const inputBase =
-    'w-full rounded-lg bg-[#0d1117] border border-[#30363d] text-white placeholder-[#484f58] ' +
-    'focus:outline-none focus:border-[#0096ff] focus:ring-1 focus:ring-[#0096ff]/20 transition-colors text-sm';
+    'w-full rounded-lg bg-sentinel-800 border border-sentinel-600 text-white placeholder-sentinel-500 ' +
+    'focus:outline-none focus:border-fire-600 focus:ring-1 focus:ring-fire-600/20 transition-colors text-sm';
 
   async function handleRegister(e) {
     e.preventDefault();
@@ -64,7 +65,7 @@ export default function ReporterRegisterPage() {
       // no active session. Detect this and show a confirmation prompt instead of
       // navigating to the dashboard (which would just redirect back to login).
       if (data?.session) {
-        navigate('/reporter-dashboard', { replace: true });
+        navigate('/', { replace: true });
       } else {
         setConfirmationSent(true);
       }
@@ -77,24 +78,24 @@ export default function ReporterRegisterPage() {
 
   if (confirmationSent) {
     return (
-      <div className="min-h-screen bg-[#010409] flex items-center justify-center p-4">
+      <div className="min-h-screen bg-sentinel-900 flex items-center justify-center p-4">
         <div className="w-full max-w-md">
           <div className="flex flex-col items-center mb-10">
-            <div className="w-14 h-14 rounded-2xl bg-[#0096ff]/10 border border-[#0096ff]/30 flex items-center justify-center mb-4 shadow-lg shadow-[#0096ff]/10">
-              <Flame size={28} className="text-[#0096ff]" />
+            <div className="w-14 h-14 rounded-2xl bg-fire-600/10 border border-fire-600/30 flex items-center justify-center mb-4 shadow-lg shadow-fire-600/10">
+              <Flame size={28} className="text-fire-500" />
             </div>
             <h1 className="text-white text-2xl font-bold tracking-tight">Check Your Email</h1>
-            <p className="text-[#8b949e] text-sm mt-1">One more step to activate your account</p>
+            <p className="text-sentinel-300 text-sm mt-1">One more step to activate your account</p>
           </div>
 
-          <div className="bg-[#0d1117] border border-[#30363d] rounded-2xl p-8 shadow-2xl">
+          <div className="bg-sentinel-800 border border-sentinel-600 rounded-2xl p-8 shadow-2xl">
             <div className="flex flex-col items-center gap-4 text-center">
               <div className="w-12 h-12 rounded-full bg-green-950/40 border border-green-800/60 flex items-center justify-center">
                 <Mail size={22} className="text-green-400" />
               </div>
               <div>
                 <p className="text-white font-semibold mb-1">Confirmation email sent</p>
-                <p className="text-[#8b949e] text-sm">
+                <p className="text-sentinel-300 text-sm">
                   We sent a confirmation link to{' '}
                   <span className="text-white font-medium">{email}</span>.
                   Click the link in that email to verify your address and activate your reporter account.
@@ -105,15 +106,15 @@ export default function ReporterRegisterPage() {
                 If you don&apos;t see the email, check your spam or junk folder.
               </div>
               <Link
-                to="/reporter-login"
-                className="mt-2 w-full py-3 rounded-lg font-semibold text-sm text-white bg-[#0096ff] hover:bg-[#0080db] transition-all text-center block"
+                to="/login"
+                className="mt-2 w-full py-3 rounded-lg font-semibold text-sm text-white bg-fire-600 hover:bg-fire-700 transition-all text-center block"
               >
                 Go to Sign In
               </Link>
             </div>
           </div>
 
-          <div className="flex items-center justify-center gap-2 mt-6 text-[#484f58] text-xs">
+          <div className="flex items-center justify-center gap-2 mt-6 text-sentinel-500 text-xs">
             <ShieldCheck size={13} />
             <span>Authorized personnel only</span>
           </div>
@@ -123,19 +124,19 @@ export default function ReporterRegisterPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#010409] flex items-center justify-center p-4">
+    <div className="min-h-screen bg-sentinel-900 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
 
         {/* Logo mark */}
         <div className="flex flex-col items-center mb-10">
-          <div className="w-14 h-14 rounded-2xl bg-[#0096ff]/10 border border-[#0096ff]/30 flex items-center justify-center mb-4 shadow-lg shadow-[#0096ff]/10">
-            <Flame size={28} className="text-[#0096ff]" />
+          <div className="w-14 h-14 rounded-2xl bg-fire-600/10 border border-fire-600/30 flex items-center justify-center mb-4 shadow-lg shadow-fire-600/10">
+            <Flame size={28} className="text-fire-500" />
           </div>
           <h1 className="text-white text-2xl font-bold tracking-tight">Create Reporter Account</h1>
-          <p className="text-[#8b949e] text-sm mt-1">Join the NWTT incident reporting network</p>
+          <p className="text-sentinel-300 text-sm mt-1">Join the NWTT incident reporting network</p>
         </div>
 
-        <div className="bg-[#0d1117] border border-[#30363d] rounded-2xl p-8 shadow-2xl">
+        <div className="bg-sentinel-800 border border-sentinel-600 rounded-2xl p-8 shadow-2xl">
 
           {!isSupabaseConfigured && (
             <div className="mb-5 p-3 rounded-lg bg-amber-950/40 border border-amber-800/60 text-amber-200 text-xs">
@@ -149,11 +150,11 @@ export default function ReporterRegisterPage() {
           <form onSubmit={handleRegister} className="space-y-5">
 
             <div>
-              <label className="block text-xs font-semibold text-[#8b949e] uppercase tracking-wider mb-2">
-                Full Name <span className="text-[#484f58] font-normal normal-case">(optional)</span>
+              <label className="block text-xs font-semibold text-sentinel-300 uppercase tracking-wider mb-2">
+                Full Name <span className="text-sentinel-500 font-normal normal-case">(optional)</span>
               </label>
               <div className="relative">
-                <User size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#484f58] pointer-events-none" />
+                <User size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sentinel-500 pointer-events-none" />
                 <input
                   type="text"
                   value={fullName}
@@ -166,11 +167,11 @@ export default function ReporterRegisterPage() {
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-[#8b949e] uppercase tracking-wider mb-2">
+              <label className="block text-xs font-semibold text-sentinel-300 uppercase tracking-wider mb-2">
                 Email Address <span className="text-red-400">*</span>
               </label>
               <div className="relative">
-                <Mail size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#484f58] pointer-events-none" />
+                <Mail size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sentinel-500 pointer-events-none" />
                 <input
                   type="email"
                   required
@@ -184,11 +185,11 @@ export default function ReporterRegisterPage() {
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-[#8b949e] uppercase tracking-wider mb-2">
+              <label className="block text-xs font-semibold text-sentinel-300 uppercase tracking-wider mb-2">
                 Password <span className="text-red-400">*</span>
               </label>
               <div className="relative">
-                <Lock size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#484f58] pointer-events-none" />
+                <Lock size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sentinel-500 pointer-events-none" />
                 <input
                   type={showPassword ? 'text' : 'password'}
                   required
@@ -202,7 +203,7 @@ export default function ReporterRegisterPage() {
                 <button
                   type="button"
                   onClick={() => setShowPassword((v) => !v)}
-                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[#484f58] hover:text-[#8b949e] transition-colors"
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-sentinel-500 hover:text-sentinel-300 transition-colors"
                   tabIndex={-1}
                   aria-label={showPassword ? 'Hide password' : 'Show password'}
                 >
@@ -211,7 +212,7 @@ export default function ReporterRegisterPage() {
               </div>
               {passwordStrength && (
                 <div className="mt-2 flex items-center gap-2">
-                  <div className="flex-1 h-1 rounded-full bg-[#21262d] overflow-hidden">
+                  <div className="flex-1 h-1 rounded-full bg-sentinel-700 overflow-hidden">
                     <div
                       className={`h-full rounded-full transition-all ${passwordStrength.color}`}
                       style={{
@@ -222,17 +223,17 @@ export default function ReporterRegisterPage() {
                       }}
                     />
                   </div>
-                  <span className="text-[10px] text-[#8b949e]">{passwordStrength.label}</span>
+                  <span className="text-[10px] text-sentinel-300">{passwordStrength.label}</span>
                 </div>
               )}
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-[#8b949e] uppercase tracking-wider mb-2">
+              <label className="block text-xs font-semibold text-sentinel-300 uppercase tracking-wider mb-2">
                 Confirm Password <span className="text-red-400">*</span>
               </label>
               <div className="relative">
-                <Lock size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#484f58] pointer-events-none" />
+                <Lock size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sentinel-500 pointer-events-none" />
                 <input
                   type={showConfirm ? 'text' : 'password'}
                   required
@@ -246,7 +247,7 @@ export default function ReporterRegisterPage() {
                 <button
                   type="button"
                   onClick={() => setShowConfirm((v) => !v)}
-                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[#484f58] hover:text-[#8b949e] transition-colors"
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-sentinel-500 hover:text-sentinel-300 transition-colors"
                   tabIndex={-1}
                   aria-label={showConfirm ? 'Hide password' : 'Show password'}
                 >
@@ -273,17 +274,17 @@ export default function ReporterRegisterPage() {
             <button
               type="submit"
               disabled={busy || !isSupabaseConfigured}
-              className="w-full py-3 rounded-lg font-semibold text-sm text-white bg-[#0096ff] hover:bg-[#0080db]
+              className="w-full py-3 rounded-lg font-semibold text-sm text-white bg-fire-600 hover:bg-fire-700
                          disabled:opacity-50 disabled:cursor-not-allowed transition-all"
             >
               {busy ? 'Creating account…' : 'Create Account'}
             </button>
           </form>
 
-          <div className="mt-6 pt-5 border-t border-[#21262d] text-center">
-            <p className="text-sm text-[#8b949e]">
+          <div className="mt-6 pt-5 border-t border-sentinel-700 text-center">
+            <p className="text-sm text-sentinel-300">
               Already have an account?{' '}
-              <Link to="/reporter-login" className="text-[#0096ff] hover:text-[#58a6ff] font-medium transition-colors">
+              <Link to="/login" className="text-fire-400 hover:text-fire-300 font-medium transition-colors">
                 Sign in
               </Link>
             </p>
@@ -291,7 +292,7 @@ export default function ReporterRegisterPage() {
         </div>
 
         {/* Security note */}
-        <div className="flex items-center justify-center gap-2 mt-6 text-[#484f58] text-xs">
+        <div className="flex items-center justify-center gap-2 mt-6 text-sentinel-500 text-xs">
           <ShieldCheck size={13} />
           <span>Authorized personnel only</span>
         </div>
