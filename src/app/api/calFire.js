@@ -8,7 +8,7 @@
  *   3. Direct upstream (works server-side / Node only)
  */
 
-import { getCached, setCached } from '../utils/dataCache';
+import { getCached, setCached, dedupeInflight } from '../utils/dataCache';
 import { supabase, isSupabaseConfigured } from '../../shared/api/supabaseClient';
 import { throttleError } from '../../shared/utils/errorThrottle';
 
@@ -49,58 +49,62 @@ export async function fetchCalFireGeoJsonList({ includeInactive = false } = {}) 
   const cached = getCached(cacheKey);
   if (cached !== null) return cached;
 
-  /** @type {Array<{ label: string, run: () => Promise<object> }>} */
-  const attempts = [];
+  // Two hooks (useMergedFireData, useCalFireIncidents) both request this same
+  // includeInactive value on mount — coalesce them into one request.
+  return dedupeInflight(cacheKey, async () => {
+    /** @type {Array<{ label: string, run: () => Promise<object> }>} */
+    const attempts = [];
 
-  if (typeof window !== 'undefined') {
-    attempts.push({
-      label: 'same-origin /api/calfire',
-      run: () => fetchJson(`/api/calfire?${q}`),
-    });
-  }
-
-  if (typeof window !== 'undefined' && isSupabaseConfigured) {
-    attempts.push({
-      label: 'supabase calfire-proxy',
-      run: async () => {
-        const { data, error } = await supabase.functions.invoke('calfire-proxy', {
-          body: { inactive: includeInactive },
-        });
-        if (error) throw new Error(error.message || 'Supabase invoke failed');
-        if (!data) throw new Error('Empty Supabase response');
-        return typeof data === 'object' ? data : JSON.parse(String(data));
-      },
-    });
-  }
-
-  attempts.push({
-    label: 'direct incidents.fire.ca.gov',
-    run: () =>
-      fetchJson(directUrl, {
-        headers: {
-          Accept: 'application/json',
-          'User-Agent': 'Mozilla/5.0 (compatible; SentinelWildfireTracker/1.0)',
-          Referer: 'https://incidents.fire.ca.gov/',
-        },
-      }),
-  });
-
-  let lastErr = null;
-  for (const { label, run } of attempts) {
-    try {
-      const data = await run();
-      validateGeoJSON(data);
-      setCached(cacheKey, data, CACHE_TTL_MS);
-      return data;
-    } catch (err) {
-      lastErr = err;
-      throttleError('[CAL FIRE]', `${label}:`, err, {
-        friendlyType: 'generic',
+    if (typeof window !== 'undefined') {
+      attempts.push({
+        label: 'same-origin /api/calfire',
+        run: () => fetchJson(`/api/calfire?${q}`),
       });
     }
-  }
 
-  throw lastErr instanceof Error ? lastErr : new Error('CAL FIRE GeoJSON unavailable');
+    if (typeof window !== 'undefined' && isSupabaseConfigured) {
+      attempts.push({
+        label: 'supabase calfire-proxy',
+        run: async () => {
+          const { data, error } = await supabase.functions.invoke('calfire-proxy', {
+            body: { inactive: includeInactive },
+          });
+          if (error) throw new Error(error.message || 'Supabase invoke failed');
+          if (!data) throw new Error('Empty Supabase response');
+          return typeof data === 'object' ? data : JSON.parse(String(data));
+        },
+      });
+    }
+
+    attempts.push({
+      label: 'direct incidents.fire.ca.gov',
+      run: () =>
+        fetchJson(directUrl, {
+          headers: {
+            Accept: 'application/json',
+            'User-Agent': 'Mozilla/5.0 (compatible; SentinelWildfireTracker/1.0)',
+            Referer: 'https://incidents.fire.ca.gov/',
+          },
+        }),
+    });
+
+    let lastErr = null;
+    for (const { label, run } of attempts) {
+      try {
+        const data = await run();
+        validateGeoJSON(data);
+        setCached(cacheKey, data, CACHE_TTL_MS);
+        return data;
+      } catch (err) {
+        lastErr = err;
+        throttleError('[CAL FIRE]', `${label}:`, err, {
+          friendlyType: 'generic',
+        });
+      }
+    }
+
+    throw lastErr instanceof Error ? lastErr : new Error('CAL FIRE GeoJSON unavailable');
+  });
 }
 
 /**

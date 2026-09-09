@@ -37,13 +37,20 @@ async function checkTableExists() {
  * @param {'active'|'all'} status
  *   'active'  → only zones in status='active' (public map view)
  *   'all'     → all zones belonging to the current user (dashboard view)
+ * @param {boolean} [enabled=true]  Set false to defer this fetch and its
+ *   realtime subscription (e.g. until higher-priority map data has loaded).
  */
-export function useReporterEvacZones(status = 'active') {
+export function useReporterEvacZones(status = 'active', enabled = true) {
   const [zones, setZones]     = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError]     = useState(null);
 
   const load = useCallback(async () => {
+    if (!enabled) {
+      setLoading(false);
+      return;
+    }
+
     if (!isSupabaseConfigured) {
       setZones([]);
       setLoading(false);
@@ -80,13 +87,13 @@ export function useReporterEvacZones(status = 'active') {
       setZones(data || []);
     }
     setLoading(false);
-  }, [status]);
+  }, [status, enabled]);
 
   useEffect(() => { load(); }, [load]);
 
   // Realtime: re-apply local filter on any change
   useEffect(() => {
-    if (!isSupabaseConfigured || tableAvailable === false) return undefined;
+    if (!enabled || !isSupabaseConfigured || tableAvailable === false) return undefined;
 
     let channel;
     try {
@@ -128,7 +135,7 @@ export function useReporterEvacZones(status = 'active') {
     }
 
     return () => { if (channel) supabase.removeChannel(channel); };
-  }, [status]);
+  }, [status, enabled]);
 
   return { zones, loading, error, refresh: load };
 }
