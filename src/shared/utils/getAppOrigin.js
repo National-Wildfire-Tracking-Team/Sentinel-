@@ -21,3 +21,16 @@ export function getMainOrigin() {
   const mainHostname = hostname.slice('app.'.length);
   return `${protocol}//${mainHostname}${port ? `:${port}` : ''}`;
 }
+
+/**
+ * Resolves the origin of the reporter portal subdomain from the current
+ * hostname, so links/redirects between it and the other subdomains work in
+ * production (reporter.nationalwildfiretrackingteam.org) and in local dev
+ * (reporter.localhost) without hardcoding one or the other.
+ */
+export function getReporterOrigin() {
+  const { protocol, hostname, port } = window.location;
+  if (hostname.startsWith('reporter.')) return window.location.origin;
+  const reporterHostname = hostname === 'localhost' ? 'reporter.localhost' : `reporter.${hostname}`;
+  return `${protocol}//${reporterHostname}${port ? `:${port}` : ''}`;
+}

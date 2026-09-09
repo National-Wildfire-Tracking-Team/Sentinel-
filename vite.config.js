@@ -58,9 +58,10 @@ export default defineConfig({
   },
   server: {
     port: 3000,
-    // 'app.localhost' lets the hostname-based bootstrap in src/main.jsx mount
-    // the tracker app locally — see README for the /etc/hosts entry needed.
-    allowedHosts: ['localhost', 'app.localhost'],
+    // 'app.localhost'/'reporter.localhost' let the hostname-based bootstrap in
+    // src/main.jsx mount the tracker app/reporter portal locally — see README
+    // for the /etc/hosts entries needed.
+    allowedHosts: ['localhost', 'app.localhost', 'reporter.localhost'],
     proxy: {
       '/alerts': {
         target: 'http://127.0.0.1:3847',

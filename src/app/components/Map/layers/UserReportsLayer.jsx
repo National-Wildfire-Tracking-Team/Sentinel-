@@ -9,6 +9,14 @@ import { Source, Layer } from 'react-map-gl';
 
 const EMPTY_GEOJSON = { type: 'FeatureCollection', features: [] };
 
+// Reporter dots render with the exact same size/opacity/stroke as official
+// IncidentLocationsLayer (WFIGS/IRWIN) dots so the two sources are visually
+// indistinguishable on the map.
+const DOT_RADIUS = 7;
+const DOT_GLOW_RADIUS = 14;
+
+const IS_FULLY_CONTAINED = ['>=', ['coalesce', ['get', 'contained'], 0], 100];
+
 const USER_REPORT_COLOR = [
   'case',
   ['==', ['get', 'contained'], null],
@@ -38,9 +46,9 @@ const UserReportsLayer = memo(function UserReportsLayer({ geoJSON, visible }) {
         source="user-reports"
         layout={{ visibility: vis }}
         paint={{
-          'circle-radius': 18,
+          'circle-radius': DOT_GLOW_RADIUS,
           'circle-color': USER_REPORT_COLOR,
-          'circle-opacity': 0.18,
+          'circle-opacity': 0.12,
           'circle-stroke-width': 0,
         }}
       />
@@ -51,12 +59,12 @@ const UserReportsLayer = memo(function UserReportsLayer({ geoJSON, visible }) {
         source="user-reports"
         layout={{ visibility: vis }}
         paint={{
-          'circle-radius': 9,
+          'circle-radius': DOT_RADIUS,
           'circle-color': USER_REPORT_COLOR,
-          'circle-opacity': 0.9,
+          'circle-opacity': 0.8,
           'circle-stroke-color': '#ffffff',
-          'circle-stroke-width': 2,
-          'circle-stroke-opacity': 0.95,
+          'circle-stroke-width': 1.5,
+          'circle-stroke-opacity': 0.6,
         }}
       />
       {/* Title label at higher zoom */}
@@ -64,19 +72,19 @@ const UserReportsLayer = memo(function UserReportsLayer({ geoJSON, visible }) {
         id="user-reports-label"
         type="symbol"
         source="user-reports"
-        minzoom={6}
+        minzoom={7}
         layout={{
           visibility: vis,
           'text-field': ['get', 'title'],
           'text-font': ['DIN Pro Medium', 'Arial Unicode MS Bold'],
           'text-size': 11,
           'text-anchor': 'top',
-          'text-offset': [0, 1.2],
+          'text-offset': [0, 1.5],
           'text-max-width': 10,
         }}
         paint={{
-          'text-color': '#e0f7fa',
-          'text-halo-color': 'rgba(0,0,0,0.85)',
+          'text-color': ['case', IS_FULLY_CONTAINED, '#9ca3af', '#ffffff'],
+          'text-halo-color': 'rgba(0,0,0,0.8)',
           'text-halo-width': 1.5,
         }}
       />
