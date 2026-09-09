@@ -13,14 +13,20 @@ export const HAZARD_CATEGORIES = ['wildfire', 'flooding', 'hazmat', 'other'];
 /**
  * Subscribes to hazard events matching a given status filter.
  * @param {'active'|'resolved'|'all'} status
+ * @param {boolean} [enabled=true]  Set false to defer this fetch and its
+ *   realtime subscription (e.g. until higher-priority map data has loaded).
  * @returns {{ events, loading, error, refresh }}
  */
-export function useHazardEvents(status = 'active') {
+export function useHazardEvents(status = 'active', enabled = true) {
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   const load = useCallback(async () => {
+    if (!enabled) {
+      setLoading(false);
+      return;
+    }
     if (!isSupabaseConfigured) {
       setEvents([]);
       setLoading(false);
@@ -43,13 +49,13 @@ export function useHazardEvents(status = 'active') {
       setEvents(data || []);
     }
     setLoading(false);
-  }, [status]);
+  }, [status, enabled]);
 
   useEffect(() => { load(); }, [load]);
 
   // Realtime subscription – listen for any change and re-filter locally
   useEffect(() => {
-    if (!isSupabaseConfigured) return undefined;
+    if (!enabled || !isSupabaseConfigured) return undefined;
 
     const channel = supabase
       .channel(`hazard_events_${status}`)
@@ -87,7 +93,7 @@ export function useHazardEvents(status = 'active') {
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
-  }, [status]);
+  }, [status, enabled]);
 
   return { events, loading, error, refresh: load };
 }

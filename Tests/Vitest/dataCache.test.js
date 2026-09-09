@@ -5,6 +5,7 @@ import {
   invalidateCache,
   clearCache,
   fetchWithCache,
+  dedupeInflight,
 } from '../../src/app/utils/dataCache';
 
 describe('dataCache', () => {
@@ -131,5 +132,70 @@ describe('fetchWithCache', () => {
 
     await fetchWithCache('https://api.example.com/data', 'cacheKey', {}, 1000);
     expect(global.fetch).toHaveBeenCalledTimes(2);
+  });
+
+  it('coalesces concurrent calls for the same key into a single fetch', async () => {
+    const mockData = { results: [1, 2, 3] };
+    global.fetch.mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve(mockData),
+    });
+
+    const [a, b] = await Promise.all([
+      fetchWithCache('https://api.example.com/data', 'sharedKey'),
+      fetchWithCache('https://api.example.com/data', 'sharedKey'),
+    ]);
+
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+    expect(a).toEqual(mockData);
+    expect(b).toEqual(mockData);
+  });
+});
+
+describe('dedupeInflight', () => {
+  beforeEach(() => {
+    clearCache();
+  });
+
+  it('runs fn once for concurrent callers sharing a key', async () => {
+    const fn = vi.fn().mockResolvedValue('result');
+
+    const [a, b, c] = await Promise.all([
+      dedupeInflight('key1', fn),
+      dedupeInflight('key1', fn),
+      dedupeInflight('key1', fn),
+    ]);
+
+    expect(fn).toHaveBeenCalledTimes(1);
+    expect(a).toBe('result');
+    expect(b).toBe('result');
+    expect(c).toBe('result');
+  });
+
+  it('does not coalesce calls with different keys', async () => {
+    const fn = vi.fn().mockResolvedValue('result');
+
+    await Promise.all([dedupeInflight('key1', fn), dedupeInflight('key2', fn)]);
+
+    expect(fn).toHaveBeenCalledTimes(2);
+  });
+
+  it('clears the in-flight entry on rejection so a later call retries', async () => {
+    const fn = vi.fn()
+      .mockRejectedValueOnce(new Error('boom'))
+      .mockResolvedValueOnce('recovered');
+
+    await expect(dedupeInflight('key1', fn)).rejects.toThrow('boom');
+    await expect(dedupeInflight('key1', fn)).resolves.toBe('recovered');
+    expect(fn).toHaveBeenCalledTimes(2);
+  });
+
+  it('allows a fresh call after the first one settles', async () => {
+    const fn = vi.fn().mockResolvedValue('result');
+
+    await dedupeInflight('key1', fn);
+    await dedupeInflight('key1', fn);
+
+    expect(fn).toHaveBeenCalledTimes(2);
   });
 });

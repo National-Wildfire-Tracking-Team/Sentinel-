@@ -254,7 +254,13 @@ function toGeoJSON(alerts, zoneMap, countyMap, cwaMap) {
 /* =========================
    MAIN HOOK
 ========================= */
-export function useWeatherAlerts() {
+/**
+ * @param {boolean} [enabled=true]  Set false to defer this hook's network
+ *   activity (initial NWS/zone/county/CWA fetches + 60s poll) — e.g. until
+ *   the map has finished its own initial load, so this doesn't compete with
+ *   map tile/style requests for bandwidth during first paint.
+ */
+export function useWeatherAlerts(enabled = true) {
   const [alerts, setAlertsState] = useState([]);
   const [geoJSON, setGeoJSON] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -431,6 +437,13 @@ export function useWeatherAlerts() {
   useEffect(() => {
     mountedRef.current = true;
 
+    if (!enabled) {
+      // Deferred — don't fetch anything yet, but don't leave the UI stuck
+      // showing a loading state for data that isn't being requested.
+      setLoading(false);
+      return () => { mountedRef.current = false; };
+    }
+
     /* =========================
        LOAD ZONES (public + fire weather + marine)
     ========================= */
@@ -529,7 +542,7 @@ export function useWeatherAlerts() {
       mountedRef.current = false;
       clearInterval(interval);
     };
-  }, [load, applyGeoJSON]);
+  }, [load, applyGeoJSON, enabled]);
 
   return {
     alerts,
