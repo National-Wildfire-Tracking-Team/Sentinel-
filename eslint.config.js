@@ -42,6 +42,7 @@ export default [
         Element: 'readonly',
         Event: 'readonly',
         AbortController: 'readonly',
+        AbortSignal: 'readonly',
         Response: 'readonly',
         Request: 'readonly',
         Headers: 'readonly',

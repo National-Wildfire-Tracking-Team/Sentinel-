@@ -339,12 +339,22 @@ export function useWeatherAlerts() {
     }));
 
     // Zone/county-based alerts (e.g. Storm Surge Warnings, issued by UGC
-    // zone rather than a precise polygon) arrive with geometry: null. The
-    // zoneMap/countyMap/cwaMap fallback below is built from third-party
-    // mirrors that don't cover every zone (coastal zones in particular) —
-    // ask the authoritative NWS /zones API directly for whatever's missing.
+    // zone rather than a precise polygon) arrive with geometry: null. Most of
+    // these are already covered by the bulk zoneMap/countyMap/cwaMap loaded
+    // below (one request per catalog, not per zone) — skip those codes here
+    // and only ask the authoritative NWS /zones API directly for genuine gaps
+    // (zones missing from the third-party mirrors, coastal zones in particular).
     try {
-      enrichedNws = await enrichAlertsWithGeometry(enrichedNws);
+      const resolvableCodes = new Set();
+      for (const alert of enrichedNws) {
+        if (alert.geometry) continue;
+        for (const code of (alert.geocode?.UGC || [])) {
+          if (lookupGeometry(code, zoneMapRef.current, countyMapRef.current, cwaMapRef.current)) {
+            resolvableCodes.add(code);
+          }
+        }
+      }
+      enrichedNws = await enrichAlertsWithGeometry(enrichedNws, resolvableCodes);
     } catch (err) {
       console.warn("[WeatherAlerts] Zone geometry enrichment error:", err?.message || err);
     }
