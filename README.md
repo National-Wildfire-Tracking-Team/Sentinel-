@@ -32,15 +32,18 @@ npm run dev:all
 
 Open http://localhost:3000 for the marketing site.
 
-To test the tracker app locally, add this to `/etc/hosts`:
+To test the tracker app or reporter portal locally, add this to `/etc/hosts`:
 
 ```
 127.0.0.1 app.localhost
+127.0.0.1 reporter.localhost
 ```
 
-then open http://app.localhost:3000 — the marketing site and the tracker app
-are one build, split at runtime by hostname (see `src/main.jsx`). In
-production the tracker lives at `app.nationalwildfiretrackingteam.org`.
+then open http://app.localhost:3000 (tracker) or http://reporter.localhost:3000
+(reporter portal) — the marketing site, tracker app, and reporter portal are
+one build, split at runtime by hostname (see `src/main.jsx`). In production
+the tracker lives at `app.nationalwildfiretrackingteam.org` and the reporter
+portal at `reporter.nationalwildfiretrackingteam.org`.
 
 ## API Keys Setup
 
