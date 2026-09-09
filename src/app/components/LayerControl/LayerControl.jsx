@@ -39,7 +39,8 @@ const LAYER_DEFS = {
   goesWest:          { label: 'GOES West Imagery',   sublabel: 'NOAA GOES West · visible',    icon: Eye,           color: '#7c3aed' },
   goesFire16:        { label: 'GOES East Fire RGB',  sublabel: 'NOAA GOES East · Day Land Cloud Fire RGB', icon: Eye, color: '#a855f7' },
   goesFire18:        { label: 'GOES West Fire RGB',  sublabel: 'NOAA GOES West · Day Land Cloud Fire RGB', icon: Eye, color: '#9333ea' },
-  radar:             { label: 'Radar',               sublabel: 'NEXRAD composite mosaic + per-site scans', icon: Radar, color: '#10b981' },
+  radarComposite:    { label: 'Composite Radar',      sublabel: 'NOAA MRMS national mosaic', icon: Radar, color: '#10b981' },
+  radarNexrad:       { label: 'NEXRAD Level II',      sublabel: 'Per-site reflectivity & velocity scans', icon: Radar, color: '#06b6d4' },
   aqi:               { label: 'AQI Heatmap',          sublabel: 'EPA AirNow gradient overlay',  icon: Wind,         color: '#3b82f6' },
   smoke:             { label: 'Smoke Forecast',      sublabel: 'NOAA HRRR',                   icon: CloudRain,    color: '#94a3b8' },
   waterGauges:        { label: 'Water Gauges',        sublabel: 'NOAA NWPS river & coastal gauges', icon: Droplets, color: '#1e90ff' },
@@ -78,7 +79,7 @@ const TAB_SECTIONS = {
       groups: [
         {
           label: 'Active weather',
-          layers: ['weatherAlerts', 'stormReports', 'damageAssessment', 'radar'],
+          layers: ['weatherAlerts', 'stormReports', 'damageAssessment', 'radarComposite', 'radarNexrad'],
         },
         {
           label: 'Flood & water',
@@ -217,7 +218,7 @@ const TAB_SECTIONS = {
       groups: [
         {
           label: 'Imagery',
-          layers: ['radar', 'goesEast', 'goesWest'],
+          layers: ['radarComposite', 'radarNexrad', 'goesEast', 'goesWest'],
         },
       ],
     },
@@ -696,7 +697,7 @@ const LayerControl = memo(function LayerControl({
                                     sublabel={sublabel}
                                     icon={def.icon}
                                     color={def.color}
-                                    onToggle={layerKey === 'radar' ? () => { toggleLayer('radar'); toggleLayerPanel(); } : undefined}
+                                    onToggle={(layerKey === 'radarComposite' || layerKey === 'radarNexrad') ? () => { toggleLayer(layerKey); toggleLayerPanel(); } : undefined}
                                   />
 
                                   {layerKey === 'fireRiskOutlook' && (
