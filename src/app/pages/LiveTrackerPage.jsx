@@ -251,8 +251,8 @@ function mergeIrwinAndCalFireIncidents(irwinIncidents, calFireIncidents) {
 const RAWS_MIN_ZOOM = 9;
 
 export default function LiveTrackerPage() {
-  const { layers, setLayer, setRefreshed, setLoading, feedFilter, selectedGauge, selectGauge, selectedFire, selectedRadarSite, selectRadarSite, selectedCamera, selectCamera, wpcOutlookDay } = useApp();
-  const { viewport } = useViewport();
+  const { layers, setLayer, setRefreshed, setLoading, feedFilter, selectedGauge, selectGauge, selectedFire, selectFire, selectedRadarSite, selectRadarSite, selectedCamera, selectCamera, wpcOutlookDay, alerts } = useApp();
+  const { viewport, setViewport, flyToFire } = useViewport();
   const { hasProInfrastructureAccess, hasFireBehaviorModelingAccess } = usePlan();
   const criticalInfraEntitled = hasProInfrastructureAccess;
   const { locations: savedLocations } = useSavedLocations();
@@ -835,6 +835,125 @@ export default function LiveTrackerPage() {
       };
     });
   }, [allIncidents, reporterReports]);
+
+  // ── Shared incident/alert deep link ──
+  // FireDetailPanel's Share button writes ?incident=<id> (fires, perimeters,
+  // hotspots, user reports) or ?alert=<id> (weather alerts) into the URL —
+  // but nothing previously read that param back out on load, so opening a
+  // shared link never selected/flew to anything. Search every collection a
+  // share link can point into, in the order a user would naturally encounter
+  // them: IRWIN/reporter-merged incidents (covers most fires, including
+  // perimeter-backed ones, since they share the same UniqueFireIdentifier),
+  // then raw hotspot detections, then raw perimeters, then approved user
+  // reports. Retries as data loads in (these collections start empty and
+  // fill in asynchronously); gives up after a fixed timeout so a bad/expired
+  // id doesn't retry forever.
+  const sharedLinkResolvedRef = useRef(false);
+  useEffect(() => {
+    if (sharedLinkResolvedRef.current) return;
+    if (!mapReady) return;
+
+    const params = new URLSearchParams(window.location.search);
+    const alertId = params.get('alert');
+    const incidentId = params.get('incident');
+    if (!alertId && !incidentId) {
+      sharedLinkResolvedRef.current = true;
+      return;
+    }
+
+    if (alertId) {
+      const alert = alerts.find((a) => String(a.id) === alertId);
+      if (!alert) return; // alerts may not have loaded yet — retry when they do
+      selectFire({ ...alert, type: 'weather-alert', eventType: alert.type });
+      const centroid = polygonCentroid(alert.geometry);
+      if (centroid) setViewport({ longitude: centroid[0], latitude: centroid[1], zoom: 7 });
+      sharedLinkResolvedRef.current = true;
+      return;
+    }
+
+    const incidentMatch = mergedIncidents.find((inc) => String(inc.id) === incidentId);
+    if (incidentMatch) {
+      selectFire({ type: 'incident', ...incidentMatch });
+      flyToFire(incidentMatch);
+      sharedLinkResolvedRef.current = true;
+      return;
+    }
+
+    const hotspotFeature = hotspotsGeoJSON?.features?.find((f) => String(f.properties?.id) === incidentId);
+    if (hotspotFeature) {
+      const p = hotspotFeature.properties;
+      const record = {
+        type: 'hotspot',
+        id: p.id,
+        lat: Number(p.latitude),
+        lng: Number(p.longitude),
+        frp: Number(p.frp),
+        total_frp: Number(p.total_frp) || Number(p.frp),
+        brightness: Number(p.brightness),
+        confidence: p.confidence,
+        satellite: p.satellite,
+        source: p.source,
+        acq_date: p.acq_date,
+        acq_time: p.acq_time,
+        detection_count: Number(p.detection_count) || 1,
+      };
+      selectFire(record);
+      flyToFire(record);
+      sharedLinkResolvedRef.current = true;
+      return;
+    }
+
+    const perimeterFeature = freshPerimetersGeoJSON?.features?.find(
+      (f) => String(f.properties?.UniqueFireIdentifier) === incidentId
+    );
+    if (perimeterFeature) {
+      const p = perimeterFeature.properties;
+      const centroid = polygonCentroid(perimeterFeature.geometry);
+      const record = {
+        type: 'perimeter',
+        id: p.UniqueFireIdentifier,
+        name: p.IncidentName,
+        lat: centroid ? centroid[1] : 0,
+        lng: centroid ? centroid[0] : 0,
+        acres: Number(p.GISAcres),
+        contained: Number(p.PercentContained),
+        state: p.POOState,
+        county: p.POOCounty,
+        personnel: Number(p.TotalIncidentPersonnel),
+        destroyed: Number(p.StructuresDestroyed),
+        damaged: Number(p.StructuresDamaged),
+        discovered: p.FireDiscoveryDateTime,
+        updated: p.ModifiedOnDateTime,
+        orgType: p.IncidentManagementOrganization,
+        cause: p.FireCause || null,
+        source: p.Source || null,
+      };
+      selectFire(record);
+      flyToFire(record);
+      sharedLinkResolvedRef.current = true;
+      return;
+    }
+
+    const reportMatch = approvedReports.find((r) => String(r.id) === incidentId);
+    if (reportMatch) {
+      selectFire({ type: 'user-report', ...reportMatch });
+      flyToFire(reportMatch);
+      sharedLinkResolvedRef.current = true;
+    }
+    // Not found in anything loaded so far — leave unresolved and retry as
+    // more data comes in, until the give-up timeout below fires.
+  }, [
+    mapReady, alerts, mergedIncidents, hotspotsGeoJSON, freshPerimetersGeoJSON, approvedReports,
+    selectFire, flyToFire, setViewport,
+  ]);
+
+  useEffect(() => {
+    if (sharedLinkResolvedRef.current) return undefined;
+    const timeoutId = window.setTimeout(() => {
+      sharedLinkResolvedRef.current = true;
+    }, 15000);
+    return () => window.clearTimeout(timeoutId);
+  }, []);
 
   // Build the set of reporter-matched fire name keys once for GeoJSON filtering.
   const reporterMatchKeys = useMemo(() => {
