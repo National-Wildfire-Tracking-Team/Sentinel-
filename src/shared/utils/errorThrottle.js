@@ -73,7 +73,7 @@ function shouldLog(key, ttlMs) {
  * @param {string} type - The error type (e.g., 'supabase', 'netlify')
  * @returns {string} - A user-friendly message
  */
-export function getFriendlyMessage(tag, type = 'generic') {
+function getFriendlyMessage(tag, type = 'generic') {
   const tagMessages = FRIENDLY_MESSAGES[tag];
   if (!tagMessages) return 'An error occurred. Please try again later.';
   return tagMessages[type] || tagMessages['generic'] || 'An error occurred. Please try again later.';
@@ -111,28 +111,6 @@ export function throttleError(tag, message, error = null, opts = {}) {
   
   // Always return friendly message for UI
   return getFriendlyMessage(tag.replaceAll('[', '').replaceAll(']', '').trim(), friendlyType);
-}
-
-/**
- * Clear the throttle cache (useful for testing or forced refresh).
- */
-export function clearThrottleCache() {
-  throttleCache.clear();
-}
-
-/**
- * Get current throttle cache stats (for debugging).
- * @returns {object} - Cache statistics
- */
-export function getThrottleStats() {
-  return {
-    size: throttleCache.size,
-    entries: Array.from(throttleCache.entries()).map(([key, timestamp]) => ({
-      key,
-      timestamp,
-      age: Date.now() - timestamp,
-    })),
-  };
 }
 
 // Clean up old entries periodically (every 5 minutes)

@@ -7,7 +7,7 @@
  */
 
 import { memo } from 'react';
-import { OUTLOOK_TYPES, LAYER_ID_MAP } from '../../api/spcOutlooks';
+import { OUTLOOK_TYPES } from '../../api/spcOutlooks';
 
 // Icon paths (inline SVG) keyed by outlook type
 const TYPE_ICONS = {

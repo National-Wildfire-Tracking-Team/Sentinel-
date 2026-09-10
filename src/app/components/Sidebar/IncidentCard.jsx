@@ -3,7 +3,7 @@
  * Single fire incident card shown in the sidebar feed.
  */
 
-import { Flame, MapPin, Users, Home, ChevronRight } from 'lucide-react';
+import { Flame, MapPin, Users, Home } from 'lucide-react';
 import { memo } from 'react';
 import { useApp } from '../../context/AppContext';
 import { useViewport } from '../../context/ViewportContext';

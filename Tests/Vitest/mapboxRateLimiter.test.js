@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
 
 describe('mapboxRateLimiter', () => {
-  let remaining, msUntilSlotAvailable, recordRequest, acquireSlot, status;
+  let remaining, msUntilSlotAvailable, recordRequest, status;
 
   beforeEach(async () => {
     vi.useFakeTimers();
@@ -9,7 +9,6 @@ describe('mapboxRateLimiter', () => {
     remaining = mod.remaining;
     msUntilSlotAvailable = mod.msUntilSlotAvailable;
     recordRequest = mod.recordRequest;
-    acquireSlot = mod.acquireSlot;
     status = mod.status;
   });
 

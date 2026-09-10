@@ -7,7 +7,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
-  Mail, Lock, Eye, EyeOff, Flame, AlertCircle, UserPlus, CheckCircle2,
+  Mail, Lock, Eye, EyeOff, Flame, AlertCircle, UserPlus,
 } from 'lucide-react';
 
 import { useAuth } from '../../shared/context/AuthContext';
