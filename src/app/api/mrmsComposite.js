@@ -24,11 +24,16 @@ export async function fetchLatestMrmsMeta() {
   return data;
 }
 
-/** Every retained frame for the composite product, oldest to newest — data access only (no history UI yet). */
+/**
+ * Every retained frame for the composite product, oldest to newest, as
+ * `{ sourceTime, storagePath }` — aliased to camelCase here (PostgREST
+ * returns raw snake_case column names otherwise) since that's the shape
+ * useRadarHistory.js and RadarTimeline.jsx expect throughout.
+ */
 export async function fetchMrmsHistory() {
   const { data, error } = await supabase
     .from('mrms_frame_history')
-    .select('source_time, storage_path')
+    .select('sourceTime:source_time, storagePath:storage_path')
     .eq('product', PRODUCT)
     .order('source_time', { ascending: true });
   if (error) throw error;
