@@ -7,10 +7,9 @@
 import { useState, memo, useMemo, useEffect } from 'react';
 import { getMainOrigin } from '../../../shared/utils/getAppOrigin';
 import {
-  Layers, Flame, MapPin, Wind, CloudRain, CloudLightning, Eye, ChevronDown, ChevronRight, Radar, AlertTriangle, Ruler, Hexagon, Satellite, Map as MapIcon, Thermometer, Activity, Droplets, Zap, Lock, GraduationCap, History, TrendingUp, Crosshair, Camera, Mountain, Snowflake,
+  Layers, Flame, MapPin, Wind, CloudRain, CloudLightning, Eye, ChevronDown, ChevronRight, Radar, AlertTriangle, Ruler, Hexagon, Satellite, Thermometer, Activity, Droplets, Zap, Lock, GraduationCap, History, TrendingUp, Crosshair, Camera, Snowflake,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
-import { useViewport } from '../../context/ViewportContext';
 
 /** Layer row definitions — grouped under tab-specific sections below */
 const LAYER_DEFS = {
@@ -162,10 +161,6 @@ const TAB_SECTIONS = {
           layers: ['rawsStations', 'airNowMonitors'],
         },
         {
-          label: 'Overlays',
-          layers: ['aqi'],
-        },
-        {
           label: 'Live cameras',
           layers: ['wildfireCameras'],
         },
@@ -174,51 +169,29 @@ const TAB_SECTIONS = {
   ],
   weather: [
     {
-      id: 'wx-hazards',
-      title: 'Weather hazards',
-      subtitle: 'Alerts, reports, and outlooks',
-      groups: [
-        {
-          label: 'Active weather',
-          layers: ['weatherAlerts', 'stormReports', 'damageAssessment'],
-        },
-        {
-          label: 'Evacuation',
-          layers: ['evacZones'],
-        },
-        {
-          label: 'Outlooks',
-          layers: ['spcWeatherOutlooks', 'fireWeatherOutlooks', 'fireRiskOutlook', 'wpcEro', 'wpcWssi', 'wpcQpf', 'wpcFronts'],
-        },
-        {
-          label: 'Flood & water',
-          layers: ['waterGauges'],
-        },
-        {
-          label: 'Stations',
-          layers: ['rawsStations'],
-        },
-      ],
-    },
-    {
-      id: 'wx-air',
-      title: 'Air quality',
-      subtitle: 'Forecast and observations',
-      groups: [
-        {
-          label: 'Overlays',
-          layers: ['aqi', 'smoke'],
-        },
-      ],
-    },
-    {
       id: 'wx-imagery',
       title: 'Radar & satellite',
-      subtitle: 'Precipitation and cloud imagery',
       groups: [
         {
-          label: 'Imagery',
           layers: ['radarComposite', 'radarNexrad', 'goesEast', 'goesWest'],
+        },
+      ],
+    },
+    {
+      id: 'wx-hazards',
+      title: 'Weather hazards',
+      groups: [
+        {
+          layers: ['weatherAlerts', 'stormReports', 'damageAssessment', 'waterGauges', 'rawsStations'],
+        },
+      ],
+    },
+    {
+      id: 'wx-outlooks',
+      title: 'Outlooks',
+      groups: [
+        {
+          layers: ['spcWeatherOutlooks', 'wpcEro', 'wpcWssi', 'wpcQpf', 'wpcFronts'],
         },
       ],
     },
@@ -419,8 +392,6 @@ function WpcDaySelector({ layerKey, product, subtitle, accentColor }) {
 const LayerControl = memo(function LayerControl({
   activeMapTab = 'wildfire',
   infrastructureLayersEntitled = false,
-  mapType = 'satellite',
-  onMapTypeChange,
   measureActive = false,
   measureMode = 'distance',
   onMeasureActivate,
@@ -430,7 +401,6 @@ const LayerControl = memo(function LayerControl({
   radarPanelClearance = 0,
 }) {
   const { layerPanelOpen, toggleLayerPanel, toggleLayer } = useApp();
-  const { viewport, setViewport } = useViewport();
   const [collapsed, setCollapsed] = useState({});
 
   const infraLayers = useMemo(() => [
@@ -463,8 +433,8 @@ const LayerControl = memo(function LayerControl({
       {
         id: 'wf-infra',
         title: 'Infrastructure',
-        subtitle: 'Energy & key facilities (Pro)',
-        groups: [{ label: 'Layers', layers: infraLayers.map((l) => l.key) }],
+        subtitle: activeMapTab === 'weather' ? undefined : 'Energy & key facilities (Pro)',
+        groups: [{ label: activeMapTab === 'weather' ? undefined : 'Layers', layers: infraLayers.map((l) => l.key) }],
         infraLayers,
       },
     ];
@@ -473,7 +443,7 @@ const LayerControl = memo(function LayerControl({
   // When switching tabs, reset accordion and expand the first section
   useEffect(() => {
     const firstId =
-      activeMapTab === 'weather'   ? 'wx-hazards'  :
+      activeMapTab === 'weather'   ? 'wx-imagery'  :
       activeMapTab === 'allhazard' ? 'ah-fire'     : 'wf-activity';
     setCollapsed({ [firstId]: false });
   }, [activeMapTab]);
@@ -487,53 +457,6 @@ const LayerControl = memo(function LayerControl({
 
   const isWeatherTab = activeMapTab === 'weather';
   const isAllHazardTab = activeMapTab === 'allhazard';
-  const mapTypeActiveClass =
-    isWeatherTab   ? 'bg-sky-600 text-white shadow'  :
-    isAllHazardTab ? 'bg-red-600 text-white shadow'   :
-                     'bg-fire-600 text-white shadow';
-
-  const isPitched = (viewport?.pitch ?? 0) > 0;
-  const toggleTerrainTilt = () => {
-    setViewport?.(isPitched ? { pitch: 0, bearing: 0 } : { pitch: 60, bearing: -20 });
-  };
-
-  const mapTypeButtons = (
-    <>
-      <button
-        type="button"
-        onClick={() => onMapTypeChange?.('satellite')}
-        className={`flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-semibold transition-all ${
-          mapType === 'satellite' ? mapTypeActiveClass : 'text-zinc-300 hover:text-white'
-        }`}
-        title="Worldview satellite imagery"
-      >
-        <Satellite size={11} />
-        <span>SAT</span>
-      </button>
-      <button
-        type="button"
-        onClick={() => onMapTypeChange?.('rendered')}
-        className={`flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-semibold transition-all ${
-          mapType === 'rendered' ? mapTypeActiveClass : 'text-zinc-300 hover:text-white'
-        }`}
-        title="Dark streets map"
-      >
-        <MapIcon size={11} />
-        <span>MAP</span>
-      </button>
-      <button
-        type="button"
-        onClick={toggleTerrainTilt}
-        className={`flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-semibold transition-all ${
-          isPitched ? mapTypeActiveClass : 'text-zinc-300 hover:text-white'
-        }`}
-        title="Toggle 3D terrain"
-      >
-        <Mountain size={11} />
-        <span>3D</span>
-      </button>
-    </>
-  );
 
   return (
     <>
@@ -567,68 +490,65 @@ const LayerControl = memo(function LayerControl({
                   Map layers
                 </span>
                 <p className="text-[10px] text-zinc-400 mt-0.5 truncate">
-                  {activeMapTab === 'weather'   ? 'Weather, radar, and air quality' :
+                  {activeMapTab === 'weather'   ? 'Weather alerts, outlooks, and radar' :
                    activeMapTab === 'allhazard' ? 'All hazards — fire, weather, smoke, and more' :
                    'Wildfire activity, evacuation zones (California + IPAWS polygons), and outlook data'}
                 </p>
               </div>
-              <div className="flex items-center shrink-0 bg-zinc-900 border border-zinc-700 rounded-lg p-0.5">
-                {mapTypeButtons}
-              </div>
-            </div>
 
-            <div className="flex items-center justify-end gap-1 mt-2">
-              {(isWeatherTab || isAllHazardTab) && (
+              <div className="flex items-center gap-1 shrink-0">
+                {(isWeatherTab || isAllHazardTab) && (
+                  <div className="relative group">
+                    <button
+                      type="button"
+                      onClick={onPrecipRingToggle}
+                      className={`w-7 h-7 flex items-center justify-center rounded-md transition-all ${
+                        precipRingActive
+                          ? 'bg-sky-500 text-white border border-sky-400'
+                          : 'text-zinc-300 hover:text-white hover:bg-zinc-800'
+                      }`}
+                      aria-label="Toggle dBZ radar probe"
+                      aria-pressed={precipRingActive}
+                    >
+                      <Crosshair size={13} />
+                    </button>
+                    <span className="absolute top-full mt-1.5 left-1/2 -translate-x-1/2 whitespace-nowrap rounded px-2 py-0.5 text-[11px] font-medium bg-gray-900 text-gray-100 shadow pointer-events-none z-50 opacity-0 group-hover:opacity-100 transition-opacity">
+                      dBZ radar probe
+                    </span>
+                  </div>
+                )}
                 <div className="relative group">
                   <button
                     type="button"
-                    onClick={onPrecipRingToggle}
+                    onClick={() => (measureActive && measureMode === 'distance') ? onMeasureClose?.() : onMeasureActivate?.('distance')}
                     className={`w-7 h-7 flex items-center justify-center rounded-md transition-all ${
-                      precipRingActive
-                        ? 'bg-sky-500 text-white border border-sky-400'
+                      measureActive && measureMode === 'distance'
+                        ? 'bg-orange-500 text-white border border-orange-400'
                         : 'text-zinc-300 hover:text-white hover:bg-zinc-800'
                     }`}
-                    aria-label="Toggle dBZ radar probe"
-                    aria-pressed={precipRingActive}
                   >
-                    <Crosshair size={13} />
+                    <Ruler size={13} />
                   </button>
                   <span className="absolute top-full mt-1.5 left-1/2 -translate-x-1/2 whitespace-nowrap rounded px-2 py-0.5 text-[11px] font-medium bg-gray-900 text-gray-100 shadow pointer-events-none z-50 opacity-0 group-hover:opacity-100 transition-opacity">
-                    dBZ radar probe
+                    Distance
                   </span>
                 </div>
-              )}
-              <div className="relative group">
-                <button
-                  type="button"
-                  onClick={() => (measureActive && measureMode === 'distance') ? onMeasureClose?.() : onMeasureActivate?.('distance')}
-                  className={`w-7 h-7 flex items-center justify-center rounded-md transition-all ${
-                    measureActive && measureMode === 'distance'
-                      ? 'bg-orange-500 text-white border border-orange-400'
-                      : 'text-zinc-300 hover:text-white hover:bg-zinc-800'
-                  }`}
-                >
-                  <Ruler size={13} />
-                </button>
-                <span className="absolute top-full mt-1.5 left-1/2 -translate-x-1/2 whitespace-nowrap rounded px-2 py-0.5 text-[11px] font-medium bg-gray-900 text-gray-100 shadow pointer-events-none z-50 opacity-0 group-hover:opacity-100 transition-opacity">
-                  Distance
-                </span>
-              </div>
-              <div className="relative group">
-                <button
-                  type="button"
-                  onClick={() => (measureActive && measureMode === 'polygon') ? onMeasureClose?.() : onMeasureActivate?.('polygon')}
-                  className={`w-7 h-7 flex items-center justify-center rounded-md transition-all ${
-                    measureActive && measureMode === 'polygon'
-                      ? 'bg-orange-500 text-white border border-orange-400'
-                      : 'text-zinc-300 hover:text-white hover:bg-zinc-800'
-                  }`}
-                >
-                  <Hexagon size={13} />
-                </button>
-                <span className="absolute top-full mt-1.5 left-1/2 -translate-x-1/2 whitespace-nowrap rounded px-2 py-0.5 text-[11px] font-medium bg-gray-900 text-gray-100 shadow pointer-events-none z-50 opacity-0 group-hover:opacity-100 transition-opacity">
-                  Area
-                </span>
+                <div className="relative group">
+                  <button
+                    type="button"
+                    onClick={() => (measureActive && measureMode === 'polygon') ? onMeasureClose?.() : onMeasureActivate?.('polygon')}
+                    className={`w-7 h-7 flex items-center justify-center rounded-md transition-all ${
+                      measureActive && measureMode === 'polygon'
+                        ? 'bg-orange-500 text-white border border-orange-400'
+                        : 'text-zinc-300 hover:text-white hover:bg-zinc-800'
+                    }`}
+                  >
+                    <Hexagon size={13} />
+                  </button>
+                  <span className="absolute top-full mt-1.5 left-1/2 -translate-x-1/2 whitespace-nowrap rounded px-2 py-0.5 text-[11px] font-medium bg-gray-900 text-gray-100 shadow pointer-events-none z-50 opacity-0 group-hover:opacity-100 transition-opacity">
+                    Area
+                  </span>
+                </div>
               </div>
             </div>
           </div>
@@ -652,17 +572,21 @@ const LayerControl = memo(function LayerControl({
                     )}
                     <div className="flex-1 min-w-0">
                       <div className="text-xs font-semibold text-white leading-tight">{section.title}</div>
-                      <div className="text-[10px] text-zinc-400 mt-0.5 leading-snug">{section.subtitle}</div>
+                      {section.subtitle && (
+                        <div className="text-[10px] text-zinc-400 mt-0.5 leading-snug">{section.subtitle}</div>
+                      )}
                     </div>
                   </button>
 
                   {!isSectionCollapsed && (
                     <div className="pl-1 pb-2 space-y-3">
-                      {section.groups.map((group) => (
-                        <div key={`${sectionKey}-${group.label}`}>
-                          <div className="px-2 pb-1.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-500">
-                            {group.label}
-                          </div>
+                      {section.groups.map((group, groupIndex) => (
+                        <div key={`${sectionKey}-${group.label || groupIndex}`}>
+                          {group.label && (
+                            <div className="px-2 pb-1.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-500">
+                              {group.label}
+                            </div>
+                          )}
                           <div className="rounded-lg bg-zinc-950 border border-zinc-800 divide-y divide-zinc-800 overflow-hidden">
                             {group.layers.map((layerRef) => {
                               // A group entry may be a plain layer key, or an object

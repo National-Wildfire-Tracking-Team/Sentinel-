@@ -38,11 +38,21 @@ const RadarLayer = memo(function RadarLayer({ visible, mrmsDataUrl, mrmsCoordina
             paint={{
               'raster-opacity': 0.85,
               'raster-fade-duration': 300,
-              // 'nearest', not 'linear' — MRMS's grid is coarse (~1km cells)
-              // relative to the IEM fallback's own tiles, so interpolating
-              // between cells blurred reflectivity bands into a soft haze
-              // instead of the crisp per-cell look normal radar views have.
-              'raster-resampling': 'nearest',
+              // 'linear', not 'nearest' — verified directly against real
+              // production MRMS data (real storms over the FL panhandle,
+              // real KMLB-adjacent Gulf cells) at regional through very
+              // close zoom: 'nearest' made every one of the grid's 0.02°
+              // (~2.2km) cells an obvious visible square once zoomed past
+              // regional scale — exactly the "blocky" complaint this was
+              // meant to avoid. 'linear' produces smooth, storm-shaped
+              // structure with clean coastline/ocean edges and distinct
+              // color bands at every zoom tested, with no observed "haze"
+              // or muddy-color downside in this data. If a future dataset
+              // does show unacceptable blur, prefer increasing the source
+              // grid resolution over reverting to 'nearest' — the
+              // blockiness is a resolution/resampling mismatch, not a
+              // reason to un-smooth adjacent real cells.
+              'raster-resampling': 'linear',
             }}
           />
         </Source>

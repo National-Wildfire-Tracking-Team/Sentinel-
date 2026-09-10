@@ -10,7 +10,7 @@ import { useApp } from '../../context/AppContext';
 import { AQI_CATEGORIES } from '../../utils/colorUtils';
 import { HAZARD_CATEGORY_COLORS } from '../Map/layers/HazardEventsLayer';
 import { NEXRAD_STATUS } from '../../api/nexradSites';
-import { VELOCITY_SCALE as LIVE_VELOCITY_SCALE } from '../../utils/radarRaster';
+import { VELOCITY_SCALE as LIVE_VELOCITY_SCALE, REFLECTIVITY_SCALE } from '../../utils/radarRaster';
 
 const CONTAINMENT_SCALE = [
   { color: '#ef4444', label: 'Uncontained (0%)' },
@@ -29,22 +29,27 @@ const FRP_SCALE = [
   { color: '#ff0000', label: 'Extreme  (>500 MW)' },
 ];
 
-// 15 dBZ and under (drizzle/very light rain) is hidden — see
-// radarRaster.js's REFLECTIVITY_SCALE comment.
-const RADAR_DBZ_SCALE = [
-  { color: '#7dcf7d', label: '15–20 dBZ (Light Rain)' },
-  { color: '#4caf50', label: '20–25 dBZ (Moderate Rain)' },
-  { color: '#2f7d32', label: '25–30 dBZ (Moderate Rain)' },
-  { color: '#e8dc8a', label: '30–35 dBZ (Moderate Rain)' },
-  { color: '#d4bf4d', label: '35–40 dBZ (Heavy Rain)' },
-  { color: '#cc8a3d', label: '40–45 dBZ (Heavy Rain)' },
-  { color: '#c1663f', label: '45–50 dBZ (Very Heavy)' },
-  { color: '#b8433c', label: '50–55 dBZ (Intense)' },
-  { color: '#7a3030', label: '55–60 dBZ (Extreme)' },
-  { color: '#b563b5', label: '60–65 dBZ (Extreme)' },
-  { color: '#7d5ba6', label: '65–70 dBZ (Possible Hail)' },
-  { color: '#e8dcef', label: '70+ dBZ (Possible Hail)' },
-];
+// Derived directly from radarRaster.js's REFLECTIVITY_SCALE — the actual
+// color table both NEXRAD (radarRaster.js) and MRMS Composite (mrmsRaster.js,
+// which imports that same scale) use to render — so the legend can never
+// drift out of sync with either renderer. Labeled purely by dBZ range, per
+// NOAA's JetStream reflectivity guidance: dBZ is returned radar energy, not
+// a direct rainfall measurement, so no "light/moderate/heavy" rain
+// descriptors are shown. The two lowest bins (-35 to 0 and 0 to 15 dBZ,
+// intentionally muted/desaturated in the renderer so they read as
+// background texture rather than competing with real precipitation) are
+// collapsed into a single "< 15 dBZ" row here, matching NOAA's own
+// "generally no rain" framing for that range.
+export const RADAR_DBZ_SCALE = (() => {
+  const rows = [{ color: REFLECTIVITY_SCALE[1].color, label: '< 15 dBZ' }];
+  for (let i = 2; i < REFLECTIVITY_SCALE.length - 1; i++) {
+    const { min, color } = REFLECTIVITY_SCALE[i];
+    rows.push({ color, label: `${min}–${REFLECTIVITY_SCALE[i + 1].min} dBZ` });
+  }
+  const last = REFLECTIVITY_SCALE[REFLECTIVITY_SCALE.length - 1];
+  rows.push({ color: last.color, label: `> ${last.min} dBZ` });
+  return rows;
+})();
 
 // Official SPC categorical palette (NOAA fill colors)
 const SPC_CATEGORICAL_SCALE = [
@@ -295,8 +300,18 @@ const Legend = memo(function Legend({
               </Section>
             )}
 
-            {(layers.radarComposite || (radarScanActive && radarScanProduct === 'reflectivity')) && (
-              <Section title="Radar Reflectivity (dBZ)">
+            {/* NEXRAD and MRMS Composite each get their own independent legend
+                entry, gated only by that layer's own state — not merged into
+                one shared "radar reflectivity" section — even though both
+                currently render from the same imported NOAA-based dBZ scale. */}
+            {radarScanActive && radarScanProduct === 'reflectivity' && (
+              <Section title="NEXRAD Reflectivity (dBZ)">
+                {RADAR_DBZ_SCALE.map(row => <ColorRow key={row.label} {...row} />)}
+              </Section>
+            )}
+
+            {layers.radarComposite && (
+              <Section title="MRMS Composite Reflectivity (dBZ)">
                 {RADAR_DBZ_SCALE.map(row => <ColorRow key={row.label} {...row} />)}
               </Section>
             )}

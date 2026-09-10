@@ -7,11 +7,12 @@
 import { memo } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  Home, Map as MapIcon, HelpCircle, Award, HeartHandshake, MapPin, Satellite,
+  Home, Map as MapIcon, HelpCircle, Award, HeartHandshake, MapPin, Satellite, Mountain,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { useTheme } from '../../context/ThemeContext';
 import { usePreferences } from '../../context/PreferencesContext';
+import { useViewport } from '../../context/ViewportContext';
 import { getMainOrigin } from '../../../shared/utils/getAppOrigin';
 
 const DONATE_URL = 'https://givebutter.com/national-wildfire-tracking-team-dvi6jx';
@@ -148,12 +149,17 @@ const FutureFeaturesPanel = memo(function FutureFeaturesPanel({ mapType = 'satel
   const { futurePanelOpen, toggleFuturePanel } = useApp();
   const { theme, setTheme } = useTheme();
   const { prefs, updatePrefs } = usePreferences();
+  const { viewport, setViewport } = useViewport();
 
   const closePanel = () => {
     toggleFuturePanel();
   };
 
   const isSatellite = mapType === 'satellite';
+  const isPitched = (viewport?.pitch ?? 0) > 0;
+  const toggleTerrainTilt = () => {
+    setViewport?.(isPitched ? { pitch: 0, bearing: 0 } : { pitch: 60, bearing: -20 });
+  };
 
   return (
     <aside
@@ -174,6 +180,13 @@ const FutureFeaturesPanel = memo(function FutureFeaturesPanel({ mapType = 'satel
           label="Map"
           sublabel={isSatellite ? 'Satellite view' : 'Street map view'}
           onClick={() => onMapTypeChange?.(isSatellite ? 'rendered' : 'satellite')}
+        />
+        <MenuRow
+          icon={Mountain}
+          iconClassName={isPitched ? 'text-fire-500' : undefined}
+          label="3D Terrain"
+          sublabel={isPitched ? 'On' : 'Off'}
+          onClick={toggleTerrainTilt}
         />
         <MenuRow icon={HelpCircle} label="Help" href={`${getMainOrigin()}/about`} sameTab onClick={closePanel} />
 
