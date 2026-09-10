@@ -379,8 +379,6 @@ export default function LiveTrackerPage() {
   const {
     geoJSON: hotspotsGeoJSON,
     loading: hotspotsLoading,
-    count: hotspotsCount,
-    sourceCounts: hotspotsSourceCounts,
     refresh: refreshHotspots,
   } = useFireHotspots(US_BOUNDS, wildfireDataEnabled);
 
@@ -394,8 +392,6 @@ export default function LiveTrackerPage() {
     perimetersGeoJSON,
     incidentDotsGeoJSON,
     loading: perimetersLoading,
-    perimetersCount,
-    dotsCount,
     refresh: refreshPerimeters,
   } = useMergedFireData(5, wildfireDataEnabled, true);
 
@@ -419,9 +415,6 @@ export default function LiveTrackerPage() {
     geoJSON: alertsGeoJSON,
     loading: alertsLoading,
     error: alertsError,
-    alertCount,
-    geoCount,
-    lastRefresh: alertsLastRefresh,
     refresh: refreshAlerts,
   } = useWeatherAlerts(mapReady);
 

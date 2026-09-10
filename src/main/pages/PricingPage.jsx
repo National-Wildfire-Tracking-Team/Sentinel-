@@ -5,11 +5,11 @@
  */
 
 import { useState, useEffect, createElement } from 'react';
-import { useSearchParams, Link } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import {
-  Flame, Check, X, Zap, ChevronRight, AlertCircle,
-  Radio, Camera, Plane, MapPin, Bell,
-  Layers, Shield, AlertTriangle, Building2, Train,
+  Flame, Check, X, ChevronRight, AlertCircle,
+  Radio, Camera, MapPin, Bell,
+  Layers, Shield, AlertTriangle, Train,
   Bolt, Droplets, Factory, Cross, GraduationCap,
   Users, Landmark, TreePine, Ban, Clock, Ruler, MessageSquare,
 } from 'lucide-react';

@@ -185,8 +185,8 @@ function buildFeatureRecord(feature, lngLat, alerts) {
       };
 
     case 'incident-locations-circle': {
-      let updates = [];
-      let evacuationLines = [];
+      let updates;
+      let evacuationLines;
       try {
         updates = p.updates_json ? JSON.parse(p.updates_json) : [];
       } catch {
@@ -395,7 +395,7 @@ function HoverTooltip({ feature, lngLat }) {
   const layerId = feature.layer.id;
   const isOutlookPopup = OUTLOOK_LAYER_IDS.has(layerId);
 
-  let content = null;
+  let content;
   switch (layerId) {
     case 'fire-hotspots-circle': {
       const detections = num(p.detection_count) || 1;
@@ -1277,7 +1277,6 @@ export default function MapView({
   savedLocations = [],
   measureActive = false,
   measureMode = 'distance',
-  onMeasureActivate,
   onMeasureClose,
   precipRingActive = false,
   onPrecipRingToggle,
@@ -1407,12 +1406,6 @@ export default function MapView({
     setProbeLocked(true);
     setProbeMoving(false);
   }, [probeLocked, viewport.latitude, viewport.longitude]);
-
-  const activateMeasure = useCallback((mode) => {
-    onMeasureActivate?.(mode);
-    setMeasurePoints([]);
-    setMeasurePreview(null);
-  }, [onMeasureActivate]);
 
   const closeMeasure = useCallback(() => {
     onMeasureClose?.();
