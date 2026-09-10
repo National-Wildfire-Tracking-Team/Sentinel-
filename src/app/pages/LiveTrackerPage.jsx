@@ -118,8 +118,9 @@ const ALL_HAZARD_LAYER_PRESET = {
   schoolsUniversities: false,
 };
 
-// Weather tab: only auto-enable NWS alerts (includes SPC MDs on map);
-// other weather layers, including NEXRAD, are opt-in via the layer panel.
+// Weather tab: auto-enable NWS alerts (includes SPC MDs on map) and
+// Composite Radar; other weather layers, including NEXRAD, are opt-in
+// via the layer panel.
 const WEATHER_LAYER_PRESET = {
   fireHotspots: false,
   firePerimeters: false,
@@ -132,9 +133,9 @@ const WEATHER_LAYER_PRESET = {
   goesFire18: false,
   spcWeatherOutlooks: false,
   stormReports: false,
-  radar: false,
+  radarComposite: true,
   criticalInfrastructure: false,
-  evacZones: true,
+  evacZones: false,
   rawsStations: false,
   airNowMonitors: false,
   ndgdSmokeForecast: false,

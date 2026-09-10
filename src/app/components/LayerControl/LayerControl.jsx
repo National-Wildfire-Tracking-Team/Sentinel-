@@ -170,6 +170,15 @@ const TAB_SECTIONS = {
   ],
   weather: [
     {
+      id: 'wx-imagery',
+      title: 'Radar & satellite',
+      groups: [
+        {
+          layers: ['radarComposite', 'radarNexrad', 'goesEast', 'goesWest'],
+        },
+      ],
+    },
+    {
       id: 'wx-hazards',
       title: 'Weather hazards',
       groups: [
@@ -184,15 +193,6 @@ const TAB_SECTIONS = {
       groups: [
         {
           layers: ['spcWeatherOutlooks', 'fireRiskOutlook', 'wpcEro', 'wpcWssi', 'wpcQpf', 'wpcFronts'],
-        },
-      ],
-    },
-    {
-      id: 'wx-imagery',
-      title: 'Radar & satellite',
-      groups: [
-        {
-          layers: ['radarComposite', 'radarNexrad', 'goesEast', 'goesWest'],
         },
       ],
     },
@@ -447,7 +447,7 @@ const LayerControl = memo(function LayerControl({
   // When switching tabs, reset accordion and expand the first section
   useEffect(() => {
     const firstId =
-      activeMapTab === 'weather'   ? 'wx-hazards'  :
+      activeMapTab === 'weather'   ? 'wx-imagery'  :
       activeMapTab === 'allhazard' ? 'ah-fire'     : 'wf-activity';
     setCollapsed({ [firstId]: false });
   }, [activeMapTab]);
