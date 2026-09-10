@@ -44,9 +44,9 @@ import { usePlan } from '../../shared/hooks/usePlan';
 import { useWaterGauges } from '../hooks/useWaterGauges';
 import { useNexradSites } from '../hooks/useNexradSites';
 import { useNexradScan } from '../hooks/useNexradScan';
+import { useNexradRaster } from '../hooks/useNexradRaster';
 import { useMrmsComposite } from '../hooks/useMrmsComposite';
 import { useCaliforniaCameras } from '../hooks/useCaliforniaCameras';
-import { rasterizeSweep } from '../utils/radarRaster';
 import { useCalFirePerimeters } from '../hooks/useCalFirePerimeters';
 import { polygonCentroid } from '../utils/geoUtils';
 import { incidentsToGeoJSON } from '../api/inciweb';
@@ -379,8 +379,6 @@ export default function LiveTrackerPage() {
   const {
     geoJSON: hotspotsGeoJSON,
     loading: hotspotsLoading,
-    count: hotspotsCount,
-    sourceCounts: hotspotsSourceCounts,
     refresh: refreshHotspots,
   } = useFireHotspots(US_BOUNDS, wildfireDataEnabled);
 
@@ -394,8 +392,6 @@ export default function LiveTrackerPage() {
     perimetersGeoJSON,
     incidentDotsGeoJSON,
     loading: perimetersLoading,
-    perimetersCount,
-    dotsCount,
     refresh: refreshPerimeters,
   } = useMergedFireData(5, wildfireDataEnabled, true);
 
@@ -419,9 +415,6 @@ export default function LiveTrackerPage() {
     geoJSON: alertsGeoJSON,
     loading: alertsLoading,
     error: alertsError,
-    alertCount,
-    geoCount,
-    lastRefresh: alertsLastRefresh,
     refresh: refreshAlerts,
   } = useWeatherAlerts(mapReady);
 
@@ -648,11 +641,12 @@ export default function LiveTrackerPage() {
   const { meta: radarScanMeta, payload: radarScanPayload, status: radarScanStatus, error: radarScanError } =
     useNexradScan(selectedRadarSite?.id, radarProduct, Boolean(selectedRadarSite), radarSiteMinutesAgo);
 
-  const radarRaster = useMemo(
-    () => (selectedRadarSite && radarScanPayload
-      ? rasterizeSweep(radarScanPayload, { lat: selectedRadarSite.lat, lng: selectedRadarSite.lng })
-      : null),
-    [selectedRadarSite, radarScanPayload]
+  const radarRaster = useNexradRaster(
+    selectedRadarSite?.id,
+    radarProduct,
+    radarScanMeta?.scan_time,
+    radarScanPayload,
+    selectedRadarSite ? { lat: selectedRadarSite.lat, lng: selectedRadarSite.lng } : null
   );
 
   // National MRMS composite reflectivity — independent of NEXRAD Level II

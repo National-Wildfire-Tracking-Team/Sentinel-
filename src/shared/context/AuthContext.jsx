@@ -69,7 +69,6 @@ export function AuthProvider({ children }) {
       if (cancelled) return;
 
       if (profileRes.error) {
-        // eslint-disable-next-line no-console
         console.warn('[Auth] Failed to load profile:', profileRes.error.message);
         setProfile({ id: session.user.id, email: session.user.email, role: 'public' });
       } else {

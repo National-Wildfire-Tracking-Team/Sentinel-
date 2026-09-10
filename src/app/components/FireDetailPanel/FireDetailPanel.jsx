@@ -8,8 +8,8 @@ import { memo, useState } from 'react';
 import {
   X, Flame, MapPin, Users, Home, Calendar, Thermometer,
   AlertTriangle, Wind, ExternalLink, TrendingUp, ShieldAlert,
-  CloudRain, Clock, Info, Share2, ShieldCheck, Zap, Fuel,
-  GraduationCap, FileText, Copy, Waves, Navigation, Siren, Biohazard, HelpCircle,
+  Clock, Info, Share2, Zap, Fuel,
+  GraduationCap, FileText, Copy, Waves, Navigation, Biohazard, HelpCircle,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import {
@@ -17,7 +17,7 @@ import {
   formatDate, formatPersonnel, formatRelativeTime,
   parseLatestAcreage, parseLatestContainment,
 } from '../../utils/formatUtils';
-import { frpToLabel, containmentToColor, aqiToColor, getAQICategory } from '../../utils/colorUtils';
+import { frpToLabel, containmentToColor, getAQICategory } from '../../utils/colorUtils';
 import { nwsAlertColor } from '../../utils/nwsColors';
 import IncidentTimeline from '../IncidentTimeline/IncidentTimeline';
 import { HAZARD_CATEGORY_COLORS } from '../Map/layers/HazardEventsLayer';
@@ -43,15 +43,6 @@ function StatBlock({ label, value, icon: Icon, color }) {
         {label}
       </div>
       <div className={`text-sm font-bold ${color || 'text-white'}`}>{value}</div>
-    </div>
-  );
-}
-
-function UpdateEntry({ update }) {
-  return (
-    <div className="border-l-2 border-sentinel-700 pl-3 py-0.5">
-      <div className="text-[10px] text-sentinel-500 mb-0.5">{formatRelativeTime(update.time)}</div>
-      <div className="text-xs text-sentinel-300 leading-relaxed">{update.text}</div>
     </div>
   );
 }

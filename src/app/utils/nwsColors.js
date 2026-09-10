@@ -279,7 +279,7 @@ export function nwsColorMatchExpression() {
  *   2. Advisories   (less severe, but hazardous without precautions)
  *   1. Statements / Outlooks (informational)
  */
-export const ALERT_TIER = {
+const ALERT_TIER = {
   STATEMENT: 1,
   ADVISORY: 2,
   WATCH: 3,
@@ -308,7 +308,7 @@ const EMERGENCY_TAG_RE = /tornado emergency|flash flood emergency|particularly d
  * True if a Warning's text carries "Emergency" or "PDS" enhanced wording.
  * Pass any available free text (headline, description, NWSheadline param).
  */
-export function isEmergencyTagged(event, ...texts) {
+function isEmergencyTagged(event, ...texts) {
   if (!EMERGENCY_CAPABLE_EVENTS.has(event)) return false;
   return texts.some((t) => typeof t === 'string' && EMERGENCY_TAG_RE.test(t));
 }
@@ -317,7 +317,7 @@ export function isEmergencyTagged(event, ...texts) {
  * Rendering-priority tier for an alert (see ALERT_TIER). Pass any available
  * headline/description text so Emergency/PDS tagging can be detected.
  */
-export function nwsAlertTier(event, ...texts) {
+function nwsAlertTier(event, ...texts) {
   if (isEmergencyTagged(event, ...texts)) return ALERT_TIER.EMERGENCY;
   return TIER_BY_CATEGORY[nwsAlertCategory(event)] ?? ALERT_TIER.STATEMENT;
 }

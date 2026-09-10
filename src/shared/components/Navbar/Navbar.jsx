@@ -1,6 +1,6 @@
 import { useRef, useState, useEffect } from 'react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
-import { Flame, Menu, X, Heart, User, Settings, LogOut } from 'lucide-react';
+import { Flame, Menu, X, Heart, Settings, LogOut } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { getAppOrigin } from '../../utils/getAppOrigin';
 

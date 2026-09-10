@@ -1,4 +1,3 @@
-import { Link } from 'react-router-dom';
 import { HeartHandshake, ClipboardCheck, FileClock, ArrowRight } from 'lucide-react';
 import PageHeader from './PageHeader';
 import { getAppOrigin } from '../../../shared/utils/getAppOrigin';

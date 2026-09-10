@@ -1,6 +1,5 @@
 import { describe, it, expect } from 'vitest';
 import { simulateFireGrowth, createUniformGrid, createFireGrid } from '../../src/app/fireEngine/index';
-import { ringCentroid } from '../../src/app/utils/geoUtils';
 import { bearingDegrees } from '../../src/app/fireEngine/geo';
 
 const IGNITION = [-118.5, 34.2]; // Southern California, arbitrary

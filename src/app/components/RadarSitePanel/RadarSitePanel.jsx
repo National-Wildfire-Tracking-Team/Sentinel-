@@ -171,10 +171,10 @@ const RadarSitePanel = memo(function RadarSitePanel({ site, product, onProductCh
             </div>
           )}
 
-          {status === 'loading' && !meta && (
+          {status === 'loading' && (
             <div className="flex items-center gap-2 text-[10px] text-sentinel-400 py-1.5">
               <div className="w-2.5 h-2.5 border-2 border-sentinel-500 border-t-cyan-400 rounded-full animate-spin shrink-0" />
-              Loading first scan…
+              {meta ? 'Loading scan…' : 'Loading first scan…'}
             </div>
           )}
 
