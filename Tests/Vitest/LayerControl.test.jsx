@@ -84,13 +84,18 @@ describe('LayerControl — Infrastructure & Modeling group', () => {
     expect(screen.getByText('Schools & Universities')).toBeInTheDocument();
   });
 
-  it.each(['wildfire', 'weather', 'allhazard'])(
+  it.each(['wildfire', 'allhazard'])(
     'shows the Evacuation Zones toggle on the %s tab',
     (tab) => {
       renderPanel({ activeMapTab: tab });
       expect(screen.getByText('Evacuation Zones')).toBeInTheDocument();
     },
   );
+
+  it('does not show the Evacuation Zones toggle on the weather tab', () => {
+    renderPanel({ activeMapTab: 'weather' });
+    expect(screen.queryByText('Evacuation Zones')).not.toBeInTheDocument();
+  });
 
   it('shows and toggles the dBZ probe on the weather tab', () => {
     const onPrecipRingToggle = vi.fn();

@@ -182,7 +182,7 @@ const TAB_SECTIONS = {
       title: 'Weather hazards',
       groups: [
         {
-          layers: ['weatherAlerts', 'stormReports', 'damageAssessment', 'evacZones', 'waterGauges', 'rawsStations'],
+          layers: ['weatherAlerts', 'stormReports', 'damageAssessment', 'waterGauges', 'rawsStations'],
         },
       ],
     },
@@ -191,7 +191,7 @@ const TAB_SECTIONS = {
       title: 'Outlooks',
       groups: [
         {
-          layers: ['spcWeatherOutlooks', 'fireRiskOutlook', 'wpcEro', 'wpcWssi', 'wpcQpf', 'wpcFronts'],
+          layers: ['spcWeatherOutlooks', 'wpcEro', 'wpcWssi', 'wpcQpf', 'wpcFronts'],
         },
       ],
     },
