@@ -172,27 +172,20 @@ const TAB_SECTIONS = {
     {
       id: 'wx-hazards',
       title: 'Weather hazards',
-      subtitle: 'Alerts, reports, and outlooks',
+      subtitle: 'Alerts, reports, evacuation, and stations',
       groups: [
         {
-          label: 'Active weather',
-          layers: ['weatherAlerts', 'stormReports', 'damageAssessment'],
+          layers: ['weatherAlerts', 'stormReports', 'damageAssessment', 'evacZones', 'waterGauges', 'rawsStations'],
         },
+      ],
+    },
+    {
+      id: 'wx-outlooks',
+      title: 'Outlooks',
+      subtitle: 'Fire risk, rainfall, winter storm, and precipitation',
+      groups: [
         {
-          label: 'Evacuation',
-          layers: ['evacZones'],
-        },
-        {
-          label: 'Outlooks',
           layers: ['spcWeatherOutlooks', 'fireRiskOutlook', 'wpcEro', 'wpcWssi', 'wpcQpf', 'wpcFronts'],
-        },
-        {
-          label: 'Flood & water',
-          layers: ['waterGauges'],
-        },
-        {
-          label: 'Stations',
-          layers: ['rawsStations'],
         },
       ],
     },
@@ -202,7 +195,6 @@ const TAB_SECTIONS = {
       subtitle: 'Precipitation and cloud imagery',
       groups: [
         {
-          label: 'Imagery',
           layers: ['radarComposite', 'radarNexrad', 'goesEast', 'goesWest'],
         },
       ],
@@ -449,7 +441,7 @@ const LayerControl = memo(function LayerControl({
         id: 'wf-infra',
         title: 'Infrastructure',
         subtitle: 'Energy & key facilities (Pro)',
-        groups: [{ label: 'Layers', layers: infraLayers.map((l) => l.key) }],
+        groups: [{ label: activeMapTab === 'weather' ? undefined : 'Layers', layers: infraLayers.map((l) => l.key) }],
         infraLayers,
       },
     ];
@@ -643,11 +635,13 @@ const LayerControl = memo(function LayerControl({
 
                   {!isSectionCollapsed && (
                     <div className="pl-1 pb-2 space-y-3">
-                      {section.groups.map((group) => (
-                        <div key={`${sectionKey}-${group.label}`}>
-                          <div className="px-2 pb-1.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-500">
-                            {group.label}
-                          </div>
+                      {section.groups.map((group, groupIndex) => (
+                        <div key={`${sectionKey}-${group.label || groupIndex}`}>
+                          {group.label && (
+                            <div className="px-2 pb-1.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-500">
+                              {group.label}
+                            </div>
+                          )}
                           <div className="rounded-lg bg-zinc-950 border border-zinc-800 divide-y divide-zinc-800 overflow-hidden">
                             {group.layers.map((layerRef) => {
                               // A group entry may be a plain layer key, or an object
