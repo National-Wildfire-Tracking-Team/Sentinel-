@@ -16,10 +16,12 @@ const SCALE_BY_PRODUCT = {
   zdr: ZDR_SCALE,
   cc: CC_SCALE,
 };
-// Only reflectivity hides its lowest band as visual noise — every other
-// product (including all three added in Phase 7G) is meaningful across its
-// full range, so nothing below the first band is treated as no-data.
-const BELOW_MIN_IS_NO_DATA = { reflectivity: true };
+// No product hides part of its range as "no data" below the first band —
+// reflectivity's scale (Phase 7G, NOAA JetStream-aligned) now starts at
+// -35 dBZ specifically so valid low-end values stay visible; the real
+// no-data sentinel is a separate mechanism entirely (rasterizeSweep's
+// noDataByte check, before colorForProduct is ever reached).
+const BELOW_MIN_IS_NO_DATA = {};
 
 // Reference implementation mirroring the pre-optimization per-pixel logic
 // (hexToRgb + linear band scan), used only here to verify the LUT produces
@@ -63,12 +65,36 @@ describe('buildColorLut', () => {
     }
   });
 
-  it('marks reflectivity values below the first band as no-data (transparent)', () => {
+  it('preserves valid low reflectivity (-35 to 15 dBZ) as colored, not no-data', () => {
     const scale = 0.5;
     const offset = -32;
     const lut = buildColorLut('reflectivity', scale, offset);
-    // raw=0 -> real = -32 dBZ, well under the 15 dBZ floor.
-    expect(unpack(lut[0])).toBeNull();
+    // raw=0 -> real = -32 dBZ — within the -35..0 dBZ band, must be colored.
+    expect(unpack(lut[0])).not.toBeNull();
+  });
+
+  it('never returns no-data for reflectivity via the below-min path, even for an extreme low value', () => {
+    // scale/offset chosen so raw=0 decodes to a real value below -35 (the
+    // scale's own floor) — reflectivity's belowMinIsNoData is false, so this
+    // clamps to the lowest bin's color rather than becoming null. The real
+    // no-data sentinel is an entirely separate mechanism (rasterizeSweep's
+    // noDataByte check), not this one.
+    const lut = buildColorLut('reflectivity', 1, -40);
+    expect(unpack(lut[0])).not.toBeNull(); // real = -40, below the -35 floor — still colored
+  });
+
+  it('separates NOAA-mandated dBZ breakpoints into 13 visually distinct bins', () => {
+    const scale = 0.5;
+    const offset = -32; // matches nexradPayloadFormat.js's real QUANT_RANGE.reflectivity
+    const lut = buildColorLut('reflectivity', scale, offset);
+    // One representative real dBZ value per NOAA breakpoint bin.
+    const representativeDbz = [-20, 8, 17, 22, 27, 32, 37, 42, 47, 52, 57, 62, 80];
+    const colors = representativeDbz.map((real) => {
+      const raw = Math.round((real - offset) / scale);
+      return unpack(lut[Math.min(254, Math.max(0, raw))]);
+    });
+    const distinctColors = new Set(colors.map((c) => c.join(',')));
+    expect(distinctColors.size).toBe(representativeDbz.length);
   });
 
   describe.each(['spectrumWidth', 'zdr', 'cc'])('%s (Phase 7G)', (product) => {
