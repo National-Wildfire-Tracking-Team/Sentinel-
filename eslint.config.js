@@ -101,6 +101,7 @@ export default [
         scrollBy: 'readonly',
         getComputedStyle: 'readonly',
         matchMedia: 'readonly',
+        ResizeObserver: 'readonly',
       },
     },
     rules: {

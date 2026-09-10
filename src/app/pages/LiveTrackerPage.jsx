@@ -9,7 +9,7 @@ import { useViewport } from '../context/ViewportContext';
 import { nwsAlertCategory } from '../utils/nwsColors';
 import { FIRE_WEATHER_ALERT_TYPES } from '../api/noaaWeather';
 import { useSavedLocations } from '../hooks/useSavedLocations';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 // Data hooks
 import { useFireHotspots } from '../hooks/useFireHotspots';
@@ -665,17 +665,14 @@ export default function LiveTrackerPage() {
     selectedTimestamp: mrmsSelectedTimestamp,
     isLive: mrmsIsLive,
     isPlaying: mrmsIsPlaying,
-    loading: mrmsLoading,
     error: mrmsError,
     raster: mrmsRaster,
     isFresh: mrmsIsFresh,
-    hasNewerFrame: mrmsHasNewerFrame,
     selectFrame: onMrmsSelectFrame,
     play: onMrmsPlay,
     pause: onMrmsPause,
     previous: onMrmsPrevious,
     next: onMrmsNext,
-    goLive: onMrmsLive,
   } = useMrmsComposite(layers.radarComposite);
   // IEM fallback only ever makes sense in live mode — IEM has no historical
   // capability, so substituting it under a historical timestamp would
@@ -1012,6 +1009,48 @@ export default function LiveTrackerPage() {
     schoolsLayerEnabled,
   ]);
 
+  // Measures the bottom bar's own rendered size so the Composite Radar
+  // scrub bar (rendered separately, inside MapView) can match its width
+  // and sit flush against it, instead of guessing a fixed size.
+  const mapBottomBarRef = useRef(null);
+  const [mapBottomBarSize, setMapBottomBarSize] = useState({ width: 0, height: 0 });
+
+  useEffect(() => {
+    const el = mapBottomBarRef.current;
+    if (!el) return undefined;
+    // getBoundingClientRect (not ResizeObserver's contentRect, which excludes
+    // padding/border) so this matches the bar's actual rendered box.
+    const observer = new ResizeObserver(() => {
+      const { width, height } = el.getBoundingClientRect();
+      setMapBottomBarSize({ width, height });
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  const radarScrubberAttached = Boolean(layers.radarComposite) && mrmsFrames.length >= 2;
+
+  // Measures the radar scrub bar's own height so the Layers panel (opened
+  // from inside MapBottomBar) can clear it too, instead of only clearing
+  // MapBottomBar and opening on top of the scrub bar.
+  const radarTimelineRef = useRef(null);
+  const [radarTimelineHeight, setRadarTimelineHeight] = useState(0);
+
+  useEffect(() => {
+    const el = radarTimelineRef.current;
+    if (!el) {
+      setRadarTimelineHeight(0);
+      return undefined;
+    }
+    const observer = new ResizeObserver(() => {
+      setRadarTimelineHeight(el.getBoundingClientRect().height);
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [radarScrubberAttached]);
+
+  const layerPanelRadarClearance = radarScrubberAttached ? radarTimelineHeight + 8 : 0;
+
   return (
     <div className="h-screen w-screen flex flex-col bg-sentinel-900 text-white overflow-hidden select-none">
       {/* ── Top bar ── */}
@@ -1093,17 +1132,16 @@ export default function LiveTrackerPage() {
             mrmsTimelineVisible={layers.radarComposite}
             mrmsFrames={mrmsFrames}
             mrmsSelectedTimestamp={mrmsSelectedTimestamp}
-            mrmsIsLive={mrmsIsLive}
             mrmsIsPlaying={mrmsIsPlaying}
-            mrmsLoading={mrmsLoading}
             mrmsError={mrmsError}
-            mrmsHasNewerFrame={mrmsHasNewerFrame}
             onMrmsSelectFrame={onMrmsSelectFrame}
             onMrmsPlay={onMrmsPlay}
             onMrmsPause={onMrmsPause}
             onMrmsPrevious={onMrmsPrevious}
             onMrmsNext={onMrmsNext}
-            onMrmsLive={onMrmsLive}
+            mapBottomBarWidth={mapBottomBarSize.width}
+            mapBottomBarHeight={mapBottomBarSize.height}
+            radarTimelineRef={radarTimelineRef}
             calFireHistoricalPerimetersGeoJSON={calFireHistoricalPerimetersGeoJSON}
             californiaCamerasGeoJSON={californiaCamerasGeoJSON}
             wpcEroGeoJSON={wpcEroGeoJSON}
@@ -1132,6 +1170,7 @@ export default function LiveTrackerPage() {
           <AccountPanel />
 
           <MapBottomBar
+            ref={mapBottomBarRef}
             activeMapTab={activeMapTab}
             onTabChange={setActiveMapTab}
             infrastructureLayersEntitled={hasProInfrastructureAccess}
@@ -1143,6 +1182,8 @@ export default function LiveTrackerPage() {
             onMeasureClose={onMeasureClose}
             precipRingActive={precipRingActive}
             onPrecipRingToggle={onPrecipRingToggle}
+            radarScrubberAttached={radarScrubberAttached}
+            radarPanelClearance={layerPanelRadarClearance}
           />
 
           <Legend
