@@ -162,10 +162,6 @@ const TAB_SECTIONS = {
           layers: ['rawsStations', 'airNowMonitors'],
         },
         {
-          label: 'Overlays',
-          layers: ['aqi'],
-        },
-        {
           label: 'Live cameras',
           layers: ['wildfireCameras'],
         },
@@ -207,7 +203,7 @@ const TAB_SECTIONS = {
       groups: [
         {
           label: 'Overlays',
-          layers: ['aqi', 'smoke'],
+          layers: ['smoke'],
         },
       ],
     },
