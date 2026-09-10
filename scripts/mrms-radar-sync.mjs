@@ -77,18 +77,33 @@ const WGRIB2_BIN = process.env.WGRIB2_BIN || 'wgrib2';
 // 299.995 (0-360°E convention) at 0.01° spacing, row order WE:SN (row 0 =
 // south). Regridding to the same lower-left origin at a coarser spacing
 // keeps alignment clean and avoids extrapolation at the domain edges.
+//
+// 0.02° (~2.2km/cell, 3500x1750, ~6.1M cells) — upgraded from an initial
+// 0.04° (~4.4km/cell) once real usage showed cells that coarse look visibly
+// blocky at regional/local zoom. Chosen deliberately, not by reflex: gzipped
+// payload size stays low-single-digit MB (same ~94%-no-data sparsity pattern
+// compresses just as well, just 4x the bytes); rasterization cost is
+// dominated by the ~5-6% of cells with real values (~370K pixels doing a
+// 10-entry color-band scan) — still comfortably fast; GitHub Actions cost is
+// unaffected (decoding the native 24.5M-cell GRIB2 dominates regardless of
+// regrid target); Supabase storage stays bounded at 15 rolling frames; and a
+// bounded 5-frame browser cache of rasters stays well within normal memory
+// budgets. Going further (e.g. all the way to native 0.01°) would start
+// costing meaningfully more on all of those axes for diminishing visual
+// return, since national/regional viewing is Composite Radar's job — NEXRAD
+// Level II site view is already where users get full native-resolution detail.
 const REGRID_LON0 = 230.005; // deg, 0-360 convention (wgrib2 input convention)
 const REGRID_LAT0 = 20.005;
-const REGRID_SPACING_DEG = 0.04;
-const REGRID_NX = 1750;
-const REGRID_NY = 875;
+const REGRID_SPACING_DEG = 0.02;
+const REGRID_NX = 3500;
+const REGRID_NY = 1750;
 
 // Confirmed against a real file: no GRIB2 bitmap is used for this product
 // (wgrib2 -stats reports undef=0) — MRMS bakes these two sentinels directly
 // into the data instead.
 const NO_DATA_SENTINELS = [-999, -99]; // no coverage, below threshold
 
-const PROCESSING_VERSION = 1; // bump whenever the regrid/quantization/resample logic changes
+const PROCESSING_VERSION = 2; // bump whenever the regrid/quantization/resample logic changes
 const DECODER_VERSION = '3.8.0'; // wgrib2 version — keep in sync with the workflow's pinned version
 
 function supabaseHeaders(extra = {}) {
