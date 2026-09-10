@@ -7,7 +7,7 @@
 import { useState, memo, useMemo, useEffect } from 'react';
 import { getMainOrigin } from '../../../shared/utils/getAppOrigin';
 import {
-  Layers, Flame, MapPin, Wind, CloudRain, CloudLightning, Eye, ChevronDown, ChevronRight, Radar, AlertTriangle, Ruler, Hexagon, Satellite, Map as MapIcon, Thermometer, Activity, Droplets, Zap, Lock, GraduationCap, History, TrendingUp, Crosshair, Camera, Mountain, Snowflake,
+  Layers, Flame, MapPin, Wind, CloudRain, CloudLightning, Eye, ChevronDown, ChevronRight, Radar, AlertTriangle, Ruler, Hexagon, Satellite, Thermometer, Activity, Droplets, Zap, Lock, GraduationCap, History, TrendingUp, Crosshair, Camera, Mountain, Snowflake,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { useViewport } from '../../context/ViewportContext';
@@ -393,8 +393,6 @@ function WpcDaySelector({ layerKey, product, subtitle, accentColor }) {
 const LayerControl = memo(function LayerControl({
   activeMapTab = 'wildfire',
   infrastructureLayersEntitled = false,
-  mapType = 'satellite',
-  onMapTypeChange,
   measureActive = false,
   measureMode = 'distance',
   onMeasureActivate,
@@ -472,41 +470,17 @@ const LayerControl = memo(function LayerControl({
   };
 
   const mapTypeButtons = (
-    <>
-      <button
-        type="button"
-        onClick={() => onMapTypeChange?.('satellite')}
-        className={`flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-semibold transition-all ${
-          mapType === 'satellite' ? mapTypeActiveClass : 'text-zinc-300 hover:text-white'
-        }`}
-        title="Worldview satellite imagery"
-      >
-        <Satellite size={11} />
-        <span>SAT</span>
-      </button>
-      <button
-        type="button"
-        onClick={() => onMapTypeChange?.('rendered')}
-        className={`flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-semibold transition-all ${
-          mapType === 'rendered' ? mapTypeActiveClass : 'text-zinc-300 hover:text-white'
-        }`}
-        title="Dark streets map"
-      >
-        <MapIcon size={11} />
-        <span>MAP</span>
-      </button>
-      <button
-        type="button"
-        onClick={toggleTerrainTilt}
-        className={`flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-semibold transition-all ${
-          isPitched ? mapTypeActiveClass : 'text-zinc-300 hover:text-white'
-        }`}
-        title="Toggle 3D terrain"
-      >
-        <Mountain size={11} />
-        <span>3D</span>
-      </button>
-    </>
+    <button
+      type="button"
+      onClick={toggleTerrainTilt}
+      className={`flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-semibold transition-all ${
+        isPitched ? mapTypeActiveClass : 'text-zinc-300 hover:text-white'
+      }`}
+      title="Toggle 3D terrain"
+    >
+      <Mountain size={11} />
+      <span>3D</span>
+    </button>
   );
 
   return (

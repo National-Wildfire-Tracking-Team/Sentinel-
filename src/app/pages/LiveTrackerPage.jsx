@@ -1169,8 +1169,6 @@ export default function LiveTrackerPage() {
             activeMapTab={activeMapTab}
             onTabChange={setActiveMapTab}
             infrastructureLayersEntitled={hasProInfrastructureAccess}
-            mapType={mapType}
-            onMapTypeChange={setMapType}
             measureActive={measureActive}
             measureMode={measureMode}
             onMeasureActivate={onMeasureActivate}

@@ -12,8 +12,6 @@ const MapBottomBar = memo(forwardRef(function MapBottomBar({
   activeMapTab = 'wildfire',
   onTabChange,
   infrastructureLayersEntitled = false,
-  mapType = 'satellite',
-  onMapTypeChange,
   measureActive = false,
   measureMode = 'distance',
   onMeasureActivate,
@@ -35,8 +33,6 @@ const MapBottomBar = memo(forwardRef(function MapBottomBar({
       <LayerControl
         activeMapTab={activeMapTab}
         infrastructureLayersEntitled={infrastructureLayersEntitled}
-        mapType={mapType}
-        onMapTypeChange={onMapTypeChange}
         measureActive={measureActive}
         measureMode={measureMode}
         onMeasureActivate={onMeasureActivate}
