@@ -22,11 +22,17 @@
  * Decoding: wgrib2 (pinned 3.8.0, installed via conda-forge in CI — see the
  * workflow file) owns all GRIB2-specific interpretation. In one invocation it
  * decompresses the GRIB2 message, regrids the native 0.01°(~7000x3500,
- * 24.5M cell) grid down to a coarser 0.04° grid (~1750x875, ~1.5M cells —
- * plenty for a national-overview layer; NEXRAD Level II site view is where
- * users get fine detail) using NEAREST-NEIGHBOR interpolation (not
- * bilinear/budget) so real values are never blended with the "no data"
- * sentinels below, and dumps the result as flat big-endian IEEE floats.
+ * 24.5M cell) grid down to REGRID_NX x REGRID_NY below (currently 0.02°,
+ * 3500x1750, ~6.1M cells — see the constants' own comment for the sizing
+ * history/rationale) using NEAREST-NEIGHBOR interpolation for THIS regrid
+ * step specifically (not bilinear) so real values are never blended with
+ * the "no data" sentinels below, and dumps the result as flat big-endian
+ * IEEE floats. (The client-side Mapbox raster layer's own resampling — see
+ * RadarLayer.jsx — is a separate, later concern: smoothing between two
+ * already-valid real cells for display is fine and, in practice, produces a
+ * more professional-looking result than leaving grid cells as visible
+ * squares; only this ingestion-time regrid must avoid blending real data
+ * with sentinels.)
  *
  * Missing values — confirmed against a real production file during
  * implementation, not assumed: this product uses no GRIB2 bitmap
