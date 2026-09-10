@@ -470,6 +470,11 @@ async function publishHistoryEntry({ site, product, scanTimeMs, elevationDeg, co
       headers: supabaseHeaders({
         'Content-Type': 'application/octet-stream',
         'x-upsert': 'true',
+        // Unlike latest.bin (overwritten in place every cycle, so it must
+        // stay revalidate-on-every-request), this path is unique per scan
+        // and never rewritten once published — genuinely immutable, so it's
+        // safe to tell every intermediate cache to never bother revalidating.
+        'Cache-Control': 'public, max-age=31536000, immutable',
       }),
       body: compressed,
     },

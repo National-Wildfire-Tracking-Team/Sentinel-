@@ -57,15 +57,26 @@ async function gunzip(arrayBuffer) {
   return new Response(stream).arrayBuffer();
 }
 
-/** Fetch + decode the compact binary scan payload at the given storage path. */
-export async function fetchScanPayload(storagePath) {
+/**
+ * Fetch + decode the compact binary scan payload at the given storage path.
+ *
+ * `latest.bin` (live) is overwritten in place every cycle — the URL never
+ * changes even though the bytes do, so every live fetch must bust the cache
+ * to actually see new data. A `history/<scan_time>.bin` path is the opposite:
+ * unique per scan and never overwritten once published, so its bytes for a
+ * given URL are permanently fixed. Cache-busting a historical fetch only
+ * defeats the browser's own HTTP cache for no reason — pass
+ * `{ immutable: true }` for historical scans to fetch a stable URL instead
+ * (measured against real production data: ~150-1250ms per cache-busted
+ * fetch vs ~45-70ms for a repeat request to the same stable URL).
+ */
+export async function fetchScanPayload(storagePath, { immutable = false } = {}) {
   const { data } = supabase.storage.from(STORAGE_BUCKET).getPublicUrl(storagePath);
   const url = data?.publicUrl;
   if (!url) throw new Error('Could not resolve scan storage URL');
 
-  // The object path never changes (overwritten in place each cycle) — bust
-  // any intermediate cache so polling actually sees new bytes.
-  const resp = await fetch(`${url}?t=${Date.now()}`);
+  const fetchUrl = immutable ? url : `${url}?t=${Date.now()}`;
+  const resp = await fetch(fetchUrl);
   if (!resp.ok) throw new Error(`Scan payload fetch failed: HTTP ${resp.status}`);
 
   const compressed = await resp.arrayBuffer();

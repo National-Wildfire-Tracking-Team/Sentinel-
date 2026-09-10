@@ -29,6 +29,9 @@ describe('useNexradScan — live mode', () => {
     await waitFor(() => expect(result.current.status).toBe('live'));
     expect(result.current.payload).toEqual(payloadFor('a'));
     expect(nexradScans.fetchScanPayload).toHaveBeenCalledTimes(1);
+    // Live/latest is overwritten in place — must NOT request the stable-URL
+    // (immutable) path, or polling would stop seeing new bytes.
+    expect(nexradScans.fetchScanPayload).toHaveBeenCalledWith('KTLX/reflectivity/latest.bin', undefined);
   });
 
   it('surfaces a concise, generic error — never the raw exception message', async () => {
@@ -145,11 +148,12 @@ describe('useNexradScan — historical mode + bounded cache', () => {
     renderHook(() => useNexradScan('KTLX', 'reflectivity', true, minutesAgoFor(rows[1])));
 
     // rows[1] is selected; rows[0] and rows[2] are its only neighbors and
-    // should be fetched too (cache-warming), without ever touching displayed state.
+    // should be fetched too (cache-warming), without ever touching displayed
+    // state — all as immutable (stable-URL) historical fetches.
     await waitFor(() => {
-      expect(nexradScans.fetchScanPayload).toHaveBeenCalledWith(rows[0].storage_path);
-      expect(nexradScans.fetchScanPayload).toHaveBeenCalledWith(rows[1].storage_path);
-      expect(nexradScans.fetchScanPayload).toHaveBeenCalledWith(rows[2].storage_path);
+      expect(nexradScans.fetchScanPayload).toHaveBeenCalledWith(rows[0].storage_path, { immutable: true });
+      expect(nexradScans.fetchScanPayload).toHaveBeenCalledWith(rows[1].storage_path, { immutable: true });
+      expect(nexradScans.fetchScanPayload).toHaveBeenCalledWith(rows[2].storage_path, { immutable: true });
     });
     // Exactly the selected scan plus its two neighbors — not the whole window.
     expect(nexradScans.fetchScanPayload).toHaveBeenCalledTimes(3);
