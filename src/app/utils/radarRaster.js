@@ -69,6 +69,84 @@ function colorForProduct(product, realValue) {
   return null;
 }
 
+// Every gate value is one quantized byte (0-254; 255 is the reserved
+// no-data sentinel handled separately), and `real = raw * scale + offset`
+// plus the color-band lookup are both pure functions of that byte alone for
+// a given product's fixed scale/offset — so instead of re-deriving a color
+// from the raw byte on every one of a 768x768 canvas's pixels, precompute
+// the 255 possible outputs once per rasterizeSweep() call and index into
+// that table per pixel. Packed as one Int32 per entry (bit 24 = has-color,
+// bits 0-23 = RGB) so the hot loop does a single array read instead of a
+// hexToRgb() string-parse + linear scale scan.
+export function buildColorLut(product, scale, offset) {
+  const lut = new Int32Array(255);
+  for (let raw = 0; raw < 255; raw++) {
+    const rgb = colorForProduct(product, raw * scale + offset);
+    lut[raw] = rgb ? (1 << 24) | rgb[0] | (rgb[1] << 8) | (rgb[2] << 16) : 0;
+  }
+  return lut;
+}
+
+const COLOR_LUT_CACHE_MAX = 8;
+const colorLutCache = new Map(); // "product|scale|offset" -> Int32Array(255)
+
+function getColorLut(product, scale, offset) {
+  const key = `${product}|${scale}|${offset}`;
+  let lut = colorLutCache.get(key);
+  if (lut) return lut;
+  lut = buildColorLut(product, scale, offset);
+  colorLutCache.set(key, lut);
+  if (colorLutCache.size > COLOR_LUT_CACHE_MAX) {
+    colorLutCache.delete(colorLutCache.keys().next().value);
+  }
+  return lut;
+}
+
+// Per-pixel range (meters from site) and azimuth (degrees) depend only on
+// the canvas geometry and this product's fixed maxRangeM/firstGateM — never
+// on a particular scan's radial data — so they're identical across every
+// scan of the same product. Precomputing them once per distinct
+// maxRangeM/firstGateM combination (in practice: one per product, ever)
+// skips a Math.hypot + Math.atan2 pair per pixel on every rasterization
+// after the first for that product.
+export function buildGeometryLut(maxRangeM, firstGateM, canvasSize) {
+  const metersPerPixel = (2 * maxRangeM) / canvasSize;
+  const half = canvasSize / 2;
+  const n = canvasSize * canvasSize;
+  const rangeArr = new Float64Array(n);
+  const azArr = new Float64Array(n);
+  const inRange = new Uint8Array(n);
+
+  for (let py = 0; py < canvasSize; py++) {
+    for (let px = 0; px < canvasSize; px++) {
+      const i = py * canvasSize + px;
+      const xMeters = (px - half + 0.5) * metersPerPixel;
+      const yMeters = (half - py - 0.5) * metersPerPixel;
+      const range = Math.hypot(xMeters, yMeters);
+      rangeArr[i] = range;
+      if (range > maxRangeM || range < firstGateM) continue;
+      inRange[i] = 1;
+      azArr[i] = (Math.atan2(xMeters, yMeters) * 180 / Math.PI + 360) % 360;
+    }
+  }
+  return { rangeArr, azArr, inRange };
+}
+
+const GEOMETRY_LUT_CACHE_MAX = 8;
+const geometryLutCache = new Map(); // "maxRangeM|firstGateM" -> {rangeArr, azArr, inRange}
+
+function getGeometryLut(maxRangeM, firstGateM, canvasSize) {
+  const key = `${maxRangeM}|${firstGateM}|${canvasSize}`;
+  let geometry = geometryLutCache.get(key);
+  if (geometry) return geometry;
+  geometry = buildGeometryLut(maxRangeM, firstGateM, canvasSize);
+  geometryLutCache.set(key, geometry);
+  if (geometryLutCache.size > GEOMETRY_LUT_CACHE_MAX) {
+    geometryLutCache.delete(geometryLutCache.keys().next().value);
+  }
+  return geometry;
+}
+
 /**
  * @param {ReturnType<import('./nexradPayloadFormat').decodeScanPayload>} payload
  * @param {{lat: number, lng: number}} site
@@ -108,24 +186,22 @@ export function rasterizeSweep(payload, site) {
   canvas.height = CANVAS_SIZE;
   const ctx = canvas.getContext('2d');
   const imageData = ctx.createImageData(CANVAS_SIZE, CANVAS_SIZE);
-  const metersPerPixel = (2 * maxRangeM) / CANVAS_SIZE;
-  const half = CANVAS_SIZE / 2;
+
+  const colorLut = getColorLut(product, scale, offset);
+  const { rangeArr, azArr, inRange } = getGeometryLut(maxRangeM, firstGateM, CANVAS_SIZE);
 
   for (let py = 0; py < CANVAS_SIZE; py++) {
     for (let px = 0; px < CANVAS_SIZE; px++) {
-      const idx = (py * CANVAS_SIZE + px) * 4;
-      const xMeters = (px - half + 0.5) * metersPerPixel;
-      const yMeters = (half - py - 0.5) * metersPerPixel;
-      const range = Math.hypot(xMeters, yMeters);
+      const i = py * CANVAS_SIZE + px;
+      const idx = i * 4;
 
-      if (range > maxRangeM || range < firstGateM) {
+      if (!inRange[i]) {
         imageData.data[idx + 3] = 0;
         continue;
       }
 
-      const azDeg = (Math.atan2(xMeters, yMeters) * 180 / Math.PI + 360) % 360;
-      const radialIdx = nearestRadialIndex(azDeg);
-      const gateIdx = Math.min(gateCount - 1, Math.max(0, Math.floor((range - firstGateM) / gateSizeM)));
+      const radialIdx = nearestRadialIndex(azArr[i]);
+      const gateIdx = Math.min(gateCount - 1, Math.max(0, Math.floor((rangeArr[i] - firstGateM) / gateSizeM)));
       const raw = values[radialIdx * gateCount + gateIdx];
 
       if (raw === noDataByte) {
@@ -133,16 +209,15 @@ export function rasterizeSweep(payload, site) {
         continue;
       }
 
-      const real = raw * scale + offset;
-      const rgb = colorForProduct(product, real);
-      if (!rgb) {
+      const packed = colorLut[raw];
+      if (!(packed & (1 << 24))) {
         imageData.data[idx + 3] = 0;
         continue;
       }
 
-      imageData.data[idx] = rgb[0];
-      imageData.data[idx + 1] = rgb[1];
-      imageData.data[idx + 2] = rgb[2];
+      imageData.data[idx] = packed & 255;
+      imageData.data[idx + 1] = (packed >> 8) & 255;
+      imageData.data[idx + 2] = (packed >> 16) & 255;
       imageData.data[idx + 3] = 220;
     }
   }

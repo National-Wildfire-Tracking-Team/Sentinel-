@@ -64,19 +64,23 @@ describe('useNexradScan — historical mode + bounded cache', () => {
       { initialProps: { minutesAgo: minutesAgoFor(rows[0]) } },
     );
 
+    // rows[0] selected + its only neighbor (rows[1]) prefetched.
     await waitFor(() => expect(result.current.payload).toEqual(payloadFor(rows[0].storage_path)));
-    expect(nexradScans.fetchScanPayload).toHaveBeenCalledTimes(1);
+    expect(nexradScans.fetchScanPayload).toHaveBeenCalledTimes(2);
 
+    // rows[1]: both it and its left neighbor (rows[0]) are already cached
+    // from the prefetch above — only its new right neighbor (rows[2]) causes
+    // an actual fetch.
     rerender({ minutesAgo: minutesAgoFor(rows[1]) });
     await waitFor(() => expect(result.current.payload).toEqual(payloadFor(rows[1].storage_path)));
-    expect(nexradScans.fetchScanPayload).toHaveBeenCalledTimes(2);
+    expect(nexradScans.fetchScanPayload).toHaveBeenCalledTimes(3);
 
     // Scrub back to the first scan — a single-slot "last decoded" guard would
     // have missed this (it only remembers the most recent one); the bounded
-    // cache should serve it without a third fetch.
+    // cache should serve it without any further fetch.
     rerender({ minutesAgo: minutesAgoFor(rows[0]) });
     await waitFor(() => expect(result.current.payload).toEqual(payloadFor(rows[0].storage_path)));
-    expect(nexradScans.fetchScanPayload).toHaveBeenCalledTimes(2);
+    expect(nexradScans.fetchScanPayload).toHaveBeenCalledTimes(3);
   });
 
   it('re-displays the correct historical scan after a live round-trip, not the stale live payload', async () => {
@@ -132,6 +136,53 @@ describe('useNexradScan — historical mode + bounded cache', () => {
 
     rerender({ siteId: 'KOKX', minutesAgo: minutesAgoFor(rows[0]) });
     await waitFor(() => expect(result.current.payload).toEqual(payloadFor(otherRow.storage_path)));
+  });
+
+  it('prefetches the immediately-adjacent scans around the current selection', async () => {
+    nexradScans.fetchScanHistory.mockResolvedValue(rows);
+    nexradScans.fetchScanPayload.mockImplementation((path) => Promise.resolve(payloadFor(path)));
+
+    renderHook(() => useNexradScan('KTLX', 'reflectivity', true, minutesAgoFor(rows[1])));
+
+    // rows[1] is selected; rows[0] and rows[2] are its only neighbors and
+    // should be fetched too (cache-warming), without ever touching displayed state.
+    await waitFor(() => {
+      expect(nexradScans.fetchScanPayload).toHaveBeenCalledWith(rows[0].storage_path);
+      expect(nexradScans.fetchScanPayload).toHaveBeenCalledWith(rows[1].storage_path);
+      expect(nexradScans.fetchScanPayload).toHaveBeenCalledWith(rows[2].storage_path);
+    });
+    // Exactly the selected scan plus its two neighbors — not the whole window.
+    expect(nexradScans.fetchScanPayload).toHaveBeenCalledTimes(3);
+  });
+
+  it('a stale, slower request cannot overwrite the payload for a newer selection', async () => {
+    nexradScans.fetchScanHistory.mockResolvedValue(rows);
+
+    // rows[0]'s fetch resolves slowly; rows[1]'s resolves immediately —
+    // simulating an out-of-order network response.
+    let resolveSlow;
+    nexradScans.fetchScanPayload.mockImplementation((path) => {
+      if (path === rows[0].storage_path) {
+        return new Promise((resolve) => { resolveSlow = () => resolve(payloadFor(path)); });
+      }
+      return Promise.resolve(payloadFor(path));
+    });
+
+    const { result, rerender } = renderHook(
+      ({ minutesAgo }) => useNexradScan('KTLX', 'reflectivity', true, minutesAgo),
+      { initialProps: { minutesAgo: minutesAgoFor(rows[0]) } },
+    );
+
+    // Quickly move on to rows[1] before rows[0]'s fetch has resolved.
+    rerender({ minutesAgo: minutesAgoFor(rows[1]) });
+    await waitFor(() => expect(result.current.payload).toEqual(payloadFor(rows[1].storage_path)));
+
+    // Now let the stale rows[0] request finally resolve — it must not
+    // clobber the already-displayed, newer rows[1] payload.
+    resolveSlow();
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(result.current.payload).toEqual(payloadFor(rows[1].storage_path));
   });
 
   it('reports no-history (not an error) when the site has no scans in the window yet', async () => {
