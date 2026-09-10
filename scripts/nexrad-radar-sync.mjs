@@ -132,6 +132,25 @@ async function fetchActiveSites() {
   return resp.json();
 }
 
+/**
+ * Extract the embedded "YYYYMMDD_HHMMSS" timestamp from either AWS
+ * ("KMLB20260910_153125_V06") or tgftp ("KMLB_20260910_153125.bz2") filename
+ * formats, for comparing "is this newer than the last published volume"
+ * across sources. The two raw formats are NOT safely string-comparable
+ * against each other — confirmed live: an AWS-format key always sorts
+ * lexicographically before a tgftp-format filename regardless of actual
+ * chronological order (digits vs. the site's own letters), which without
+ * this normalization could make the sync perpetually treat every subsequent
+ * AWS volume as "already published" once a single tgftp-sourced scan (e.g.
+ * from nexrad-heartbeat's own fallback path) had been recorded — silently
+ * starving both the live feed's freshness and, critically, history writes,
+ * since nothing downstream would ever see a volume as new again.
+ */
+function timestampKey(filename) {
+  const m = filename.match(/(\d{8}_\d{6})/);
+  return m ? m[1] : filename;
+}
+
 async function fetchPublishedSourceFiles(siteIds) {
   const map = new Map();
   if (!siteIds.length) return map;
@@ -145,10 +164,12 @@ async function fetchPublishedSourceFiles(siteIds) {
 
   const rows = await resp.json();
   for (const row of rows) {
-    // Filenames sort chronologically as strings (YYYYMMDD_HHMMSS is zero-padded),
-    // so a plain string max across a site's two product rows is safe.
+    // Compare by normalized timestamp (not raw filename) since a site's two
+    // product rows may have been published from different sources.
     const prev = map.get(row.site_id);
-    if (row.source_file && (!prev || row.source_file > prev)) map.set(row.site_id, row.source_file);
+    if (row.source_file && (!prev || timestampKey(row.source_file) > timestampKey(prev))) {
+      map.set(row.site_id, row.source_file);
+    }
   }
   return map;
 }
@@ -300,7 +321,7 @@ async function syncSite(site, lastPublishedFile) {
     return;
   }
   const { filename: latestFile } = latest;
-  if (lastPublishedFile != null && latestFile <= lastPublishedFile) {
+  if (lastPublishedFile != null && timestampKey(latestFile) <= timestampKey(lastPublishedFile)) {
     console.log(`[nexrad-sync] ${site}: ${latestFile} already published, waiting for next volume`);
     return;
   }

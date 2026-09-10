@@ -14,6 +14,15 @@
  * which takes a couple of seconds — the first live meta poll is held until
  * that settles so a brand-new site goes straight to real data instead of
  * flashing "loading" and then waiting out the full poll interval.
+ *
+ * Decoded payloads are cached (bounded, LRU-evicted) keyed by
+ * site+product+scan_time, so repeatedly revisiting the same scan — e.g.
+ * scrubbing the history slider back and forth over the same stretch — skips
+ * the fetch+gunzip+decode entirely. The cache stores the decoded payload
+ * object itself (not a clone), so a cache hit hands back the exact same
+ * object reference as before — LiveTrackerPage's rasterization `useMemo`
+ * keys off that reference, so a cache hit also skips re-rasterizing for
+ * free, with no separate raster cache needed here.
  */
 
 import { useState, useEffect, useRef, useCallback } from 'react';
@@ -23,6 +32,11 @@ const HEARTBEAT_MS = 60 * 1000;
 const META_POLL_MS = 20 * 1000;
 const HISTORY_POLL_MS = 60 * 1000;
 const STALE_MS = 15 * 60 * 1000;
+
+// ~2 hours of history at a typical 5-6 min per-site VCP cadence is on the
+// order of 20-24 scans per product; a bounded cache of 20 comfortably covers
+// a full scrub across the whole window without growing unbounded.
+const SCAN_CACHE_SIZE = 20;
 
 export function useNexradScan(siteId, product, enabled, minutesAgo = 0) {
   const [meta, setMeta] = useState(null);
@@ -34,8 +48,42 @@ export function useNexradScan(siteId, product, enabled, minutesAgo = 0) {
   const lastHistoryPathRef = useRef(null);
   const mountedRef = useRef(true);
   const primingRef = useRef(null);
+  // sourced "site|product|scan_time" -> decoded payload. Bounded LRU, kept
+  // entirely inside this hook instance — never shared with, or coupled to,
+  // Composite Radar's cache or state.
+  const scanCacheRef = useRef(new Map());
 
   const isHistorical = minutesAgo > 0;
+
+  const cacheKey = useCallback((scanTime) => `${siteId}|${product}|${scanTime}`, [siteId, product]);
+
+  const cacheGetScan = useCallback((scanTime) => {
+    const key = cacheKey(scanTime);
+    const entry = scanCacheRef.current.get(key);
+    if (!entry) return null;
+    scanCacheRef.current.delete(key); // refresh recency
+    scanCacheRef.current.set(key, entry);
+    return entry;
+  }, [cacheKey]);
+
+  const cacheSetScan = useCallback((scanTime, decoded) => {
+    const key = cacheKey(scanTime);
+    if (scanCacheRef.current.has(key)) scanCacheRef.current.delete(key);
+    scanCacheRef.current.set(key, decoded);
+    while (scanCacheRef.current.size > SCAN_CACHE_SIZE) {
+      const oldestKey = scanCacheRef.current.keys().next().value;
+      scanCacheRef.current.delete(oldestKey);
+    }
+  }, [cacheKey]);
+
+  /** Fetch+decode a scan's payload, serving from the bounded cache when possible. */
+  const loadScanPayload = useCallback(async (scanTime, storagePath) => {
+    const cached = cacheGetScan(scanTime);
+    if (cached) return cached;
+    const decoded = await fetchScanPayload(storagePath);
+    cacheSetScan(scanTime, decoded);
+    return decoded;
+  }, [cacheGetScan, cacheSetScan]);
 
   const pollMeta = useCallback(async () => {
     if (!siteId || !product) return;
@@ -47,21 +95,23 @@ export function useNexradScan(siteId, product, enabled, minutesAgo = 0) {
       if (row?.scan_time && row.scan_time !== lastScanTimeRef.current) {
         lastScanTimeRef.current = row.scan_time;
         try {
-          const decoded = await fetchScanPayload(row.storage_path);
+          const decoded = await loadScanPayload(row.scan_time, row.storage_path);
           if (mountedRef.current) {
             setPayload(decoded);
             setError(null);
           }
         } catch (err) {
-          if (mountedRef.current) setError(err.message);
+          console.error('[useNexradScan] scan payload fetch failed:', err);
+          if (mountedRef.current) setError('Radar data is temporarily unavailable.');
         }
       } else if (row) {
         setError(null);
       }
     } catch (err) {
-      if (mountedRef.current) setError(err.message);
+      console.error('[useNexradScan] scan meta poll failed:', err);
+      if (mountedRef.current) setError('Radar data is temporarily unavailable.');
     }
-  }, [siteId, product]);
+  }, [siteId, product, loadScanPayload]);
 
   // Heartbeat: independent of `product`/`minutesAgo` so switching products or
   // scrubbing history doesn't reset the "this site is being viewed" signal —
@@ -124,8 +174,9 @@ export function useNexradScan(siteId, product, enabled, minutesAgo = 0) {
           setHistoryLoaded(true);
         })
         .catch((err) => {
+          console.error('[useNexradScan] scan history fetch failed:', err);
           if (!cancelled) {
-            setError(err.message);
+            setError('Radar history is temporarily unavailable.');
             setHistoryLoaded(true);
           }
         });
@@ -165,7 +216,7 @@ export function useNexradScan(siteId, product, enabled, minutesAgo = 0) {
     lastHistoryPathRef.current = nearest.storage_path;
 
     let cancelled = false;
-    fetchScanPayload(nearest.storage_path)
+    loadScanPayload(nearest.scan_time, nearest.storage_path)
       .then((decoded) => {
         if (!cancelled) {
           setPayload(decoded);
@@ -173,12 +224,13 @@ export function useNexradScan(siteId, product, enabled, minutesAgo = 0) {
         }
       })
       .catch((err) => {
-        if (!cancelled) setError(err.message);
+        console.error('[useNexradScan] historical scan payload fetch failed:', err);
+        if (!cancelled) setError('This historical scan is unavailable right now.');
       });
     return () => {
       cancelled = true;
     };
-  }, [isHistorical, historyRows, minutesAgo]);
+  }, [isHistorical, historyRows, minutesAgo, loadScanPayload]);
 
   const status = (() => {
     if (!enabled || !siteId) return 'idle';
