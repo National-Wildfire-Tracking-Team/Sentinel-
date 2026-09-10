@@ -182,13 +182,12 @@ const LIVE_VELOCITY_LEGEND_SCALE = LIVE_VELOCITY_SCALE.map(({ min, color }) => (
 
 const Legend = memo(function Legend({
   spcOutlookType = 'categorical',
-  spcActiveDay = 'day1',
   spcWeatherOutlookMode = 'convective',
   fireWxOutlookType = 'winds_low_humidity',
   radarScanActive = false,
   radarScanProduct = null,
 }) {
-  const { layers, legendOpen, toggleLegend } = useApp();
+  const { layers, legendOpen } = useApp();
   const [collapsed, setCollapsed] = useState(true);
 
   if (!legendOpen) return null;

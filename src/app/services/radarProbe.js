@@ -1,7 +1,7 @@
 const IEM_NEXRAD_WMS = 'https://mesonet.agron.iastate.edu/cgi-bin/wms/nexrad/n0q.cgi';
 const IEM_NEXRAD_METADATA = 'https://mesonet.agron.iastate.edu/data/gis/images/4326/USCOMP/n0q_0.json';
 
-export const RADAR_PRODUCT = 'NEXRAD N0Q Base Reflectivity';
+const RADAR_PRODUCT = 'NEXRAD N0Q Base Reflectivity';
 
 const RADAR_PALETTE = [
   { rgb: [4, 233, 231], dbz: 10 },

@@ -95,15 +95,6 @@ export const AQI_HEATMAP_COLOR_EXPRESSION = [
   1,    'rgba(112, 20, 42, 0.75)',
 ];
 
-/** Mapbox GL step expression for AQI circle radius */
-export const AQI_RADIUS_EXPRESSION = [
-  'step', ['get', 'aqi'],
-  8,
-  101, 10,
-  201, 13,
-  301, 16,
-];
-
 // ─── Fire Perimeter Colors ────────────────────────────────────────────────────
 export const PERIMETER_COLORS = {
   fill: '#ff6600',

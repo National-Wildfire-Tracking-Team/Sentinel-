@@ -18,7 +18,7 @@ import { supabase } from '../../shared/api/supabaseClient';
 import { getMainOrigin } from '../../shared/utils/getAppOrigin';
 import { useSavedLocations } from '../hooks/useSavedLocations';
 import { useNotificationPreferences } from '../hooks/useNotificationPreferences';
-import { usePlan, PLANS } from '../../shared/hooks/usePlan';
+import { usePlan } from '../../shared/hooks/usePlan';
 import { NOTIFIABLE_ALERT_TYPES } from '../utils/nwsColors';
 
 export default function AccountPage() {
