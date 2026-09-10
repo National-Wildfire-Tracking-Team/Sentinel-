@@ -56,5 +56,5 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: |
-          wgrib2 -version
+          wgrib2 -version || true
           node scripts/mrms-radar-sync.mjs
