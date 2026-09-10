@@ -14,19 +14,28 @@
 const CANVAS_SIZE = 768; // px, square output — higher res + linear raster-resampling on the Mapbox layer softens the polar-to-grid blockiness
 const METERS_PER_DEG_LAT = 111320;
 
-// Reuses the same band thresholds as Legend.jsx's RADAR_DBZ_SCALE so the
-// live sweep's colors match the existing NEXRAD composite legend.
+// Reflectivity color table (5 dBZ steps): green = light-moderate rain,
+// yellow/orange = heavy rain, red = intense, fuchsia/magenta/white = extreme
+// (possible hail). Reuses the same band thresholds as Legend.jsx's
+// RADAR_DBZ_SCALE so the live sweep's colors match the existing NEXRAD
+// composite legend. Starts at 15 dBZ — bandColor() (below) treats anything
+// under the first stop's min as no data, so 15 dBZ and under (drizzle/very
+// light rain — mostly noise) renders as transparent rather than colored.
+// Colors are deliberately desaturated/muted (not the raw neon NWS scale) to
+// match the softer look of apps like WeatherWise — same hues, toned down.
 export const REFLECTIVITY_SCALE = [
-  { min: 5, color: '#04e9e7' },
-  { min: 15, color: '#009df4' },
-  { min: 20, color: '#01c501' },
-  { min: 30, color: '#fdf802' },
-  { min: 40, color: '#e5bc00' },
-  { min: 45, color: '#fd9500' },
-  { min: 50, color: '#fd0000' },
-  { min: 55, color: '#d40000' },
-  { min: 60, color: '#bc0000' },
-  { min: 65, color: '#f800fd' },
+  { min: 15, color: '#7dcf7d' }, // Light Green
+  { min: 20, color: '#4caf50' }, // Green
+  { min: 25, color: '#2f7d32' }, // Dark Green
+  { min: 30, color: '#e8dc8a' }, // Light Yellow
+  { min: 35, color: '#d4bf4d' }, // Yellow
+  { min: 40, color: '#cc8a3d' }, // Dark Yellow / Orange
+  { min: 45, color: '#c1663f' }, // Red-Orange / Light Red
+  { min: 50, color: '#b8433c' }, // Red
+  { min: 55, color: '#7a3030' }, // Dark Red
+  { min: 60, color: '#b563b5' }, // Fuchsia / Pink
+  { min: 65, color: '#7d5ba6' }, // Magenta / Purple
+  { min: 70, color: '#e8dcef' }, // White / Light Purple
 ];
 
 // Standard NWS-style diverging velocity scale: green = toward radar
