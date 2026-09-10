@@ -1291,17 +1291,13 @@ export default function MapView({
   mrmsTimelineVisible,
   mrmsFrames,
   mrmsSelectedTimestamp,
-  mrmsIsLive,
   mrmsIsPlaying,
-  mrmsLoading,
   mrmsError,
-  mrmsHasNewerFrame,
   onMrmsSelectFrame,
   onMrmsPlay,
   onMrmsPause,
   onMrmsPrevious,
   onMrmsNext,
-  onMrmsLive,
   calFireHistoricalPerimetersGeoJSON,
   californiaCamerasGeoJSON,
   wpcEroGeoJSON,
@@ -1309,6 +1305,9 @@ export default function MapView({
   wpcQpfGeoJSON,
   wpcFrontsGeoJSON,
   onMapLoad,
+  mapBottomBarWidth,
+  mapBottomBarHeight,
+  radarTimelineRef,
 }) {
   const { layers, alerts, selectedFire, selectFire, selectGauge, selectRadarSite, selectCamera, sidebarOpen, locationGranted, userLocation, setUserLocation, layerPanelOpen, closeLayerPanel } = useApp();
   const { viewport, setViewport } = useViewport();
@@ -2081,19 +2080,18 @@ export default function MapView({
       {/* Composite Radar timeline — history/playback control, independent of NEXRAD */}
       {mrmsTimelineVisible && (
         <RadarTimeline
+          ref={radarTimelineRef}
           frames={mrmsFrames}
           selectedTimestamp={mrmsSelectedTimestamp}
-          isLive={mrmsIsLive}
           isPlaying={mrmsIsPlaying}
-          loading={mrmsLoading}
           error={mrmsError}
-          hasNewerFrame={mrmsHasNewerFrame}
           onSelectFrame={onMrmsSelectFrame}
           onPlay={onMrmsPlay}
           onPause={onMrmsPause}
           onPrevious={onMrmsPrevious}
           onNext={onMrmsNext}
-          onLive={onMrmsLive}
+          bottomBarWidth={mapBottomBarWidth}
+          bottomBarHeight={mapBottomBarHeight}
         />
       )}
 

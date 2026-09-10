@@ -427,6 +427,7 @@ const LayerControl = memo(function LayerControl({
   onMeasureClose,
   precipRingActive = false,
   onPrecipRingToggle,
+  radarPanelClearance = 0,
 }) {
   const { layerPanelOpen, toggleLayerPanel, toggleLayer } = useApp();
   const { viewport, setViewport } = useViewport();
@@ -557,6 +558,7 @@ const LayerControl = memo(function LayerControl({
                         bg-black backdrop-blur-md border border-zinc-700
                         rounded-2xl shadow-2xl shadow-black/60 overflow-hidden
                         origin-bottom animate-slide-up-panel"
+          style={radarPanelClearance ? { marginBottom: `${radarPanelClearance}px` } : undefined}
         >
           <div className={`px-3 pt-3 pb-2 border-b border-zinc-800 bg-gradient-to-b ${tabAccent}`}>
             <div className="flex items-center justify-between gap-2">
