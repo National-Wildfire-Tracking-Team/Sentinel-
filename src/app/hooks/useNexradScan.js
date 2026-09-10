@@ -20,9 +20,14 @@
  * scrubbing the history slider back and forth over the same stretch — skips
  * the fetch+gunzip+decode entirely. The cache stores the decoded payload
  * object itself (not a clone), so a cache hit hands back the exact same
- * object reference as before — LiveTrackerPage's rasterization `useMemo`
- * keys off that reference, so a cache hit also skips re-rasterizing for
- * free, with no separate raster cache needed here.
+ * object reference as before — useNexradRaster's own bounded cache (see
+ * src/app/hooks/useNexradRaster.js) keys its rasterized-output cache off
+ * that same reference, so a payload cache hit also skips re-rasterizing.
+ *
+ * While historical, the immediately-adjacent scan on either side of the
+ * current selection is also fetched into this cache (fire-and-forget, never
+ * touching displayed state), so single-step scrubbing back and forth feels
+ * instant without ever downloading the whole 2-hour window at once.
  */
 
 import { useState, useEffect, useRef, useCallback } from 'react';
@@ -44,6 +49,11 @@ export function useNexradScan(siteId, product, enabled, minutesAgo = 0) {
   const [error, setError] = useState(null);
   const [historyRows, setHistoryRows] = useState([]);
   const [historyLoaded, setHistoryLoaded] = useState(false);
+  // True only while decoding a historical frame that isn't already in the
+  // payload cache — lets `status` report 'loading' during that gap instead
+  // of leaving the previous frame's payload displayed with no indication
+  // that it doesn't match the newly-selected offset yet.
+  const [historicalLoading, setHistoricalLoading] = useState(false);
   const lastScanTimeRef = useRef(null);
   const lastHistoryPathRef = useRef(null);
   const mountedRef = useRef(true);
@@ -131,6 +141,7 @@ export function useNexradScan(siteId, product, enabled, minutesAgo = 0) {
     setError(null);
     setHistoryRows([]);
     setHistoryLoaded(false);
+    setHistoricalLoading(false);
     lastScanTimeRef.current = null;
     lastHistoryPathRef.current = null;
     return () => {
@@ -144,7 +155,10 @@ export function useNexradScan(siteId, product, enabled, minutesAgo = 0) {
   // scan is already displayed (it was, before live overwrote it) and skip
   // restoring it.
   useEffect(() => {
-    if (!isHistorical) lastHistoryPathRef.current = null;
+    if (!isHistorical) {
+      lastHistoryPathRef.current = null;
+      setHistoricalLoading(false);
+    }
   }, [isHistorical]);
 
   // Live path: metadata + payload polling for the latest scan.
@@ -205,24 +219,40 @@ export function useNexradScan(siteId, product, enabled, minutesAgo = 0) {
     if (!historyRows.length) {
       setMeta(null);
       setPayload(null);
+      setHistoricalLoading(false);
       return undefined;
     }
 
     const targetMs = Date.now() - minutesAgo * 60 * 1000;
-    let nearest = historyRows[0];
-    let bestDiff = Math.abs(new Date(nearest.scan_time).getTime() - targetMs);
-    for (const row of historyRows) {
-      const diff = Math.abs(new Date(row.scan_time).getTime() - targetMs);
+    let nearestIdx = 0;
+    let bestDiff = Math.abs(new Date(historyRows[0].scan_time).getTime() - targetMs);
+    for (let i = 1; i < historyRows.length; i++) {
+      const diff = Math.abs(new Date(historyRows[i].scan_time).getTime() - targetMs);
       if (diff < bestDiff) {
-        nearest = row;
+        nearestIdx = i;
         bestDiff = diff;
       }
     }
+    const nearest = historyRows[nearestIdx];
     setMeta(nearest);
+
+    // Warm the cache for the immediately-adjacent scans (fire-and-forget,
+    // never touches displayed state) so quick back-and-forth scrubbing one
+    // step at a time around the current position feels instant. Bounded to
+    // the two neighbors — never the whole history window.
+    const prevRow = historyRows[nearestIdx - 1];
+    const nextRow = historyRows[nearestIdx + 1];
+    if (prevRow) loadScanPayload(prevRow.scan_time, prevRow.storage_path).catch(() => {});
+    if (nextRow) loadScanPayload(nextRow.scan_time, nextRow.storage_path).catch(() => {});
 
     // Same nearest scan as last time (common between adjacent slider ticks) — skip the redecode.
     if (lastHistoryPathRef.current === nearest.storage_path) return undefined;
     lastHistoryPathRef.current = nearest.storage_path;
+
+    // Only surface a loading state for a genuine miss — a cache hit (already
+    // fetched, e.g. via the prefetch above) resolves on the next microtask
+    // and shouldn't flash a spinner for content that's effectively already there.
+    if (!cacheGetScan(nearest.scan_time)) setHistoricalLoading(true);
 
     let cancelled = false;
     loadScanPayload(nearest.scan_time, nearest.storage_path)
@@ -230,22 +260,27 @@ export function useNexradScan(siteId, product, enabled, minutesAgo = 0) {
         if (!cancelled) {
           setPayload(decoded);
           setError(null);
+          setHistoricalLoading(false);
         }
       })
       .catch((err) => {
         console.error('[useNexradScan] historical scan payload fetch failed:', err);
-        if (!cancelled) setError('This historical scan is unavailable right now.');
+        if (!cancelled) {
+          setError('This historical scan is unavailable right now.');
+          setHistoricalLoading(false);
+        }
       });
     return () => {
       cancelled = true;
     };
-  }, [isHistorical, historyRows, minutesAgo, loadScanPayload]);
+  }, [isHistorical, historyRows, minutesAgo, loadScanPayload, cacheGetScan]);
 
   const status = (() => {
     if (!enabled || !siteId) return 'idle';
     if (isHistorical) {
       if (!historyLoaded) return 'loading';
       if (!historyRows.length) return 'no-history';
+      if (historicalLoading) return 'loading';
       return payload ? 'historical' : 'loading';
     }
     if (!meta) return 'loading';

@@ -44,9 +44,9 @@ import { usePlan } from '../../shared/hooks/usePlan';
 import { useWaterGauges } from '../hooks/useWaterGauges';
 import { useNexradSites } from '../hooks/useNexradSites';
 import { useNexradScan } from '../hooks/useNexradScan';
+import { useNexradRaster } from '../hooks/useNexradRaster';
 import { useMrmsComposite } from '../hooks/useMrmsComposite';
 import { useCaliforniaCameras } from '../hooks/useCaliforniaCameras';
-import { rasterizeSweep } from '../utils/radarRaster';
 import { useCalFirePerimeters } from '../hooks/useCalFirePerimeters';
 import { polygonCentroid } from '../utils/geoUtils';
 import { incidentsToGeoJSON } from '../api/inciweb';
@@ -648,11 +648,12 @@ export default function LiveTrackerPage() {
   const { meta: radarScanMeta, payload: radarScanPayload, status: radarScanStatus, error: radarScanError } =
     useNexradScan(selectedRadarSite?.id, radarProduct, Boolean(selectedRadarSite), radarSiteMinutesAgo);
 
-  const radarRaster = useMemo(
-    () => (selectedRadarSite && radarScanPayload
-      ? rasterizeSweep(radarScanPayload, { lat: selectedRadarSite.lat, lng: selectedRadarSite.lng })
-      : null),
-    [selectedRadarSite, radarScanPayload]
+  const radarRaster = useNexradRaster(
+    selectedRadarSite?.id,
+    radarProduct,
+    radarScanMeta?.scan_time,
+    radarScanPayload,
+    selectedRadarSite ? { lat: selectedRadarSite.lat, lng: selectedRadarSite.lng } : null
   );
 
   // National MRMS composite reflectivity — independent of NEXRAD Level II
