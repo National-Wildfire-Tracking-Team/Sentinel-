@@ -172,7 +172,6 @@ const TAB_SECTIONS = {
     {
       id: 'wx-hazards',
       title: 'Weather hazards',
-      subtitle: 'Alerts, reports, evacuation, and stations',
       groups: [
         {
           layers: ['weatherAlerts', 'stormReports', 'damageAssessment', 'evacZones', 'waterGauges', 'rawsStations'],
@@ -182,7 +181,6 @@ const TAB_SECTIONS = {
     {
       id: 'wx-outlooks',
       title: 'Outlooks',
-      subtitle: 'Fire risk, rainfall, winter storm, and precipitation',
       groups: [
         {
           layers: ['spcWeatherOutlooks', 'fireRiskOutlook', 'wpcEro', 'wpcWssi', 'wpcQpf', 'wpcFronts'],
@@ -192,7 +190,6 @@ const TAB_SECTIONS = {
     {
       id: 'wx-imagery',
       title: 'Radar & satellite',
-      subtitle: 'Precipitation and cloud imagery',
       groups: [
         {
           layers: ['radarComposite', 'radarNexrad', 'goesEast', 'goesWest'],
@@ -440,7 +437,7 @@ const LayerControl = memo(function LayerControl({
       {
         id: 'wf-infra',
         title: 'Infrastructure',
-        subtitle: 'Energy & key facilities (Pro)',
+        subtitle: activeMapTab === 'weather' ? undefined : 'Energy & key facilities (Pro)',
         groups: [{ label: activeMapTab === 'weather' ? undefined : 'Layers', layers: infraLayers.map((l) => l.key) }],
         infraLayers,
       },
@@ -629,7 +626,9 @@ const LayerControl = memo(function LayerControl({
                     )}
                     <div className="flex-1 min-w-0">
                       <div className="text-xs font-semibold text-white leading-tight">{section.title}</div>
-                      <div className="text-[10px] text-zinc-400 mt-0.5 leading-snug">{section.subtitle}</div>
+                      {section.subtitle && (
+                        <div className="text-[10px] text-zinc-400 mt-0.5 leading-snug">{section.subtitle}</div>
+                      )}
                     </div>
                   </button>
 
