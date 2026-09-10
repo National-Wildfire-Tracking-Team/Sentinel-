@@ -13,47 +13,35 @@
  * ("LIVE"/"HISTORICAL"), never color alone.
  */
 
-import { memo, useMemo } from 'react';
+import { memo, forwardRef, useMemo } from 'react';
 import { ChevronLeft, ChevronRight, Play, Pause, Radio } from 'lucide-react';
 
-function formatTime(sourceTime) {
+function formatDateTime(sourceTime) {
   if (!sourceTime) return '—';
   const d = new Date(sourceTime);
   if (Number.isNaN(d.getTime())) return '—';
-  return d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+  const date = d.toLocaleDateString(undefined, { month: 'numeric', day: 'numeric' });
+  const time = d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+  return `${date} ${time}`;
 }
 
-const RadarTimeline = memo(function RadarTimeline({
+const RadarTimeline = memo(forwardRef(function RadarTimeline({
   frames = [],
   selectedTimestamp,
-  isLive,
   isPlaying,
-  loading,
   error,
-  hasNewerFrame,
   onSelectFrame,
   onPlay,
   onPause,
   onPrevious,
   onNext,
-  onLive,
-}) {
+  bottomBarWidth,
+  bottomBarHeight,
+}, ref) {
   const selectedIndex = useMemo(() => {
     const idx = frames.findIndex((f) => f.sourceTime === selectedTimestamp);
     return idx === -1 ? Math.max(0, frames.length - 1) : idx;
   }, [frames, selectedTimestamp]);
-
-  // A handful of sparse tick labels rather than one per frame — stays legible
-  // at any history length and collapses cleanly on narrow screens.
-  const tickLabels = useMemo(() => {
-    if (frames.length < 2) return [];
-    const maxTicks = 5;
-    const step = Math.max(1, Math.ceil((frames.length - 1) / (maxTicks - 1)));
-    const ticks = [];
-    for (let i = 0; i < frames.length; i += step) ticks.push(frames[i]);
-    if (ticks[ticks.length - 1] !== frames[frames.length - 1]) ticks.push(frames[frames.length - 1]);
-    return ticks;
-  }, [frames]);
 
   if (frames.length === 0) return null;
 
@@ -80,11 +68,16 @@ const RadarTimeline = memo(function RadarTimeline({
 
   return (
     <div
+      ref={ref}
       role="group"
       aria-label="Composite Radar timeline"
       className="absolute bottom-20 left-1/2 -translate-x-1/2 z-20 w-[min(34rem,calc(100vw-2rem))]
                     bg-white/90 dark:bg-black/90 backdrop-blur-sm border border-sentinel-200 dark:border-zinc-700
-                    rounded-2xl shadow-2xl shadow-black/10 dark:shadow-black/60 px-2.5 py-2"
+                    rounded-t-2xl shadow-2xl shadow-black/10 dark:shadow-black/60 px-2.5 py-1.5"
+      style={{
+        width: bottomBarWidth ? `${bottomBarWidth}px` : undefined,
+        bottom: bottomBarHeight ? `${bottomBarHeight + 16}px` : undefined,
+      }}
     >
       <div className="flex items-center gap-1.5">
         <button
@@ -130,58 +123,10 @@ const RadarTimeline = memo(function RadarTimeline({
             className="w-full accent-cyan-500 touch-manipulation"
             aria-label="Composite Radar timeline — select historical frame"
           />
-          <div className="hidden sm:flex justify-between px-0.5 -mt-1">
-            {tickLabels.map((f) => (
-              <span key={f.sourceTime} className="text-[9px] text-sentinel-500 dark:text-zinc-500 font-mono">
-                {formatTime(f.sourceTime)}
-              </span>
-            ))}
+          <div className="text-center text-[10px] font-mono text-sentinel-500 dark:text-zinc-400 -mt-1">
+            {formatDateTime(selectedTimestamp)}
           </div>
         </div>
-
-        <button
-          type="button"
-          onClick={onLive}
-          disabled={isLive}
-          aria-label="Return to live radar"
-          className={`shrink-0 flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wide transition-colors ${
-            isLive
-              ? 'bg-emerald-600 text-white cursor-default'
-              : 'bg-sentinel-100 dark:bg-zinc-800 text-sentinel-600 dark:text-zinc-300 hover:bg-sentinel-200 dark:hover:bg-zinc-700'
-          }`}
-        >
-          <Radio size={11} />
-          Live
-        </button>
-
-        {hasNewerFrame && !isPlaying && (
-          <span
-            className="shrink-0 flex items-center gap-1 text-[9px] font-semibold text-cyan-500 dark:text-cyan-400"
-            title="Newer radar data is available — press Live to jump to it"
-          >
-            <span className="w-1.5 h-1.5 rounded-full bg-cyan-500 dark:bg-cyan-400 animate-pulse" />
-            New
-          </span>
-        )}
-      </div>
-
-      <div className="flex items-center justify-between mt-1 px-1 text-[10px]">
-        <span
-          className={`flex items-center gap-1 font-bold uppercase tracking-wide ${
-            isLive ? 'text-emerald-500' : 'text-amber-500'
-          }`}
-        >
-          {loading && (
-            <span className="w-2.5 h-2.5 border-2 border-sentinel-500 border-t-cyan-400 rounded-full animate-spin shrink-0" />
-          )}
-          {isLive ? 'Live' : 'Historical'}
-        </span>
-        <span className="flex items-center gap-1.5">
-          <span className="text-sentinel-400 dark:text-zinc-500">
-            {frames.length ? `${selectedIndex + 1} / ${frames.length}` : ''}
-          </span>
-          <span className="font-mono text-sentinel-600 dark:text-zinc-300">{formatTime(selectedTimestamp)}</span>
-        </span>
       </div>
 
       {error && (
@@ -191,6 +136,6 @@ const RadarTimeline = memo(function RadarTimeline({
       )}
     </div>
   );
-});
+}));
 
 export default RadarTimeline;
