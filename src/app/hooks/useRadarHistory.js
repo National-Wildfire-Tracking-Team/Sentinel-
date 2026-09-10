@@ -42,7 +42,6 @@ export function useRadarHistory({
 
   const mountedRef = useRef(true);
   const cacheRef = useRef(new Map()); // sourceTime -> { payload, raster }
-  const playbackTimerRef = useRef(null);
   const framesRef = useRef(frames);
   const selectedTimestampRef = useRef(selectedTimestamp);
   const loadTokenRef = useRef(0); // guards against out-of-order async responses
@@ -122,12 +121,11 @@ export function useRadarHistory({
     }
   }, [cacheGet, cacheSet, fetchPayload, rasterize]);
 
+  // The playback effect's own cleanup (cancelled flag + clearTimeout) is what
+  // actually halts an in-flight chain — this just flips the state that
+  // triggers that cleanup.
   const stopPlayback = useCallback(() => {
     setIsPlaying(false);
-    if (playbackTimerRef.current) {
-      clearInterval(playbackTimerRef.current);
-      playbackTimerRef.current = null;
-    }
   }, []);
 
   const selectFrame = useCallback((sourceTime) => {
@@ -164,12 +162,14 @@ export function useRadarHistory({
     if (list.length < 2) return;
     // Starting a fresh loop from live plays the whole available history;
     // resuming from a scrubbed position just continues forward from there.
+    // The actual load for this starting frame happens in the playback
+    // effect below (its first `visit` call) — there is exactly one load
+    // path for playback, so nothing here races against it.
     if (selectedTimestampRef.current == null) {
       setSelectedTimestamp(list[0].sourceTime);
-      loadFrame(list[0].sourceTime, list);
     }
     setIsPlaying(true);
-  }, [loadFrame]);
+  }, []);
 
   const pause = useCallback(() => {
     stopPlayback();
@@ -206,35 +206,53 @@ export function useRadarHistory({
     };
   }, [enabled, fetchHistory, historyPollMs, loadFrame]);
 
-  // Playback timer — steps chronologically, preloads one frame ahead, and
-  // stops itself (transitioning to live) on reaching the newest frame.
+  // Playback — visits frames strictly one at a time, each one's load fully
+  // settling before the next begins (see module doc comment for why: an
+  // interval that doesn't wait for the in-flight load races against
+  // loadFrame's own out-of-order guard and silently drops frames whenever a
+  // fetch+decode+rasterize takes longer than one tick, which real network
+  // conditions routinely do). `cancelled` (not clearInterval) is the stop
+  // mechanism, checked after every await, so pause/unmount/disable/reaching-
+  // live all correctly halt the chain even mid-load.
   useEffect(() => {
     if (!isPlaying) return undefined;
+    let cancelled = false;
+    let timeoutId = null;
 
-    const tick = () => {
+    const visit = async (sourceTime) => {
       const list = framesRef.current;
-      if (!list.length) return;
-      const currentTs = selectedTimestampRef.current ?? list[list.length - 1].sourceTime;
-      const idx = list.findIndex((f) => f.sourceTime === currentTs);
-      const nextIdx = idx + 1;
+      await loadFrame(sourceTime, list);
+      if (cancelled) return;
 
-      if (nextIdx >= list.length - 1) {
+      const idx = list.findIndex((f) => f.sourceTime === sourceTime);
+      if (idx === -1 || idx >= list.length - 1) {
+        // Already at (or fell off) the newest frame — stop here, live.
         stopPlayback();
         setSelectedTimestamp(null);
-        loadFrame(list[list.length - 1].sourceTime, list);
         return;
       }
 
-      const nextFrame = list[nextIdx];
-      setSelectedTimestamp(nextFrame.sourceTime);
-      loadFrame(nextFrame.sourceTime, list);
-
-      const preloadTarget = list[nextIdx + 1];
+      const nextFrame = list[idx + 1];
+      // Warm the cache for the frame after next while this one displays,
+      // so its own load below is usually a cache hit by the time we reach it.
+      const preloadTarget = list[idx + 2];
       if (preloadTarget) preloadFrame(preloadTarget.sourceTime);
+
+      timeoutId = setTimeout(() => {
+        if (cancelled) return;
+        setSelectedTimestamp(nextFrame.sourceTime);
+        visit(nextFrame.sourceTime);
+      }, playbackFrameMs);
     };
 
-    const intervalId = setInterval(tick, playbackFrameMs);
-    return () => clearInterval(intervalId);
+    const list = framesRef.current;
+    const startTs = selectedTimestampRef.current ?? list[list.length - 1]?.sourceTime;
+    if (startTs) visit(startTs);
+
+    return () => {
+      cancelled = true;
+      if (timeoutId) clearTimeout(timeoutId);
+    };
   }, [isPlaying, playbackFrameMs, loadFrame, preloadFrame, stopPlayback]);
 
   // Reset transient state when this radar layer is disabled — timers must
