@@ -14,28 +14,42 @@
 const CANVAS_SIZE = 768; // px, square output — higher res + linear raster-resampling on the Mapbox layer softens the polar-to-grid blockiness
 const METERS_PER_DEG_LAT = 111320;
 
-// Reflectivity color table (5 dBZ steps): green = light-moderate rain,
-// yellow/orange = heavy rain, red = intense, fuchsia/magenta/white = extreme
-// (possible hail). Reuses the same band thresholds as Legend.jsx's
-// RADAR_DBZ_SCALE so the live sweep's colors match the existing NEXRAD
-// composite legend. Starts at 15 dBZ — bandColor() (below) treats anything
-// under the first stop's min as no data, so 15 dBZ and under (drizzle/very
-// light rain — mostly noise) renders as transparent rather than colored.
-// Colors are deliberately desaturated/muted (not the raw neon NWS scale) to
-// match the softer look of apps like WeatherWise — same hues, toned down.
+// Reflectivity color table, built around NOAA's JetStream reflectivity
+// guidance (https://www.noaa.gov/jetstream/reflectivity): discrete 5-dBZ
+// steps from 15-65 dBZ, plus two additional low-end bins below the
+// mandated <15 dBZ threshold so genuinely valid low-reflectivity data
+// (drizzle, snow, general clutter — NOAA's own -35 to 0 and 0 to 20 dBZ
+// bands) stays visible rather than being discarded as no-data. The scale
+// is deliberately NOT a rainfall-rate mapping — dBZ is returned radar
+// energy, not a direct precipitation-intensity measurement, so bins are
+// labeled by dBZ range only (see Legend.jsx) rather than "light/moderate/
+// heavy" rain descriptors.
+//
+// -35 to 0 and 0 to 15 are intentionally the most muted/desaturated colors
+// in the table (low visual weight) so they read as background texture —
+// distinguishable from true no-data (fully transparent, a separate
+// mechanism — see rasterizeSweep's noDataByte check below) without
+// competing with real precipitation signal.
+//
+// Shared (imported, not duplicated) by mrmsRaster.js so Composite and
+// NEXRAD Level II reflectivity render with the identical NOAA-based
+// palette — see that file's module doc comment. This is a shared color
+// constant only; each renderer's actual rasterization pipeline (polar
+// sweep vs. regular grid) remains fully independent.
 export const REFLECTIVITY_SCALE = [
-  { min: 15, color: '#7dcf7d' }, // Light Green
-  { min: 20, color: '#4caf50' }, // Green
-  { min: 25, color: '#2f7d32' }, // Dark Green
-  { min: 30, color: '#e8dc8a' }, // Light Yellow
-  { min: 35, color: '#d4bf4d' }, // Yellow
-  { min: 40, color: '#cc8a3d' }, // Dark Yellow / Orange
-  { min: 45, color: '#c1663f' }, // Red-Orange / Light Red
-  { min: 50, color: '#b8433c' }, // Red
-  { min: 55, color: '#7a3030' }, // Dark Red
-  { min: 60, color: '#b563b5' }, // Fuchsia / Pink
-  { min: 65, color: '#7d5ba6' }, // Magenta / Purple
-  { min: 70, color: '#e8dcef' }, // White / Light Purple
+  { min: -35, color: '#39424a' }, // -35 to 0 dBZ — extremely light / drizzle / snow / clutter
+  { min: 0, color: '#55655f' },   // 0 to 15 dBZ — very light precipitation or general clutter
+  { min: 15, color: '#7dcf7d' },  // 15-20 dBZ — Light Green
+  { min: 20, color: '#4caf50' },  // 20-25 dBZ — Green
+  { min: 25, color: '#2f7d32' },  // 25-30 dBZ — Dark Green
+  { min: 30, color: '#e8dc8a' },  // 30-35 dBZ — Light Yellow
+  { min: 35, color: '#d4bf4d' },  // 35-40 dBZ — Yellow
+  { min: 40, color: '#cc8a3d' },  // 40-45 dBZ — Dark Yellow / Orange
+  { min: 45, color: '#c1663f' },  // 45-50 dBZ — Red-Orange / Light Red
+  { min: 50, color: '#b8433c' },  // 50-55 dBZ — Red
+  { min: 55, color: '#7a3030' },  // 55-60 dBZ — Dark Red
+  { min: 60, color: '#b563b5' },  // 60-65 dBZ — Fuchsia / Pink
+  { min: 65, color: '#e8dcef' },  // >65 dBZ — White / Light Purple (extreme, possible water-coated hail)
 ];
 
 // Standard NWS-style diverging velocity scale: green = toward radar
@@ -64,7 +78,12 @@ function bandColor(value, scale, belowMinIsNoData) {
 }
 
 function colorForProduct(product, realValue) {
-  if (product === 'reflectivity') return bandColor(realValue, REFLECTIVITY_SCALE, true);
+  // false: reflectivity's own scale now starts at -35 dBZ (see
+  // REFLECTIVITY_SCALE above) specifically so genuinely valid low-end
+  // values are preserved and colored, not discarded as no-data — the real
+  // no-data sentinel is handled separately, before colorForProduct is ever
+  // called (see rasterizeSweep's noDataByte check below).
+  if (product === 'reflectivity') return bandColor(realValue, REFLECTIVITY_SCALE, false);
   if (product === 'velocity') return bandColor(realValue, VELOCITY_SCALE, false);
   return null;
 }
