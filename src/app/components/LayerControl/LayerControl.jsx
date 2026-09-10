@@ -184,7 +184,7 @@ const TAB_SECTIONS = {
         },
         {
           label: 'Outlooks',
-          layers: ['spcWeatherOutlooks', 'fireWeatherOutlooks', 'fireRiskOutlook', 'wpcEro', 'wpcWssi', 'wpcQpf', 'wpcFronts'],
+          layers: ['spcWeatherOutlooks', 'fireRiskOutlook', 'wpcEro', 'wpcWssi', 'wpcQpf', 'wpcFronts'],
         },
         {
           label: 'Flood & water',
@@ -193,17 +193,6 @@ const TAB_SECTIONS = {
         {
           label: 'Stations',
           layers: ['rawsStations'],
-        },
-      ],
-    },
-    {
-      id: 'wx-air',
-      title: 'Air quality',
-      subtitle: 'Forecast and observations',
-      groups: [
-        {
-          label: 'Overlays',
-          layers: ['smoke'],
         },
       ],
     },
@@ -563,7 +552,7 @@ const LayerControl = memo(function LayerControl({
                   Map layers
                 </span>
                 <p className="text-[10px] text-zinc-400 mt-0.5 truncate">
-                  {activeMapTab === 'weather'   ? 'Weather, radar, and air quality' :
+                  {activeMapTab === 'weather'   ? 'Weather alerts, outlooks, and radar' :
                    activeMapTab === 'allhazard' ? 'All hazards — fire, weather, smoke, and more' :
                    'Wildfire activity, evacuation zones (California + IPAWS polygons), and outlook data'}
                 </p>

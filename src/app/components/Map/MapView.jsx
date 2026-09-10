@@ -1490,7 +1490,7 @@ export default function MapView({
     if (nationalMapCollegesVisible && nationalMapCollegesGeoJSON?.features?.length) {
       ids.push('national-map-colleges-circle');
     }
-    if (layers.fireWeatherOutlooks && fireWeatherOutlooksGeoJSON) ids.push('fire-weather-outlook-fill');
+    if ((isWildfireTab || isAllHazardTab) && layers.fireWeatherOutlooks && fireWeatherOutlooksGeoJSON) ids.push('fire-weather-outlook-fill');
     if (isWeatherTab && layers.spcWeatherOutlooks && spcWeatherOutlookMode === 'fireWx' && fireWeatherOutlooksGeoJSON) {
       ids.push('fire-weather-outlook-fill');
     }
@@ -1775,7 +1775,7 @@ export default function MapView({
         />
 
         {/* Smoke forecast */}
-        <SmokeLayer visible={(isWeatherTab || isAllHazardTab) && layers.smoke} />
+        <SmokeLayer visible={isAllHazardTab && layers.smoke} />
 
         {/* Weather alert zones — wildfire tab shows Red Flag Warnings only, no SPC MDs */}
         <WeatherAlertsLayer
@@ -1878,7 +1878,7 @@ export default function MapView({
         {/* SPC Fire Weather Outlook polygons – visible on wildfire tab */}
         <FireWeatherOutlookLayer
           geoJSON={fireWeatherOutlooksGeoJSON}
-          visible={layers.fireWeatherOutlooks || ((isWeatherTab || isAllHazardTab) && layers.spcWeatherOutlooks && spcWeatherOutlookMode === 'fireWx')}
+          visible={((isWildfireTab || isAllHazardTab) && layers.fireWeatherOutlooks) || ((isWeatherTab || isAllHazardTab) && layers.spcWeatherOutlooks && spcWeatherOutlookMode === 'fireWx')}
           outlookType={fireWxOutlookType}
         />
 
