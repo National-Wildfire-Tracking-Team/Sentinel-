@@ -7,10 +7,9 @@
 import { useState, memo, useMemo, useEffect } from 'react';
 import { getMainOrigin } from '../../../shared/utils/getAppOrigin';
 import {
-  Layers, Flame, MapPin, Wind, CloudRain, CloudLightning, Eye, ChevronDown, ChevronRight, Radar, AlertTriangle, Ruler, Hexagon, Satellite, Thermometer, Activity, Droplets, Zap, Lock, GraduationCap, History, TrendingUp, Crosshair, Camera, Mountain, Snowflake,
+  Layers, Flame, MapPin, Wind, CloudRain, CloudLightning, Eye, ChevronDown, ChevronRight, Radar, AlertTriangle, Ruler, Hexagon, Satellite, Thermometer, Activity, Droplets, Zap, Lock, GraduationCap, History, TrendingUp, Crosshair, Camera, Snowflake,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
-import { useViewport } from '../../context/ViewportContext';
 
 /** Layer row definitions — grouped under tab-specific sections below */
 const LAYER_DEFS = {
@@ -402,7 +401,6 @@ const LayerControl = memo(function LayerControl({
   radarPanelClearance = 0,
 }) {
   const { layerPanelOpen, toggleLayerPanel, toggleLayer } = useApp();
-  const { viewport, setViewport } = useViewport();
   const [collapsed, setCollapsed] = useState({});
 
   const infraLayers = useMemo(() => [
@@ -459,29 +457,6 @@ const LayerControl = memo(function LayerControl({
 
   const isWeatherTab = activeMapTab === 'weather';
   const isAllHazardTab = activeMapTab === 'allhazard';
-  const mapTypeActiveClass =
-    isWeatherTab   ? 'bg-sky-600 text-white shadow'  :
-    isAllHazardTab ? 'bg-red-600 text-white shadow'   :
-                     'bg-fire-600 text-white shadow';
-
-  const isPitched = (viewport?.pitch ?? 0) > 0;
-  const toggleTerrainTilt = () => {
-    setViewport?.(isPitched ? { pitch: 0, bearing: 0 } : { pitch: 60, bearing: -20 });
-  };
-
-  const mapTypeButtons = (
-    <button
-      type="button"
-      onClick={toggleTerrainTilt}
-      className={`flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-semibold transition-all ${
-        isPitched ? mapTypeActiveClass : 'text-zinc-300 hover:text-white'
-      }`}
-      title="Toggle 3D terrain"
-    >
-      <Mountain size={11} />
-      <span>3D</span>
-    </button>
-  );
 
   return (
     <>
@@ -509,20 +484,15 @@ const LayerControl = memo(function LayerControl({
           style={radarPanelClearance ? { marginBottom: `${radarPanelClearance}px` } : undefined}
         >
           <div className={`px-3 pt-3 pb-2 border-b border-zinc-800 bg-gradient-to-b ${tabAccent}`}>
-            <div className="flex items-center justify-between gap-2">
-              <div className="min-w-0">
-                <span className="text-[11px] font-bold text-white uppercase tracking-wider">
-                  Map layers
-                </span>
-                <p className="text-[10px] text-zinc-400 mt-0.5 truncate">
-                  {activeMapTab === 'weather'   ? 'Weather alerts, outlooks, and radar' :
-                   activeMapTab === 'allhazard' ? 'All hazards — fire, weather, smoke, and more' :
-                   'Wildfire activity, evacuation zones (California + IPAWS polygons), and outlook data'}
-                </p>
-              </div>
-              <div className="flex items-center shrink-0 bg-zinc-900 border border-zinc-700 rounded-lg p-0.5">
-                {mapTypeButtons}
-              </div>
+            <div className="min-w-0">
+              <span className="text-[11px] font-bold text-white uppercase tracking-wider">
+                Map layers
+              </span>
+              <p className="text-[10px] text-zinc-400 mt-0.5 truncate">
+                {activeMapTab === 'weather'   ? 'Weather alerts, outlooks, and radar' :
+                 activeMapTab === 'allhazard' ? 'All hazards — fire, weather, smoke, and more' :
+                 'Wildfire activity, evacuation zones (California + IPAWS polygons), and outlook data'}
+              </p>
             </div>
 
             <div className="flex items-center justify-end gap-1 mt-2">
