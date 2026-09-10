@@ -1,7 +1,8 @@
 /**
  * nexrad-radar-sync.mjs
- * Decodes live NWS NEXRAD Level II radar data (reflectivity + velocity, base
- * tilt) for whichever radar sites someone currently has open in Sentinel, and
+ * Decodes live NWS NEXRAD Level II radar data (reflectivity, velocity,
+ * spectrum width, differential reflectivity, correlation coefficient — all
+ * base tilt) for whichever radar sites someone currently has open in Sentinel, and
  * publishes a compact pre-processed payload to Supabase for the frontend to
  * render. Run on a schedule by .github/workflows/nexrad-radar-sync.yml,
  * mirroring the existing scripts/opensky-sync.mjs pattern (plain Node, raw
@@ -341,19 +342,21 @@ async function syncSite(site, lastPublishedFile) {
     ? julianToEpochMs(radar.header.modified_julian_date, radar.header.milliseconds)
     : Date.now();
 
-  const reflectivity = findBestElevation(radar, () => radar.getHighresReflectivity());
-  const velocity = findBestElevation(radar, () => radar.getHighresVelocity());
+  const products = {
+    reflectivity: findBestElevation(radar, () => radar.getHighresReflectivity()),
+    velocity: findBestElevation(radar, () => radar.getHighresVelocity()),
+    spectrumWidth: findBestElevation(radar, () => radar.getHighresSpectrum()),
+    zdr: findBestElevation(radar, () => radar.getHighresDiffReflectivity()),
+    cc: findBestElevation(radar, () => radar.getHighresCorrelationCoefficient()),
+  };
 
   const jobs = [];
-  if (reflectivity) {
-    jobs.push(publishProduct({ site, product: 'reflectivity', scanTimeMs, sourceFile: latestFile, ...reflectivity }));
-  }
-  if (velocity) {
-    jobs.push(publishProduct({ site, product: 'velocity', scanTimeMs, sourceFile: latestFile, ...velocity }));
+  for (const [product, found] of Object.entries(products)) {
+    if (found) jobs.push(publishProduct({ site, product, scanTimeMs, sourceFile: latestFile, ...found }));
   }
 
   if (!jobs.length) {
-    console.log(`[nexrad-sync] ${site}: no usable reflectivity/velocity data in ${latestFile}`);
+    console.log(`[nexrad-sync] ${site}: no usable radar data in ${latestFile}`);
     return;
   }
 
@@ -383,7 +386,13 @@ async function publishProduct({ site, product, elevationDeg, azimuths, radials, 
   // knots value) — convert to knots here since that's the NWS-conventional
   // display unit used everywhere else in this app (see RADAR_DBZ_SCALE-style
   // legends), so the quantization range and UI labels don't have to guess.
-  const unitConvert = product === 'velocity' ? (v) => v * MS_TO_KNOTS : (v) => v;
+  // Spectrum width shares velocity's Doppler message (same scale/offset
+  // metadata, confirmed against real decoded output for two different real
+  // sites/VCPs) and is native m/s too — converted for the same reason.
+  // ZDR (dB) and CC (unitless) are used as the decoder returns them.
+  const unitConvert = (product === 'velocity' || product === 'spectrumWidth')
+    ? (v) => v * MS_TO_KNOTS
+    : (v) => v;
   const moments = radials.map((r) => (r?.moment_data ?? []).map((v) => (v == null ? v : unitConvert(v))));
 
   const buffer = encodeScanPayload({
