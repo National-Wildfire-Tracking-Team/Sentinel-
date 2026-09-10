@@ -484,19 +484,56 @@ const LayerControl = memo(function LayerControl({
           style={radarPanelClearance ? { marginBottom: `${radarPanelClearance}px` } : undefined}
         >
           <div className={`px-3 pt-3 pb-2 border-b border-zinc-800 bg-gradient-to-b ${tabAccent}`}>
-            <div className="min-w-0">
-              <span className="text-[11px] font-bold text-white uppercase tracking-wider">
-                Map layers
-              </span>
-              <p className="text-[10px] text-zinc-400 mt-0.5 truncate">
-                {activeMapTab === 'weather'   ? 'Weather alerts, outlooks, and radar' :
-                 activeMapTab === 'allhazard' ? 'All hazards — fire, weather, smoke, and more' :
-                 'Wildfire activity, evacuation zones (California + IPAWS polygons), and outlook data'}
-              </p>
+            <div className="flex items-center justify-between gap-2">
+              <div className="min-w-0">
+                <span className="text-[11px] font-bold text-white uppercase tracking-wider">
+                  Map layers
+                </span>
+                <p className="text-[10px] text-zinc-400 mt-0.5 truncate">
+                  {activeMapTab === 'weather'   ? 'Weather alerts, outlooks, and radar' :
+                   activeMapTab === 'allhazard' ? 'All hazards — fire, weather, smoke, and more' :
+                   'Wildfire activity, evacuation zones (California + IPAWS polygons), and outlook data'}
+                </p>
+              </div>
+
+              <div className="flex items-center gap-1 shrink-0">
+                <div className="relative group">
+                  <button
+                    type="button"
+                    onClick={() => (measureActive && measureMode === 'distance') ? onMeasureClose?.() : onMeasureActivate?.('distance')}
+                    className={`w-7 h-7 flex items-center justify-center rounded-md transition-all ${
+                      measureActive && measureMode === 'distance'
+                        ? 'bg-orange-500 text-white border border-orange-400'
+                        : 'text-zinc-300 hover:text-white hover:bg-zinc-800'
+                    }`}
+                  >
+                    <Ruler size={13} />
+                  </button>
+                  <span className="absolute top-full mt-1.5 left-1/2 -translate-x-1/2 whitespace-nowrap rounded px-2 py-0.5 text-[11px] font-medium bg-gray-900 text-gray-100 shadow pointer-events-none z-50 opacity-0 group-hover:opacity-100 transition-opacity">
+                    Distance
+                  </span>
+                </div>
+                <div className="relative group">
+                  <button
+                    type="button"
+                    onClick={() => (measureActive && measureMode === 'polygon') ? onMeasureClose?.() : onMeasureActivate?.('polygon')}
+                    className={`w-7 h-7 flex items-center justify-center rounded-md transition-all ${
+                      measureActive && measureMode === 'polygon'
+                        ? 'bg-orange-500 text-white border border-orange-400'
+                        : 'text-zinc-300 hover:text-white hover:bg-zinc-800'
+                    }`}
+                  >
+                    <Hexagon size={13} />
+                  </button>
+                  <span className="absolute top-full mt-1.5 left-1/2 -translate-x-1/2 whitespace-nowrap rounded px-2 py-0.5 text-[11px] font-medium bg-gray-900 text-gray-100 shadow pointer-events-none z-50 opacity-0 group-hover:opacity-100 transition-opacity">
+                    Area
+                  </span>
+                </div>
+              </div>
             </div>
 
-            <div className="flex items-center justify-end gap-1 mt-2">
-              {(isWeatherTab || isAllHazardTab) && (
+            {(isWeatherTab || isAllHazardTab) && (
+              <div className="flex items-center justify-end gap-1 mt-2">
                 <div className="relative group">
                   <button
                     type="button"
@@ -515,40 +552,8 @@ const LayerControl = memo(function LayerControl({
                     dBZ radar probe
                   </span>
                 </div>
-              )}
-              <div className="relative group">
-                <button
-                  type="button"
-                  onClick={() => (measureActive && measureMode === 'distance') ? onMeasureClose?.() : onMeasureActivate?.('distance')}
-                  className={`w-7 h-7 flex items-center justify-center rounded-md transition-all ${
-                    measureActive && measureMode === 'distance'
-                      ? 'bg-orange-500 text-white border border-orange-400'
-                      : 'text-zinc-300 hover:text-white hover:bg-zinc-800'
-                  }`}
-                >
-                  <Ruler size={13} />
-                </button>
-                <span className="absolute top-full mt-1.5 left-1/2 -translate-x-1/2 whitespace-nowrap rounded px-2 py-0.5 text-[11px] font-medium bg-gray-900 text-gray-100 shadow pointer-events-none z-50 opacity-0 group-hover:opacity-100 transition-opacity">
-                  Distance
-                </span>
               </div>
-              <div className="relative group">
-                <button
-                  type="button"
-                  onClick={() => (measureActive && measureMode === 'polygon') ? onMeasureClose?.() : onMeasureActivate?.('polygon')}
-                  className={`w-7 h-7 flex items-center justify-center rounded-md transition-all ${
-                    measureActive && measureMode === 'polygon'
-                      ? 'bg-orange-500 text-white border border-orange-400'
-                      : 'text-zinc-300 hover:text-white hover:bg-zinc-800'
-                  }`}
-                >
-                  <Hexagon size={13} />
-                </button>
-                <span className="absolute top-full mt-1.5 left-1/2 -translate-x-1/2 whitespace-nowrap rounded px-2 py-0.5 text-[11px] font-medium bg-gray-900 text-gray-100 shadow pointer-events-none z-50 opacity-0 group-hover:opacity-100 transition-opacity">
-                  Area
-                </span>
-              </div>
-            </div>
+            )}
           </div>
 
           <div className="py-2 max-h-[min(60vh,28rem)] overflow-y-auto">
