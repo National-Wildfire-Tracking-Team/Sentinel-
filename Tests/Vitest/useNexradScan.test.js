@@ -79,6 +79,61 @@ describe('useNexradScan — historical mode + bounded cache', () => {
     expect(nexradScans.fetchScanPayload).toHaveBeenCalledTimes(2);
   });
 
+  it('re-displays the correct historical scan after a live round-trip, not the stale live payload', async () => {
+    nexradScans.fetchScanHistory.mockResolvedValue(rows);
+    nexradScans.fetchScanPayload.mockImplementation((path) => Promise.resolve(payloadFor(path)));
+    nexradScans.fetchScanMeta.mockResolvedValue({
+      scan_time: '2026-09-10T15:00:00Z',
+      storage_path: 'KTLX/reflectivity/latest.bin',
+      updated_at: new Date().toISOString(),
+    });
+
+    const { result, rerender } = renderHook(
+      ({ minutesAgo }) => useNexradScan('KTLX', 'reflectivity', true, minutesAgo),
+      { initialProps: { minutesAgo: minutesAgoFor(rows[0]) } },
+    );
+
+    await waitFor(() => expect(result.current.payload).toEqual(payloadFor(rows[0].storage_path)));
+
+    // Go live — the live poll overwrites `payload` with the live scan.
+    rerender({ minutesAgo: 0 });
+    await waitFor(() => expect(result.current.payload).toEqual(payloadFor('KTLX/reflectivity/latest.bin')));
+
+    // Return to the exact same historical offset as before. A stale "last
+    // decoded path" guard would wrongly think this scan is already displayed
+    // (it was, before the live round-trip clobbered `payload`) and skip
+    // restoring it, leaving the live payload shown under a historical label.
+    rerender({ minutesAgo: minutesAgoFor(rows[0]) });
+    await waitFor(() => expect(result.current.payload).toEqual(payloadFor(rows[0].storage_path)));
+  });
+
+  it('never polls live meta while in historical mode', async () => {
+    nexradScans.fetchScanHistory.mockResolvedValue(rows);
+    nexradScans.fetchScanPayload.mockImplementation((path) => Promise.resolve(payloadFor(path)));
+
+    const { result } = renderHook(() =>
+      useNexradScan('KTLX', 'reflectivity', true, minutesAgoFor(rows[0])));
+
+    await waitFor(() => expect(result.current.payload).toEqual(payloadFor(rows[0].storage_path)));
+    expect(nexradScans.fetchScanMeta).not.toHaveBeenCalled();
+  });
+
+  it('does not leak one site\'s historical scan into another site switched to while still historical', async () => {
+    const otherRow = { scan_time: '2026-09-10T14:05:00.000Z', storage_path: 'KOKX/reflectivity/history/x.bin' };
+    nexradScans.fetchScanHistory.mockImplementation((siteId) =>
+      Promise.resolve(siteId === 'KTLX' ? rows : [otherRow]));
+    nexradScans.fetchScanPayload.mockImplementation((path) => Promise.resolve(payloadFor(path)));
+
+    const { result, rerender } = renderHook(
+      ({ siteId, minutesAgo }) => useNexradScan(siteId, 'reflectivity', true, minutesAgo),
+      { initialProps: { siteId: 'KTLX', minutesAgo: minutesAgoFor(rows[0]) } },
+    );
+    await waitFor(() => expect(result.current.payload).toEqual(payloadFor(rows[0].storage_path)));
+
+    rerender({ siteId: 'KOKX', minutesAgo: minutesAgoFor(rows[0]) });
+    await waitFor(() => expect(result.current.payload).toEqual(payloadFor(otherRow.storage_path)));
+  });
+
   it('reports no-history (not an error) when the site has no scans in the window yet', async () => {
     nexradScans.fetchScanHistory.mockResolvedValue([]);
     const { result } = renderHook(() => useNexradScan('KTLX', 'reflectivity', true, 30));

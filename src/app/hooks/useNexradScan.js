@@ -138,6 +138,15 @@ export function useNexradScan(siteId, product, enabled, minutesAgo = 0) {
     };
   }, [siteId, product]);
 
+  // Leaving historical mode means `payload` is about to be overwritten by the
+  // live path below. Clear the "last decoded historical path" guard so that
+  // returning to the same historical offset later doesn't wrongly think that
+  // scan is already displayed (it was, before live overwrote it) and skip
+  // restoring it.
+  useEffect(() => {
+    if (!isHistorical) lastHistoryPathRef.current = null;
+  }, [isHistorical]);
+
   // Live path: metadata + payload polling for the latest scan.
   useEffect(() => {
     if (!enabled || !siteId || !product || isHistorical) return undefined;
