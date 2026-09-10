@@ -497,6 +497,26 @@ const LayerControl = memo(function LayerControl({
               </div>
 
               <div className="flex items-center gap-1 shrink-0">
+                {(isWeatherTab || isAllHazardTab) && (
+                  <div className="relative group">
+                    <button
+                      type="button"
+                      onClick={onPrecipRingToggle}
+                      className={`w-7 h-7 flex items-center justify-center rounded-md transition-all ${
+                        precipRingActive
+                          ? 'bg-sky-500 text-white border border-sky-400'
+                          : 'text-zinc-300 hover:text-white hover:bg-zinc-800'
+                      }`}
+                      aria-label="Toggle dBZ radar probe"
+                      aria-pressed={precipRingActive}
+                    >
+                      <Crosshair size={13} />
+                    </button>
+                    <span className="absolute top-full mt-1.5 left-1/2 -translate-x-1/2 whitespace-nowrap rounded px-2 py-0.5 text-[11px] font-medium bg-gray-900 text-gray-100 shadow pointer-events-none z-50 opacity-0 group-hover:opacity-100 transition-opacity">
+                      dBZ radar probe
+                    </span>
+                  </div>
+                )}
                 <div className="relative group">
                   <button
                     type="button"
@@ -531,29 +551,6 @@ const LayerControl = memo(function LayerControl({
                 </div>
               </div>
             </div>
-
-            {(isWeatherTab || isAllHazardTab) && (
-              <div className="flex items-center justify-end gap-1 mt-2">
-                <div className="relative group">
-                  <button
-                    type="button"
-                    onClick={onPrecipRingToggle}
-                    className={`w-7 h-7 flex items-center justify-center rounded-md transition-all ${
-                      precipRingActive
-                        ? 'bg-sky-500 text-white border border-sky-400'
-                        : 'text-zinc-300 hover:text-white hover:bg-zinc-800'
-                    }`}
-                    aria-label="Toggle dBZ radar probe"
-                    aria-pressed={precipRingActive}
-                  >
-                    <Crosshair size={13} />
-                  </button>
-                  <span className="absolute top-full mt-1.5 left-1/2 -translate-x-1/2 whitespace-nowrap rounded px-2 py-0.5 text-[11px] font-medium bg-gray-900 text-gray-100 shadow pointer-events-none z-50 opacity-0 group-hover:opacity-100 transition-opacity">
-                    dBZ radar probe
-                  </span>
-                </div>
-              </div>
-            )}
           </div>
 
           <div className="py-2 max-h-[min(60vh,28rem)] overflow-y-auto">
