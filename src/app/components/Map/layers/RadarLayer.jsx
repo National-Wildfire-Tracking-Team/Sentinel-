@@ -36,9 +36,13 @@ const RadarLayer = memo(function RadarLayer({ visible, mrmsDataUrl, mrmsCoordina
             id="mrms-composite-raster"
             type="raster"
             paint={{
-              'raster-opacity': 0.75,
+              'raster-opacity': 0.85,
               'raster-fade-duration': 300,
-              'raster-resampling': 'linear',
+              // 'nearest', not 'linear' — MRMS's grid is coarse (~1km cells)
+              // relative to the IEM fallback's own tiles, so interpolating
+              // between cells blurred reflectivity bands into a soft haze
+              // instead of the crisp per-cell look normal radar views have.
+              'raster-resampling': 'nearest',
             }}
           />
         </Source>

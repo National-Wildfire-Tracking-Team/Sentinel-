@@ -29,17 +29,21 @@ const FRP_SCALE = [
   { color: '#ff0000', label: 'Extreme  (>500 MW)' },
 ];
 
+// 15 dBZ and under (drizzle/very light rain) is hidden — see
+// radarRaster.js's REFLECTIVITY_SCALE comment.
 const RADAR_DBZ_SCALE = [
-  { color: '#04e9e7', label: '5–15 dBZ (Light)' },
-  { color: '#009df4', label: '15–20 dBZ (Light)' },
-  { color: '#01c501', label: '20–30 dBZ (Moderate)' },
-  { color: '#fdf802', label: '30–40 dBZ (Moderate)' },
-  { color: '#e5bc00', label: '40–45 dBZ (Heavy)' },
-  { color: '#fd9500', label: '45–50 dBZ (Very Heavy)' },
-  { color: '#fd0000', label: '50–55 dBZ (Intense)' },
-  { color: '#d40000', label: '55–60 dBZ (Extreme)' },
-  { color: '#bc0000', label: '60–65 dBZ (Extreme)' },
-  { color: '#f800fd', label: '65+ dBZ (Possible Hail)' },
+  { color: '#7dcf7d', label: '15–20 dBZ (Light Rain)' },
+  { color: '#4caf50', label: '20–25 dBZ (Moderate Rain)' },
+  { color: '#2f7d32', label: '25–30 dBZ (Moderate Rain)' },
+  { color: '#e8dc8a', label: '30–35 dBZ (Moderate Rain)' },
+  { color: '#d4bf4d', label: '35–40 dBZ (Heavy Rain)' },
+  { color: '#cc8a3d', label: '40–45 dBZ (Heavy Rain)' },
+  { color: '#c1663f', label: '45–50 dBZ (Very Heavy)' },
+  { color: '#b8433c', label: '50–55 dBZ (Intense)' },
+  { color: '#7a3030', label: '55–60 dBZ (Extreme)' },
+  { color: '#b563b5', label: '60–65 dBZ (Extreme)' },
+  { color: '#7d5ba6', label: '65–70 dBZ (Possible Hail)' },
+  { color: '#e8dcef', label: '70+ dBZ (Possible Hail)' },
 ];
 
 // Official SPC categorical palette (NOAA fill colors)

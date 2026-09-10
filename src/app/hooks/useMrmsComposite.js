@@ -20,10 +20,14 @@ import { useRadarHistory } from './useRadarHistory';
 
 const MRMS_FRAME_CACHE_SIZE = 5;
 const HISTORY_POLL_MS = 30 * 1000; // MRMS updates ~every 2 min; poll well inside that
-// 5x the expected ~2-minute cadence — generous margin against a transient
-// NOAA hiccup before falling back to IEM, so a normal short delay doesn't
-// flap the layer between sources.
-const STALE_MS = 10 * 60 * 1000;
+// The IEM fallback renders from a completely different source (its own tile
+// pyramid, its own uncontrolled color ramp) than MRMS's rasterized composite,
+// so every time it kicks in, "live" visibly stops matching the look of the
+// history/scrub-bar frames (which always render from MRMS — see
+// mrmsTrustComposite in LiveTrackerPage.jsx). Kept wide — 22x the expected
+// ~2-minute sync cadence — so only a genuine, sustained ingestion outage
+// triggers the swap, not a single missed cron run or transient NOAA hiccup.
+const STALE_MS = 45 * 60 * 1000;
 
 export function useMrmsComposite(enabled) {
   const history = useRadarHistory({
