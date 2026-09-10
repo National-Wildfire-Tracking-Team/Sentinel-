@@ -67,7 +67,11 @@ export function rasterizeMrmsFrame(payload) {
     imageData.data[idx] = rgb[0];
     imageData.data[idx + 1] = rgb[1];
     imageData.data[idx + 2] = rgb[2];
-    imageData.data[idx + 3] = 220;
+    // Full alpha here — dimming already happens once, via the Mapbox layer's
+    // own raster-opacity (RadarLayer.jsx). Baking a second dim in here on
+    // top of that stacked into a washed-out look unlike normal radar color
+    // coding.
+    imageData.data[idx + 3] = 255;
   }
 
   ctx.putImageData(imageData, 0, 0);
