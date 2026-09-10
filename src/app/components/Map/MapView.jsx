@@ -1295,6 +1295,7 @@ export default function MapView({
   mrmsIsPlaying,
   mrmsLoading,
   mrmsError,
+  mrmsHasNewerFrame,
   onMrmsSelectFrame,
   onMrmsPlay,
   onMrmsPause,
@@ -2086,6 +2087,7 @@ export default function MapView({
           isPlaying={mrmsIsPlaying}
           loading={mrmsLoading}
           error={mrmsError}
+          hasNewerFrame={mrmsHasNewerFrame}
           onSelectFrame={onMrmsSelectFrame}
           onPlay={onMrmsPlay}
           onPause={onMrmsPause}

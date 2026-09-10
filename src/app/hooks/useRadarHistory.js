@@ -39,6 +39,12 @@ export function useRadarHistory({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [isPlaying, setIsPlaying] = useState(false);
+  // The newest frame's timestamp, tracked continuously while live and frozen
+  // the instant the user goes historical — lets hasNewerFrame (below) answer
+  // "did a newer frame land while I was looking at something else" without
+  // ever touching raster/selectedTimestamp itself (playback/review must not
+  // be interrupted by a new frame arriving).
+  const [liveNewestSnapshot, setLiveNewestSnapshot] = useState(null);
 
   const mountedRef = useRef(true);
   const cacheRef = useRef(new Map()); // sourceTime -> { payload, raster }
@@ -52,6 +58,13 @@ export function useRadarHistory({
   useEffect(() => {
     selectedTimestampRef.current = selectedTimestamp;
   }, [selectedTimestamp]);
+
+  useEffect(() => {
+    if (selectedTimestamp == null) {
+      const newest = frames[frames.length - 1];
+      setLiveNewestSnapshot(newest?.sourceTime ?? null);
+    }
+  }, [selectedTimestamp, frames]);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -134,7 +147,15 @@ export function useRadarHistory({
     const newest = list[list.length - 1];
     setSelectedTimestamp(newest && sourceTime === newest.sourceTime ? null : sourceTime);
     loadFrame(sourceTime, list);
-  }, [loadFrame, stopPlayback]);
+
+    // Warm the immediate neighbors so quick back-and-forth scrubbing around
+    // one spot in a (now up to 100-frame) timeline feels instant.
+    const idx = list.findIndex((f) => f.sourceTime === sourceTime);
+    if (idx !== -1) {
+      if (list[idx - 1]) preloadFrame(list[idx - 1].sourceTime);
+      if (list[idx + 1]) preloadFrame(list[idx + 1].sourceTime);
+    }
+  }, [loadFrame, preloadFrame, stopPlayback]);
 
   const goLive = useCallback(() => {
     stopPlayback();
@@ -270,6 +291,9 @@ export function useRadarHistory({
 
   const isLive = selectedTimestamp == null;
   const resolvedSelectedTimestamp = selectedTimestamp ?? (frames[frames.length - 1]?.sourceTime ?? null);
+  const newestFrame = frames[frames.length - 1];
+  const hasNewerFrame = !isLive && Boolean(newestFrame) && Boolean(liveNewestSnapshot)
+    && newestFrame.sourceTime !== liveNewestSnapshot;
 
   return {
     frames,
@@ -279,6 +303,7 @@ export function useRadarHistory({
     loading,
     error,
     raster,
+    hasNewerFrame,
     selectFrame,
     play,
     pause,

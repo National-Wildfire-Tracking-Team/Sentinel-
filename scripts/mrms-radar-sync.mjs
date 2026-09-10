@@ -65,11 +65,6 @@ const FILE_RE = /^MRMS_MergedReflectivityQCComposite_00\.50_(\d{8})-(\d{6})\.gri
 const STORAGE_BUCKET = 'mrms-scans';
 const PRODUCT = 'MergedReflectivityQCComposite';
 
-// Count-based retention (not time-based): MRMS's ~2-minute cadence is far
-// steadier than NEXRAD's per-VCP variability, so "keep the last N rows" is
-// simpler and more predictable than a time window.
-const HISTORY_RETENTION_COUNT = 15;
-
 const WGRIB2_BIN = process.env.WGRIB2_BIN || 'wgrib2';
 
 // Regrid target and native-grid origin — confirmed via `wgrib2 -grid` against
@@ -86,9 +81,11 @@ const WGRIB2_BIN = process.env.WGRIB2_BIN || 'wgrib2';
 // dominated by the ~5-6% of cells with real values (~370K pixels doing a
 // 10-entry color-band scan) — still comfortably fast; GitHub Actions cost is
 // unaffected (decoding the native 24.5M-cell GRIB2 dominates regardless of
-// regrid target); Supabase storage stays bounded at 15 rolling frames; and a
-// bounded 5-frame browser cache of rasters stays well within normal memory
-// budgets. Going further (e.g. all the way to native 0.01°) would start
+// regrid target); mrms_radar_archive is a persistent, unpruned archive (the
+// frontend windows it to the newest 100 frames via a query, not by deleting
+// older rows — see src/app/api/mrmsComposite.js), and a bounded 5-frame
+// browser cache of rasters stays well within normal memory budgets. Going
+// further (e.g. all the way to native 0.01°) would start
 // costing meaningfully more on all of those axes for diminishing visual
 // return, since national/regional viewing is Composite Radar's job — NEXRAD
 // Level II site view is already where users get full native-resolution detail.
@@ -176,15 +173,15 @@ async function main() {
     await uploadStorage(latestPath, compressed);
     await upsertMeta({ sourceTimeMs, ingestedAtMs, storagePath: latestPath, byteSize: compressed.byteLength, sourceFile: latestFilename });
 
+    // Archived permanently — no pruning. The frontend windows this down to
+    // the newest 100 frames via a query (see fetchMrmsHistory in
+    // src/app/api/mrmsComposite.js), not by deleting older archive rows.
     const historyPath = `${PRODUCT}/history/${new Date(sourceTimeMs).toISOString()}.bin`;
     await uploadStorage(historyPath, compressed).catch((err) => {
-      console.warn('[mrms-sync] history upload failed (best-effort):', err?.message || err);
+      console.warn('[mrms-sync] archive upload failed (best-effort):', err?.message || err);
     });
-    await insertHistory({ sourceTimeMs, storagePath: historyPath, byteSize: compressed.byteLength }).catch((err) => {
-      console.warn('[mrms-sync] history row insert failed (best-effort):', err?.message || err);
-    });
-    await pruneHistory().catch((err) => {
-      console.warn('[mrms-sync] prune failed:', err?.message || err);
+    await insertArchiveEntry({ sourceTimeMs, storagePath: historyPath, byteSize: compressed.byteLength }).catch((err) => {
+      console.warn('[mrms-sync] archive row insert failed (best-effort):', err?.message || err);
     });
 
     console.log(`[mrms-sync] published ${latestFilename}`);
@@ -391,9 +388,15 @@ async function markFailure(message) {
   if (!resp.ok) console.warn(`[mrms-sync] markFailure upsert failed: ${resp.status}`);
 }
 
-/** Append this frame to the rolling history table. A separate object per frame (not overwritten in place like latest.bin). */
-async function insertHistory({ sourceTimeMs, storagePath, byteSize }) {
-  const resp = await fetch(`${SUPABASE_URL}/rest/v1/mrms_frame_history?on_conflict=product,source_time`, {
+/**
+ * Append this frame to the persistent archive table (mrms_radar_archive —
+ * renamed from mrms_frame_history; same table). A separate storage object
+ * per frame (not overwritten in place like latest.bin). Never pruned here —
+ * the frontend windows this down to the newest 100 frames via a query
+ * (see fetchMrmsHistory in src/app/api/mrmsComposite.js), not deletion.
+ */
+async function insertArchiveEntry({ sourceTimeMs, storagePath, byteSize }) {
+  const resp = await fetch(`${SUPABASE_URL}/rest/v1/mrms_radar_archive?on_conflict=product,source_time`, {
     method: 'POST',
     headers: supabaseHeaders({ 'Content-Type': 'application/json', Prefer: 'resolution=ignore-duplicates' }),
     body: JSON.stringify({
@@ -403,41 +406,7 @@ async function insertHistory({ sourceTimeMs, storagePath, byteSize }) {
       byte_size: byteSize,
     }),
   });
-  if (!resp.ok) throw new Error(`mrms_frame_history insert failed: ${resp.status} ${await resp.text().catch(() => '')}`);
-}
-
-/** Keep only the newest HISTORY_RETENTION_COUNT history rows for this product; delete the rest (storage + rows). */
-async function pruneHistory() {
-  const resp = await fetch(
-    `${SUPABASE_URL}/rest/v1/mrms_frame_history?select=id,storage_path&product=eq.${PRODUCT}&order=source_time.desc&offset=${HISTORY_RETENTION_COUNT}`,
-    { headers: supabaseHeaders() },
-  );
-  if (!resp.ok) {
-    console.warn(`[mrms-sync] prune: failed to list stale rows: ${resp.status}`);
-    return;
-  }
-  const rows = await resp.json();
-  if (!rows.length) return;
-
-  const delObjResp = await fetch(`${SUPABASE_URL}/storage/v1/object/${STORAGE_BUCKET}`, {
-    method: 'DELETE',
-    headers: supabaseHeaders({ 'Content-Type': 'application/json' }),
-    body: JSON.stringify({ prefixes: rows.map((r) => r.storage_path) }),
-  });
-  if (!delObjResp.ok) {
-    console.warn(`[mrms-sync] prune: storage delete failed: ${delObjResp.status} ${await delObjResp.text().catch(() => '')}`);
-  }
-
-  const idList = rows.map((r) => r.id).join(',');
-  const delRowsResp = await fetch(`${SUPABASE_URL}/rest/v1/mrms_frame_history?id=in.(${idList})`, {
-    method: 'DELETE',
-    headers: supabaseHeaders(),
-  });
-  if (!delRowsResp.ok) {
-    console.warn(`[mrms-sync] prune: row delete failed: ${delRowsResp.status} ${await delRowsResp.text().catch(() => '')}`);
-    return;
-  }
-  console.log(`[mrms-sync] prune: removed ${rows.length} stale frame(s)`);
+  if (!resp.ok) throw new Error(`mrms_radar_archive insert failed: ${resp.status} ${await resp.text().catch(() => '')}`);
 }
 
 main();
