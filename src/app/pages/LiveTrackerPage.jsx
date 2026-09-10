@@ -44,6 +44,7 @@ import { usePlan } from '../../shared/hooks/usePlan';
 import { useWaterGauges } from '../hooks/useWaterGauges';
 import { useNexradSites } from '../hooks/useNexradSites';
 import { useNexradScan } from '../hooks/useNexradScan';
+import { useMrmsComposite } from '../hooks/useMrmsComposite';
 import { useCaliforniaCameras } from '../hooks/useCaliforniaCameras';
 import { rasterizeSweep } from '../utils/radarRaster';
 import { useCalFirePerimeters } from '../hooks/useCalFirePerimeters';
@@ -262,12 +263,7 @@ export default function LiveTrackerPage() {
   const [measureMode, setMeasureMode] = useState('distance');
   const [precipRingActive, setPrecipRingActive] = useState(false);
 
-  // Radar: single "Radar" toggle (layers.radar) gates the mini control bar;
-  // radarMode picks which sub-layer it drives — the national composite
-  // mosaic (live only), or individual NEXRAD site markers + their Level 2
-  // scans (live or scrubbed back through that site's own history).
-  const [radarMode, setRadarMode] = useState('composite');
-  const [radarExpanded, setRadarExpanded] = useState(false);
+  // NEXRAD Level II site history scrub — independent of the composite layer.
   const [radarSiteMinutesAgo, setRadarSiteMinutesAgo] = useState(0);
 
   const onMeasureActivate = useCallback((mode) => {
@@ -281,15 +277,10 @@ export default function LiveTrackerPage() {
 
   const onPrecipRingToggle = useCallback(() => {
     if (!precipRingActive) {
-      setLayer('radar', true);
-      setRadarMode('composite');
+      setLayer('radarComposite', true);
     }
     setPrecipRingActive(!precipRingActive);
   }, [precipRingActive, setLayer]);
-
-  const onRadarExpandedToggle = useCallback(() => {
-    setRadarExpanded((expanded) => !expanded);
-  }, []);
 
   useEffect(() => {
     if (activeMapTab !== MAP_TABS.weather && activeMapTab !== MAP_TABS.allhazard) {
@@ -297,18 +288,10 @@ export default function LiveTrackerPage() {
     }
   }, [activeMapTab]);
 
-  // Radar turned off entirely → reset mode/expansion for next time.
+  // NEXRAD Level II turned off closes any open site radar panel.
   useEffect(() => {
-    if (!layers.radar) {
-      setRadarMode('composite');
-      setRadarExpanded(false);
-    }
-  }, [layers.radar]);
-
-  // Leaving site mode (or radar off) closes any open site radar panel.
-  useEffect(() => {
-    if (radarMode !== 'site') selectRadarSite(null);
-  }, [radarMode, selectRadarSite]);
+    if (!layers.radarNexrad) selectRadarSite(null);
+  }, [layers.radarNexrad, selectRadarSite]);
 
   // A freshly-selected site (or no site) always starts live.
   useEffect(() => {
@@ -648,7 +631,7 @@ export default function LiveTrackerPage() {
   // NWS NEXRAD Level 2 radar sites — live operability status
   const {
     geoJSON: nexradSitesGeoJSON,
-  } = useNexradSites(layers.radar && radarMode === 'site');
+  } = useNexradSites(layers.radarNexrad);
 
   // Live California highway cameras — Caltrans District CCTV
   const {
@@ -671,6 +654,32 @@ export default function LiveTrackerPage() {
       : null),
     [selectedRadarSite, radarScanPayload]
   );
+
+  // National MRMS composite reflectivity — independent of NEXRAD Level II
+  // above; feeds only the Composite Radar layer (layers.radarComposite).
+  // Timeline/playback/cache all live in useRadarHistory, instantiated for
+  // MRMS by useMrmsComposite; this page just wires its state/actions
+  // through to the map and the timeline control.
+  const {
+    frames: mrmsFrames,
+    selectedTimestamp: mrmsSelectedTimestamp,
+    isLive: mrmsIsLive,
+    isPlaying: mrmsIsPlaying,
+    loading: mrmsLoading,
+    error: mrmsError,
+    raster: mrmsRaster,
+    isFresh: mrmsIsFresh,
+    selectFrame: onMrmsSelectFrame,
+    play: onMrmsPlay,
+    pause: onMrmsPause,
+    previous: onMrmsPrevious,
+    next: onMrmsNext,
+    goLive: onMrmsLive,
+  } = useMrmsComposite(layers.radarComposite);
+  // IEM fallback only ever makes sense in live mode — IEM has no historical
+  // capability, so substituting it under a historical timestamp would
+  // silently show the wrong image (see RadarLayer.jsx's mrmsFresh prop).
+  const mrmsTrustComposite = mrmsIsLive ? mrmsIsFresh : true;
 
   // Community-submitted reports – only approved ones, realtime-subscribed.
   // Tertiary tier: a supplemental overlay, not needed for first paint.
@@ -1075,9 +1084,24 @@ export default function LiveTrackerPage() {
             onPrecipRingToggle={onPrecipRingToggle}
             waterGaugesGeoJSON={waterGaugesGeoJSON}
             nexradSitesGeoJSON={nexradSitesGeoJSON}
-            radarMode={radarMode}
             nexradScanUrl={radarRaster?.dataUrl}
             nexradScanCoordinates={radarRaster?.coordinates}
+            mrmsDataUrl={mrmsRaster?.dataUrl}
+            mrmsCoordinates={mrmsRaster?.coordinates}
+            mrmsFresh={mrmsTrustComposite}
+            mrmsTimelineVisible={layers.radarComposite}
+            mrmsFrames={mrmsFrames}
+            mrmsSelectedTimestamp={mrmsSelectedTimestamp}
+            mrmsIsLive={mrmsIsLive}
+            mrmsIsPlaying={mrmsIsPlaying}
+            mrmsLoading={mrmsLoading}
+            mrmsError={mrmsError}
+            onMrmsSelectFrame={onMrmsSelectFrame}
+            onMrmsPlay={onMrmsPlay}
+            onMrmsPause={onMrmsPause}
+            onMrmsPrevious={onMrmsPrevious}
+            onMrmsNext={onMrmsNext}
+            onMrmsLive={onMrmsLive}
             calFireHistoricalPerimetersGeoJSON={calFireHistoricalPerimetersGeoJSON}
             californiaCamerasGeoJSON={californiaCamerasGeoJSON}
             wpcEroGeoJSON={wpcEroGeoJSON}
@@ -1117,10 +1141,6 @@ export default function LiveTrackerPage() {
             onMeasureClose={onMeasureClose}
             precipRingActive={precipRingActive}
             onPrecipRingToggle={onPrecipRingToggle}
-            radarMode={radarMode}
-            onRadarModeChange={setRadarMode}
-            radarExpanded={radarExpanded}
-            onRadarExpandedToggle={onRadarExpandedToggle}
           />
 
           <Legend
@@ -1130,7 +1150,6 @@ export default function LiveTrackerPage() {
             fireWxOutlookType={fireWxOutlookType}
             radarScanActive={Boolean(selectedRadarSite)}
             radarScanProduct={radarProduct}
-            radarMode={radarMode}
           />
           <FireDetailPanel />
           {selectedGauge && (

@@ -22,10 +22,18 @@
  * the memory a full-file parse would. The steady-state cron keeps using the
  * full file (fine there — GitHub Actions runners have plenty of memory).
  *
+ * Source: the NOAA/Unidata AWS archive bucket "unidata-nexrad-level2" (see
+ * scripts/nexrad-radar-sync.mjs's module doc comment for the full rationale),
+ * with tgftp.nws.noaa.gov kept as an automatic migration fallback — both
+ * serve identical Archive II bytes and both support byte-range GETs, so the
+ * truncation trick above works unchanged regardless of which one serves the
+ * file.
+ *
  * POST body (JSON): { site_id: "KTLX" }
  */
 
 import Level2Radar from 'npm:nexrad-level-2-data@3.0.2';
+import { XMLParser } from 'npm:fast-xml-parser@5.7.2';
 import { encodeScanPayload } from './nexradPayloadFormat.js';
 
 const CORS_HEADERS = {
@@ -35,8 +43,11 @@ const CORS_HEADERS = {
 };
 
 const SITE_ID_RE = /^[A-Z]{4}$/;
+const AWS_NEXRAD_BASE = 'https://unidata-nexrad-level2.s3.amazonaws.com';
+const AWS_VOLUME_FILE_RE = /^[A-Z]{4}\d{8}_\d{6}_V06$/;
 const TGFTP_BASE = 'https://tgftp.nws.noaa.gov/data/radar/nexrad_level2';
 const STORAGE_BUCKET = 'nexrad-scans';
+const xmlParser = new XMLParser();
 const FILE_HEADER_SIZE = 24;
 const PRIME_FETCH_BYTES = 4_000_000; // enough for elevations 1-2, see module doc comment
 const FRESH_MS = 3 * 60 * 1000; // if a scan was published more recently than this, skip priming
@@ -113,7 +124,41 @@ async function gzip(buffer: ArrayBuffer): Promise<Uint8Array> {
   return new Uint8Array(await new Response(stream).arrayBuffer());
 }
 
-async function findLatestFile(site: string): Promise<string | null> {
+function toArray(value: unknown): any[] {
+  if (value == null) return [];
+  return Array.isArray(value) ? value : [value];
+}
+
+function utcDateParts(offsetDays = 0) {
+  const d = new Date(Date.now() + offsetDays * 86400000);
+  return {
+    yyyy: String(d.getUTCFullYear()),
+    mm: String(d.getUTCMonth() + 1).padStart(2, '0'),
+    dd: String(d.getUTCDate()).padStart(2, '0'),
+  };
+}
+
+/** Same listing approach as scripts/nexrad-radar-sync.mjs's listAwsVolumeKeys. */
+async function listAwsVolumeKeys(site: string, { yyyy, mm, dd }: { yyyy: string; mm: string; dd: string }): Promise<string[]> {
+  const prefix = `${yyyy}/${mm}/${dd}/${site}/`;
+  const resp = await fetch(`${AWS_NEXRAD_BASE}/?list-type=2&prefix=${encodeURIComponent(prefix)}&max-keys=1000`);
+  if (!resp.ok) throw new Error(`AWS NEXRAD list failed ${resp.status} for ${site}`);
+  const parsed = xmlParser.parse(await resp.text());
+  const keys = toArray(parsed?.ListBucketResult?.Contents)
+    .map((entry) => String(entry?.Key ?? ''))
+    .filter((key) => AWS_VOLUME_FILE_RE.test(key.slice(prefix.length)));
+  keys.sort();
+  return keys;
+}
+
+async function findLatestAwsFile(site: string): Promise<string | null> {
+  const todayKeys = await listAwsVolumeKeys(site, utcDateParts(0));
+  if (todayKeys.length) return todayKeys[todayKeys.length - 1];
+  const yesterdayKeys = await listAwsVolumeKeys(site, utcDateParts(-1));
+  return yesterdayKeys.length ? yesterdayKeys[yesterdayKeys.length - 1] : null;
+}
+
+async function findLatestTgftpFile(site: string): Promise<string | null> {
   const resp = await fetch(`${TGFTP_BASE}/${site}/dir.list`);
   if (!resp.ok) return null;
   const text = await resp.text();
@@ -124,6 +169,21 @@ async function findLatestFile(site: string): Promise<string | null> {
   if (!filenames.length) return null;
   filenames.sort();
   return filenames[filenames.length - 1];
+}
+
+type LatestVolume = { source: 'aws' | 'tgftp'; filename: string };
+
+/** Prefers the NOAA/Unidata AWS archive; falls back to tgftp — see module doc comment. */
+async function findLatestFile(site: string): Promise<LatestVolume | null> {
+  try {
+    const awsKey = await findLatestAwsFile(site);
+    if (awsKey) return { source: 'aws', filename: awsKey };
+  } catch {
+    // fall through to tgftp
+  }
+
+  const tgftpFile = await findLatestTgftpFile(site);
+  return tgftpFile ? { source: 'tgftp', filename: tgftpFile } : null;
 }
 
 async function publishProduct(
@@ -184,10 +244,14 @@ async function hasFreshScan(supabaseUrl: string, serviceKey: string, site: strin
 }
 
 async function primeSite(supabaseUrl: string, serviceKey: string, site: string) {
-  const latestFile = await findLatestFile(site);
-  if (!latestFile) return { primed: false, reason: 'no-file-listed' };
+  const latest = await findLatestFile(site);
+  if (!latest) return { primed: false, reason: 'no-file-listed' };
+  const latestFile = latest.filename;
 
-  const fileResp = await fetch(`${TGFTP_BASE}/${site}/${latestFile}`, {
+  const fileUrl = latest.source === 'aws'
+    ? `${AWS_NEXRAD_BASE}/${latest.filename}`
+    : `${TGFTP_BASE}/${site}/${latest.filename}`;
+  const fileResp = await fetch(fileUrl, {
     headers: { Range: `bytes=0-${PRIME_FETCH_BYTES - 1}` },
   });
   if (!fileResp.ok) return { primed: false, reason: `download-failed-${fileResp.status}` };

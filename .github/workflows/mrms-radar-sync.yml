@@ -1,0 +1,60 @@
+name: MRMS Composite Radar Sync
+
+# Kept fully separate from nexrad-radar-sync.yml: independent source,
+# independent decoder toolchain, independent Supabase storage — the two
+# radar pipelines are permanently independent by design.
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "*/2 * * * *"
+
+permissions:
+  contents: read
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Verify required secrets exist
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          test -n "$SUPABASE_URL" || (echo "Missing SUPABASE_URL" && exit 1)
+          test -n "$SUPABASE_SERVICE_ROLE_KEY" || (echo "Missing SUPABASE_SERVICE_ROLE_KEY" && exit 1)
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Pinned exact version+build so a future conda-forge update can't
+      # silently change GRIB2 decoding behavior underneath this workflow.
+      - name: Set up pinned wgrib2 (conda-forge)
+        uses: mamba-org/setup-micromamba@v2
+        with:
+          environment-name: mrms-decode
+          create-args: >-
+            wgrib2=3.8.0=h021f410_7
+          channels: conda-forge
+
+      - name: Run MRMS radar sync
+        # setup-micromamba activates the environment via shell profile hooks,
+        # which only login shells pick up — this is that action's documented
+        # usage pattern for any step that needs the pinned tool on PATH.
+        shell: bash -el {0}
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          wgrib2 -version
+          node scripts/mrms-radar-sync.mjs

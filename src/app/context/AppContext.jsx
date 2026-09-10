@@ -29,8 +29,10 @@ const initialState = {
     spcWeatherOutlooks: false,
     fireWeatherOutlooks: false,
     fireRiskOutlook: false,
-    /** NEXRAD radar — composite mosaic or per-site scans, switched via radarMode */
-    radar:             false,
+    /** National composite reflectivity mosaic (NOAA MRMS / IEM) */
+    radarComposite:    false,
+    /** NEXRAD Level II — per-site reflectivity/velocity scans */
+    radarNexrad:       false,
     /** Caltrans District CCTV — live California highway camera locations */
     wildfireCameras:   false,
     evacZones:         true,

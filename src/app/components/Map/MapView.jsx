@@ -39,6 +39,7 @@ import RadarLayer from './layers/RadarLayer';
 import EvacuationZonesLayer from './layers/EvacuationZonesLayer';
 import { MeasurementLayer, MeasurementPanel } from './MeasurementTool';
 import { PrecipitationRing } from './PrecipitationRing';
+import RadarTimeline from './RadarTimeline';
 import SPCWeatherTabOutlookControls from './SPCWeatherTabOutlookControls';
 import RAWSLayer from './layers/RAWSLayer';
 import AirNowMonitorsLayer from './layers/AirNowMonitorsLayer';
@@ -1282,9 +1283,24 @@ export default function MapView({
   onPrecipRingToggle,
   waterGaugesGeoJSON,
   nexradSitesGeoJSON,
-  radarMode = 'composite',
   nexradScanUrl,
   nexradScanCoordinates,
+  mrmsDataUrl,
+  mrmsCoordinates,
+  mrmsFresh,
+  mrmsTimelineVisible,
+  mrmsFrames,
+  mrmsSelectedTimestamp,
+  mrmsIsLive,
+  mrmsIsPlaying,
+  mrmsLoading,
+  mrmsError,
+  onMrmsSelectFrame,
+  onMrmsPlay,
+  onMrmsPause,
+  onMrmsPrevious,
+  onMrmsNext,
+  onMrmsLive,
   calFireHistoricalPerimetersGeoJSON,
   californiaCamerasGeoJSON,
   wpcEroGeoJSON,
@@ -1495,7 +1511,7 @@ export default function MapView({
     if (layers.waterGauges && waterGaugesGeoJSON?.features?.length) {
       ids.push('water-gauges-circle-priority', 'water-gauges-circle-other');
     }
-    if ((isWeatherTab || isAllHazardTab) && layers.radar && radarMode === 'site' && nexradSitesGeoJSON?.features?.length) ids.push('nexrad-sites-circle');
+    if ((isWeatherTab || isAllHazardTab) && layers.radarNexrad && nexradSitesGeoJSON?.features?.length) ids.push('nexrad-sites-circle');
     if (isWildfireTab && layers.wildfireCameras && californiaCamerasGeoJSON?.features?.length) ids.push('ca-cameras-circle');
     if (hazardEventsGeoJSON?.features?.length) ids.push('hazard-events-circle');
     if ((isWeatherTab || isAllHazardTab) && layers.wpcEro && wpcEroGeoJSON?.features?.length) ids.push('wpc-ero-fill');
@@ -1520,7 +1536,7 @@ export default function MapView({
       criticalInfrastructureVisible, criticalInfrastructureTransGeoJSON, criticalInfrastructureGasGeoJSON,
       nationalMapCollegesVisible, nationalMapCollegesGeoJSON,
       layers.waterGauges, waterGaugesGeoJSON,
-      layers.radar, radarMode, nexradSitesGeoJSON,
+      layers.radarNexrad, nexradSitesGeoJSON,
       layers.wildfireCameras, californiaCamerasGeoJSON,
       hazardEventsGeoJSON]);
 
@@ -1759,7 +1775,10 @@ export default function MapView({
 
         {/* NEXRAD radar reflectivity — national composite mosaic, live only */}
         <RadarLayer
-          visible={(isWeatherTab || isAllHazardTab) && layers.radar && radarMode === 'composite'}
+          visible={(isWeatherTab || isAllHazardTab) && layers.radarComposite}
+          mrmsDataUrl={mrmsDataUrl}
+          mrmsCoordinates={mrmsCoordinates}
+          mrmsFresh={mrmsFresh}
         />
 
         {/* Smoke forecast */}
@@ -1942,7 +1961,7 @@ export default function MapView({
         {/* NWS NEXRAD Level 2 radar sites — live operability status */}
         <NexradSitesLayer
           geoJSON={nexradSitesGeoJSON}
-          visible={(isWeatherTab || isAllHazardTab) && layers.radar && radarMode === 'site'}
+          visible={(isWeatherTab || isAllHazardTab) && layers.radarNexrad}
         />
 
         {/* Live California highway cameras — Caltrans District CCTV */}
@@ -2058,6 +2077,24 @@ export default function MapView({
 
       <MapZoomControl mapRef={mapRef} />
 
+      {/* Composite Radar timeline — history/playback control, independent of NEXRAD */}
+      {mrmsTimelineVisible && (
+        <RadarTimeline
+          frames={mrmsFrames}
+          selectedTimestamp={mrmsSelectedTimestamp}
+          isLive={mrmsIsLive}
+          isPlaying={mrmsIsPlaying}
+          loading={mrmsLoading}
+          error={mrmsError}
+          onSelectFrame={onMrmsSelectFrame}
+          onPlay={onMrmsPlay}
+          onPause={onMrmsPause}
+          onPrevious={onMrmsPrevious}
+          onNext={onMrmsNext}
+          onLive={onMrmsLive}
+        />
+      )}
+
       {/* Measurement results panel – visible while tool is active */}
       {measureActive && (
         <MeasurementPanel
@@ -2075,7 +2112,7 @@ export default function MapView({
         lng={probeLocked ? lockedProbeCoords?.lng : viewport?.longitude}
         moving={probeMoving}
         locked={probeLocked}
-        radarVisible={(isWeatherTab || isAllHazardTab) && layers.radar}
+        radarVisible={(isWeatherTab || isAllHazardTab) && layers.radarComposite}
         onLockToggle={toggleProbeLock}
         onClose={onPrecipRingToggle}
       />

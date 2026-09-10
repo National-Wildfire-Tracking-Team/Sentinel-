@@ -8,31 +8,38 @@
  * REST calls to Supabase with the service-role key, no @supabase/supabase-js
  * client).
  *
- * Data source: tgftp.nws.noaa.gov, which serves one complete Archive II
- * Level II file per finished volume scan, named
- * "{SITE}_{YYYYMMDD}_{HHMMSS}.bz2" in a flat, chronologically-sortable
- * directory per site (plus a plain-text "dir.list" index). New volumes
- * appear roughly every 3-5 minutes.
+ * Primary data source: the NOAA/Unidata AWS archive bucket
+ * "unidata-nexrad-level2" (successor to the discontinued "noaa-nexrad-level2"
+ * — see https://www.unidata.ucar.edu/blogs/news/entry/important-changes-to-noaa-nexrad),
+ * which serves one complete Archive II Level II object per finished volume
+ * scan, keyed "<YYYY>/<MM>/<DD>/<SITE>/<SITE><YYYYMMDD>_<HHMMSS>_V06" — a
+ * flat-per-day, chronologically-sortable listing per site, publicly
+ * listable/GETable over plain HTTPS with no AWS credentials. New volumes
+ * appear roughly every 3-8 minutes. The listing also contains interleaved
+ * "..._V06_MDM" metadata sidecar objects, which are filtered out (they are
+ * not radar volumes).
  *
- * This was switched from Unidata's real-time S3 "chunks" bucket
- * (unidata-nexrad-level2-chunks) after live testing during implementation
- * showed that bucket's per-site "volume scan number" folders cycle 0-999
- * with no timestamp in the folder name, so finding "the current volume" via
- * S3 prefix listing alone is unreliable (naive numeric-max picked a
- * volume from over a day earlier in testing). AWS's own docs confirm the
- * intended way to consume that bucket in real time is an SNS/SQS
- * subscription (arn:aws:sns:us-east-1:684042711724:NewNEXRADLevel2ObjectFilterable),
- * which needs an AWS account this project doesn't otherwise use — tgftp's
- * flat, chronologically-named files avoid that problem entirely with a
- * plain HTTP directory listing, at the cost of only-getting-data-once-a-
- * volume-fully-completes (roughly 3-5 min latency) rather than the ~30-90s
- * "wait for elevation 1 chunks" latency the S3 approach could have offered.
+ * This bucket is a proper archive-style listing (unlike Unidata's real-time
+ * S3 "chunks" bucket, unidata-nexrad-level2-chunks, whose per-site "volume
+ * scan number" folders cycle 0-999 with no timestamp in the folder name,
+ * making "the current volume" unreliable to find via prefix listing alone —
+ * AWS's own docs say the intended way to consume that bucket in real time is
+ * an SNS/SQS subscription, which needs an AWS account this project doesn't
+ * otherwise use), so it gets the same "just list and take the chronological
+ * max" simplicity tgftp.nws.noaa.gov offered, without depending on a
+ * non-AWS mirror.
  *
- * The .bz2 filename extension is misleading: the downloaded bytes are a
- * standard, directly-parseable Archive II file (starts with the "AR2V0006."
- * magic) — bzip2 compression is applied internally per-record exactly as
- * the nexrad-level-2-data library already expects, not as a whole-file
- * wrapper, so no separate decompression step is needed.
+ * tgftp.nws.noaa.gov is kept as an automatic fallback (see findLatestFile)
+ * for this migration: if the AWS bucket is unreachable or briefly empty for
+ * a site, the sync falls back to the original tgftp directory-listing path.
+ * Remove the tgftp fallback in a later change once the AWS path has proven
+ * stable in production.
+ *
+ * The Archive II file bytes are identical either way (starts with the
+ * "AR2V0006." magic) — bzip2 compression is applied internally per-record
+ * exactly as the nexrad-level-2-data library already expects, not as a
+ * whole-file wrapper, so no separate decompression step is needed regardless
+ * of which source served the file.
  *
  * Split-cut VCPs (e.g. VCP 212) scan reflectivity and velocity at the same
  * tilt angle as two separate "elevation" entries rather than one — verified
@@ -45,6 +52,7 @@
 
 import { gzipSync } from 'node:zlib';
 import Level2Radar from 'nexrad-level-2-data';
+import { XMLParser } from 'fast-xml-parser';
 import { encodeScanPayload } from '../src/app/utils/nexradPayloadFormat.js';
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
@@ -54,8 +62,11 @@ if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
   throw new Error('Missing Supabase env vars');
 }
 
+const AWS_NEXRAD_BASE = 'https://unidata-nexrad-level2.s3.amazonaws.com';
+const AWS_VOLUME_FILE_RE = /^[A-Z]{4}\d{8}_\d{6}_V06$/;
 const TGFTP_BASE = 'https://tgftp.nws.noaa.gov/data/radar/nexrad_level2';
 const STORAGE_BUCKET = 'nexrad-scans';
+const xmlParser = new XMLParser();
 const ACTIVE_WINDOW_MS = 15 * 60 * 1000; // sites with no heartbeat in this long are ignored
 const CONCURRENCY = 4;
 const MIN_RADIALS = 300; // sanity floor: a real base-tilt cut has 360-720 radials
@@ -142,8 +153,59 @@ async function fetchPublishedSourceFiles(siteIds) {
   return map;
 }
 
-/** Latest filename for a site from tgftp's plain-text directory index, or null if unavailable. */
-async function findLatestFile(site) {
+function toArray(value) {
+  if (value == null) return [];
+  return Array.isArray(value) ? value : [value];
+}
+
+function utcDateParts(offsetDays = 0) {
+  const d = new Date(Date.now() + offsetDays * 86400000);
+  return {
+    yyyy: String(d.getUTCFullYear()),
+    mm: String(d.getUTCMonth() + 1).padStart(2, '0'),
+    dd: String(d.getUTCDate()).padStart(2, '0'),
+  };
+}
+
+/**
+ * List one UTC date's volume-file keys for a site from the NOAA/Unidata AWS
+ * archive bucket, filtered to real "_V06" volumes (excludes the interleaved
+ * "_V06_MDM" metadata sidecar objects). Returns full object keys, which sort
+ * chronologically as strings — same property the tgftp filenames had.
+ */
+async function listAwsVolumeKeys(site, { yyyy, mm, dd }) {
+  const prefix = `${yyyy}/${mm}/${dd}/${site}/`;
+  const resp = await fetch(`${AWS_NEXRAD_BASE}/?list-type=2&prefix=${encodeURIComponent(prefix)}&max-keys=1000`);
+  if (!resp.ok) throw new Error(`AWS NEXRAD list failed ${resp.status} for ${site}`);
+  const parsed = xmlParser.parse(await resp.text());
+  const keys = toArray(parsed?.ListBucketResult?.Contents)
+    .map((entry) => String(entry?.Key ?? ''))
+    .filter((key) => AWS_VOLUME_FILE_RE.test(key.slice(prefix.length)));
+  keys.sort();
+  return keys;
+}
+
+/**
+ * Latest AWS volume key for a site, or null if the bucket has nothing yet.
+ * Falls back to yesterday's UTC date so a call made just after UTC midnight
+ * doesn't come up empty while today's first volume is still in flight.
+ */
+async function findLatestAwsFile(site) {
+  const todayKeys = await listAwsVolumeKeys(site, utcDateParts(0));
+  if (todayKeys.length) return todayKeys[todayKeys.length - 1];
+  const yesterdayKeys = await listAwsVolumeKeys(site, utcDateParts(-1));
+  return yesterdayKeys.length ? yesterdayKeys[yesterdayKeys.length - 1] : null;
+}
+
+async function downloadAwsFile(key) {
+  const resp = await fetch(`${AWS_NEXRAD_BASE}/${key}`);
+  if (!resp.ok) throw new Error(`AWS NEXRAD download failed ${resp.status} for ${key}`);
+  return new Uint8Array(await resp.arrayBuffer());
+}
+
+/** Latest filename for a site from tgftp's plain-text directory index, or
+ * null if unavailable. Migration fallback only — see module doc comment. */
+async function findLatestTgftpFile(site) {
   const resp = await fetch(`${TGFTP_BASE}/${site}/dir.list`);
   if (!resp.ok) throw new Error(`dir.list fetch failed ${resp.status} for ${site}`);
   const text = await resp.text();
@@ -159,10 +221,39 @@ async function findLatestFile(site) {
   return filenames[filenames.length - 1];
 }
 
-async function downloadFile(site, filename) {
+async function downloadTgftpFile(site, filename) {
   const resp = await fetch(`${TGFTP_BASE}/${site}/${filename}`);
   if (!resp.ok) throw new Error(`File download failed ${resp.status} for ${site}/${filename}`);
   return new Uint8Array(await resp.arrayBuffer());
+}
+
+/**
+ * Latest volume for a site: { source: 'aws'|'tgftp', filename } or null.
+ * Prefers the NOAA/Unidata AWS archive; falls back to tgftp if AWS is
+ * unreachable or has no volumes yet for this site. NOTE: source_file's
+ * high-water-mark comparison in syncSite() assumes same-source filenames
+ * sort chronologically against each other — comparing an AWS key against a
+ * tgftp filename (only possible right at a fallback transition) may rarely
+ * cause one extra republish of an already-published volume, which is
+ * harmless.
+ */
+async function findLatestFile(site) {
+  try {
+    const awsKey = await findLatestAwsFile(site);
+    if (awsKey) return { source: 'aws', filename: awsKey };
+    console.warn(`[nexrad-sync] ${site}: AWS archive has no volumes yet, falling back to tgftp`);
+  } catch (err) {
+    console.warn(`[nexrad-sync] ${site}: AWS listing failed (${err?.message || err}), falling back to tgftp`);
+  }
+
+  const tgftpFile = await findLatestTgftpFile(site);
+  return tgftpFile ? { source: 'tgftp', filename: tgftpFile } : null;
+}
+
+async function downloadFile(site, volume) {
+  return volume.source === 'aws'
+    ? downloadAwsFile(volume.filename)
+    : downloadTgftpFile(site, volume.filename);
 }
 
 /** NEXRAD "modified Julian date" = days since Dec 31, 1969 (day 1 = Jan 1, 1970). */
@@ -203,18 +294,19 @@ function findBestElevation(radar, getter) {
 }
 
 async function syncSite(site, lastPublishedFile) {
-  const latestFile = await findLatestFile(site);
-  if (!latestFile) {
+  const latest = await findLatestFile(site);
+  if (!latest) {
     console.log(`[nexrad-sync] ${site}: no files listed yet`);
     return;
   }
+  const { filename: latestFile } = latest;
   if (lastPublishedFile != null && latestFile <= lastPublishedFile) {
     console.log(`[nexrad-sync] ${site}: ${latestFile} already published, waiting for next volume`);
     return;
   }
 
-  console.log(`[nexrad-sync] ${site}: downloading ${latestFile}`);
-  const bytes = await downloadFile(site, latestFile);
+  console.log(`[nexrad-sync] ${site}: downloading ${latestFile} (${latest.source})`);
+  const bytes = await downloadFile(site, latest);
 
   let radar;
   try {
