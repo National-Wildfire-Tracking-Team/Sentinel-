@@ -2,9 +2,10 @@
  * mrmsComposite.js
  * Frontend access to the NOAA MRMS composite reflectivity frame published by
  * scripts/mrms-radar-sync.mjs: reads of the latest frame metadata + compact
- * binary payload from Supabase, and (for a future history UI) the rolling
- * frame-history list. Independent of api/nexradScans.js — separate bucket,
- * separate tables, separate payload format.
+ * binary payload from Supabase, and a windowed view of the persistent
+ * mrms_radar_archive for the Composite Radar timeline. Independent of
+ * api/nexradScans.js — separate bucket, separate tables, separate payload
+ * format.
  */
 
 import { supabase } from '../../shared/api/supabaseClient';
@@ -24,20 +25,33 @@ export async function fetchLatestMrmsMeta() {
   return data;
 }
 
+// Playback window size — the timeline scrubs through at most this many of
+// the most recent frames. mrms_radar_archive itself is never pruned to this
+// (or any) count (see scripts/mrms-radar-sync.mjs) — it's a persistent
+// archive; this is purely a query-side window, matching Phase 6A's split
+// between "hot playback window" and "long-term archive retention."
+const PLAYBACK_WINDOW_SIZE = 100;
+
 /**
- * Every retained frame for the composite product, oldest to newest, as
- * `{ sourceTime, storagePath }` — aliased to camelCase here (PostgREST
- * returns raw snake_case column names otherwise) since that's the shape
- * useRadarHistory.js and RadarTimeline.jsx expect throughout.
+ * The newest PLAYBACK_WINDOW_SIZE frames for the composite product, oldest
+ * to newest, as `{ sourceTime, storagePath }` — aliased to camelCase here
+ * (PostgREST returns raw snake_case column names otherwise) since that's the
+ * shape useRadarHistory.js and RadarTimeline.jsx expect throughout.
+ *
+ * Queried DESC + LIMIT (cheap with the table's existing
+ * (product, source_time desc) index) then reversed to ascending in JS,
+ * since PostgREST has no direct "last N in ascending order" — reversing up
+ * to 100 small metadata rows is negligible cost.
  */
 export async function fetchMrmsHistory() {
   const { data, error } = await supabase
-    .from('mrms_frame_history')
+    .from('mrms_radar_archive')
     .select('sourceTime:source_time, storagePath:storage_path')
     .eq('product', PRODUCT)
-    .order('source_time', { ascending: true });
+    .order('source_time', { ascending: false })
+    .limit(PLAYBACK_WINDOW_SIZE);
   if (error) throw error;
-  return data ?? [];
+  return (data ?? []).reverse();
 }
 
 /** Decompress a gzip-compressed ArrayBuffer (the sync script gzips every payload). */
@@ -52,9 +66,14 @@ export async function fetchMrmsPayload(storagePath) {
   const url = data?.publicUrl;
   if (!url) throw new Error('Could not resolve MRMS frame storage URL');
 
-  // The "latest" object path never changes (overwritten in place each cycle)
-  // — bust any intermediate cache so polling actually sees new bytes.
-  const resp = await fetch(`${url}?t=${Date.now()}`);
+  // Only "latest.bin" is overwritten in place each cycle and needs cache-
+  // busting so polling actually sees new bytes. Archive objects
+  // (history/<timestamp>.bin) are written once and never overwritten — with
+  // a 100-frame playback window meaning far more first-time historical
+  // fetches, needlessly defeating HTTP/CDN caching on genuinely-immutable
+  // objects costs real latency for no reason.
+  const isLatest = storagePath.endsWith('/latest.bin');
+  const resp = await fetch(isLatest ? `${url}?t=${Date.now()}` : url);
   if (!resp.ok) throw new Error(`MRMS frame fetch failed: HTTP ${resp.status}`);
 
   const compressed = await resp.arrayBuffer();

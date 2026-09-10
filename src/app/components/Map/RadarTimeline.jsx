@@ -30,6 +30,7 @@ const RadarTimeline = memo(function RadarTimeline({
   isPlaying,
   loading,
   error,
+  hasNewerFrame,
   onSelectFrame,
   onPlay,
   onPause,
@@ -152,6 +153,16 @@ const RadarTimeline = memo(function RadarTimeline({
           <Radio size={11} />
           Live
         </button>
+
+        {hasNewerFrame && !isPlaying && (
+          <span
+            className="shrink-0 flex items-center gap-1 text-[9px] font-semibold text-cyan-500 dark:text-cyan-400"
+            title="Newer radar data is available — press Live to jump to it"
+          >
+            <span className="w-1.5 h-1.5 rounded-full bg-cyan-500 dark:bg-cyan-400 animate-pulse" />
+            New
+          </span>
+        )}
       </div>
 
       <div className="flex items-center justify-between mt-1 px-1 text-[10px]">
@@ -165,7 +176,12 @@ const RadarTimeline = memo(function RadarTimeline({
           )}
           {isLive ? 'Live' : 'Historical'}
         </span>
-        <span className="font-mono text-sentinel-600 dark:text-zinc-300">{formatTime(selectedTimestamp)}</span>
+        <span className="flex items-center gap-1.5">
+          <span className="text-sentinel-400 dark:text-zinc-500">
+            {frames.length ? `${selectedIndex + 1} / ${frames.length}` : ''}
+          </span>
+          <span className="font-mono text-sentinel-600 dark:text-zinc-300">{formatTime(selectedTimestamp)}</span>
+        </span>
       </div>
 
       {error && (

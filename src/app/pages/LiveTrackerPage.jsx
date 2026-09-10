@@ -669,6 +669,7 @@ export default function LiveTrackerPage() {
     error: mrmsError,
     raster: mrmsRaster,
     isFresh: mrmsIsFresh,
+    hasNewerFrame: mrmsHasNewerFrame,
     selectFrame: onMrmsSelectFrame,
     play: onMrmsPlay,
     pause: onMrmsPause,
@@ -1096,6 +1097,7 @@ export default function LiveTrackerPage() {
             mrmsIsPlaying={mrmsIsPlaying}
             mrmsLoading={mrmsLoading}
             mrmsError={mrmsError}
+            mrmsHasNewerFrame={mrmsHasNewerFrame}
             onMrmsSelectFrame={onMrmsSelectFrame}
             onMrmsPlay={onMrmsPlay}
             onMrmsPause={onMrmsPause}
