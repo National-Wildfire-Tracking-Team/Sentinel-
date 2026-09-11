@@ -66,6 +66,33 @@ export function pointInGeometry(point, geometry) {
   return false;
 }
 
+/** Returns [minLng, minLat, maxLng, maxLat] covering a Polygon or MultiPolygon. */
+function geometryBBox(geometry) {
+  let minLng = Infinity, minLat = Infinity, maxLng = -Infinity, maxLat = -Infinity;
+  const visitRing = ring => ring.forEach(([lng, lat]) => {
+    if (lng < minLng) minLng = lng;
+    if (lng > maxLng) maxLng = lng;
+    if (lat < minLat) minLat = lat;
+    if (lat > maxLat) maxLat = lat;
+  });
+  if (geometry?.type === 'Polygon') geometry.coordinates.forEach(visitRing);
+  else if (geometry?.type === 'MultiPolygon') geometry.coordinates.forEach(poly => poly.forEach(visitRing));
+  return [minLng, minLat, maxLng, maxLat];
+}
+
+/**
+ * Returns true if [lng, lat] falls within bufferDeg of a geometry's bounding
+ * box. Used as a last-resort proximity check for incident points that sit
+ * just outside their fire's perimeter (e.g. an origin point that predates
+ * the perimeter's growth, or a command-post location near the fire).
+ */
+function pointNearGeometry(point, geometry, bufferDeg) {
+  const [px, py] = point;
+  const [minLng, minLat, maxLng, maxLat] = geometryBBox(geometry);
+  return px >= minLng - bufferDeg && px <= maxLng + bufferDeg
+      && py >= minLat - bufferDeg && py <= maxLat + bufferDeg;
+}
+
 /**
  * Merge two perimeter FeatureCollections. Primary (WFIGS) features take priority;
  * secondary (FIRIS) features are added when their incident_name doesn't already
@@ -156,8 +183,39 @@ function mergeFireData(perimeters, incidents, calFireDotsGeoJSON = null) {
     }
   });
 
+  // Pass 0: ID-based matching — WFIGS Perimeters and Incident Locations both
+  // carry the same canonical UniqueFireIdentifier for a given real-world
+  // fire. This is more reliable than name/geometry matching: it still links
+  // a perimeter to its incident even when the incident's point sits outside
+  // the (possibly still-growing) perimeter polygon, or the two services
+  // report slightly different name strings.
+  const incidentsById = new Map();
+  mergedIncidents.features.forEach(f => {
+    const id = f.properties.UniqueFireIdentifier;
+    if (id) incidentsById.set(id, f.properties);
+  });
+
+  const idMatchedFeatures = perimeters.features.map(f => {
+    const id = f.properties.UniqueFireIdentifier;
+    const inc = id ? incidentsById.get(id) : null;
+    if (!inc) return f;
+    const incKey = getFireMatchKey(inc.IncidentName);
+    if (incKey) usedKeys.add(incKey);
+    return {
+      ...f,
+      properties: {
+        ...f.properties,
+        IncidentName: getFireMatchKey(f.properties.IncidentName) ? f.properties.IncidentName : inc.IncidentName,
+        FireCause: f.properties.FireCause || inc.FireCause || 'Undetermined',
+        GISAcres: Math.max(f.properties.GISAcres || 0, inc.GISAcres || 0),
+        TotalIncidentPersonnel:
+          f.properties.TotalIncidentPersonnel || inc.TotalIncidentPersonnel || 0,
+      },
+    };
+  });
+
   // Pass 1: name-based matching
-  const enrichedFeatures = perimeters.features.map(f => {
+  const enrichedFeatures = idMatchedFeatures.map(f => {
     const key = getFireMatchKey(f.properties.IncidentName);
     if (key && incidentsByKey.has(key)) {
       usedKeys.add(key);
@@ -206,6 +264,39 @@ function mergeFireData(perimeters, incidents, calFireDotsGeoJSON = null) {
     };
   });
 
+  // Pass 3: extended proximity fallback — for perimeters still unnamed after
+  // exact containment matching (Pass 2), adopt the name of a nearby
+  // unmatched incident dot whose point falls within a small buffer around
+  // the perimeter's bounding box, rather than strictly inside it.
+  const PROXIMITY_BUFFER_DEG = 0.05; // ~5.5km at the equator — CONUS-appropriate approximation
+  const proximityFeatures = finalFeatures.map(f => {
+    if (getFireMatchKey(f.properties.IncidentName) !== null) return f;
+
+    const match = mergedIncidents.features.find(dot => {
+      const dotKey = getFireMatchKey(dot.properties.IncidentName);
+      if (!dotKey || usedKeys.has(dotKey)) return false;
+      const coords = dot.geometry?.coordinates;
+      return Array.isArray(coords) && pointNearGeometry(coords, f.geometry, PROXIMITY_BUFFER_DEG);
+    });
+
+    if (!match) return f;
+
+    const matchKey = getFireMatchKey(match.properties.IncidentName);
+    usedKeys.add(matchKey);
+    const inc = match.properties;
+    return {
+      ...f,
+      properties: {
+        ...f.properties,
+        IncidentName: inc.IncidentName,
+        FireCause: f.properties.FireCause || inc.FireCause || 'Undetermined',
+        GISAcres: Math.max(f.properties.GISAcres || 0, inc.GISAcres || 0),
+        TotalIncidentPersonnel:
+          f.properties.TotalIncidentPersonnel || inc.TotalIncidentPersonnel || 0,
+      },
+    };
+  });
+
   // Dot markers: incidents that have no matching perimeter
   const dotFeatures = mergedIncidents.features.filter(f => {
     const key = getFireMatchKey(f.properties.IncidentName);
@@ -213,7 +304,7 @@ function mergeFireData(perimeters, incidents, calFireDotsGeoJSON = null) {
   });
 
   return {
-    perimeters: { ...perimeters, features: finalFeatures },
+    perimeters: { ...perimeters, features: proximityFeatures },
     dots: { type: 'FeatureCollection', features: dotFeatures },
   };
 }
