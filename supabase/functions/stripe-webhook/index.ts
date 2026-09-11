@@ -4,10 +4,24 @@
  * Receives Stripe webhook events and syncs subscription state into the
  * `subscriptions` table via the service-role key (bypasses RLS).
  *
+ * Checkout can originate from either the custom `stripe-checkout` function
+ * (sets `metadata.supabase_user_id` / `metadata.plan`) or the embedded
+ * Stripe Pricing Table on the marketing site (only sets
+ * `client_reference_id` + `customer_email` — no custom metadata). The plan
+ * is therefore always derived from the subscription's Stripe Product ID
+ * (matched against STRIPE_PLUS_PRODUCT_ID / STRIPE_PRO_PRODUCT_ID — this
+ * covers both monthly and annual prices under each product automatically),
+ * never trusted from session/subscription metadata. The Supabase user is
+ * resolved via metadata first, falling back to `client_reference_id` and
+ * then to a `stripe_customer_id` lookup for events that carry neither.
+ *
  * Required secrets:
- *   STRIPE_SECRET_KEY           – Stripe secret key
- *   STRIPE_WEBHOOK_SECRET       – Signing secret from the Stripe dashboard webhook endpoint
- *   SUPABASE_SERVICE_ROLE_KEY   – Service-role key for privileged DB writes
+ *   STRIPE_SECRET_KEY             – Stripe secret key
+ *   STRIPE_WEBHOOK_SECRET         – Signing secret from the Stripe dashboard webhook endpoint
+ *   SUPABASE_SERVICE_ROLE_KEY     – Service-role key for privileged DB writes
+ *   STRIPE_PLUS_PRODUCT_ID        – Product ID for Sentinel Plus (covers monthly + annual prices)
+ *   STRIPE_PRO_PRODUCT_ID         – Product ID for Sentinel Pro (covers monthly + annual prices)
+ *   STRIPE_TEAM_PRICE_ID          – Price ID for the Team plan
  *
  * Stripe events handled:
  *   checkout.session.completed
@@ -59,6 +73,23 @@ Deno.serve(async (req: Request) => {
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
+  const PLAN_IDS = {
+    plusProductId: Deno.env.get('STRIPE_PLUS_PRODUCT_ID') ?? '',
+    proProductId: Deno.env.get('STRIPE_PRO_PRODUCT_ID') ?? '',
+    teamPriceId: Deno.env.get('STRIPE_TEAM_PRICE_ID') ?? '',
+  };
+
+  /** Look up the Supabase user_id for a Stripe customer, for events that carry neither metadata nor client_reference_id. */
+  async function findUserIdByCustomerId(customerId: string | null | undefined): Promise<string | null> {
+    if (!customerId) return null;
+    const { data } = await supabase
+      .from('subscriptions')
+      .select('user_id')
+      .eq('stripe_customer_id', customerId)
+      .maybeSingle();
+    return data?.user_id ?? null;
+  }
+
   try {
     switch (event.type) {
       case 'checkout.session.completed': {
@@ -66,13 +97,17 @@ Deno.serve(async (req: Request) => {
         if (session.mode === 'subscription') {
           const subscriptionId = session.subscription;
           const customerId = session.customer;
-          const userId = session.metadata?.supabase_user_id;
-          const plan = session.metadata?.plan ?? 'pro';
+          const userId = session.metadata?.supabase_user_id ?? session.client_reference_id ?? null;
 
           if (userId && subscriptionId) {
-            // Fetch full subscription from Stripe to get period details
+            // Fetch full subscription from Stripe to get period details + price ID
             const subRes = await stripeGet(STRIPE_SECRET_KEY, `/subscriptions/${subscriptionId}`);
             const sub = subRes.ok ? await subRes.json() : null;
+            const plan = resolvePlan(
+              sub?.items?.data?.[0]?.price?.id ?? '',
+              sub?.items?.data?.[0]?.price?.product ?? '',
+              PLAN_IDS,
+            );
 
             await supabase.from('subscriptions').upsert(
               {
@@ -96,13 +131,13 @@ Deno.serve(async (req: Request) => {
       case 'customer.subscription.created':
       case 'customer.subscription.updated': {
         const sub = event.data.object;
-        const userId = sub.metadata?.supabase_user_id;
+        const userId = sub.metadata?.supabase_user_id ?? await findUserIdByCustomerId(sub.customer);
         if (!userId) break;
 
-        const plan = resolvePlanFromPriceId(
+        const plan = resolvePlan(
           sub.items?.data?.[0]?.price?.id ?? '',
-          Deno.env.get('STRIPE_PRO_PRICE_ID') ?? '',
-          Deno.env.get('STRIPE_TEAM_PRICE_ID') ?? '',
+          sub.items?.data?.[0]?.price?.product ?? '',
+          PLAN_IDS,
         );
 
         await supabase.from('subscriptions').upsert(
@@ -124,7 +159,7 @@ Deno.serve(async (req: Request) => {
 
       case 'customer.subscription.deleted': {
         const sub = event.data.object;
-        const userId = sub.metadata?.supabase_user_id;
+        const userId = sub.metadata?.supabase_user_id ?? await findUserIdByCustomerId(sub.customer);
         if (!userId) break;
 
         await supabase.from('subscriptions').upsert(
@@ -165,10 +200,15 @@ Deno.serve(async (req: Request) => {
   return jsonResponse({ received: true });
 });
 
-/** Derive the plan name from a Stripe price ID */
-function resolvePlanFromPriceId(priceId: string, proPriceId: string, teamPriceId: string): string {
-  if (priceId === proPriceId) return 'pro';
-  if (priceId === teamPriceId) return 'team';
+/** Derive the plan name from a subscription's Stripe product ID (Plus/Pro) or price ID (Team). */
+function resolvePlan(
+  priceId: string,
+  productId: string,
+  ids: { plusProductId: string; proProductId: string; teamPriceId: string },
+): string {
+  if (productId && productId === ids.plusProductId) return 'plus';
+  if (productId && productId === ids.proProductId) return 'pro';
+  if (priceId && priceId === ids.teamPriceId) return 'team';
   return 'free';
 }
 

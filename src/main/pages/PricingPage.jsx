@@ -1,66 +1,118 @@
 /**
  * PricingPage.jsx
- * Public pricing page — Free Tier (situational awareness) and
- * Sentinel Pro (field intelligence, $4.99/month).
+ * Public pricing page — Free, Sentinel Plus, and Sentinel Pro tiers.
+ * Checkout runs entirely through the embedded Stripe pricing table below;
+ * these cards are informational (feature comparison), not separate
+ * checkout flows.
  */
 
-import { useState, useEffect, createElement } from 'react';
+import { useEffect, useState, createElement } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
-  Flame, Check, X, ChevronRight, AlertCircle,
-  Radio, Camera, MapPin, Bell,
-  Layers, Shield, AlertTriangle, Train,
-  Bolt, Droplets, Factory, Cross, GraduationCap,
-  Users, Landmark, TreePine, Ban, Clock, Ruler, MessageSquare,
+  Flame, Check, X, ChevronRight, AlertCircle, Lock,
+  Radio, Camera, MapPin, Bell, BellRing,
+  Layers, Shield, Droplets, Landmark, TreePine, Clock, Ruler, MessageSquare,
+  Satellite, Plane, History, Radar,
+  Globe, Factory, Mountain, TrendingUp, Target, BarChart3,
+  Download, FileText, LayoutDashboard, Code2, ClipboardList,
+  Building2, ShieldAlert, CloudFog, Sparkles, Zap,
 } from 'lucide-react';
 import { useAuth } from '../../shared/context/AuthContext';
 import { usePlan } from '../../shared/hooks/usePlan';
-import { supabase } from '../../shared/api/supabaseClient';
 import { getAppOrigin } from '../../shared/utils/getAppOrigin';
+
+const STRIPE_PRICING_TABLE_ID = 'prctbl_1UEajnHwBOQlFhO3wR5g06KQ';
+const STRIPE_PUBLISHABLE_KEY =
+  'pk_live_51SZkn9HwBOQlFhO3YobFxbtHGSnTn8pbIY9dW5lmwVdGdgOg9pBbkDSALGoAOvftveH3wnRxkMdkkJ0JuciZ6BVL00CX0sXEss';
 
 // ─── Feature data ─────────────────────────────────────────────────────────────
 
 const FREE_FEATURES = [
-  { icon: <MapPin size={14} />,        label: '4 saved locations with notifications' },
-  { icon: <Layers size={14} />,        label: 'Wildfire, weather, and all-hazard map tabs' },
-  { icon: <Ruler size={14} />,         label: 'Polygon + distance tools' },
-  { icon: <Radio size={14} />,         label: 'NWS/SPC/WPC/NHC outlooks' },
+  { icon: <MapPin size={14} />,   label: '4 saved locations with notifications' },
+  { icon: <Flame size={14} />,    label: 'Wildfire map' },
+  { icon: <CloudFog size={14} />, label: 'Weather map' },
+  { icon: <Layers size={14} />,   label: 'All-hazard map' },
+  { icon: <Ruler size={14} />,    label: 'Polygon drawing tool' },
+  { icon: <Ruler size={14} />,    label: 'Distance-to-hazard tool' },
+  { icon: <Radio size={14} />,    label: 'NWS outlooks' },
+  { icon: <Radio size={14} />,    label: 'SPC outlooks' },
+  { icon: <Radio size={14} />,    label: 'WPC outlooks' },
+  { icon: <Radio size={14} />,    label: 'NHC outlooks' },
   { icon: <MessageSquare size={14} />, label: 'Mesoscale discussions' },
-  { icon: <Camera size={14} />,        label: 'Cameras in available areas' },
-  { icon: <Droplets size={14} />,      label: 'Water Level Gauges' },
+  { icon: <Camera size={14} />,   label: 'Available live cameras' },
+  { icon: <Droplets size={14} />, label: 'Water-level gauges' },
+  { icon: <Radar size={14} />,    label: 'NWS radar' },
+  { icon: <Radar size={14} />,    label: 'Radar composite' },
 ];
 
-const PRO_HEADLINE_FEATURE = {
-  icon: <Flame size={14} />, label: 'Fire behavior modeling — spread projection rings (+1h / +3h / +6h)',
-};
-
-const PRO_INFRA_LIVE = [
-  { icon: <AlertTriangle size={14} />, label: 'Highways & evacuation routes' },
-  { icon: <Train size={14} />,         label: 'Railroads' },
-  { icon: <Bolt size={14} />,          label: 'Powerlines (nationwide)' },
-  { icon: <Droplets size={14} />,      label: 'Pipelines (nationwide)' },
-  { icon: <GraduationCap size={14} />, label: 'Schools & universities (USGS National Map)' },
+const PLUS_FEATURES = [
+  { icon: <Flame size={14} />,     label: 'Basic fire behavior modeling — spread projection rings (+1h / +3h / +6h)' },
+  { icon: <MapPin size={14} />,    label: '15 saved locations' },
+  { icon: <Bell size={14} />,      label: 'Custom alert settings' },
+  { icon: <CloudFog size={14} />,  label: 'Smoke layers' },
+  { icon: <Satellite size={14} />, label: 'Worldwide satellite imagery' },
+  { icon: <Plane size={14} />,     label: 'Aircraft tracking', soon: true },
+  { icon: <History size={14} />,   label: 'Historical wildfire perimeters' },
+  { icon: <History size={14} />,   label: 'Historical weather data', soon: true },
+  { icon: <Radar size={14} />,     label: 'Advanced radar products' },
+  { icon: <Layers size={14} />,    label: 'Additional map layers' },
+  { icon: <Ruler size={14} />,     label: 'Advanced distance-to-hazard analysis' },
+  { icon: <TreePine size={14} />,  label: 'Protected / public lands', soon: true },
+  { icon: <Landmark size={14} />,  label: 'WUI data', soon: true },
 ];
 
-const PRO_INFRA_SOON = [
-  { icon: <Factory size={14} />,      label: 'Major manufacturing sites' },
-  { icon: <Factory size={14} />,      label: 'Chemical manufacturing facilities' },
-  { icon: <Cross size={14} />,         label: 'Hospitals & medical centers' },
-  { icon: <Users size={14} />,        label: 'Mass gathering locations (stadiums, venues, fairs)' },
+const PRO_FEATURES = [
+  { icon: <MapPin size={14} />,        label: 'Unlimited saved locations' },
+  { icon: <BellRing size={14} />,      label: 'Advanced alert rules' },
+  { icon: <Globe size={14} />,         label: 'Advanced GIS layers' },
+  { icon: <Landmark size={14} />,      label: 'WUI data' },
+  { icon: <Landmark size={14} />,      label: 'Land ownership' },
+  { icon: <Factory size={14} />,       label: 'Critical infrastructure' },
+  { icon: <TreePine size={14} />,      label: 'Protected / public lands' },
+  { icon: <Mountain size={14} />,      label: 'Advanced terrain data' },
+  { icon: <TrendingUp size={14} />,    label: 'Fire progression modeling' },
+  { icon: <Flame size={14} />,         label: 'Fire behavior modeling' },
+  { icon: <TrendingUp size={14} />,    label: 'Fire spread projections' },
+  { icon: <Target size={14} />,        label: 'Advanced hotspot analysis' },
+  { icon: <BarChart3 size={14} />,     label: 'Advanced incident intelligence' },
+  { icon: <History size={14} />,       label: 'Historical incident analysis' },
+  { icon: <Download size={14} />,      label: 'Data exports' },
+  { icon: <FileText size={14} />,      label: 'GIS exports' },
+  { icon: <LayoutDashboard size={14} />, label: 'Custom dashboards' },
+  { icon: <Code2 size={14} />,         label: 'API access' },
+  { icon: <ClipboardList size={14} />, label: 'Professional reporting tools' },
+  { icon: <Building2 size={14} />,     label: 'Multi-location monitoring' },
+  { icon: <ShieldAlert size={14} />,   label: 'Advanced hazard analysis' },
 ];
 
-const PRO_GOVT_SOON = [
-  { icon: <Landmark size={14} />,    label: 'Tribal nations' },
-  { icon: <TreePine size={14} />,    label: 'National Parks' },
-  { icon: <TreePine size={14} />,    label: 'Bureau of Land Management (BLM)' },
-  { icon: <TreePine size={14} />,    label: 'US Forest Service land' },
-  { icon: <Ban size={14} />,         label: 'Temporary Flight Restrictions (TFRs)' },
+const COMPARISON_ROWS = [
+  { label: 'Wildfire, weather & all-hazard map tabs', free: true,  plus: true,  pro: true },
+  { label: 'Polygon + distance tools',                free: true,  plus: true,  pro: true },
+  { label: 'NWS/SPC/WPC/NHC outlooks',                free: true,  plus: true,  pro: true },
+  { label: 'Mesoscale discussions',                   free: true,  plus: true,  pro: true },
+  { label: 'Cameras & water-level gauges',             free: true,  plus: true,  pro: true },
+  { label: 'NWS radar & radar composite',              free: true,  plus: true,  pro: true },
+  { label: 'Saved locations',                          free: '4',   plus: '15',  pro: '∞' },
+  { label: 'Fire behavior modeling',                   free: false, plus: 'Basic', pro: 'Advanced' },
+  { label: 'Smoke layers & satellite imagery',         free: false, plus: true,  pro: true },
+  { label: 'Advanced radar products',                  free: false, plus: true,  pro: true },
+  { label: 'Historical wildfire perimeters',           free: false, plus: true,  pro: true },
+  { label: 'Custom / advanced alert rules',            free: false, plus: true,  pro: true },
+  { label: 'Critical infrastructure layers',           free: false, plus: false, pro: true },
+  { label: 'WUI data & land ownership',                free: false, plus: '🔜',  pro: true },
+  { label: 'Protected / public lands',                 free: false, plus: '🔜',  pro: true },
+  { label: 'Fire progression & spread modeling',       free: false, plus: false, pro: true },
+  { label: 'Advanced hotspot & incident intelligence', free: false, plus: false, pro: true },
+  { label: 'Data & GIS exports',                       free: false, plus: false, pro: true },
+  { label: 'Custom dashboards',                        free: false, plus: false, pro: true },
+  { label: 'API access',                                free: false, plus: false, pro: true },
+  { label: 'Multi-location monitoring',                 free: false, plus: false, pro: true },
 ];
 
 const FAQ = [
   {
     q: 'Can I cancel anytime?',
-    a: 'Yes. Cancel at any time from your account billing settings. Your Pro access stays active until the end of the current billing period, then reverts to Free.',
+    a: 'Yes. Cancel at any time from your account billing settings. Your plan access stays active until the end of the current billing period, then reverts to Free.',
   },
   {
     q: 'What payment methods are accepted?',
@@ -71,12 +123,12 @@ const FAQ = [
     a: 'Yes. The Free tier is not a trial — it\'s a permanent, no-credit-card-required plan designed to keep core situational awareness accessible to everyone.',
   },
   {
-    q: 'What does "coming soon" mean for Pro layers?',
-    a: 'Those data layers are actively in development. Pro subscribers will get access automatically as each layer launches — no extra charge, no action needed.',
+    q: 'What does "coming soon" mean for Plus/Pro features?',
+    a: 'Those data layers are actively in development. Subscribers get access automatically as each layer launches — no extra charge, no action needed.',
   },
   {
-    q: 'Can I upgrade mid-month?',
-    a: 'Yes. Upgrades are effective immediately and prorated to the day. You\'ll only pay for the remaining days in your current billing period.',
+    q: 'Can I upgrade or switch plans mid-month?',
+    a: 'Yes. Plan changes are effective immediately and prorated to the day. You\'ll only pay for the remaining days in your current billing period.',
   },
   {
     q: 'Do you offer discounts for nonprofits or public agencies?',
@@ -88,11 +140,9 @@ const FAQ = [
 
 export default function PricingPage() {
   const [searchParams] = useSearchParams();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
   const { planId: currentPlanId } = usePlan();
 
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState(null);
   const [openFaq, setOpenFaq] = useState(null);
 
   const checkoutResult = searchParams.get('checkout');
@@ -107,41 +157,7 @@ export default function PricingPage() {
     document.body.appendChild(script);
   }, []);
 
-  async function handleUpgradePro() {
-    setError(null);
-
-    if (!isAuthenticated) {
-      window.location.href = `${getAppOrigin()}/register`;
-      return;
-    }
-
-    if (currentPlanId === 'pro' || currentPlanId === 'team') {
-      window.location.href = `${getAppOrigin()}/account`;
-      return;
-    }
-
-    setBusy(true);
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const res = await supabase.functions.invoke('stripe-checkout', {
-        body: { plan: 'pro' },
-        headers: session?.access_token
-          ? { Authorization: `Bearer ${session.access_token}` }
-          : undefined,
-      });
-
-      if (res.error || !res.data?.url) {
-        throw new Error(res.data?.error ?? res.error?.message ?? 'Failed to start checkout.');
-      }
-      window.location.href = res.data.url;
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  const alreadyPro = isAuthenticated && (currentPlanId === 'pro' || currentPlanId === 'team');
+  const alreadyPaid = isAuthenticated && (currentPlanId === 'plus' || currentPlanId === 'pro' || currentPlanId === 'team');
 
   return (
     <div className="bg-[#0a0c0e] text-white min-h-screen">
@@ -157,8 +173,8 @@ export default function PricingPage() {
           The right intelligence<br className="hidden sm:block" /> for every situation
         </h1>
         <p className="text-sentinel-300 text-lg max-w-xl mx-auto">
-          Core situational awareness is free — forever. Upgrade to Pro for field-grade
-          infrastructure intelligence and personalized location alerts.
+          Core situational awareness is free — forever. Upgrade to Plus or Pro for
+          fire behavior modeling, critical infrastructure intelligence, and personalized alerts.
         </p>
 
         {/* Result banners */}
@@ -166,7 +182,7 @@ export default function PricingPage() {
           <div className="mt-8 inline-flex items-center gap-2 px-5 py-3 rounded-xl
                           bg-green-950/50 border border-green-700/60 text-green-300 text-sm">
             <Check size={15} />
-            Subscription activated — welcome to Sentinel Pro!
+            Subscription activated — welcome to Sentinel!
           </div>
         )}
         {checkoutResult === 'canceled' && (
@@ -176,46 +192,34 @@ export default function PricingPage() {
             Checkout was canceled. No charges were made.
           </div>
         )}
-        {error && (
-          <div className="mt-8 inline-flex items-center gap-2 px-5 py-3 rounded-xl
-                          bg-red-950/50 border border-red-700/60 text-red-300 text-sm">
-            <AlertCircle size={15} />
-            {error}
-          </div>
-        )}
       </section>
 
-      {/* ── Plan cards ── */}
-      <section className="max-w-4xl mx-auto px-4 sm:px-6 pb-20">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch">
+      {/* ── Plan cards (informational — checkout happens in the pricing table below) ── */}
+      <section className="max-w-6xl mx-auto px-4 sm:px-6 pb-16">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-stretch">
 
           {/* ── Free card ── */}
-          <div className="flex flex-col rounded-2xl border border-sentinel-700 bg-sentinel-900/80 p-8">
-            <div className="mb-2">
-              <span className="text-xs font-bold uppercase tracking-widest text-sentinel-400">
-                Free Tier — Situational Awareness
-              </span>
-            </div>
+          <div className="flex flex-col rounded-2xl border border-sentinel-700 bg-sentinel-900/80 p-7">
+            <span className="text-xs font-bold uppercase tracking-widest text-sentinel-400 mb-2">
+              Sentinel Free
+            </span>
             <div className="flex items-baseline gap-1 mb-1">
-              <span className="text-5xl font-extrabold text-white">$0</span>
-              <span className="text-sentinel-400 text-sm ml-1">permanent free tier</span>
+              <span className="text-4xl font-extrabold text-white">$0</span>
+              <span className="text-sentinel-400 text-sm ml-1">forever</span>
             </div>
             <p className="text-sentinel-400 text-sm mb-6">
-              User acquisition, trust building, and broad accessibility.
+              Core situational awareness for everyone.
             </p>
 
-            <button
-              onClick={() => { window.location.href = isAuthenticated ? `${getAppOrigin()}/` : `${getAppOrigin()}/register`; }}
-              className="w-full py-2.5 rounded-xl text-sm font-semibold transition-colors mb-8
+            <a
+              href={isAuthenticated ? getAppOrigin() : `${getAppOrigin()}/register`}
+              className="w-full text-center py-2.5 rounded-xl text-sm font-semibold transition-colors mb-6
                          bg-sentinel-700 hover:bg-sentinel-600 border border-sentinel-500 text-white"
             >
               {isAuthenticated && currentPlanId === 'free' ? 'Your Current Plan' : 'Get Started — Free'}
-            </button>
+            </a>
 
-            <p className="text-xs font-bold uppercase tracking-widest text-sentinel-400 mb-4">
-              Included Features
-            </p>
-            <ul className="space-y-3 flex-1">
+            <ul className="space-y-2.5 flex-1">
               {FREE_FEATURES.map((f, i) => (
                 <li key={i} className="flex items-start gap-2.5 text-sm text-sentinel-200">
                   <span className="shrink-0 mt-0.5 text-sentinel-400">{f.icon}</span>
@@ -225,101 +229,121 @@ export default function PricingPage() {
             </ul>
           </div>
 
-          {/* ── Pro card ── */}
-          <div className="relative flex flex-col rounded-2xl border border-fire-500
-                          bg-sentinel-900/80 ring-1 ring-fire-500/25 p-8">
-            {/* Badge */}
-            <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-4 py-1
-                            rounded-full bg-fire-600 text-white text-xs font-bold whitespace-nowrap">
-              Most Popular
-            </div>
-
-            <div className="mb-2">
-              <span className="text-xs font-bold uppercase tracking-widest text-fire-400">
-                Sentinel Pro — Field Intelligence
-              </span>
-            </div>
+          {/* ── Plus card ── */}
+          <div className="flex flex-col rounded-2xl border border-amber-500/40 bg-sentinel-900/80 p-7">
+            <span className="text-xs font-bold uppercase tracking-widest text-amber-400 mb-2
+                             inline-flex items-center gap-1.5">
+              <Sparkles size={12} />
+              Sentinel Plus
+            </span>
             <div className="flex items-baseline gap-1 mb-1">
-              <span className="text-5xl font-extrabold text-white">$4.99</span>
+              <span className="text-4xl font-extrabold text-white">$7.99</span>
               <span className="text-sentinel-400 text-sm ml-1">/month</span>
             </div>
+            <p className="text-sentinel-500 text-xs mb-1">or $69.99/year</p>
             <p className="text-sentinel-400 text-sm mb-6">
               Weather enthusiasts, wildfire trackers, media, and the prepared public.
             </p>
 
-            <div className="flex items-start gap-2.5 text-sm text-sentinel-200 mb-6
-                            rounded-lg border border-fire-500/25 bg-fire-500/5 px-3 py-2.5">
-              <span className="shrink-0 mt-0.5 text-fire-400">{PRO_HEADLINE_FEATURE.icon}</span>
-              {PRO_HEADLINE_FEATURE.label}
-            </div>
-
-            {alreadyPro ? (
-              <button
-                type="button"
-                disabled
-                className="w-full py-2.5 rounded-xl text-sm font-semibold transition-colors mb-8
-                  bg-sentinel-700 border border-sentinel-600 text-sentinel-400 cursor-default"
-              >
-                Current Plan
-              </button>
-            ) : (
-              <div className="w-full mb-8">
-                {createElement('stripe-pricing-table', {
-                  'pricing-table-id': 'prctbl_1U9Sw8HwBOQlFhO3hjVt5sTK',
-                  'publishable-key':
-                    'pk_live_51SZkn9HwBOQlFhO3YobFxbtHGSnTn8pbIY9dW5lmwVdGdgOg9pBbkDSALGoAOvftveH3wnRxkMdkkJ0JuciZ6BVL00CX0sXEss',
-                })}
-              </div>
-            )}
-
-            {/* All Free features */}
             <p className="text-xs font-bold uppercase tracking-widest text-sentinel-400 mb-3">
-              All Free features, plus:
+              Everything in Free, plus:
             </p>
-
-            {/* Live infrastructure layers */}
-            <p className="text-xs font-semibold text-sentinel-300 uppercase tracking-wider mb-2 mt-1">
-              Critical Infrastructure Layers
-            </p>
-            <ul className="space-y-2.5 mb-4">
-              {PRO_INFRA_LIVE.map((f, i) => (
+            <ul className="space-y-2.5 flex-1">
+              {PLUS_FEATURES.map((f, i) => (
                 <li key={i} className="flex items-start gap-2.5 text-sm text-sentinel-200">
-                  <span className="shrink-0 mt-0.5 text-fire-400">{f.icon}</span>
-                  {f.label}
-                </li>
-              ))}
-              {PRO_INFRA_SOON.map((f, i) => (
-                <li key={i} className="flex items-start gap-2.5 text-sm text-sentinel-400">
-                  <span className="shrink-0 mt-0.5 text-sentinel-500">{f.icon}</span>
+                  <span className="shrink-0 mt-0.5 text-amber-400">{f.icon}</span>
                   <span className="flex items-center gap-2 flex-wrap">
                     {f.label}
-                    <ComingSoon />
-                  </span>
-                </li>
-              ))}
-            </ul>
-
-            {/* Government & land management */}
-            <p className="text-xs font-semibold text-sentinel-300 uppercase tracking-wider mb-2">
-              Government &amp; Land Management
-            </p>
-            <ul className="space-y-2.5">
-              {PRO_GOVT_SOON.map((f, i) => (
-                <li key={i} className="flex items-start gap-2.5 text-sm text-sentinel-400">
-                  <span className="shrink-0 mt-0.5 text-sentinel-500">{f.icon}</span>
-                  <span className="flex items-center gap-2 flex-wrap">
-                    {f.label}
-                    <ComingSoon />
+                    {f.soon && <ComingSoon />}
                   </span>
                 </li>
               ))}
             </ul>
           </div>
+
+          {/* ── Pro card ── */}
+          <div className="relative flex flex-col rounded-2xl border border-fire-500
+                          bg-sentinel-900/80 ring-1 ring-fire-500/25 p-7">
+            <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-4 py-1
+                            rounded-full bg-fire-600 text-white text-xs font-bold whitespace-nowrap">
+              Most Popular
+            </div>
+
+            <span className="text-xs font-bold uppercase tracking-widest text-fire-400 mb-2">
+              Sentinel Pro
+            </span>
+            <div className="flex items-baseline gap-1 mb-1">
+              <span className="text-4xl font-extrabold text-white">$14.99</span>
+              <span className="text-sentinel-400 text-sm ml-1">/month</span>
+            </div>
+            <p className="text-sentinel-500 text-xs mb-1">or $149/year</p>
+            <p className="text-sentinel-400 text-sm mb-6">
+              Field-grade intelligence for professionals and power users.
+            </p>
+
+            <p className="text-xs font-bold uppercase tracking-widest text-sentinel-400 mb-3">
+              Everything in Plus, plus:
+            </p>
+            <ul className="space-y-2.5 flex-1">
+              {PRO_FEATURES.map((f, i) => (
+                <li key={i} className="flex items-start gap-2.5 text-sm text-sentinel-200">
+                  <span className="shrink-0 mt-0.5 text-fire-400">{f.icon}</span>
+                  {f.label}
+                </li>
+              ))}
+            </ul>
+          </div>
         </div>
+      </section>
+
+      {/* ── Checkout widget ── */}
+      <section id="subscribe" className="max-w-3xl mx-auto px-4 sm:px-6 pb-20 scroll-mt-10">
+        <h2 className="text-2xl font-bold text-white text-center mb-2">Choose your plan</h2>
+        <p className="text-sentinel-400 text-sm text-center mb-8">
+          Secure checkout powered by Stripe. Cancel anytime.
+        </p>
+
+        {alreadyPaid ? (
+          <div className="rounded-2xl border border-sentinel-700 bg-sentinel-900/80 p-8 text-center">
+            <Check size={28} className="text-fire-400 mx-auto mb-3" />
+            <p className="text-white font-semibold mb-1">You're already subscribed</p>
+            <p className="text-sentinel-400 text-sm mb-5">
+              Manage or change your plan from your account settings.
+            </p>
+            <a
+              href={`${getAppOrigin()}/account`}
+              className="inline-flex px-5 py-2.5 rounded-xl text-sm font-semibold
+                         bg-fire-600 hover:bg-fire-500 text-white transition-colors"
+            >
+              Manage Plan
+            </a>
+          </div>
+        ) : isAuthenticated ? (
+          createElement('stripe-pricing-table', {
+            'pricing-table-id': STRIPE_PRICING_TABLE_ID,
+            'publishable-key': STRIPE_PUBLISHABLE_KEY,
+            'client-reference-id': user?.id,
+            'customer-email': user?.email,
+          })
+        ) : (
+          <div className="rounded-2xl border border-sentinel-700 bg-sentinel-900/80 p-8 text-center">
+            <Lock className="text-sentinel-400 mx-auto mb-3" size={24} />
+            <p className="text-white font-semibold mb-1">Sign in to subscribe</p>
+            <p className="text-sentinel-400 text-sm mb-5">
+              Create a free account first so your subscription is linked to it.
+            </p>
+            <a
+              href={`${getAppOrigin()}/register`}
+              className="inline-flex px-5 py-2.5 rounded-xl text-sm font-semibold
+                         bg-fire-600 hover:bg-fire-500 text-white transition-colors"
+            >
+              Create Free Account
+            </a>
+          </div>
+        )}
 
         <p className="text-center text-xs text-sentinel-500 mt-6">
-          All prices USD · Billed monthly · Cancel anytime ·
-          Payments processed by{' '}
+          All prices USD · Cancel anytime · Payments processed by{' '}
           <a href="https://stripe.com" target="_blank" rel="noopener noreferrer"
             className="text-sentinel-400 hover:text-white underline underline-offset-2">
             Stripe
@@ -334,44 +358,19 @@ export default function PricingPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-sentinel-700 bg-sentinel-900">
-                <th className="text-left px-5 py-4 text-sentinel-300 font-semibold w-3/5">Feature</th>
+                <th className="text-left px-5 py-4 text-sentinel-300 font-semibold">Feature</th>
                 <th className="px-4 py-4 text-center font-semibold text-white">Free</th>
+                <th className="px-4 py-4 text-center font-semibold text-amber-300">Plus</th>
                 <th className="px-4 py-4 text-center font-semibold text-fire-300">Pro</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-sentinel-800">
-              {[
-                { label: 'Wildfire, weather & all-hazard map tabs',    free: true,  pro: true  },
-                { label: 'Polygon + distance tools',                    free: true,  pro: true  },
-                { label: 'NWS/SPC/WPC/NHC outlooks',                    free: true,  pro: true  },
-                { label: 'Mesoscale discussions',                       free: true,  pro: true  },
-                { label: 'Cameras (when available)',                    free: true,  pro: true  },
-                { label: 'Water level gauges',                          free: true,  pro: true  },
-                { label: 'Fire Behavior Modeling',                      free: false, pro: true  },
-                { label: 'Saved locations',                             free: '4',   pro: '25'  },
-                { label: 'Location notifications',                      free: true,  pro: true  },
-                { label: 'Priority alert delivery',                     free: false, pro: true  },
-                { label: 'Evacuation routes',                           free: false, pro: true  },
-                { label: 'Highways layer',                              free: false, pro: true  },
-                { label: 'Railroads layer',                             free: false, pro: true  },
-                { label: 'Powerlines — nationwide',                     free: false, pro: true  },
-                { label: 'Pipelines — nationwide',                      free: false, pro: true  },
-                { label: 'Hospitals & medical centers',                 free: false, pro: '🔜'  },
-                { label: 'Schools & universities (USGS National Map)',    free: false, pro: true  },
-                { label: 'Mass gathering locations',                    free: false, pro: '🔜'  },
-                { label: 'Chemical & manufacturing facilities',         free: false, pro: '🔜'  },
-                { label: 'Tribal nations',                              free: false, pro: '🔜'  },
-                { label: 'National Parks / BLM / Forest Service',       free: false, pro: '🔜'  },
-                { label: 'Temporary Flight Restrictions (TFRs)',        free: false, pro: '🔜'  },
-              ].map((row, i) => (
+              {COMPARISON_ROWS.map((row, i) => (
                 <tr key={i} className="hover:bg-sentinel-800/40 transition-colors">
                   <td className="px-5 py-3 text-sentinel-200">{row.label}</td>
-                  <td className="px-4 py-3 text-center">
-                    <CellValue val={row.free} freeCol />
-                  </td>
-                  <td className="px-4 py-3 text-center">
-                    <CellValue val={row.pro} />
-                  </td>
+                  <td className="px-4 py-3 text-center"><CellValue val={row.free} freeCol /></td>
+                  <td className="px-4 py-3 text-center"><CellValue val={row.plus} /></td>
+                  <td className="px-4 py-3 text-center"><CellValue val={row.pro} /></td>
                 </tr>
               ))}
             </tbody>
@@ -391,12 +390,12 @@ export default function PricingPage() {
             {
               icon: <Bell size={22} className="text-amber-400" />,
               title: 'Personal Alerts',
-              desc: 'Pro alerts are delivered with finer granularity and higher priority for your saved locations.',
+              desc: 'Plus and Pro alerts are delivered with finer granularity and higher priority for your saved locations.',
             },
             {
               icon: <Layers size={22} className="text-blue-400" />,
               title: 'Expanding Layer Library',
-              desc: 'Every new Pro data layer — government land, TFRs — ships automatically to your account.',
+              desc: 'Every new data layer — government land, WUI, TFRs — ships automatically to eligible subscribers.',
             },
           ].map((item, i) => (
             <div key={i} className="rounded-xl bg-sentinel-900 border border-sentinel-700 p-5">
@@ -444,25 +443,25 @@ export default function PricingPage() {
           <Flame size={36} className="text-fire-500 mx-auto mb-4" />
           <h2 className="text-2xl font-bold text-white mb-3">Stay ahead of the fire</h2>
           <p className="text-sentinel-300 mb-6 max-w-md mx-auto">
-            Open the live Sentinel tracker for free, or unlock Pro for infrastructure intelligence,
-            priority alerts, and every new layer as it ships.
+            Open the live Sentinel tracker for free, or upgrade for fire behavior modeling,
+            infrastructure intelligence, and priority alerts.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-            <button
-              onClick={() => { window.location.href = `${getAppOrigin()}/`; }}
+            <a
+              href={getAppOrigin()}
               className="px-6 py-3 rounded-xl text-sm font-semibold bg-sentinel-700 border
                          border-sentinel-600 text-white hover:bg-sentinel-600 transition-colors"
             >
               Open Sentinel — Free
-            </button>
-            <button
-              onClick={handleUpgradePro}
-              disabled={busy || alreadyPro}
+            </a>
+            <a
+              href="#subscribe"
               className="px-6 py-3 rounded-xl text-sm font-semibold bg-fire-600 hover:bg-fire-500
-                         text-white transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                         text-white transition-colors inline-flex items-center gap-1.5"
             >
-              {busy ? 'Redirecting…' : alreadyPro ? 'Manage Plan' : 'Start Pro — $4.99/mo'}
-            </button>
+              <Zap size={14} />
+              View Plans
+            </a>
           </div>
         </div>
       </section>
@@ -496,7 +495,6 @@ function CellValue({ val, freeCol }) {
   if (val === false) {
     return <X size={14} className="inline text-sentinel-700" />;
   }
-  // string values like '4', '25', '🔜'
   if (val === '🔜') {
     return (
       <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px]
@@ -507,5 +505,6 @@ function CellValue({ val, freeCol }) {
       </span>
     );
   }
+  // string values like '4', '15', '∞', 'Basic', 'Advanced'
   return <span className="text-sentinel-200 font-medium">{val}</span>;
 }

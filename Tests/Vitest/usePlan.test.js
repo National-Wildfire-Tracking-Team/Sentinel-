@@ -36,4 +36,18 @@ describe('usePlan', () => {
     expect(result.current.planId).toBe('free');
     expect(result.current.isPaid).toBe(false);
   });
+
+  it('grants Plus subscribers fire behavior modeling but not critical infrastructure', () => {
+    useAuth.mockReturnValue({
+      subscription: { plan: 'plus', status: 'active' },
+      isReporter: false,
+    });
+
+    const { result } = renderHook(() => usePlan());
+
+    expect(result.current.planId).toBe('plus');
+    expect(result.current.isPaid).toBe(true);
+    expect(result.current.hasFireBehaviorModelingAccess).toBe(true);
+    expect(result.current.hasProInfrastructureAccess).toBe(false);
+  });
 });

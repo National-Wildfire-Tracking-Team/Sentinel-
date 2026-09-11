@@ -96,9 +96,9 @@ create policy "subscriptions self read"
   on public.subscriptions for select
   using (auth.uid() = user_id);
 
--- Only service role (Edge Functions / webhook) can insert / update
+-- No client-facing write policy: only the service role (Edge Functions /
+-- webhook) can insert or update, via its RLS bypass. Do not add an
+-- is_admin()-based write policy here — that would let any user flagged
+-- admin in `profiles` edit billing state directly from the client, which
+-- is not the same guarantee as "only our webhook can write this".
 drop policy if exists "subscriptions service write" on public.subscriptions;
-create policy "subscriptions service write"
-  on public.subscriptions for all
-  using (public.is_admin())
-  with check (public.is_admin());
