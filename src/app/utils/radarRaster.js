@@ -11,45 +11,43 @@
  * radar viewers use.
  */
 
-const CANVAS_SIZE = 768; // px, square output — higher res + linear raster-resampling on the Mapbox layer softens the polar-to-grid blockiness
+const CANVAS_SIZE = 768; // px, square output — NexradScanLayer.jsx renders this with 'nearest' raster-resampling (no GPU smoothing), so resolution here is what determines on-screen grain
 const METERS_PER_DEG_LAT = 111320;
 
-// Reflectivity color table, built around NOAA's JetStream reflectivity
-// guidance (https://www.noaa.gov/jetstream/reflectivity): discrete 5-dBZ
-// steps from 15-65 dBZ, plus two additional low-end bins below the
-// mandated <15 dBZ threshold so genuinely valid low-reflectivity data
-// (drizzle, snow, general clutter — NOAA's own -35 to 0 and 0 to 20 dBZ
-// bands) stays visible rather than being discarded as no-data. The scale
-// is deliberately NOT a rainfall-rate mapping — dBZ is returned radar
-// energy, not a direct precipitation-intensity measurement, so bins are
-// labeled by dBZ range only (see Legend.jsx) rather than "light/moderate/
-// heavy" rain descriptors.
-//
-// -35 to 0 and 0 to 15 are intentionally the most muted/desaturated colors
-// in the table (low visual weight) so they read as background texture —
-// distinguishable from true no-data (fully transparent, a separate
-// mechanism — see rasterizeSweep's noDataByte check below) without
-// competing with real precipitation signal.
+// Standard NWS/NOAA base reflectivity color table (the familiar
+// cyan->blue->green->yellow->orange->red->magenta->purple->white bands used
+// by weather.gov, GRLevel3, and IEM's own NEXRAD WMS mosaic — which this
+// project's RadarLayer.jsx fallback already renders server-side, so this
+// keeps the primary MRMS source and that fallback visually identical), with
+// saturation reduced three times from the standard table's fully-saturated
+// values: 10% (S x0.9), then a further 20% (S x0.8), then a further 10%
+// (S x0.9) — ~0.648x the original saturation overall — hue and lightness
+// unchanged throughout.
+// Discrete 5-dBZ steps from 5 dBZ up; nothing below 5 dBZ is rendered (see
+// belowMinIsNoData in colorForProduct below), matching standard practice of
+// not displaying sub-5-dBZ returns.
 //
 // Shared (imported, not duplicated) by mrmsRaster.js so Composite and
-// NEXRAD Level II reflectivity render with the identical NOAA-based
-// palette — see that file's module doc comment. This is a shared color
-// constant only; each renderer's actual rasterization pipeline (polar
-// sweep vs. regular grid) remains fully independent.
+// NEXRAD Level II reflectivity render with the identical palette — see
+// that file's module doc comment. This is a shared color constant only;
+// each renderer's actual rasterization pipeline (polar sweep vs. regular
+// grid) remains fully independent.
 export const REFLECTIVITY_SCALE = [
-  { min: -35, color: '#39424a' }, // -35 to 0 dBZ — extremely light / drizzle / snow / clutter
-  { min: 0, color: '#55655f' },   // 0 to 15 dBZ — very light precipitation or general clutter
-  { min: 15, color: '#7dcf7d' },  // 15-20 dBZ — Light Green
-  { min: 20, color: '#4caf50' },  // 20-25 dBZ — Green
-  { min: 25, color: '#2f7d32' },  // 25-30 dBZ — Dark Green
-  { min: 30, color: '#e8dc8a' },  // 30-35 dBZ — Light Yellow
-  { min: 35, color: '#d4bf4d' },  // 35-40 dBZ — Yellow
-  { min: 40, color: '#cc8a3d' },  // 40-45 dBZ — Dark Yellow / Orange
-  { min: 45, color: '#c1663f' },  // 45-50 dBZ — Red-Orange / Light Red
-  { min: 50, color: '#b8433c' },  // 50-55 dBZ — Red
-  { min: 55, color: '#7a3030' },  // 55-60 dBZ — Dark Red
-  { min: 60, color: '#b563b5' },  // 60-65 dBZ — Fuchsia / Pink
-  { min: 65, color: '#e8dcef' },  // >65 dBZ — White / Light Purple (extreme, possible water-coated hail)
+  { min: 5, color: '#2cc1c0' },  // 5-10 dBZ
+  { min: 10, color: '#2c92c9' }, // 10-15 dBZ
+  { min: 15, color: '#2d2bc9' }, // 15-20 dBZ
+  { min: 20, color: '#2ed12e' }, // 20-25 dBZ
+  { min: 25, color: '#23a323' }, // 25-30 dBZ
+  { min: 30, color: '#197519' }, // 30-35 dBZ
+  { min: 35, color: '#d1cd2e' }, // 35-40 dBZ
+  { min: 40, color: '#bda228' }, // 40-45 dBZ
+  { min: 45, color: '#d18d2c' }, // 45-50 dBZ
+  { min: 50, color: '#d12c2c' }, // 50-55 dBZ
+  { min: 55, color: '#ae2626' }, // 55-60 dBZ
+  { min: 60, color: '#9b2121' }, // 60-65 dBZ
+  { min: 65, color: '#cd2cd1' }, // 65-70 dBZ
+  { min: 70, color: '#9468b2' }, // 70-75 dBZ
+  { min: 75, color: '#fdfdfd' }, // 75+ dBZ (already achromatic, unaffected)
 ];
 
 // Standard NWS-style diverging velocity scale: green = toward radar
@@ -120,13 +118,21 @@ function bandColor(value, scale, belowMinIsNoData) {
   return hexToRgb(match.color);
 }
 
+// NEXRAD Level II hides reflectivity below 20 dBZ — a stricter, NEXRAD-only
+// threshold than REFLECTIVITY_SCALE's own first band (5 dBZ, still used
+// as-is by MRMS Composite via mrmsRaster.js's own bandColor). Kept as a
+// separate constant rather than changing the shared scale's first stop so
+// Composite's display threshold is unaffected.
+const NEXRAD_REFLECTIVITY_HIDE_BELOW_DBZ = 20;
+
 function colorForProduct(product, realValue) {
-  // false: reflectivity's own scale now starts at -35 dBZ (see
-  // REFLECTIVITY_SCALE above) specifically so genuinely valid low-end
-  // values are preserved and colored, not discarded as no-data — the real
-  // no-data sentinel is handled separately, before colorForProduct is ever
-  // called (see rasterizeSweep's noDataByte check below).
-  if (product === 'reflectivity') return bandColor(realValue, REFLECTIVITY_SCALE, false);
+  if (product === 'reflectivity') {
+    // Below-threshold returns are left transparent rather than colored. The
+    // real no-data sentinel is handled separately, before colorForProduct is
+    // ever called (see rasterizeSweep's noDataByte check below).
+    if (realValue < NEXRAD_REFLECTIVITY_HIDE_BELOW_DBZ) return null;
+    return bandColor(realValue, REFLECTIVITY_SCALE, false);
+  }
   if (product === 'velocity') return bandColor(realValue, VELOCITY_SCALE, false);
   // Spectrum width, ZDR, and CC are all diagnostically meaningful across
   // their entire range (unlike reflectivity, where very light returns are
