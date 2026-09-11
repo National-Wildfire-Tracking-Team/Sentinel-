@@ -1,4 +1,4 @@
-import { renderHook, waitFor } from '@testing-library/react';
+import { act, renderHook, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useCombinedEvacZones } from '../../src/app/hooks/useCombinedEvacZones';
 import { fetchCAEvacZones } from '../../src/app/api/caEvacZones';
@@ -45,5 +45,37 @@ describe('useCombinedEvacZones', () => {
       zoneName: 'Active Zone',
       source: 'hosted',
     });
+  });
+
+  it('removes IPAWS alerts omitted from a successful feed snapshot', async () => {
+    const ipawsAlert = {
+      identifier: 'ipaws-1',
+      status: 'Actual',
+      msgType: 'Alert',
+      infos: [{
+        event: 'Evacuation Order',
+        expires: new Date(Date.now() + 60_000).toISOString(),
+        areas: [{
+          areaDesc: 'Test County',
+          geometry: {
+            type: 'Polygon',
+            coordinates: [[[-120, 38], [-120, 39], [-119, 39], [-120, 38]]],
+          },
+        }],
+      }],
+    };
+    fetch
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ alerts: [ipawsAlert] }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ alerts: [] }) });
+
+    const { result } = renderHook(() => useCombinedEvacZones(true));
+    await waitFor(() => expect(result.current.geoJSON.features).toHaveLength(2));
+
+    await act(async () => {
+      await result.current.refresh();
+    });
+
+    await waitFor(() => expect(result.current.geoJSON.features).toHaveLength(1));
+    expect(result.current.geoJSON.features[0].properties.source).toBe('hosted');
   });
 });

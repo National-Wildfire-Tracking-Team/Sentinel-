@@ -18,6 +18,8 @@
  * This function fetches CSV and returns it as text/csv for the client to parse.
  */
 
+import { guardExpensiveRequest } from '../_shared/requestGuard.ts';
+
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
@@ -31,6 +33,11 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
+    const guard = await guardExpensiveRequest(req, 'firms-proxy', 30);
+    if (!guard.ok) {
+      return jsonResponse({ error: guard.error }, guard.status);
+    }
+
     const NASA_FIRMS_API_KEY = Deno.env.get('NASA_FIRMS_API_KEY') ?? '';
 
     if (!NASA_FIRMS_API_KEY) {
