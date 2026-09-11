@@ -72,6 +72,9 @@ create table if not exists public.edge_rate_limits (
   primary key (function_name, subject, window_start)
 );
 
+create index if not exists edge_rate_limits_window_idx
+  on public.edge_rate_limits(window_start);
+
 alter table public.edge_rate_limits enable row level security;
 
 create or replace function public.consume_edge_rate_limit(

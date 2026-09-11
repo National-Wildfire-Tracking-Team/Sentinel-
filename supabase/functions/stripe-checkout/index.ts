@@ -97,7 +97,7 @@ Deno.serve(async (req: Request) => {
         SUPABASE_SERVICE_ROLE_KEY,
       );
       const { error: persistError } = await serviceSupabase.from('subscriptions').upsert(
-        { user_id: user.id, stripe_customer_id: customerId, plan: 'free', status: 'active' },
+        { user_id: user.id, stripe_customer_id: customerId },
         { onConflict: 'user_id' },
       );
       if (persistError) {
