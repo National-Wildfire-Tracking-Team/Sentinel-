@@ -31,8 +31,7 @@ export function useSavedLocations() {
       const { data, error: err } = await supabase
         .from('saved_locations')
         .select('*')
-        .order('created_at', { ascending: true })
-        .limit(locationLimit);
+        .order('created_at', { ascending: true });
       if (err) throw err;
       setLocations(data || []);
     } catch (err) {
@@ -40,10 +39,10 @@ export function useSavedLocations() {
     } finally {
       setLoading(false);
     }
-  }, [isAuthenticated, locationLimit]);
+  }, [isAuthenticated]);
 
   useEffect(() => {
-    if (!isAuthenticated || !isSupabaseConfigured) {
+    if (!isAuthenticated || !user?.id || !isSupabaseConfigured) {
       setLocations([]);
       return;
     }
@@ -86,7 +85,7 @@ export function useSavedLocations() {
 
     const { data, error: err } = await supabase
       .from('saved_locations')
-      .insert({ user_id: user.id, name, address, latitude, longitude, alerts_enabled: true })
+      .insert({ user_id: user.id, name, address, latitude, longitude, notify_new_fires: true })
       .select()
       .single();
 
@@ -117,7 +116,7 @@ export function useSavedLocations() {
   }, []);
 
   return {
-    locations: locations.slice(0, locationLimit),
+    locations,
     loading,
     error,
     refresh: load,
@@ -125,6 +124,7 @@ export function useSavedLocations() {
     removeLocation,
     updateLocation,
     atLimit: locations.length >= locationLimit,
+    overLimit: locations.length > locationLimit,
     limit: locationLimit,
   };
 }

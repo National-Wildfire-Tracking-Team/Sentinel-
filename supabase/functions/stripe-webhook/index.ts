@@ -179,14 +179,17 @@ async function verifyStripeSignature(
   body: ArrayBuffer,
 ): Promise<boolean> {
   try {
-    const parts: Record<string, string> = {};
+    let timestamp = '';
+    const expectedSignatures: string[] = [];
     for (const part of signatureHeader.split(',')) {
-      const [k, v] = part.split('=');
-      parts[k] = v;
+      const separator = part.indexOf('=');
+      if (separator < 0) continue;
+      const key = part.slice(0, separator).trim();
+      const value = part.slice(separator + 1).trim();
+      if (key === 't') timestamp = value;
+      if (key === 'v1') expectedSignatures.push(value);
     }
-    const timestamp = parts['t'];
-    const expectedSig = parts['v1'];
-    if (!timestamp || !expectedSig) return false;
+    if (!timestamp || expectedSignatures.length === 0) return false;
 
     const payload = `${timestamp}.${new TextDecoder().decode(body)}`;
     const enc = new TextEncoder();
@@ -202,10 +205,19 @@ async function verifyStripeSignature(
       .map(b => b.toString(16).padStart(2, '0'))
       .join('');
 
-    return hex === expectedSig;
+    return expectedSignatures.some(expected => timingSafeHexEqual(hex, expected));
   } catch {
     return false;
   }
+}
+
+function timingSafeHexEqual(actual: string, expected: string): boolean {
+  if (actual.length !== expected.length) return false;
+  let difference = 0;
+  for (let i = 0; i < actual.length; i += 1) {
+    difference |= actual.charCodeAt(i) ^ expected.charCodeAt(i);
+  }
+  return difference === 0;
 }
 
 async function stripeGet(secretKey: string, path: string): Promise<Response> {

@@ -17,6 +17,8 @@
  *   autocomplete? boolean – enable autocomplete (default: true)
  */
 
+import { guardExpensiveRequest } from '../_shared/requestGuard.ts';
+
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -55,6 +57,15 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
+    const guard = await guardExpensiveRequest(req, 'mapbox-geocoding', 60);
+    if (!guard.ok) {
+      return jsonResponse(
+        { error: guard.error },
+        guard.status,
+        guard.status === 429 ? { 'Retry-After': '60' } : {},
+      );
+    }
+
     // Enforce rate limit before making the upstream request
     const { limited, retryAfterMs } = isRateLimited();
     if (limited) {

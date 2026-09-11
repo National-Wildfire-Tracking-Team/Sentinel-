@@ -67,9 +67,10 @@ export const PLANS = {
 
 export function usePlan() {
   const { subscription, isReporter } = useAuth();
+  const paidStatuses = ['active', 'trialing', 'past_due'];
 
   const planId =
-    subscription?.status === 'active' || subscription?.status === 'trialing'
+    paidStatuses.includes(subscription?.status)
       ? (subscription?.plan ?? 'free')
       : 'free';
 
@@ -90,7 +91,7 @@ export function usePlan() {
     isPaid: isPaidPlan,
     hasProInfrastructureAccess,
     hasFireBehaviorModelingAccess,
-    isActive: subscription?.status === 'active' || subscription?.status === 'trialing' || planId === 'free',
+    isActive: paidStatuses.includes(subscription?.status) || planId === 'free',
     cancelAtPeriodEnd: subscription?.cancel_at_period_end ?? false,
     currentPeriodEnd: subscription?.current_period_end ?? null,
   };

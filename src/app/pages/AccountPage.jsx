@@ -26,7 +26,7 @@ export default function AccountPage() {
   const { planId, plan, subscription, isPaid, cancelAtPeriodEnd, currentPeriodEnd } = usePlan();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { locations } = useSavedLocations();
+  const { locations, updateLocation, overLimit, limit: locationLimit } = useSavedLocations();
   const { nwsAlertTypes, toggleAlertType, error: notifyPrefsError } = useNotificationPreferences();
 
   const [resetSent, setResetSent] = useState(false);
@@ -35,6 +35,8 @@ export default function AccountPage() {
 
   const [portalBusy, setPortalBusy] = useState(false);
   const [portalError, setPortalError] = useState(null);
+  const [fireToggleBusy, setFireToggleBusy] = useState(null);
+  const [fireToggleError, setFireToggleError] = useState(null);
 
   const checkoutResult = searchParams.get('checkout');
 
@@ -95,6 +97,18 @@ export default function AccountPage() {
       setPortalError(err.message);
     } finally {
       setPortalBusy(false);
+    }
+  }
+
+  async function handleFireToggle(location) {
+    setFireToggleError(null);
+    setFireToggleBusy(location.id);
+    try {
+      await updateLocation(location.id, { notify_new_fires: !location.notify_new_fires });
+    } catch (err) {
+      setFireToggleError(err?.message || 'Failed to update fire notifications.');
+    } finally {
+      setFireToggleBusy(null);
     }
   }
 
@@ -323,6 +337,13 @@ export default function AccountPage() {
             </span>
           </div>
 
+          {overLimit && (
+            <p className="text-xs text-yellow-400">
+              You have {locations.length - locationLimit} location{locations.length - locationLimit === 1 ? '' : 's'} over your current plan limit.
+              Remove an existing location before adding another.
+            </p>
+          )}
+
           {(!locations || locations.length === 0) ? (
             <p className="text-xs text-sentinel-400">
               No zip codes saved yet.{' '}
@@ -357,14 +378,43 @@ export default function AccountPage() {
           </h2>
 
           <p className="text-xs text-sentinel-400">
-            New wildfires are emailed automatically for any saved zip code with fire alerts enabled.
+            Choose which saved zip codes receive new-wildfire emails.
             Choose which NWS weather alerts you'd also like emailed when they're issued for one of your saved zip codes.
           </p>
 
-          {notifyPrefsError && (
-            <p className="text-xs text-red-400">{notifyPrefsError}</p>
+          {(notifyPrefsError || fireToggleError) && (
+            <p className="text-xs text-red-400">{notifyPrefsError || fireToggleError}</p>
           )}
 
+          {locations.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-sentinel-400">New wildfire alerts</p>
+              {locations.map((location) => {
+                const active = location.notify_new_fires !== false;
+                return (
+                  <div key={location.id} className="flex items-center justify-between gap-3 text-xs">
+                    <span className="truncate text-sentinel-200">{location.name}</span>
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={active}
+                      disabled={fireToggleBusy === location.id}
+                      onClick={() => handleFireToggle(location)}
+                      className={`shrink-0 rounded-full border px-2.5 py-1 text-[11px] transition-colors disabled:opacity-50 ${
+                        active
+                          ? 'bg-fire-600/15 border-fire-500/40 text-fire-300'
+                          : 'bg-sentinel-800 border-sentinel-600 text-sentinel-400'
+                      }`}
+                    >
+                      {active ? 'On' : 'Off'}
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-sentinel-400">NWS weather alert types</p>
           <div className="flex flex-wrap gap-2">
             {NOTIFIABLE_ALERT_TYPES.map((type) => {
               const active = nwsAlertTypes.includes(type);
