@@ -63,6 +63,49 @@ export const VELOCITY_SCALE = [
   { min: 100, color: '#ff0000' },
 ];
 
+// Spectrum width (knots) — a QC/turbulence diagnostic, not a precip-intensity
+// field, so a simple calm-to-turbulent gradient rather than a dense banded
+// scale. Muted to match REFLECTIVITY_SCALE's desaturated house style, not
+// the raw neon convention some NWS viewers use.
+export const SPECTRUM_WIDTH_SCALE = [
+  { min: 0, color: '#8fb3c9' },  // calm / laminar (most common)
+  { min: 4, color: '#5fa88f' },
+  { min: 8, color: '#c9b568' },
+  { min: 12, color: '#c98a4a' },
+  { min: 18, color: '#b8523f' }, // turbulent (mesocyclone/tornado signature)
+  { min: 25, color: '#7a3030' },
+];
+
+// Differential reflectivity (dB) — muted version of the conventional NWS
+// ZDR palette (negative/blue -> near-zero/green -> positive/warm -> very
+// high/pink for biological or huge-drop returns). Reserves the coldest
+// colors for the rare, strongly-negative values sometimes seen in hail.
+export const ZDR_SCALE = [
+  { min: -13, color: '#5b5ba6' }, // rare, strongly negative (hail signature)
+  { min: -1, color: '#5f8fa8' },
+  { min: 0, color: '#5fa88f' },   // near-zero — small/round drops, most common
+  { min: 1, color: '#8fb35f' },
+  { min: 2, color: '#c9b568' },
+  { min: 3, color: '#c98a4a' },
+  { min: 4, color: '#b8523f' },
+  { min: 6, color: '#7a3030' },
+  { min: 10, color: '#a65fa6' },  // very high — biological/large drops
+];
+
+// Correlation coefficient (unitless, 0-~1.05) — the meteorologically
+// interesting range is compressed near 1.0 (pure precipitation), so bands
+// are deliberately non-uniform: wide at the low end (non-meteorological
+// scatterers/debris — a single "low CC" signal is what matters there) and
+// narrow near 1.0 (where subtle drops matter for hail/debris detection).
+export const CC_SCALE = [
+  { min: 0.2, color: '#6b4a8a' },  // debris / non-meteorological
+  { min: 0.7, color: '#5f7fa8' },
+  { min: 0.85, color: '#5fa8a0' },
+  { min: 0.93, color: '#5fa87d' },
+  { min: 0.97, color: '#8fb35f' },
+  { min: 0.99, color: '#c9b568' }, // near-perfect correlation — typical rain
+];
+
 function hexToRgb(hex) {
   const n = parseInt(hex.slice(1), 16);
   return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
@@ -85,6 +128,15 @@ function colorForProduct(product, realValue) {
   // called (see rasterizeSweep's noDataByte check below).
   if (product === 'reflectivity') return bandColor(realValue, REFLECTIVITY_SCALE, false);
   if (product === 'velocity') return bandColor(realValue, VELOCITY_SCALE, false);
+  // Spectrum width, ZDR, and CC are all diagnostically meaningful across
+  // their entire range (unlike reflectivity, where very light returns are
+  // deliberately hidden as visual noise) — belowMinIsNoData stays false so
+  // no part of the real, decoded range is hidden. The actual no-data
+  // sentinel (undecoded/below-threshold gates) is handled separately, before
+  // colorForProduct is ever called — see rasterizeSweep's noDataByte check.
+  if (product === 'spectrumWidth') return bandColor(realValue, SPECTRUM_WIDTH_SCALE, false);
+  if (product === 'zdr') return bandColor(realValue, ZDR_SCALE, false);
+  if (product === 'cc') return bandColor(realValue, CC_SCALE, false);
   return null;
 }
 

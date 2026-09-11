@@ -11,7 +11,8 @@
  *   Header (44 bytes)
  *     0   4   ASCII    magic "NXR1"
  *     4   1   uint8    format version (1)
- *     5   1   uint8    product: 0 = reflectivity, 1 = velocity
+ *     5   1   uint8    product: 0 = reflectivity, 1 = velocity, 2 = spectrumWidth,
+ *                      3 = zdr, 4 = cc
  *     6   2   uint16   reserved (0)
  *     8   4   ASCII    site_id (4-letter ICAO code)
  *    12   8   float64  scan_time, epoch milliseconds
@@ -32,13 +33,33 @@ const HEADER_BYTES = 44;
 const NO_DATA_BYTE = 255;
 const MAX_LEVEL = 254; // 0..254 used for real values, 255 reserved for no-data
 
-export const PRODUCT_CODES = { reflectivity: 0, velocity: 1 };
-export const PRODUCT_NAMES = ['reflectivity', 'velocity'];
+export const PRODUCT_CODES = {
+  reflectivity: 0, velocity: 1, spectrumWidth: 2, zdr: 3, cc: 4,
+};
+export const PRODUCT_NAMES = ['reflectivity', 'velocity', 'spectrumWidth', 'zdr', 'cc'];
 
-// Physical ranges used to quantize each product into a single byte.
+// Physical ranges used to quantize each product into a single byte. Derived
+// from real decoded NEXRAD Level II data (nexrad-level-2-data), not
+// documentation guesses — cross-checked against two real, independent
+// volumes (KMLB VCP 215, KTLX VCP 212):
+//   spectrumWidth: decoder's native unit is m/s (same Doppler message as
+//     velocity); converted to knots here for the same reason velocity is —
+//     "the NWS-conventional display unit used everywhere else in this app".
+//     Observed real max ~18 m/s (~35 kt) on both volumes; 40kt gives margin.
+//   zdr: observed byte-representable range was IDENTICAL (-13 to 20 dB) on
+//     both volumes despite being different sites/storms/VCPs — the
+//     decoder's fixed scale/offset for this moment (scale=32, offset=418 on
+//     both) means this is the format's actual representable range, not an
+//     incidental sample.
+//   cc: same finding — identical observed range (0.2083 to 1.0517) on both
+//     volumes (scale=300, offset=-60.5 on both), rounded slightly for a
+//     cleaner byte-per-unit step.
 export const QUANT_RANGE = {
-  reflectivity: { min: -32, max: 95 }, // dBZ
-  velocity: { min: -100, max: 100 },   // knots
+  reflectivity: { min: -32, max: 95 },   // dBZ
+  velocity: { min: -100, max: 100 },     // knots
+  spectrumWidth: { min: 0, max: 40 },    // knots
+  zdr: { min: -13, max: 20 },            // dB
+  cc: { min: 0.2, max: 1.06 },           // unitless correlation coefficient
 };
 
 function scaleOffsetFor(product) {
