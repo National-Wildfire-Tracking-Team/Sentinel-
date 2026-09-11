@@ -384,13 +384,18 @@ const GLOBE_FOG = {
  */
 const OUTLOOK_LAYER_IDS = new Set(['spc-outlook-fill', 'drought-outlook-fill', 'fire-weather-outlook-fill', 'nhc-disturbance-fill', 'nhc-disturbance-circle', 'nhc-track-circle', 'nhc-obs-circle', 'nhc-watch-warning-line', 'wpc-ero-fill', 'wpc-wssi-fill', 'wpc-qpf-fill', 'wpc-fronts-solid', 'wpc-fronts-dashed', 'wpc-fronts-stationary-line']);
 
+// Warning and mesoscale-discussion hover boxes share one fixed width so they
+// line up cleanly when stacked together above the cursor.
+const HOVER_MATCHED_WIDTH_LAYER_IDS = new Set(['weather-alerts-fill', 'spc-md-fill']);
+
 // Caltrans only reports a camera's facing as a cardinal direction (no
 // numeric bearing in the source data) — map it to degrees so the hover
 // tooltip can render a rotated direction arrow for quick recognition.
 const CAMERA_DIRECTION_DEGREES = { North: 0, East: 90, South: 180, West: 270 };
 
-function HoverTooltip({ feature, lngLat }) {
-  if (!feature || !lngLat) return null;
+// Builds the hover-tooltip content for a single map feature. Returns null
+// when the feature's layer has no hover tooltip defined.
+function getHoverContent(feature) {
   const p = feature.properties;
   const layerId = feature.layer.id;
   const isOutlookPopup = OUTLOOK_LAYER_IDS.has(layerId);
@@ -1147,7 +1152,45 @@ function HoverTooltip({ feature, lngLat }) {
 
   const popupShell = isOutlookPopup
     ? 'bg-black border border-zinc-700 rounded-lg p-3 shadow-2xl shadow-black/70 text-sm min-w-[160px] ring-1 ring-white/10'
-    : 'bg-sentinel-800 border border-sentinel-600 rounded-lg p-2.5 shadow-2xl text-sm min-w-[140px]';
+    : HOVER_MATCHED_WIDTH_LAYER_IDS.has(layerId)
+      ? 'bg-sentinel-800 border border-sentinel-600 rounded-lg p-2.5 shadow-2xl text-sm w-[220px]'
+      : 'bg-sentinel-800 border border-sentinel-600 rounded-lg p-2.5 shadow-2xl text-sm min-w-[140px]';
+
+  return { content, popupShell };
+}
+
+// Stacking priority for hover boxes: warnings must render above (visually
+// higher than) mesoscale-discussion boxes when a warning polygon is hovered
+// inside an MD polygon. Lower number = higher in the stack. Everything else
+// keeps its natural (topmost-feature-first) order via the stable sort below.
+const HOVER_STACK_PRIORITY = { 'weather-alerts-fill': 0, 'spc-md-fill': 2 };
+const HOVER_STACK_DEFAULT_PRIORITY = 1;
+
+// Renders one independent box per hovered map feature, stacked above the
+// cursor in a single popup so overlapping features (e.g. a warning polygon
+// over an MD polygon) are all fully visible instead of only the topmost one.
+function HoverTooltip({ features, lngLat }) {
+  if (!features?.length || !lngLat) return null;
+
+  const items = features
+    .map((feature, i) => {
+      const result = getHoverContent(feature);
+      if (!result) return null;
+      const key = `${feature.layer.id}:${feature.id ?? feature.properties?.id ?? i}`;
+      return { key, layerId: feature.layer.id, ...result };
+    })
+    .filter(Boolean);
+
+  if (!items.length) return null;
+
+  const ordered = items
+    .map((item, i) => ({ item, i }))
+    .sort((a, b) => {
+      const pa = HOVER_STACK_PRIORITY[a.item.layerId] ?? HOVER_STACK_DEFAULT_PRIORITY;
+      const pb = HOVER_STACK_PRIORITY[b.item.layerId] ?? HOVER_STACK_DEFAULT_PRIORITY;
+      return pa - pb || a.i - b.i;
+    })
+    .map(({ item }) => item);
 
   return (
     <Popup
@@ -1159,8 +1202,12 @@ function HoverTooltip({ feature, lngLat }) {
       offset={[0, -8]}
       className="sentinel-popup"
     >
-      <div className={popupShell}>
-        {content}
+      <div className="flex flex-col gap-1.5">
+        {ordered.map(item => (
+          <div key={item.key} className={item.popupShell}>
+            {item.content}
+          </div>
+        ))}
       </div>
     </Popup>
   );
@@ -1353,9 +1400,9 @@ export default function MapView({
   const isWeatherTab    = activeMapTab === 'weather';
   const isAllHazardTab  = activeMapTab === 'allhazard';
 
-  // Hover tooltip state
-  const [hoverFeature, setHoverFeature] = useState(null);
-  const [hoverLngLat,  setHoverLngLat]  = useState(null);
+  // Hover tooltip state (array so overlapping features each get their own box)
+  const [hoverFeatures, setHoverFeatures] = useState(null);
+  const [hoverLngLat,   setHoverLngLat]   = useState(null);
 
   /** NDGD smoke: which forecast hour (index into sorted unique `todate` values) */
   const [ndgdSmokeHourIndex, setNdgdSmokeHourIndex] = useState(0);
@@ -1543,7 +1590,7 @@ export default function MapView({
 
   // Clear stale hover when layers change
   useEffect(() => {
-    setHoverFeature(null);
+    setHoverFeatures(null);
     setHoverLngLat(null);
     setFeaturePopup(null);
   }, [layers]);
@@ -1636,13 +1683,24 @@ export default function MapView({
     }
     const features = evt.features;
     if (features?.length) {
-      setHoverFeature(features[0]);
+      // Keep every feature stacked at the cursor (deduped by layer + id) so
+      // the hover tooltip can show one independent box per feature, not
+      // just the topmost one.
+      const seen = new Set();
+      const deduped = [];
+      for (const f of features) {
+        const key = `${f.layer.id}:${f.id ?? f.properties?.id ?? ''}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        deduped.push(f);
+      }
+      setHoverFeatures(deduped);
       setHoverLngLat(evt.lngLat);
       if (mapRef.current) {
         mapRef.current.getCanvas().style.cursor = 'pointer';
       }
     } else {
-      setHoverFeature(null);
+      setHoverFeatures(null);
       setHoverLngLat(null);
       if (mapRef.current) {
         mapRef.current.getCanvas().style.cursor = '';
@@ -1652,7 +1710,7 @@ export default function MapView({
 
   const handleMouseLeave = useCallback(() => {
     setMeasurePreview(null);
-    setHoverFeature(null);
+    setHoverFeatures(null);
     setHoverLngLat(null);
     if (mapRef.current) {
       mapRef.current.getCanvas().style.cursor = '';
@@ -2063,7 +2121,7 @@ export default function MapView({
         )}
 
         {/* Hover tooltip */}
-        <HoverTooltip feature={hoverFeature} lngLat={hoverLngLat} />
+        <HoverTooltip features={hoverFeatures} lngLat={hoverLngLat} />
 
         {/* Popup Spotlight for the selected weather alert / evac zone, however it was selected */}
         {spotlightGeometry && (

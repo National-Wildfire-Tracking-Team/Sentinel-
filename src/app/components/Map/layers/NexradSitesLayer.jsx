@@ -105,7 +105,7 @@ const NexradSitesLayer = memo(function NexradSitesLayer({ geoJSON, visible, sele
           visibility: vis,
           'icon-image': PILL_ICON_ID,
           'icon-text-fit': 'width',
-          'icon-text-fit-padding': [2, 5, 2, 5],
+          'icon-text-fit-padding': [2, 2, 2, 2],
           'text-field': ['get', 'id'],
           'text-font': ['DIN Pro Bold', 'Arial Unicode MS Bold'],
           'text-size': 9,
