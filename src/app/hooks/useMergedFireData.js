@@ -156,8 +156,39 @@ function mergeFireData(perimeters, incidents, calFireDotsGeoJSON = null) {
     }
   });
 
+  // Pass 0: ID-based matching — WFIGS Perimeters and Incident Locations both
+  // carry the same canonical UniqueFireIdentifier for a given real-world
+  // fire. This is more reliable than name/geometry matching: it still links
+  // a perimeter to its incident even when the incident's point sits outside
+  // the (possibly still-growing) perimeter polygon, or the two services
+  // report slightly different name strings.
+  const incidentsById = new Map();
+  mergedIncidents.features.forEach(f => {
+    const id = f.properties.UniqueFireIdentifier;
+    if (id) incidentsById.set(id, f.properties);
+  });
+
+  const idMatchedFeatures = perimeters.features.map(f => {
+    const id = f.properties.UniqueFireIdentifier;
+    const inc = id ? incidentsById.get(id) : null;
+    if (!inc) return f;
+    const incKey = getFireMatchKey(inc.IncidentName);
+    if (incKey) usedKeys.add(incKey);
+    return {
+      ...f,
+      properties: {
+        ...f.properties,
+        IncidentName: getFireMatchKey(f.properties.IncidentName) ? f.properties.IncidentName : inc.IncidentName,
+        FireCause: f.properties.FireCause || inc.FireCause || 'Undetermined',
+        GISAcres: Math.max(f.properties.GISAcres || 0, inc.GISAcres || 0),
+        TotalIncidentPersonnel:
+          f.properties.TotalIncidentPersonnel || inc.TotalIncidentPersonnel || 0,
+      },
+    };
+  });
+
   // Pass 1: name-based matching
-  const enrichedFeatures = perimeters.features.map(f => {
+  const enrichedFeatures = idMatchedFeatures.map(f => {
     const key = getFireMatchKey(f.properties.IncidentName);
     if (key && incidentsByKey.has(key)) {
       usedKeys.add(key);
