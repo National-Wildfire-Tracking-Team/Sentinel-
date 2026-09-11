@@ -55,57 +55,27 @@ const TAB_SECTIONS = {
     {
       id: 'ah-fire',
       title: 'Fire activity',
-      subtitle: 'Perimeters, hotspots, and incidents',
       groups: [
         {
-          label: 'Core layers',
-          layers: ['fireHotspots', 'ngfsDetections', 'firePerimeters', 'calFireHistoricalPerimeters', 'incidentLocations'],
-        },
-        {
-          label: 'Evacuation',
-          layers: ['evacZones'],
-        },
-        {
-          label: 'Modeling',
-          layers: ['fireBehaviorModeling'],
+          layers: ['firePerimeters', 'incidentLocations', 'evacZones', 'fireHotspots', 'ngfsDetections', 'calFireHistoricalPerimeters', 'fireBehaviorModeling'],
         },
       ],
     },
     {
       id: 'ah-weather',
       title: 'Weather hazards',
-      subtitle: 'Alerts, radar, and storm data',
       groups: [
         {
-          label: 'Active weather',
-          layers: ['weatherAlerts', 'stormReports', 'damageAssessment', 'radarComposite', 'radarNexrad'],
-        },
-        {
-          label: 'Flood & water',
-          layers: ['waterGauges'],
-        },
-        {
-          label: 'Outlooks',
-          layers: ['spcWeatherOutlooks', 'fireWeatherOutlooks', 'fireRiskOutlook', 'wpcEro', 'wpcWssi', 'wpcQpf', 'wpcFronts'],
+          layers: ['weatherAlerts', 'stormReports', 'damageAssessment', 'radarComposite', 'radarNexrad', 'waterGauges', 'spcWeatherOutlooks', 'fireWeatherOutlooks', 'fireRiskOutlook', 'wpcEro', 'wpcWssi', 'wpcQpf', 'wpcFronts'],
         },
       ],
     },
     {
       id: 'ah-monitoring',
       title: 'Monitoring & imagery',
-      subtitle: 'Smoke, air quality, and satellite',
       groups: [
         {
-          label: 'Smoke & drought',
-          layers: ['ndgdSmokeForecast', 'smoke', 'droughtOutlook'],
-        },
-        {
-          label: 'Air quality',
-          layers: ['airNowMonitors', 'aqi'],
-        },
-        {
-          label: 'Satellite & stations',
-          layers: ['goesEast', 'goesWest', 'rawsStations'],
+          layers: ['ndgdSmokeForecast', 'smoke', 'droughtOutlook', 'airNowMonitors', 'aqi', 'goesEast', 'goesWest', 'rawsStations'],
         },
       ],
     },
@@ -114,35 +84,23 @@ const TAB_SECTIONS = {
     {
       id: 'wf-activity',
       title: 'Fire activity',
-      subtitle: 'Perimeters, hotspots, and incidents',
       groups: [
         {
-          label: 'Core layers',
-          layers: ['fireHotspots', 'ngfsDetections', 'firePerimeters', 'calFireHistoricalPerimeters', 'incidentLocations', 'goesFireTemperature'],
-        },
-        {
-          label: 'Modeling',
-          layers: ['fireBehaviorModeling'],
+          layers: [
+            { key: 'weatherAlerts', label: 'Red Flag Warnings', sublabel: 'NWS active Red Flag Warnings' },
+            'evacZones',
+            'firePerimeters', 'incidentLocations',
+            'fireHotspots', 'ngfsDetections', 'calFireHistoricalPerimeters', 'goesFireTemperature',
+            'fireBehaviorModeling',
+          ],
         },
       ],
     },
     {
       id: 'wf-evac',
-      title: 'Evacuation & outlooks',
-      subtitle: 'Zones, smoke, and fire-weather products',
+      title: 'Outlooks',
       groups: [
         {
-          label: 'Fire weather',
-          layers: [
-            { key: 'weatherAlerts', label: 'Red Flag Warnings', sublabel: 'NWS active Red Flag Warnings' },
-          ],
-        },
-        {
-          label: 'Evacuation',
-          layers: ['evacZones'],
-        },
-        {
-          label: 'Outlooks & smoke',
           layers: ['fireRiskOutlook', 'ndgdSmokeForecast', 'droughtOutlook', 'fireWeatherOutlooks', 'goesFire16', 'goesFire18'],
         },
       ],
@@ -150,19 +108,9 @@ const TAB_SECTIONS = {
     {
       id: 'wf-monitor',
       title: 'Monitoring',
-      subtitle: 'Stations, sensors, and air quality',
       groups: [
         {
-          label: 'Flood & water',
-          layers: ['waterGauges'],
-        },
-        {
-          label: 'Stations',
-          layers: ['rawsStations', 'airNowMonitors'],
-        },
-        {
-          label: 'Live cameras',
-          layers: ['wildfireCameras'],
+          layers: ['waterGauges', 'rawsStations', 'airNowMonitors', 'wildfireCameras'],
         },
       ],
     },
@@ -433,8 +381,7 @@ const LayerControl = memo(function LayerControl({
       {
         id: 'wf-infra',
         title: 'Infrastructure',
-        subtitle: activeMapTab === 'weather' ? undefined : 'Energy & key facilities (Pro)',
-        groups: [{ label: activeMapTab === 'weather' ? undefined : 'Layers', layers: infraLayers.map((l) => l.key) }],
+        groups: [{ layers: infraLayers.map((l) => l.key) }],
         infraLayers,
       },
     ];
@@ -489,11 +436,6 @@ const LayerControl = memo(function LayerControl({
                 <span className="text-[11px] font-bold text-white uppercase tracking-wider">
                   Map layers
                 </span>
-                <p className="text-[10px] text-zinc-400 mt-0.5 truncate">
-                  {activeMapTab === 'weather'   ? 'Weather alerts, outlooks, and radar' :
-                   activeMapTab === 'allhazard' ? 'All hazards — fire, weather, smoke, and more' :
-                   'Wildfire activity, evacuation zones (California + IPAWS polygons), and outlook data'}
-                </p>
               </div>
 
               <div className="flex items-center gap-1 shrink-0">
