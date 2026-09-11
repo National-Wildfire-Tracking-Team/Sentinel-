@@ -1308,10 +1308,18 @@ export default function MapView({
   mapBottomBarHeight,
   radarTimelineRef,
 }) {
-  const { layers, alerts, selectedFire, selectFire, selectGauge, selectRadarSite, selectCamera, sidebarOpen, locationGranted, userLocation, setUserLocation, layerPanelOpen, closeLayerPanel } = useApp();
+  const { layers, alerts, selectedFire, selectFire, selectGauge, selectedRadarSite, selectRadarSite, selectCamera, sidebarOpen, locationGranted, userLocation, setUserLocation, layerPanelOpen, closeLayerPanel } = useApp();
   const { viewport, setViewport } = useViewport();
   const { prefs: displayPrefs } = usePreferences();
   const mapRef = useRef(null);
+
+  // First symbol (label) layer in the current basemap style — used as the
+  // `beforeId` anchor for radar raster layers so roads, admin boundaries,
+  // and labels (all of which come before labels in a standard Mapbox style
+  // stack) render on top of radar instead of being painted over by it.
+  // Recomputed on every load since `key={mapType}` remounts <Map> (and so
+  // re-fires onLoad) whenever the basemap style itself changes.
+  const [radarBeforeId, setRadarBeforeId] = useState(null);
 
   // Popup shown when a click hits multiple stacked features at once
   const [featurePopup, setFeaturePopup] = useState(null);
@@ -1675,6 +1683,16 @@ export default function MapView({
     setProbeMoving(false);
   }, []);
 
+  const handleMapLoad = useCallback((e) => {
+    try {
+      const symbolLayer = e.target.getStyle()?.layers?.find(l => l.type === 'symbol');
+      setRadarBeforeId(symbolLayer?.id ?? null);
+    } catch {
+      setRadarBeforeId(null);
+    }
+    onMapLoad?.(e);
+  }, [onMapLoad]);
+
   return (
     <div className="absolute inset-0 bg-sentinel-900">
       {/* Wildfire tab: fire weather outlook selector only (convective uses combined control on weather tab) */}
@@ -1730,7 +1748,7 @@ export default function MapView({
         onMouseLeave={handleMouseLeave}
         onMove={handleMove}
         onMoveEnd={handleMoveEnd}
-        onLoad={onMapLoad}
+        onLoad={handleMapLoad}
         transformRequest={transformRequest}
         attributionControl={false}
         maxTileCacheSize={150}
@@ -1772,6 +1790,7 @@ export default function MapView({
           mrmsDataUrl={mrmsDataUrl}
           mrmsCoordinates={mrmsCoordinates}
           mrmsFresh={mrmsFresh}
+          beforeId={radarBeforeId}
         />
 
         {/* Smoke forecast */}
@@ -1955,6 +1974,7 @@ export default function MapView({
         <NexradSitesLayer
           geoJSON={nexradSitesGeoJSON}
           visible={(isWeatherTab || isAllHazardTab) && layers.radarNexrad}
+          selectedId={selectedRadarSite?.id}
         />
 
         {/* Live California highway cameras — Caltrans District CCTV */}
@@ -1968,6 +1988,7 @@ export default function MapView({
           dataUrl={nexradScanUrl}
           coordinates={nexradScanCoordinates}
           visible={Boolean(nexradScanUrl)}
+          beforeId={radarBeforeId}
         />
 
         {/* CAL FIRE FRAP historical fire perimeter scars */}

@@ -348,7 +348,7 @@ const LayerControl = memo(function LayerControl({
   onPrecipRingToggle,
   radarPanelClearance = 0,
 }) {
-  const { layerPanelOpen, toggleLayerPanel, toggleLayer } = useApp();
+  const { layerPanelOpen, toggleLayerPanel } = useApp();
   const [collapsed, setCollapsed] = useState({});
 
   const infraLayers = useMemo(() => [
@@ -565,7 +565,6 @@ const LayerControl = memo(function LayerControl({
                                     sublabel={sublabel}
                                     icon={def.icon}
                                     color={def.color}
-                                    onToggle={(layerKey === 'radarComposite' || layerKey === 'radarNexrad') ? () => { toggleLayer(layerKey); toggleLayerPanel(); } : undefined}
                                   />
 
                                   {layerKey === 'fireRiskOutlook' && (

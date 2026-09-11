@@ -24,7 +24,7 @@ const IEM_NEXRAD_WMS =
   '&FORMAT=image/png&TRANSPARENT=true&SRS=EPSG:3857' +
   '&WIDTH=256&HEIGHT=256&BBOX={bbox-epsg-3857}';
 
-const RadarLayer = memo(function RadarLayer({ visible, mrmsDataUrl, mrmsCoordinates, mrmsFresh }) {
+const RadarLayer = memo(function RadarLayer({ visible, mrmsDataUrl, mrmsCoordinates, mrmsFresh, beforeId }) {
   const useMrms = visible && mrmsFresh && Boolean(mrmsDataUrl) && Boolean(mrmsCoordinates);
   const iemVis = visible && !useMrms ? 'visible' : 'none';
 
@@ -35,24 +35,13 @@ const RadarLayer = memo(function RadarLayer({ visible, mrmsDataUrl, mrmsCoordina
           <Layer
             id="mrms-composite-raster"
             type="raster"
+            beforeId={beforeId}
             paint={{
-              'raster-opacity': 0.85,
+              'raster-opacity': 0.75,
               'raster-fade-duration': 300,
-              // 'linear', not 'nearest' — verified directly against real
-              // production MRMS data (real storms over the FL panhandle,
-              // real KMLB-adjacent Gulf cells) at regional through very
-              // close zoom: 'nearest' made every one of the grid's 0.02°
-              // (~2.2km) cells an obvious visible square once zoomed past
-              // regional scale — exactly the "blocky" complaint this was
-              // meant to avoid. 'linear' produces smooth, storm-shaped
-              // structure with clean coastline/ocean edges and distinct
-              // color bands at every zoom tested, with no observed "haze"
-              // or muddy-color downside in this data. If a future dataset
-              // does show unacceptable blur, prefer increasing the source
-              // grid resolution over reverting to 'nearest' — the
-              // blockiness is a resolution/resampling mismatch, not a
-              // reason to un-smooth adjacent real cells.
-              'raster-resampling': 'linear',
+              // 'nearest', not 'linear' — no GPU resampling, full native
+              // grain of the 0.01° source grid at every zoom.
+              'raster-resampling': 'nearest',
             }}
           />
         </Source>
@@ -70,10 +59,11 @@ const RadarLayer = memo(function RadarLayer({ visible, mrmsDataUrl, mrmsCoordina
           id="nexrad-radar-raster"
           type="raster"
           source="nexrad-radar"
+          beforeId={beforeId}
           layout={{ visibility: iemVis }}
           paint={{
             'raster-opacity': 0.75,
-            'raster-resampling': 'linear',
+            'raster-resampling': 'nearest',
             'raster-fade-duration': 300,
           }}
         />

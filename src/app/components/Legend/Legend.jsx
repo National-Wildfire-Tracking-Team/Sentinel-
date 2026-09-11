@@ -30,26 +30,31 @@ const FRP_SCALE = [
 ];
 
 // Derived directly from radarRaster.js's REFLECTIVITY_SCALE — the actual
-// color table both NEXRAD (radarRaster.js) and MRMS Composite (mrmsRaster.js,
-// which imports that same scale) use to render — so the legend can never
-// drift out of sync with either renderer. Labeled purely by dBZ range, per
-// NOAA's JetStream reflectivity guidance: dBZ is returned radar energy, not
-// a direct rainfall measurement, so no "light/moderate/heavy" rain
-// descriptors are shown. The two lowest bins (-35 to 0 and 0 to 15 dBZ,
-// intentionally muted/desaturated in the renderer so they read as
-// background texture rather than competing with real precipitation) are
-// collapsed into a single "< 15 dBZ" row here, matching NOAA's own
-// "generally no rain" framing for that range.
-export const RADAR_DBZ_SCALE = (() => {
-  const rows = [{ color: REFLECTIVITY_SCALE[1].color, label: '< 15 dBZ' }];
-  for (let i = 2; i < REFLECTIVITY_SCALE.length - 1; i++) {
-    const { min, color } = REFLECTIVITY_SCALE[i];
-    rows.push({ color, label: `${min}–${REFLECTIVITY_SCALE[i + 1].min} dBZ` });
-  }
-  const last = REFLECTIVITY_SCALE[REFLECTIVITY_SCALE.length - 1];
-  rows.push({ color: last.color, label: `> ${last.min} dBZ` });
-  return rows;
-})();
+// standard-NWS color table both NEXRAD (radarRaster.js) and MRMS Composite
+// (mrmsRaster.js, which imports that same scale) use to render — so the
+// legend can never drift out of sync with either renderer. Labeled purely
+// by dBZ range, per NOAA's JetStream reflectivity guidance: dBZ is returned
+// radar energy, not a direct rainfall measurement, so no "light/moderate/
+// heavy" rain descriptors are shown. Nothing below 5 dBZ is rendered on
+// Composite, so this (Composite's own legend) starts at the first visible
+// band. NEXRAD Level II uses a stricter, NEXRAD-only 20 dBZ hide threshold
+// (see NEXRAD_REFLECTIVITY_HIDE_BELOW_DBZ in radarRaster.js) — its own
+// legend, NEXRAD_RADAR_DBZ_SCALE below, is filtered to match.
+export const RADAR_DBZ_SCALE = REFLECTIVITY_SCALE.map((stop, i) => {
+  const next = REFLECTIVITY_SCALE[i + 1];
+  return {
+    color: stop.color,
+    label: next ? `${stop.min}–${next.min} dBZ` : `${stop.min}+ dBZ`,
+  };
+});
+
+// NEXRAD Level II hides reflectivity below 20 dBZ (radarRaster.js's
+// NEXRAD_REFLECTIVITY_HIDE_BELOW_DBZ), so its legend omits the bands below
+// that threshold that RADAR_DBZ_SCALE (Composite's legend) still includes.
+const NEXRAD_REFLECTIVITY_HIDE_BELOW_DBZ = 20;
+export const NEXRAD_RADAR_DBZ_SCALE = RADAR_DBZ_SCALE.filter(
+  (_, i) => REFLECTIVITY_SCALE[i].min >= NEXRAD_REFLECTIVITY_HIDE_BELOW_DBZ
+);
 
 // Official SPC categorical palette (NOAA fill colors)
 const SPC_CATEGORICAL_SCALE = [
@@ -302,11 +307,13 @@ const Legend = memo(function Legend({
 
             {/* NEXRAD and MRMS Composite each get their own independent legend
                 entry, gated only by that layer's own state — not merged into
-                one shared "radar reflectivity" section — even though both
-                currently render from the same imported NOAA-based dBZ scale. */}
+                one shared "radar reflectivity" section — and each is
+                filtered to its own layer's actual hide threshold (NEXRAD
+                hides below 20 dBZ, Composite below 5 dBZ), even though both
+                render from the same imported NOAA-based dBZ color table. */}
             {radarScanActive && radarScanProduct === 'reflectivity' && (
               <Section title="NEXRAD Reflectivity (dBZ)">
-                {RADAR_DBZ_SCALE.map(row => <ColorRow key={row.label} {...row} />)}
+                {NEXRAD_RADAR_DBZ_SCALE.map(row => <ColorRow key={row.label} {...row} />)}
               </Section>
             )}
 
@@ -324,10 +331,9 @@ const Legend = memo(function Legend({
 
             {layers.radarNexrad && (
               <Section title="NEXRAD Sites">
-                <ColorRow color={NEXRAD_STATUS.operate.color} label={NEXRAD_STATUS.operate.label} />
-                <ColorRow color={NEXRAD_STATUS.alarm.color} label={NEXRAD_STATUS.alarm.label} />
-                <ColorRow color={NEXRAD_STATUS.offline.color} label={NEXRAD_STATUS.offline.label} />
-                <ColorRow color={NEXRAD_STATUS.unknown.color} label={NEXRAD_STATUS.unknown.label} />
+                <ColorRow color="#9ca3af" label="Station" />
+                <ColorRow color="#22c55e" label="Selected" />
+                <ColorRow color={NEXRAD_STATUS.offline.color} label="Out of service" />
               </Section>
             )}
 
