@@ -86,11 +86,18 @@ export function useNexradScan(siteId, product, enabled, minutesAgo = 0) {
     }
   }, [cacheKey]);
 
-  /** Fetch+decode a scan's payload, serving from the bounded cache when possible. */
-  const loadScanPayload = useCallback(async (scanTime, storagePath) => {
+  /**
+   * Fetch+decode a scan's payload, serving from the bounded cache when
+   * possible. Pass `immutable: true` for historical scans (a unique,
+   * never-overwritten object per site+product+scan_time) so the network
+   * fetch itself uses a stable URL the browser's HTTP cache can serve on a
+   * repeat visit — never for the live/latest path, which is overwritten in
+   * place and must keep busting the cache to see new bytes.
+   */
+  const loadScanPayload = useCallback(async (scanTime, storagePath, options) => {
     const cached = cacheGetScan(scanTime);
     if (cached) return cached;
-    const decoded = await fetchScanPayload(storagePath);
+    const decoded = await fetchScanPayload(storagePath, options);
     cacheSetScan(scanTime, decoded);
     return decoded;
   }, [cacheGetScan, cacheSetScan]);
@@ -242,8 +249,8 @@ export function useNexradScan(siteId, product, enabled, minutesAgo = 0) {
     // the two neighbors — never the whole history window.
     const prevRow = historyRows[nearestIdx - 1];
     const nextRow = historyRows[nearestIdx + 1];
-    if (prevRow) loadScanPayload(prevRow.scan_time, prevRow.storage_path).catch(() => {});
-    if (nextRow) loadScanPayload(nextRow.scan_time, nextRow.storage_path).catch(() => {});
+    if (prevRow) loadScanPayload(prevRow.scan_time, prevRow.storage_path, { immutable: true }).catch(() => {});
+    if (nextRow) loadScanPayload(nextRow.scan_time, nextRow.storage_path, { immutable: true }).catch(() => {});
 
     // Same nearest scan as last time (common between adjacent slider ticks) — skip the redecode.
     if (lastHistoryPathRef.current === nearest.storage_path) return undefined;
@@ -255,7 +262,7 @@ export function useNexradScan(siteId, product, enabled, minutesAgo = 0) {
     if (!cacheGetScan(nearest.scan_time)) setHistoricalLoading(true);
 
     let cancelled = false;
-    loadScanPayload(nearest.scan_time, nearest.storage_path)
+    loadScanPayload(nearest.scan_time, nearest.storage_path, { immutable: true })
       .then((decoded) => {
         if (!cancelled) {
           setPayload(decoded);

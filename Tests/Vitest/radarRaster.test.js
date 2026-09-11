@@ -4,19 +4,32 @@ import {
   buildGeometryLut,
   REFLECTIVITY_SCALE,
   VELOCITY_SCALE,
+  SPECTRUM_WIDTH_SCALE,
+  ZDR_SCALE,
+  CC_SCALE,
 } from '../../src/app/utils/radarRaster';
+
+const SCALE_BY_PRODUCT = {
+  reflectivity: REFLECTIVITY_SCALE,
+  velocity: VELOCITY_SCALE,
+  spectrumWidth: SPECTRUM_WIDTH_SCALE,
+  zdr: ZDR_SCALE,
+  cc: CC_SCALE,
+};
+// No product hides part of its range as "no data" below the first band —
+// reflectivity's scale (Phase 7G, NOAA JetStream-aligned) now starts at
+// -35 dBZ specifically so valid low-end values stay visible; the real
+// no-data sentinel is a separate mechanism entirely (rasterizeSweep's
+// noDataByte check, before colorForProduct is ever reached).
+const BELOW_MIN_IS_NO_DATA = {};
 
 // Reference implementation mirroring the pre-optimization per-pixel logic
 // (hexToRgb + linear band scan), used only here to verify the LUT produces
 // byte-identical colors — this is the same math rasterizeSweep used to run
 // inline before it was hoisted into a precomputed table.
 function referenceColor(product, realValue) {
-  const scaleTable = product === 'reflectivity' ? REFLECTIVITY_SCALE : VELOCITY_SCALE;
-  // Neither product hides part of its range as "no data" below the first
-  // band — reflectivity's scale (NOAA JetStream-aligned) now starts at
-  // -35 dBZ specifically so valid low-end values stay visible; the real
-  // no-data sentinel is a separate mechanism entirely.
-  const belowMinIsNoData = false;
+  const scaleTable = SCALE_BY_PRODUCT[product];
+  const belowMinIsNoData = Boolean(BELOW_MIN_IS_NO_DATA[product]);
   if (belowMinIsNoData && realValue < scaleTable[0].min) return null;
   let match = scaleTable[0];
   for (const stop of scaleTable) {
@@ -82,6 +95,42 @@ describe('buildColorLut', () => {
     });
     const distinctColors = new Set(colors.map((c) => c.join(',')));
     expect(distinctColors.size).toBe(representativeDbz.length);
+  });
+
+  describe.each(['spectrumWidth', 'zdr', 'cc'])('%s (Phase 7G)', (product) => {
+    it('matches the reference band-color logic for every possible raw byte', () => {
+      // Real quantization params from nexradPayloadFormat.js's QUANT_RANGE
+      // for this product, matching how encodeScanPayload derives scale/offset.
+      const ranges = { spectrumWidth: [0, 40], zdr: [-13, 20], cc: [0.2, 1.06] };
+      const [min, max] = ranges[product];
+      const scale = (max - min) / 254;
+      const offset = min;
+      const lut = buildColorLut(product, scale, offset);
+      for (let raw = 0; raw < 255; raw++) {
+        const real = raw * scale + offset;
+        expect(unpack(lut[raw])).toEqual(referenceColor(product, real));
+      }
+    });
+
+    it('never treats a value within its own real range as no-data', () => {
+      const ranges = { spectrumWidth: [0, 40], zdr: [-13, 20], cc: [0.2, 1.06] };
+      const [min, max] = ranges[product];
+      const scale = (max - min) / 254;
+      const lut = buildColorLut(product, scale, min);
+      // Every byte 0-254 should resolve to a real color, never null —
+      // these three products are meaningful across their full range.
+      for (let raw = 0; raw < 255; raw++) {
+        expect(unpack(lut[raw])).not.toBeNull();
+      }
+    });
+  });
+
+  it('produces a genuinely different table for each of the five registered products', () => {
+    const scale = 0.1;
+    const offset = 0;
+    const luts = ['reflectivity', 'velocity', 'spectrumWidth', 'zdr', 'cc']
+      .map((product) => Array.from(buildColorLut(product, scale, offset)).join(','));
+    expect(new Set(luts).size).toBe(luts.length);
   });
 
   it('is deterministic — identical inputs produce identical tables', () => {

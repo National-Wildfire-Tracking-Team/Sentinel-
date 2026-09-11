@@ -29,6 +29,9 @@ describe('useNexradScan — live mode', () => {
     await waitFor(() => expect(result.current.status).toBe('live'));
     expect(result.current.payload).toEqual(payloadFor('a'));
     expect(nexradScans.fetchScanPayload).toHaveBeenCalledTimes(1);
+    // Live/latest is overwritten in place — must NOT request the stable-URL
+    // (immutable) path, or polling would stop seeing new bytes.
+    expect(nexradScans.fetchScanPayload).toHaveBeenCalledWith('KTLX/reflectivity/latest.bin', undefined);
   });
 
   it('surfaces a concise, generic error — never the raw exception message', async () => {
@@ -138,6 +141,30 @@ describe('useNexradScan — historical mode + bounded cache', () => {
     await waitFor(() => expect(result.current.payload).toEqual(payloadFor(otherRow.storage_path)));
   });
 
+  it('switching product while historical keeps the site and requested time, finding the closest scan for the NEW product', async () => {
+    const zdrRows = [
+      { scan_time: '2026-09-10T14:01:00.000Z', storage_path: 'KTLX/zdr/history/z1.bin' },
+      { scan_time: '2026-09-10T14:11:00.000Z', storage_path: 'KTLX/zdr/history/z2.bin' },
+    ];
+    nexradScans.fetchScanHistory.mockImplementation((siteId, product) =>
+      Promise.resolve(product === 'zdr' ? zdrRows : rows));
+    nexradScans.fetchScanPayload.mockImplementation((path) => Promise.resolve(payloadFor(path)));
+
+    const targetMinutesAgo = minutesAgoFor(rows[1]); // same offset for both products
+    const { result, rerender } = renderHook(
+      ({ product }) => useNexradScan('KTLX', product, true, targetMinutesAgo),
+      { initialProps: { product: 'reflectivity' } },
+    );
+    await waitFor(() => expect(result.current.payload).toEqual(payloadFor(rows[1].storage_path)));
+
+    // Switch product only — site and requested offset stay the same. The
+    // hook should independently find the closest ZDR scan to that same
+    // offset, not reuse reflectivity's cached payload or its scan list.
+    rerender({ product: 'zdr' });
+    await waitFor(() => expect(result.current.payload).toEqual(payloadFor(zdrRows[1].storage_path)));
+    expect(result.current.meta.storage_path).toBe(zdrRows[1].storage_path);
+  });
+
   it('prefetches the immediately-adjacent scans around the current selection', async () => {
     nexradScans.fetchScanHistory.mockResolvedValue(rows);
     nexradScans.fetchScanPayload.mockImplementation((path) => Promise.resolve(payloadFor(path)));
@@ -145,11 +172,12 @@ describe('useNexradScan — historical mode + bounded cache', () => {
     renderHook(() => useNexradScan('KTLX', 'reflectivity', true, minutesAgoFor(rows[1])));
 
     // rows[1] is selected; rows[0] and rows[2] are its only neighbors and
-    // should be fetched too (cache-warming), without ever touching displayed state.
+    // should be fetched too (cache-warming), without ever touching displayed
+    // state — all as immutable (stable-URL) historical fetches.
     await waitFor(() => {
-      expect(nexradScans.fetchScanPayload).toHaveBeenCalledWith(rows[0].storage_path);
-      expect(nexradScans.fetchScanPayload).toHaveBeenCalledWith(rows[1].storage_path);
-      expect(nexradScans.fetchScanPayload).toHaveBeenCalledWith(rows[2].storage_path);
+      expect(nexradScans.fetchScanPayload).toHaveBeenCalledWith(rows[0].storage_path, { immutable: true });
+      expect(nexradScans.fetchScanPayload).toHaveBeenCalledWith(rows[1].storage_path, { immutable: true });
+      expect(nexradScans.fetchScanPayload).toHaveBeenCalledWith(rows[2].storage_path, { immutable: true });
     });
     // Exactly the selected scan plus its two neighbors — not the whole window.
     expect(nexradScans.fetchScanPayload).toHaveBeenCalledTimes(3);
@@ -221,5 +249,27 @@ describe('useNexradScan — site/product cache isolation', () => {
     // Three genuinely distinct payloads despite the identical scan_time.
     expect(siteAReflectivity.result.current.payload).not.toEqual(siteAVelocity.result.current.payload);
     expect(siteAReflectivity.result.current.payload).not.toEqual(siteBReflectivity.result.current.payload);
+  });
+
+  it('isolates the three Phase 7G products (spectrumWidth/zdr/cc) from each other and from reflectivity, same site + scan_time', async () => {
+    nexradScans.fetchScanMeta.mockImplementation((siteId, product) =>
+      Promise.resolve({
+        scan_time: '2026-09-10T15:00:00Z',
+        storage_path: `${siteId}/${product}/latest.bin`,
+        updated_at: new Date().toISOString(),
+      }));
+    nexradScans.fetchScanPayload.mockImplementation((path) => Promise.resolve(payloadFor(path)));
+
+    const hooks = ['reflectivity', 'spectrumWidth', 'zdr', 'cc'].map(
+      (product) => renderHook(() => useNexradScan('KTLX', product, true, 0)),
+    );
+
+    for (const [i, product] of ['reflectivity', 'spectrumWidth', 'zdr', 'cc'].entries()) {
+      await waitFor(() => expect(hooks[i].result.current.payload).toEqual(payloadFor(`KTLX/${product}/latest.bin`)));
+    }
+
+    const payloads = hooks.map((h) => h.result.current.payload);
+    const distinctCount = new Set(payloads.map((p) => p.tag)).size;
+    expect(distinctCount).toBe(4);
   });
 });

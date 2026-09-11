@@ -14,9 +14,9 @@ import { NEXRAD_STATUS } from '../../api/nexradSites';
 const PRODUCTS = [
   { id: 'reflectivity', label: 'REF', available: true },
   { id: 'velocity', label: 'VEL', available: true },
-  { id: 'spectrumWidth', label: 'SW', available: false },
-  { id: 'zdr', label: 'ZDR', available: false },
-  { id: 'cc', label: 'CC', available: false },
+  { id: 'spectrumWidth', label: 'SW', available: true },
+  { id: 'zdr', label: 'ZDR', available: true },
+  { id: 'cc', label: 'CC', available: true },
 ];
 
 const MAX_HISTORY_MIN = 120;

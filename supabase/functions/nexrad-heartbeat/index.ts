@@ -196,7 +196,12 @@ async function publishProduct(
   const gateCount = first.gate_count;
   const gateSizeM = first.gate_size * 1000; // library returns km, not m — see scripts/nexrad-radar-sync.mjs
   const firstGateM = first.first_gate * 1000;
-  const unitConvert = product === 'velocity' ? (v: number) => v * MS_TO_KNOTS : (v: number) => v;
+  // See scripts/nexrad-radar-sync.mjs's publishProduct for why velocity and
+  // spectrum width (same Doppler message) are converted to knots and ZDR/CC
+  // are left as the decoder returns them.
+  const unitConvert = (product === 'velocity' || product === 'spectrumWidth')
+    ? (v: number) => v * MS_TO_KNOTS
+    : (v: number) => v;
   const moments = radials.map((r) => (r?.moment_data ?? []).map((v: number | null) => (v == null ? v : unitConvert(v))));
 
   const buffer = encodeScanPayload({
@@ -271,12 +276,18 @@ async function primeSite(supabaseUrl: string, serviceKey: string, site: string) 
     ? julianToEpochMs(radar.header.modified_julian_date, radar.header.milliseconds)
     : Date.now();
 
-  const reflectivity = findBestElevation(radar, () => radar.getHighresReflectivity());
-  const velocity = findBestElevation(radar, () => radar.getHighresVelocity());
+  const products: Record<string, ReturnType<typeof findBestElevation>> = {
+    reflectivity: findBestElevation(radar, () => radar.getHighresReflectivity()),
+    velocity: findBestElevation(radar, () => radar.getHighresVelocity()),
+    spectrumWidth: findBestElevation(radar, () => radar.getHighresSpectrum()),
+    zdr: findBestElevation(radar, () => radar.getHighresDiffReflectivity()),
+    cc: findBestElevation(radar, () => radar.getHighresCorrelationCoefficient()),
+  };
 
   const jobs: Promise<void>[] = [];
-  if (reflectivity) jobs.push(publishProduct(supabaseUrl, serviceKey, { site, product: 'reflectivity', scanTimeMs, sourceFile: latestFile, ...reflectivity }));
-  if (velocity) jobs.push(publishProduct(supabaseUrl, serviceKey, { site, product: 'velocity', scanTimeMs, sourceFile: latestFile, ...velocity }));
+  for (const [product, found] of Object.entries(products)) {
+    if (found) jobs.push(publishProduct(supabaseUrl, serviceKey, { site, product, scanTimeMs, sourceFile: latestFile, ...found }));
+  }
 
   if (!jobs.length) return { primed: false, reason: 'no-usable-elevation-in-truncated-prefix' };
   await Promise.all(jobs);

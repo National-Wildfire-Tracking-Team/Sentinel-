@@ -13,11 +13,18 @@ const HEADER_BYTES = 44;
 const NO_DATA_BYTE = 255;
 const MAX_LEVEL = 254;
 
-export const PRODUCT_CODES = { reflectivity: 0, velocity: 1 };
+export const PRODUCT_CODES = {
+  reflectivity: 0, velocity: 1, spectrumWidth: 2, zdr: 3, cc: 4,
+};
 
+// Keep in sync with src/app/utils/nexradPayloadFormat.js's QUANT_RANGE — see
+// that file for how these were derived from real decoded data.
 export const QUANT_RANGE = {
-  reflectivity: { min: -32, max: 95 },
-  velocity: { min: -100, max: 100 },
+  reflectivity: { min: -32, max: 95 },   // dBZ
+  velocity: { min: -100, max: 100 },     // knots
+  spectrumWidth: { min: 0, max: 40 },    // knots
+  zdr: { min: -13, max: 20 },            // dB
+  cc: { min: 0.2, max: 1.06 },           // unitless correlation coefficient
 };
 
 function scaleOffsetFor(product) {
