@@ -57,7 +57,7 @@ function pointInRing(point, ring) {
 }
 
 /** Returns true if [lng, lat] falls inside a GeoJSON Polygon or MultiPolygon. */
-function pointInGeometry(point, geometry) {
+export function pointInGeometry(point, geometry) {
   if (!geometry) return false;
   if (geometry.type === 'Polygon') return pointInRing(point, geometry.coordinates[0]);
   if (geometry.type === 'MultiPolygon') {
