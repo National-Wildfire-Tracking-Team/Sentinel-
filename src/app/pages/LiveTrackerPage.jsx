@@ -1182,7 +1182,8 @@ export default function LiveTrackerPage() {
     return () => observer.disconnect();
   }, []);
 
-  const radarScrubberAttached = Boolean(layers.radarComposite) && mrmsFrames.length >= 2;
+  const radarScrubberAttached = (activeMapTab === MAP_TABS.weather || activeMapTab === MAP_TABS.allhazard)
+    && Boolean(layers.radarComposite) && mrmsFrames.length >= 2;
 
   // Measures the radar scrub bar's own height so the Layers panel (opened
   // from inside MapBottomBar) can clear it too, instead of only clearing
@@ -1283,7 +1284,7 @@ export default function LiveTrackerPage() {
             mrmsDataUrl={mrmsRaster?.dataUrl}
             mrmsCoordinates={mrmsRaster?.coordinates}
             mrmsFresh={mrmsTrustComposite}
-            mrmsTimelineVisible={layers.radarComposite}
+            mrmsTimelineVisible={(activeMapTab === MAP_TABS.weather || activeMapTab === MAP_TABS.allhazard) && layers.radarComposite}
             mrmsFrames={mrmsFrames}
             mrmsSelectedTimestamp={mrmsSelectedTimestamp}
             mrmsIsPlaying={mrmsIsPlaying}
