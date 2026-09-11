@@ -88,9 +88,10 @@ const WGRIB2_BIN = process.env.WGRIB2_BIN || 'wgrib2';
 // cost scales with the ~5-6% of cells carrying real values (~1.5M pixels
 // doing a color-band scan, up from ~370K); GitHub Actions cost is unaffected
 // (decoding the native 24.5M-cell GRIB2 already dominated regardless of
-// regrid target); mrms_radar_archive is a persistent, unpruned archive (the
-// frontend windows it to the newest 100 frames via a query, not by deleting
-// older rows — see src/app/api/mrmsComposite.js), and a bounded 5-frame
+// regrid target); mrms_radar_archive is pruned to a 24h retention window
+// (see ARCHIVE_RETENTION_MS/pruneArchive below), and within that window the
+// frontend further windows it to the newest 100 frames via a query, not by
+// deleting rows — see src/app/api/mrmsComposite.js), and a bounded 5-frame
 // browser cache of rasters is the main thing to watch under this change.
 const REGRID_LON0 = 230.005; // deg, 0-360 convention (wgrib2 input convention)
 const REGRID_LAT0 = 20.005;
@@ -105,6 +106,14 @@ const NO_DATA_SENTINELS = [-999, -99]; // no coverage, below threshold
 
 const PROCESSING_VERSION = 3; // bump whenever the regrid/quantization/resample logic changes
 const DECODER_VERSION = '3.8.0'; // wgrib2 version — keep in sync with the workflow's pinned version
+
+// Archive retention — rows/objects older than this are deleted each run, same
+// prune-on-every-sync pattern as scripts/nexrad-radar-sync.mjs. 24h comfortably
+// covers the ~3.3h playback window (100 frames @ ~2min cadence — see
+// PLAYBACK_WINDOW_SIZE in src/app/api/mrmsComposite.js) while keeping the
+// archive from growing forever.
+const ARCHIVE_RETENTION_MS = 24 * 60 * 60 * 1000;
+const ARCHIVE_PRUNE_BATCH = 500;
 
 function supabaseHeaders(extra = {}) {
   return {
@@ -176,9 +185,9 @@ async function main() {
     await uploadStorage(latestPath, compressed);
     await upsertMeta({ sourceTimeMs, ingestedAtMs, storagePath: latestPath, byteSize: compressed.byteLength, sourceFile: latestFilename });
 
-    // Archived permanently — no pruning. The frontend windows this down to
-    // the newest 100 frames via a query (see fetchMrmsHistory in
-    // src/app/api/mrmsComposite.js), not by deleting older archive rows.
+    // Kept for ARCHIVE_RETENTION_MS (24h) — see pruneArchive() below. Within
+    // that window, the frontend further windows this down to the newest 100
+    // frames via a query (see fetchMrmsHistory in src/app/api/mrmsComposite.js).
     const historyPath = `${PRODUCT}/history/${new Date(sourceTimeMs).toISOString()}.bin`;
     await uploadStorage(historyPath, compressed).catch((err) => {
       console.warn('[mrms-sync] archive upload failed (best-effort):', err?.message || err);
@@ -192,6 +201,12 @@ async function main() {
     console.error('[mrms-sync] failed:', err?.message || err);
     await markFailure(err?.message || err).catch(() => {});
     process.exitCode = 1;
+  }
+
+  try {
+    await pruneArchive();
+  } catch (err) {
+    console.warn('[mrms-sync] prune failed:', err?.message || err);
   }
 }
 
@@ -392,11 +407,12 @@ async function markFailure(message) {
 }
 
 /**
- * Append this frame to the persistent archive table (mrms_radar_archive —
- * renamed from mrms_frame_history; same table). A separate storage object
- * per frame (not overwritten in place like latest.bin). Never pruned here —
- * the frontend windows this down to the newest 100 frames via a query
- * (see fetchMrmsHistory in src/app/api/mrmsComposite.js), not deletion.
+ * Append this frame to the archive table (mrms_radar_archive — renamed from
+ * mrms_frame_history; same table). A separate storage object per frame (not
+ * overwritten in place like latest.bin). Rows/objects past ARCHIVE_RETENTION_MS
+ * are deleted by pruneArchive() below on every run; within that window, the
+ * frontend further windows this down to the newest 100 frames via a query
+ * (see fetchMrmsHistory in src/app/api/mrmsComposite.js).
  */
 async function insertArchiveEntry({ sourceTimeMs, storagePath, byteSize }) {
   const resp = await fetch(`${SUPABASE_URL}/rest/v1/mrms_radar_archive?on_conflict=product,source_time`, {
@@ -410,6 +426,44 @@ async function insertArchiveEntry({ sourceTimeMs, storagePath, byteSize }) {
     }),
   });
   if (!resp.ok) throw new Error(`mrms_radar_archive insert failed: ${resp.status} ${await resp.text().catch(() => '')}`);
+}
+
+/** Delete archive rows (and their storage objects) past ARCHIVE_RETENTION_MS. */
+async function pruneArchive() {
+  const cutoffIso = new Date(Date.now() - ARCHIVE_RETENTION_MS).toISOString();
+  const listResp = await fetch(
+    `${SUPABASE_URL}/rest/v1/mrms_radar_archive?select=id,storage_path&source_time=lt.${encodeURIComponent(cutoffIso)}&limit=${ARCHIVE_PRUNE_BATCH}`,
+    { headers: supabaseHeaders() },
+  );
+  if (!listResp.ok) {
+    console.warn(`[mrms-sync] prune: failed to list stale archive rows: ${listResp.status}`);
+    return;
+  }
+
+  const rows = await listResp.json();
+  if (!rows.length) return;
+
+  const deleteObjResp = await fetch(`${SUPABASE_URL}/storage/v1/object/${STORAGE_BUCKET}`, {
+    method: 'DELETE',
+    headers: supabaseHeaders({ 'Content-Type': 'application/json' }),
+    body: JSON.stringify({ prefixes: rows.map((r) => r.storage_path) }),
+  });
+  if (!deleteObjResp.ok) {
+    // A dangling object in a public bucket is harmless (unreferenced once its
+    // row is gone) — still drop the rows below so the table doesn't grow forever.
+    console.warn(`[mrms-sync] prune: storage delete failed: ${deleteObjResp.status} ${await deleteObjResp.text().catch(() => '')}`);
+  }
+
+  const idList = rows.map((r) => r.id).join(',');
+  const deleteRowsResp = await fetch(
+    `${SUPABASE_URL}/rest/v1/mrms_radar_archive?id=in.(${idList})`,
+    { method: 'DELETE', headers: supabaseHeaders() },
+  );
+  if (!deleteRowsResp.ok) {
+    console.warn(`[mrms-sync] prune: row delete failed: ${deleteRowsResp.status} ${await deleteRowsResp.text().catch(() => '')}`);
+    return;
+  }
+  console.log(`[mrms-sync] prune: removed ${rows.length} stale archive row(s)`);
 }
 
 main();

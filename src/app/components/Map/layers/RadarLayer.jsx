@@ -13,7 +13,7 @@
  * upstream, never NEXRAD site/product state.
  */
 
-import { memo } from 'react';
+import { memo, useEffect, useRef, useState } from 'react';
 import { Source, Layer } from 'react-map-gl';
 
 // IEM NEXRAD composite reflectivity (N0Q) — all CONUS WSR-88D stations.
@@ -24,28 +24,65 @@ const IEM_NEXRAD_WMS =
   '&FORMAT=image/png&TRANSPARENT=true&SRS=EPSG:3857' +
   '&WIDTH=256&HEIGHT=256&BBOX={bbox-epsg-3857}';
 
+// How long a new MRMS frame takes to cross-fade in over the previous one
+// (scan-to-scan playback/scrubbing) — see the two-slot comment below. Kept
+// comfortably under useMrmsComposite's PLAYBACK_FRAME_MS (350ms) so each
+// fade fully resolves before the next frame lands during playback — a
+// crossfade that's still running when the next one starts would look
+// choppier, not smoother.
+const MRMS_CROSSFADE_MS = 150;
+
 const RadarLayer = memo(function RadarLayer({ visible, mrmsDataUrl, mrmsCoordinates, mrmsFresh, beforeId }) {
   const useMrms = visible && mrmsFresh && Boolean(mrmsDataUrl) && Boolean(mrmsCoordinates);
   const iemVis = visible && !useMrms ? 'visible' : 'none';
 
+  // Two alternating image sources so scrubbing/playing through past scans
+  // cross-fades smoothly instead of going blank for a moment. Mapbox's own
+  // ImageSource#updateImage() doc is explicit about the cause: "To avoid
+  // having the image flash after changing, set raster-fade-duration to 0" —
+  // but a flash-free swap is still an instant hard cut, not a smooth
+  // transition. So each new frame is loaded into whichever slot is
+  // currently hidden (its updateImage() reload happens off-screen), then
+  // raster-opacity ramps the two slots past each other over
+  // MRMS_CROSSFADE_MS via raster-opacity-transition — the previous frame
+  // stays fully visible right up until the new one is faded in over it.
+  const [slots, setSlots] = useState([null, null]);
+  const [activeSlot, setActiveSlot] = useState(0);
+  const activeSlotRef = useRef(0);
+  const lastUrlRef = useRef(null);
+
+  useEffect(() => {
+    if (!mrmsDataUrl || !mrmsCoordinates || mrmsDataUrl === lastUrlRef.current) return;
+    lastUrlRef.current = mrmsDataUrl;
+    const nextActive = activeSlotRef.current === 0 ? 1 : 0;
+    activeSlotRef.current = nextActive;
+    setSlots((prev) => {
+      const next = [...prev];
+      next[nextActive] = { url: mrmsDataUrl, coordinates: mrmsCoordinates };
+      return next;
+    });
+    setActiveSlot(nextActive);
+  }, [mrmsDataUrl, mrmsCoordinates]);
+
   return (
     <>
-      {useMrms && (
-        <Source id="mrms-composite" type="image" url={mrmsDataUrl} coordinates={mrmsCoordinates}>
+      {useMrms && slots.map((slot, i) => slot && (
+        <Source key={i} id={`mrms-composite-${i}`} type="image" url={slot.url} coordinates={slot.coordinates}>
           <Layer
-            id="mrms-composite-raster"
+            id={`mrms-composite-raster-${i}`}
             type="raster"
             beforeId={beforeId}
             paint={{
-              'raster-opacity': 0.75,
-              'raster-fade-duration': 300,
+              'raster-opacity': activeSlot === i ? 0.75 : 0,
+              'raster-opacity-transition': { duration: MRMS_CROSSFADE_MS },
+              'raster-fade-duration': 0,
               // 'nearest', not 'linear' — no GPU resampling, full native
               // grain of the 0.01° source grid at every zoom.
               'raster-resampling': 'nearest',
             }}
           />
         </Source>
-      )}
+      ))}
 
       <Source
         id="nexrad-radar"
