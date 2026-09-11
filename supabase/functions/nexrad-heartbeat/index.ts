@@ -35,6 +35,7 @@
 import Level2Radar from 'npm:nexrad-level-2-data@3.0.2';
 import { XMLParser } from 'npm:fast-xml-parser@5.7.2';
 import { encodeScanPayload } from './nexradPayloadFormat.js';
+import { guardExpensiveRequest } from '../_shared/requestGuard.ts';
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -300,6 +301,11 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
+    const guard = await guardExpensiveRequest(req, 'nexrad-heartbeat', 12);
+    if (!guard.ok) {
+      return jsonResponse({ error: guard.error }, guard.status);
+    }
+
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? '';
     const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
     if (!SUPABASE_URL || !SERVICE_ROLE_KEY) {

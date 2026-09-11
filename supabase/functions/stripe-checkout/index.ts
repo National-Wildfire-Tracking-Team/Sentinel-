@@ -33,6 +33,7 @@ Deno.serve(async (req: Request) => {
     const SITE_URL = Deno.env.get('SITE_URL') ?? 'http://localhost:3000';
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? '';
     const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY') ?? '';
+    const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
 
     if (!STRIPE_SECRET_KEY) {
       return jsonResponse({ error: 'STRIPE_SECRET_KEY is not configured.' }, 500);
@@ -74,6 +75,10 @@ Deno.serve(async (req: Request) => {
     let customerId: string | undefined = subRow?.stripe_customer_id ?? undefined;
 
     if (!customerId) {
+      if (!SUPABASE_SERVICE_ROLE_KEY) {
+        return jsonResponse({ error: 'SUPABASE_SERVICE_ROLE_KEY is not configured.' }, 500);
+      }
+
       // Create a new Stripe customer
       const customerRes = await stripePost(STRIPE_SECRET_KEY, '/customers', {
         email: user.email ?? '',
@@ -89,12 +94,17 @@ Deno.serve(async (req: Request) => {
       // Persist the customer ID (service role required for this upsert)
       const serviceSupabase = createClient(
         SUPABASE_URL,
-        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+        SUPABASE_SERVICE_ROLE_KEY,
       );
-      await serviceSupabase.from('subscriptions').upsert(
-        { user_id: user.id, stripe_customer_id: customerId, plan: 'free', status: 'active' },
+      const { error: persistError } = await serviceSupabase.from('subscriptions').upsert(
+        { user_id: user.id, stripe_customer_id: customerId },
         { onConflict: 'user_id' },
       );
+      if (persistError) {
+        // Avoid leaving an orphan customer that would be duplicated on retry.
+        await stripePost(STRIPE_SECRET_KEY, `/customers/${customerId}`, {}).catch(() => undefined);
+        return jsonResponse({ error: 'Failed to persist Stripe customer.' }, 502);
+      }
     }
 
     // Create the Checkout Session

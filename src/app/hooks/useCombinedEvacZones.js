@@ -88,18 +88,26 @@ async function fetchIpawsEvacFeatures() {
     const newAlerts = data?.alerts ?? [];
     console.log(`[EvacZones] IPAWS: ${newAlerts.length} alerts received (cache: ${_ipawsCache.size})`);
 
-    const now = new Date().toISOString();
+    const nowMs = Date.now();
+    const activeAlerts = new Map();
 
-    // Add new alerts to cache
+    // A successful response is an authoritative snapshot. Keep only active,
+    // non-expired alerts so cancelled or removed geometries disappear.
     for (const alert of newAlerts) {
-      if (alert.identifier) _ipawsCache.set(alert.identifier, alert);
+      if (!alert.identifier) continue;
+      const msgType = String(alert.msgType ?? alert.messageType ?? '').toLowerCase();
+      const status = String(alert.status ?? '').toLowerCase();
+      if (msgType === 'cancel' || ['cancelled', 'canceled', 'test', 'exercise', 'draft'].includes(status)) {
+        continue;
+      }
+      const expiresStr = alert.infos?.[0]?.expires || alert.expires || null;
+      const expiresMs = expiresStr ? Date.parse(expiresStr) : Number.NaN;
+      if (Number.isFinite(expiresMs) && expiresMs <= nowMs) continue;
+      activeAlerts.set(alert.identifier, alert);
     }
 
-    // Remove genuinely expired alerts from cache
-    for (const [id, cached] of _ipawsCache) {
-      const expiresStr = cached.infos?.[0]?.expires || cached.expires || null;
-      if (expiresStr && expiresStr < now) _ipawsCache.delete(id);
-    }
+    _ipawsCache.clear();
+    for (const [id, alert] of activeAlerts) _ipawsCache.set(id, alert);
 
     const merged = [..._ipawsCache.values()];
     console.log(`[EvacZones] IPAWS: ${merged.length} total after merge (${_ipawsCache.size} cached)`);
