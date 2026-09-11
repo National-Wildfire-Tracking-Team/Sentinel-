@@ -26,10 +26,10 @@ export async function fetchLatestMrmsMeta() {
 }
 
 // Playback window size — the timeline scrubs through at most this many of
-// the most recent frames. mrms_radar_archive itself is never pruned to this
-// (or any) count (see scripts/mrms-radar-sync.mjs) — it's a persistent
-// archive; this is purely a query-side window, matching Phase 6A's split
-// between "hot playback window" and "long-term archive retention."
+// the most recent frames. mrms_radar_archive is separately pruned to a 24h
+// retention window by scripts/mrms-radar-sync.mjs (ARCHIVE_RETENTION_MS);
+// this is a further query-side window on top of that, matching Phase 6A's
+// split between "hot playback window" and "long-term archive retention."
 const PLAYBACK_WINDOW_SIZE = 100;
 
 /**
