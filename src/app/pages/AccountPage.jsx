@@ -19,9 +19,12 @@ import { getMainOrigin } from '../../shared/utils/getAppOrigin';
 import { useSavedLocations } from '../hooks/useSavedLocations';
 import { useNotificationPreferences } from '../hooks/useNotificationPreferences';
 import { usePlan } from '../../shared/hooks/usePlan';
+import { useDocumentTitle } from '../../shared/hooks/useDocumentTitle';
 import { NOTIFIABLE_ALERT_TYPES } from '../utils/nwsColors';
 
 export default function AccountPage() {
+  useDocumentTitle('Settings - Sentinel');
+
   const { user, profile, isAuthenticated, loading, profileLoading, signOut } = useAuth();
   const { planId, plan, subscription, isPaid, cancelAtPeriodEnd, currentPeriodEnd } = usePlan();
   const navigate = useNavigate();

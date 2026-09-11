@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 
 import { useAuth } from '../../shared/context/AuthContext';
+import { useDocumentTitle } from '../../shared/hooks/useDocumentTitle';
 
 export default function ReporterRegisterPage() {
   const { signUp, isSupabaseConfigured } = useAuth();
@@ -27,6 +28,8 @@ export default function ReporterRegisterPage() {
   const [error,           setError]           = useState(null);
   const [busy,            setBusy]            = useState(false);
   const [confirmationSent, setConfirmationSent] = useState(false);
+
+  useDocumentTitle(confirmationSent ? 'Check Your Email - NWTT' : 'Reporter Sign Up - NWTT');
 
   const passwordStrength = (() => {
     if (password.length === 0) return null;

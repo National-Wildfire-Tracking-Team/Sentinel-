@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import PageHeader from './PageHeader';
 import { getAppOrigin } from '../../../shared/utils/getAppOrigin';
+import { useDocumentTitle } from '../../../shared/hooks/useDocumentTitle';
 
 const hazards = [
   { icon: Siren, label: 'Wildfire Incident' },
@@ -48,6 +49,8 @@ const teasers = [
 ];
 
 export default function DisasterResponsePage() {
+  useDocumentTitle('Disaster Response - NWTT');
+
   return (
     <div className="min-h-screen">
       <PageHeader

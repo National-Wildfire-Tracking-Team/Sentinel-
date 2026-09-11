@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import PageHeader from './PageHeader';
 import { getAppOrigin } from '../../../shared/utils/getAppOrigin';
+import { useDocumentTitle } from '../../../shared/hooks/useDocumentTitle';
 
 const roles = [
   {
@@ -68,6 +69,8 @@ const benefits = [
 ];
 
 export default function GetInvolvedPage() {
+  useDocumentTitle('Disaster Response: Get Involved - NWTT');
+
   return (
     <div className="min-h-screen">
       <PageHeader

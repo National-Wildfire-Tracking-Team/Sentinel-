@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 
 import { useAuth } from '../../../shared/context/AuthContext';
+import { useDocumentTitle } from '../../../shared/hooks/useDocumentTitle';
 import { getAppOrigin, getMainOrigin } from '../../../shared/utils/getAppOrigin';
 import { useFireReports } from '../../hooks/useFireReports';
 import { useReporterEvacZones } from '../../hooks/useReporterEvacZones';
@@ -44,6 +45,8 @@ export default function ReporterDashboardPage() {
   const navigate = useNavigate();
 
   const [activeTab, setActiveTab] = useState('add');
+
+  useDocumentTitle(`${TAB_META[activeTab].title} - NWTT`);
 
   const { zones: allEvacZones, loading: evacZonesLoading, refresh: refreshEvacZones } = useReporterEvacZones('all');
   const { reports: allReports, loading: reportsLoading, refresh: refreshReports } = useFireReports('all');

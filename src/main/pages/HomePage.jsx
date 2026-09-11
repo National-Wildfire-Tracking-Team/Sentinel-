@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { useDocumentTitle } from '../../shared/hooks/useDocumentTitle';
 import {
   Satellite,
   Radio,
@@ -58,6 +59,8 @@ const stats = [
 ];
 
 export default function HomePage() {
+  useDocumentTitle('Home - NWTT');
+
   return (
     <div className="min-h-screen">
       {/* ── Hero Section ── */}

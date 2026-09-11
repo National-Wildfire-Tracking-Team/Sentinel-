@@ -9,6 +9,7 @@ import { useViewport } from '../context/ViewportContext';
 import { nwsAlertCategory } from '../utils/nwsColors';
 import { FIRE_WEATHER_ALERT_TYPES } from '../api/noaaWeather';
 import { useSavedLocations } from '../hooks/useSavedLocations';
+import { useDocumentTitle } from '../../shared/hooks/useDocumentTitle';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 // Data hooks
@@ -257,6 +258,12 @@ export default function LiveTrackerPage() {
   const criticalInfraEntitled = hasProInfrastructureAccess;
   const { locations: savedLocations } = useSavedLocations();
   const [activeMapTab, setActiveMapTab] = useState(MAP_TABS.wildfire);
+
+  useDocumentTitle(
+    activeMapTab === MAP_TABS.weather ? 'Weather Map - Sentinel'
+      : activeMapTab === MAP_TABS.allhazard ? 'All-Hazard Map - Sentinel'
+      : 'Wildfire Map - Sentinel',
+  );
   const [mapType, setMapType] = useState('satellite');
   const [weatherAlertFilter, setWeatherAlertFilter] = useState('all');
   const [bannerDismissed, setBannerDismissed] = useState(false);

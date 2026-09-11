@@ -1,3 +1,5 @@
+import { useDocumentTitle } from '../../shared/hooks/useDocumentTitle';
+
 const sections = [
   {
     title: '1. About Sentinel',
@@ -132,6 +134,8 @@ const sections = [
 ];
 
 export default function TermsPage() {
+  useDocumentTitle('Terms of Service - NWTT');
+
   return (
     <section className="py-16 px-4 sm:px-6 lg:px-8">
       <div className="max-w-4xl mx-auto">

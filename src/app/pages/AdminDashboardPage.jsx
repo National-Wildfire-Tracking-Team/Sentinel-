@@ -10,8 +10,11 @@ import { Flame, ShieldCheck, MapPin } from 'lucide-react';
 
 import { useAuth } from '../../shared/context/AuthContext';
 import { useFireReports } from '../hooks/useFireReports';
+import { useDocumentTitle } from '../../shared/hooks/useDocumentTitle';
 
 export default function AdminDashboardPage() {
+  useDocumentTitle('Admin: Fire Reports - Sentinel');
+
   const { isAdmin, loading, profileLoading, user } = useAuth();
 
   const { reports, loading: reportsLoading } = useFireReports('all');

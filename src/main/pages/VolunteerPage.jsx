@@ -9,6 +9,7 @@ import {
   Plus,
   ArrowRight,
 } from 'lucide-react';
+import { useDocumentTitle } from '../../shared/hooks/useDocumentTitle';
 
 // TODO: Replace with your actual Google Form URL
 const GOOGLE_FORM_URL = 'https://docs.google.com/forms/d/e/1FAIpQLSfTcBRvksqEWIujHeb1cgqAtisKUjJ4yRmVBVX6H_7FVnLgaA/viewform?usp=header';
@@ -76,6 +77,8 @@ const roles = [
 ];
 
 export default function VolunteerPage() {
+  useDocumentTitle('Volunteer - NWTT');
+
   return (
     <div className="min-h-screen">
       {/* ── Hero ── */}

@@ -13,6 +13,7 @@ import {
 import { useAuth } from '../../shared/context/AuthContext';
 import { useDeployments, createDeployment, updateDeployment, deleteDeployment, getDeploymentSignups } from '../hooks/useDeployments';
 import { HAZARD_TYPES } from '../data/disasterResponseOptions';
+import { useDocumentTitle } from '../../shared/hooks/useDocumentTitle';
 
 const EMPTY_FORM = {
   title: '', hazard_type: HAZARD_TYPES[0], description: '', location: '',
@@ -24,6 +25,8 @@ const inputBase =
   'focus:outline-none focus:border-fire-500 focus:ring-1 focus:ring-fire-500/20 transition-colors text-sm px-3 py-2';
 
 export default function ManageDeploymentsPage() {
+  useDocumentTitle('Manage Deployments - Sentinel');
+
   const { isAdmin, loading, profileLoading, user } = useAuth();
   const { deployments, loading: deploymentsLoading, refresh } = useDeployments('all');
 

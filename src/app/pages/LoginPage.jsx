@@ -13,6 +13,7 @@ import {
 
 import { useAuth } from '../../shared/context/AuthContext';
 import { supabase } from '../../shared/api/supabaseClient';
+import { useDocumentTitle } from '../../shared/hooks/useDocumentTitle';
 
 /** Fetch the profile role for a user id immediately after sign-in. */
 async function fetchRole(userId) {
@@ -40,6 +41,8 @@ export default function LoginPage() {
   const [forgotMode,  setForgotMode]  = useState(false);
   const [resetEmail,  setResetEmail]  = useState('');
   const [resetSent,   setResetSent]   = useState(false);
+
+  useDocumentTitle(forgotMode ? 'Reset Password - Sentinel' : 'Login - Sentinel');
 
   const redirectTo = location.state?.from || '/';
 

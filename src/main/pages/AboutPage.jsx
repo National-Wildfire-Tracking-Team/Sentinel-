@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { useDocumentTitle } from '../../shared/hooks/useDocumentTitle';
 import {
   Flame,
   Target,
@@ -52,6 +53,8 @@ const values = [
 ];
 
 export default function AboutPage() {
+  useDocumentTitle('About Us - NWTT');
+
   return (
     <div className="min-h-screen">
       {/* ── Hero ── */}

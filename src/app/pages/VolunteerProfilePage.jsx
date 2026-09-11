@@ -15,12 +15,15 @@ import {
 
 import { useAuth } from '../../shared/context/AuthContext';
 import { useVolunteerProfile, saveVolunteerProfile, useMySignups, cancelDeploymentSignup } from '../hooks/useVolunteer';
+import { useDocumentTitle } from '../../shared/hooks/useDocumentTitle';
 
 const inputBase =
   'w-full rounded-lg bg-sentinel-800 border border-sentinel-700 text-white placeholder-sentinel-500 ' +
   'focus:outline-none focus:border-fire-500 focus:ring-1 focus:ring-fire-500/20 transition-colors text-sm px-4 py-2.5';
 
 export default function VolunteerProfilePage() {
+  useDocumentTitle('Volunteer Profile - Sentinel');
+
   const { user, loading, isAuthenticated } = useAuth();
   const { profile, loading: profileLoading, refresh } = useVolunteerProfile(user?.id);
   const { signups, loading: signupsLoading, refresh: refreshSignups } = useMySignups(user?.id);

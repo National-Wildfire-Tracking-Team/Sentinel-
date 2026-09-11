@@ -8,6 +8,7 @@ import {
   ClipboardList,
 } from 'lucide-react';
 import PageHeader from './PageHeader';
+import { useDocumentTitle } from '../../../shared/hooks/useDocumentTitle';
 
 const capabilities = [
   {
@@ -37,6 +38,8 @@ const capabilities = [
 ];
 
 export default function PreparednessPage() {
+  useDocumentTitle('Disaster Response: Preparedness - NWTT');
+
   return (
     <div className="min-h-screen">
       <PageHeader

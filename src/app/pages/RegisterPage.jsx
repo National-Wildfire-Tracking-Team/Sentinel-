@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 
 import { useAuth } from '../../shared/context/AuthContext';
+import { useDocumentTitle } from '../../shared/hooks/useDocumentTitle';
 
 export default function RegisterPage() {
   const { signUp, isSupabaseConfigured } = useAuth();
@@ -24,6 +25,8 @@ export default function RegisterPage() {
   const [error,           setError]           = useState(null);
   const [busy,            setBusy]            = useState(false);
   const [confirmationSent, setConfirmationSent] = useState(false);
+
+  useDocumentTitle(confirmationSent ? 'Check Your Email - Sentinel' : 'Create Account - Sentinel');
 
   const inputBase =
     'w-full rounded-lg bg-sentinel-800 border border-sentinel-700 text-white placeholder-sentinel-500 ' +

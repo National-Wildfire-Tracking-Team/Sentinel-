@@ -1,6 +1,7 @@
 import { HeartHandshake, ClipboardCheck, FileClock, ArrowRight } from 'lucide-react';
 import PageHeader from './PageHeader';
 import { getAppOrigin } from '../../../shared/utils/getAppOrigin';
+import { useDocumentTitle } from '../../../shared/hooks/useDocumentTitle';
 
 const recoveryStages = [
   {
@@ -41,6 +42,8 @@ const recoveryResources = [
 ];
 
 export default function RecoveryPage() {
+  useDocumentTitle('Disaster Response: Recovery - NWTT');
+
   return (
     <div className="min-h-screen">
       <PageHeader

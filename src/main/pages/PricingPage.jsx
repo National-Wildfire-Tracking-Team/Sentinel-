@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../shared/context/AuthContext';
 import { usePlan } from '../../shared/hooks/usePlan';
+import { useDocumentTitle } from '../../shared/hooks/useDocumentTitle';
 import { getAppOrigin } from '../../shared/utils/getAppOrigin';
 
 const STRIPE_PRICING_TABLE_ID = 'prctbl_1UEajnHwBOQlFhO3wR5g06KQ';
@@ -139,6 +140,8 @@ const FAQ = [
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function PricingPage() {
+  useDocumentTitle('Pricing - NWTT');
+
   const [searchParams] = useSearchParams();
   const { isAuthenticated, user } = useAuth();
   const { planId: currentPlanId } = usePlan();

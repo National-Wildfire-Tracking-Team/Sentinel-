@@ -16,8 +16,11 @@ import { useAuth } from '../../shared/context/AuthContext';
 import { useDeployments } from '../hooks/useDeployments';
 import { useVolunteerProfile, useMySignups, signUpForDeployment, cancelDeploymentSignup } from '../hooks/useVolunteer';
 import { RESPONSE_ROLES } from '../data/disasterResponseOptions';
+import { useDocumentTitle } from '../../shared/hooks/useDocumentTitle';
 
 export default function DeploymentsPage() {
+  useDocumentTitle('Upcoming Deployments - Sentinel');
+
   const { user, isAuthenticated } = useAuth();
   const { deployments, loading, error } = useDeployments('upcoming');
   const { profile } = useVolunteerProfile(user?.id);

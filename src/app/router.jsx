@@ -8,6 +8,7 @@
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { lazy, Suspense, useEffect } from 'react';
 import { getReporterOrigin } from '../shared/utils/getAppOrigin';
+import { useDocumentTitle } from '../shared/hooks/useDocumentTitle';
 
 const LiveTrackerPage = lazy(() => import('./pages/LiveTrackerPage'));
 const LoginPage = lazy(() => import('./pages/LoginPage'));
@@ -43,7 +44,8 @@ function RouteLoader() {
  * (reporter.nationalwildfiretrackingteam.org), so redirect there instead of
  * rendering it here.
  */
-function ReporterPortalRedirect({ reporterPath }) {
+function ReporterPortalRedirect({ reporterPath, label }) {
+  useDocumentTitle(`Redirecting to Reporter ${label} - Sentinel`);
   useEffect(() => {
     window.location.replace(`${getReporterOrigin()}${reporterPath}`);
   }, [reporterPath]);
@@ -64,9 +66,9 @@ export default function AppRouter() {
           <Route path="/register" element={<RegisterPage />} />
 
           {/* Reporter portal moved to its own subdomain — redirect old bookmarks/links */}
-          <Route path="/reporter-login" element={<ReporterPortalRedirect reporterPath="/login" />} />
-          <Route path="/reporter-register" element={<ReporterPortalRedirect reporterPath="/register" />} />
-          <Route path="/reporter-dashboard" element={<ReporterPortalRedirect reporterPath="/" />} />
+          <Route path="/reporter-login" element={<ReporterPortalRedirect reporterPath="/login" label="Login" />} />
+          <Route path="/reporter-register" element={<ReporterPortalRedirect reporterPath="/register" label="Sign Up" />} />
+          <Route path="/reporter-dashboard" element={<ReporterPortalRedirect reporterPath="/" label="Dashboard" />} />
 
           {/* Account settings — protected, not linked in public nav */}
           <Route path="/account" element={<AccountPage />} />

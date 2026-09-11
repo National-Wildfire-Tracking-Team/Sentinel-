@@ -2,9 +2,12 @@ import { Navigate, useNavigate } from 'react-router-dom';
 import { ChevronLeft, ChevronRight, MapPin } from 'lucide-react';
 
 import { useAuth } from '../../shared/context/AuthContext';
+import { useDocumentTitle } from '../../shared/hooks/useDocumentTitle';
 import MapAddressSearchPanel from '../components/Auth/MapAddressSearchPanel';
 
 export default function ManageZipcodesPage() {
+  useDocumentTitle('Saved Locations - Sentinel');
+
   const { isAuthenticated, loading } = useAuth();
   const navigate = useNavigate();
 
