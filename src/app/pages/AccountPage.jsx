@@ -10,7 +10,7 @@ import { Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Flame, User, Mail, Shield, Calendar, Lock,
   CheckCircle2, AlertCircle, LogOut, ChevronLeft, MapPin,
-  CreditCard, Zap, ExternalLink, Star, Bell,
+  CreditCard, Zap, ExternalLink, Star, Sparkles, Bell,
 } from 'lucide-react';
 
 import { useAuth } from '../../shared/context/AuthContext';
@@ -118,6 +118,7 @@ export default function AccountPage() {
 
   const planColors = {
     free: 'bg-sentinel-700/50 border-sentinel-600 text-sentinel-200',
+    plus: 'bg-amber-600/20 border-amber-600/40 text-amber-300',
     pro: 'bg-fire-600/20 border-fire-600/40 text-fire-300',
     team: 'bg-emerald-700/20 border-emerald-600/40 text-emerald-300',
   };
@@ -248,7 +249,8 @@ export default function AccountPage() {
 
           {/* Current plan badge */}
           <div className="flex items-center gap-3">
-            <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border ${planColors[planId]}`}>
+            <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border ${planColors[planId] ?? planColors.free}`}>
+              {planId === 'plus' && <Sparkles size={11} />}
               {planId === 'pro' && <Zap size={11} />}
               {planId === 'team' && <Star size={11} />}
               {plan.label}
@@ -269,7 +271,7 @@ export default function AccountPage() {
 
           {/* Plan features summary */}
           <ul className="text-xs text-sentinel-300 space-y-1">
-            <li>• {plan.savedLocationsLimit} saved locations</li>
+            <li>• {Number.isFinite(plan.savedLocationsLimit) ? plan.savedLocationsLimit : 'Unlimited'} saved locations</li>
             {plan.priorityAlerts && <li>• Priority alert delivery</li>}
             {plan.advancedLayers && <li>• Advanced radar &amp; satellite layers</li>}
             {plan.apiAccess && <li>• API access</li>}
@@ -304,7 +306,7 @@ export default function AccountPage() {
                            hover:bg-fire-600/25 hover:text-fire-300 transition-colors"
               >
                 <Zap size={12} />
-                Upgrade to Pro — $4.99/mo
+                View Plans &amp; Upgrade
               </a>
             )}
           </div>
@@ -329,11 +331,15 @@ export default function AccountPage() {
             <div className="flex-1 h-2 rounded-full bg-sentinel-700 overflow-hidden">
               <div
                 className="h-full rounded-full bg-emerald-500 transition-all"
-                style={{ width: `${Math.min(((locations?.length || 0) / plan.savedLocationsLimit) * 100, 100)}%` }}
+                style={{
+                  width: Number.isFinite(plan.savedLocationsLimit)
+                    ? `${Math.min(((locations?.length || 0) / plan.savedLocationsLimit) * 100, 100)}%`
+                    : '100%',
+                }}
               />
             </div>
             <span className="text-xs text-sentinel-300 shrink-0">
-              {locations?.length || 0} / {plan.savedLocationsLimit} used
+              {locations?.length || 0} / {Number.isFinite(plan.savedLocationsLimit) ? plan.savedLocationsLimit : '∞'} used
             </span>
           </div>
 
