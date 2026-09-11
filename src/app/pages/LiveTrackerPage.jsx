@@ -14,7 +14,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 // Data hooks
 import { useFireHotspots } from '../hooks/useFireHotspots';
 import { useNgfsDetections } from '../hooks/useNgfsDetections';
-import { useMergedFireData, getFireMatchKey } from '../hooks/useMergedFireData';
+import { useMergedFireData, getFireMatchKey, pointInGeometry } from '../hooks/useMergedFireData';
 import { useAQIData } from '../hooks/useAQIData';
 import { useWeatherAlerts } from '../hooks/useWeatherAlerts';
 import { useIncidents } from '../hooks/useIncidents';
@@ -677,10 +677,28 @@ export default function LiveTrackerPage() {
   // Community-submitted reports – only approved ones, realtime-subscribed.
   // Tertiary tier: a supplemental overlay, not needed for first paint.
   const { reports: approvedReports, refresh: refreshUserReports } = useFireReports('approved', tertiaryReady);
-  const reporterReports = useMemo(
-    () => (activeMapTab === MAP_TABS.wildfire || activeMapTab === MAP_TABS.allhazard ? approvedReports : []),
-    [activeMapTab, approvedReports]
-  );
+  const reporterReports = useMemo(() => {
+    const tabReports =
+      activeMapTab === MAP_TABS.wildfire || activeMapTab === MAP_TABS.allhazard ? approvedReports : [];
+    // Multiple approved reports can be filed for the same fire (e.g. repeat
+    // submissions). Collapse them to one marker per fire-name key, keeping
+    // the most recent report, so the map doesn't show duplicate dots with
+    // the same label.
+    const byKey = new Map();
+    const unkeyed = [];
+    for (const report of tabReports) {
+      const key = getFireMatchKey(report.title);
+      if (!key) {
+        unkeyed.push(report);
+        continue;
+      }
+      const existing = byKey.get(key);
+      if (!existing || new Date(report.created_at) > new Date(existing.created_at)) {
+        byKey.set(key, report);
+      }
+    }
+    return [...byKey.values(), ...unkeyed];
+  }, [activeMapTab, approvedReports]);
   const userReportsGeoJSON = useMemo(
     () => reportsToGeoJSON(reporterReports),
     [reporterReports]
@@ -710,6 +728,28 @@ export default function LiveTrackerPage() {
     return tagStaleFire(containedFiltered, 'ModifiedOnDateTime', ONE_MONTH_MS);
   }, [perimetersGeoJSON]);
 
+  // Perimeters whose upstream name is a blank-data placeholder ("Unknown
+  // Fire"/"Unnamed") borrow a name from a community report that falls inside
+  // their polygon, so the map doesn't show an unhelpful placeholder when
+  // reporters have already identified the fire.
+  const namedPerimetersGeoJSON = useMemo(() => {
+    if (!freshPerimetersGeoJSON?.features?.length || !reporterReports.length)
+      return freshPerimetersGeoJSON;
+    return {
+      ...freshPerimetersGeoJSON,
+      features: freshPerimetersGeoJSON.features.map(f => {
+        if (getFireMatchKey(f.properties.IncidentName)) return f;
+        const match = reporterReports.find(r => {
+          const lng = Number(r.longitude);
+          const lat = Number(r.latitude);
+          return Number.isFinite(lng) && Number.isFinite(lat) && pointInGeometry([lng, lat], f.geometry);
+        });
+        if (!match) return f;
+        return { ...f, properties: { ...f.properties, IncidentName: match.title } };
+      }),
+    };
+  }, [freshPerimetersGeoJSON, reporterReports]);
+
   // Incident dots: drop 100%-contained fires stale for 3+ days, and unconditionally
   // drop any dot that hasn't been updated in 30 days.
   const freshIncidentDotsGeoJSON = useMemo(() => {
@@ -727,9 +767,9 @@ export default function LiveTrackerPage() {
 
   const filteredPerimetersGeoJSON = useMemo(() => (
     isFocused
-      ? filterActiveFiresGeoJSON(freshPerimetersGeoJSON, { containedKey: 'PercentContained' })
-      : freshPerimetersGeoJSON
-  ), [isFocused, freshPerimetersGeoJSON]);
+      ? filterActiveFiresGeoJSON(namedPerimetersGeoJSON, { containedKey: 'PercentContained' })
+      : namedPerimetersGeoJSON
+  ), [isFocused, namedPerimetersGeoJSON]);
 
   // ── Perimeter-only incidents for sidebar ──
   // Some fires have perimeter polygons (NIFC/WFIGS) but no matching
@@ -903,7 +943,7 @@ export default function LiveTrackerPage() {
       return;
     }
 
-    const perimeterFeature = freshPerimetersGeoJSON?.features?.find(
+    const perimeterFeature = namedPerimetersGeoJSON?.features?.find(
       (f) => String(f.properties?.UniqueFireIdentifier) === incidentId
     );
     if (perimeterFeature) {
@@ -943,7 +983,7 @@ export default function LiveTrackerPage() {
     // Not found in anything loaded so far — leave unresolved and retry as
     // more data comes in, until the give-up timeout below fires.
   }, [
-    mapReady, alerts, mergedIncidents, hotspotsGeoJSON, freshPerimetersGeoJSON, approvedReports,
+    mapReady, alerts, mergedIncidents, hotspotsGeoJSON, namedPerimetersGeoJSON, approvedReports,
     selectFire, flyToFire, setViewport,
   ]);
 
