@@ -8,7 +8,7 @@
 import { memo } from 'react';
 import { Source, Layer } from 'react-map-gl';
 
-const NexradScanLayer = memo(function NexradScanLayer({ dataUrl, coordinates, visible }) {
+const NexradScanLayer = memo(function NexradScanLayer({ dataUrl, coordinates, visible, beforeId }) {
   if (!visible || !dataUrl || !coordinates) return null;
 
   return (
@@ -16,10 +16,13 @@ const NexradScanLayer = memo(function NexradScanLayer({ dataUrl, coordinates, vi
       <Layer
         id="nexrad-scan-raster"
         type="raster"
+        beforeId={beforeId}
         paint={{
-          'raster-opacity': 0.85,
+          'raster-opacity': 0.75,
           'raster-fade-duration': 300,
-          'raster-resampling': 'linear',
+          // 'nearest', not 'linear' — no GPU resampling, full native grain
+          // of the rasterized polar sweep at every zoom.
+          'raster-resampling': 'nearest',
         }}
       />
     </Source>
