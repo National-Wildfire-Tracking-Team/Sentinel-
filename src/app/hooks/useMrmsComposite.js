@@ -20,6 +20,10 @@ import { useRadarHistory } from './useRadarHistory';
 
 const MRMS_FRAME_CACHE_SIZE = 5;
 const HISTORY_POLL_MS = 30 * 1000; // MRMS updates ~every 2 min; poll well inside that
+// 2x useRadarHistory's own default (700ms) — see RadarLayer.jsx's
+// MRMS_CROSSFADE_MS, scaled down to match so the cross-fade still fully
+// resolves between frames at this pace instead of getting cut off.
+const PLAYBACK_FRAME_MS = 350;
 // The IEM fallback renders from a completely different source (its own tile
 // pyramid, its own uncontrolled color ramp) than MRMS's rasterized composite,
 // so every time it kicks in, "live" visibly stops matching the look of the
@@ -37,6 +41,7 @@ export function useMrmsComposite(enabled) {
     rasterize: rasterizeMrmsFrame,
     cacheSize: MRMS_FRAME_CACHE_SIZE,
     historyPollMs: HISTORY_POLL_MS,
+    playbackFrameMs: PLAYBACK_FRAME_MS,
   });
 
   const isFresh = useMemo(() => {
