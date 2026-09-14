@@ -33,7 +33,7 @@ const LAYER_DEFS = {
   weatherAlerts:     { label: 'NWS & mesoscale',     sublabel: 'NWS active alerts + SPC MDs', icon: Wind,         color: '#ef4444' },
   stormReports:      { label: 'Storm reports',       sublabel: 'NWS LSR · last 24 hours',     icon: CloudLightning, color: '#7c3aed' },
   damageAssessment:  { label: 'Damage assessment',    sublabel: 'NWS DAT · surveys, last 30 days', icon: Hexagon,    color: '#dc2626' },
-  spcWeatherOutlooks: { label: 'SPC outlooks',     sublabel: 'Convective + fire weather',    icon: AlertTriangle, color: '#f59e0b' },
+  spcWeatherOutlooks: { label: 'SPC outlooks',     sublabel: 'Convective severe weather outlook',    icon: AlertTriangle, color: '#f59e0b' },
   goesEast:          { label: 'GOES East Imagery',   sublabel: 'NOAA GOES East · visible',    icon: Eye,           color: '#8b5cf6' },
   goesWest:          { label: 'GOES West Imagery',   sublabel: 'NOAA GOES West · visible',    icon: Eye,           color: '#7c3aed' },
   goesFire16:        { label: 'GOES East Fire RGB',  sublabel: 'NOAA GOES East · Day Land Cloud Fire RGB', icon: Eye, color: '#a855f7' },
@@ -101,7 +101,11 @@ const TAB_SECTIONS = {
       title: 'Outlooks',
       groups: [
         {
-          layers: ['fireRiskOutlook', 'ndgdSmokeForecast', 'droughtOutlook', 'fireWeatherOutlooks', 'goesFire16', 'goesFire18'],
+          layers: [
+            'fireRiskOutlook', 'ndgdSmokeForecast', 'droughtOutlook',
+            { key: 'fireWeatherOutlooks', label: 'SPC outlook', sublabel: 'SPC Day 1-8 fire weather' },
+            'goesFire16', 'goesFire18',
+          ],
         },
       ],
     },

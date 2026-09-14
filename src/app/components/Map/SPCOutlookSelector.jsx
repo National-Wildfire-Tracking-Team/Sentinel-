@@ -4,9 +4,14 @@
  *   - Hazard type tab bar (Categorical / Tornado / Hail / Wind / Severe)
  *   - Exclusive day pill selector (Day 1 / Day 2 / Day 3)
  *   - Loading spinner + valid-time label
+ *
+ * Docked flush above MapBottomBar (or, if a Composite Radar / NEXRAD panel is
+ * also open, flush above that stack instead) and matched to its width —
+ * mirrors RadarTimeline.jsx / RadarSitePanel.jsx so every bottom-bar control
+ * grows out of the same bar instead of floating independently.
  */
 
-import { memo } from 'react';
+import { memo, forwardRef } from 'react';
 import { OUTLOOK_TYPES } from '../../api/spcOutlooks';
 
 // Icon paths (inline SVG) keyed by outlook type
@@ -77,16 +82,16 @@ function Spinner() {
   );
 }
 
-const SPCOutlookSelector = memo(function SPCOutlookSelector({
+const SPCOutlookSelector = memo(forwardRef(function SPCOutlookSelector({
   outlookType,
   onOutlookTypeChange,
   activeDay,
   onActiveDayChange,
   loading = false,
   validTime = null,
-  /** When true, no absolute positioning (nest inside a parent that handles layout) */
-  inline = false,
-}) {
+  bottomBarWidth,
+  bottomBarHeight,
+}, ref) {
   const currentTypeDef = OUTLOOK_TYPES.find(t => t.key === outlookType);
   const supportedDays  = currentTypeDef ? currentTypeDef.days : DAYS.map(d => d.key);
   const colors = TYPE_COLORS[outlookType] || TYPE_COLORS.categorical;
@@ -112,8 +117,20 @@ const SPCOutlookSelector = memo(function SPCOutlookSelector({
       })()
     : null;
 
-  const card = (
-    <div className="bg-black border border-zinc-700 rounded-2xl shadow-2xl shadow-black/60 overflow-hidden w-full max-w-full ring-1 ring-white/10">
+  return (
+    <div
+      ref={ref}
+      role="group"
+      aria-label="SPC outlook selector"
+      className="absolute bottom-20 left-1/2 -translate-x-1/2 z-20 w-[min(34rem,calc(100vw-2rem))]
+                    bg-black border border-zinc-700 rounded-t-2xl shadow-2xl shadow-black/60 ring-1 ring-white/10
+                    overflow-hidden"
+      style={{
+        width: bottomBarWidth ? `${bottomBarWidth}px` : undefined,
+        bottom: bottomBarHeight ? `${bottomBarHeight + 16}px` : undefined,
+        maxWidth: 'calc(100vw - 1rem)',
+      }}
+    >
 
         {/* ── Type tab bar ── */}
         <div className="flex items-stretch border-b border-zinc-800">
@@ -202,18 +219,5 @@ const SPCOutlookSelector = memo(function SPCOutlookSelector({
         </div>
     </div>
   );
-
-  if (inline) {
-    return <div className="w-full max-w-full pointer-events-auto animate-fade-in" style={{ maxWidth: 'calc(100vw - 1rem)' }}>{card}</div>;
-  }
-
-  return (
-    <div
-      className="absolute top-3 left-1/2 -translate-x-1/2 z-20 pointer-events-auto animate-fade-in"
-      style={{ maxWidth: 'calc(100vw - 1rem)' }}
-    >
-      {card}
-    </div>
-  );
-});
+}));
 export default SPCOutlookSelector;

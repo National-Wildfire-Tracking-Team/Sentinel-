@@ -295,6 +295,20 @@ export default function LiveTrackerPage() {
     }
   }, [activeMapTab]);
 
+  // Remembers each wildfire/weather/allhazard tab's own layer toggles across
+  // switches — populated in handleTabChange (below) right before leaving a
+  // tab, so switching back restores exactly what was on instead of
+  // re-applying that tab's default preset every time.
+  const layerSnapshotsRef = useRef({});
+
+  const handleTabChange = useCallback((newTab) => {
+    if (newTab === activeMapTab) return;
+    if (activeMapTab !== MAP_TABS.locations) {
+      layerSnapshotsRef.current[activeMapTab] = { ...layers };
+    }
+    setActiveMapTab(newTab);
+  }, [activeMapTab, layers]);
+
   // Apply layer presets only when switching between wildfire/weather/allhazard tabs.
   // The locations tab keeps whatever layers were already active.
   useEffect(() => {
@@ -306,7 +320,8 @@ export default function LiveTrackerPage() {
     };
     const preset = presets[activeMapTab];
     if (!preset) return;
-    Object.entries(preset).forEach(([layer, value]) => {
+    const values = layerSnapshotsRef.current[activeMapTab] || preset;
+    Object.entries(values).forEach(([layer, value]) => {
       setLayer(layer, value);
     });
     if (activeMapTab === MAP_TABS.weather || activeMapTab === MAP_TABS.allhazard) {
@@ -450,7 +465,6 @@ export default function LiveTrackerPage() {
 
   const [spcOutlookType, setSpcOutlookType] = useState('categorical');
   const [spcActiveDay,   setSpcActiveDay]   = useState('day1');
-  const [spcWeatherOutlookMode, setSpcWeatherOutlookMode] = useState('convective');
 
   const {
     geoJSON:   spcOutlooksGeoJSON,
@@ -458,7 +472,7 @@ export default function LiveTrackerPage() {
     validTime: spcValidTime,
     refresh:   refreshSpcOutlooks,
   } = useSpcOutlooks(
-    layers.spcWeatherOutlooks && spcWeatherOutlookMode === 'convective' && weatherDataEnabled,
+    layers.spcWeatherOutlooks && weatherDataEnabled,
     spcActiveDay,
     spcOutlookType
   );
@@ -544,12 +558,9 @@ export default function LiveTrackerPage() {
 
   const {
     geoJSON:   fireWeatherOutlooksGeoJSON,
-    loading:   fireWeatherOutlooksLoading,
-    validTime: fireWxValidTime,
     refresh:   refreshFireWeatherOutlooks,
   } = useFireWeatherOutlooks(
-    layers.fireWeatherOutlooks
-      || (layers.spcWeatherOutlooks && spcWeatherOutlookMode === 'fireWx' && weatherDataEnabled),
+    layers.fireWeatherOutlooks,
     fireWxActiveDay,
     fireWxOutlookType
   );
@@ -1108,7 +1119,7 @@ export default function LiveTrackerPage() {
     if (layers.ndgdSmokeForecast && (activeMapTab === MAP_TABS.wildfire || activeMapTab === MAP_TABS.allhazard)) refreshNdgdSmokeForecast();
     if (criticalInfraEnabled) refreshCriticalInfrastructure();
     if (schoolsLayerEnabled) refreshNationalMapColleges();
-    if (layers.fireWeatherOutlooks || (layers.spcWeatherOutlooks && spcWeatherOutlookMode === 'fireWx')) {
+    if (layers.fireWeatherOutlooks) {
       refreshFireWeatherOutlooks();
     }
     if (nhcTropicalWeatherEnabled) {
@@ -1129,7 +1140,7 @@ export default function LiveTrackerPage() {
     refreshWpcEro, refreshWpcWssi, refreshWpcQpf, refreshWpcFronts,
     layers.wpcEro, layers.wpcWssi, layers.wpcQpf, layers.wpcFronts,
     activeMapTab, weatherDataEnabled, damageAssessmentEnabled, layers.aqi, rawsEnabled, layers.airNowMonitors, layers.droughtOutlook, layers.ndgdSmokeForecast,
-    layers.fireWeatherOutlooks, layers.spcWeatherOutlooks, spcWeatherOutlookMode, layers.stormReports,
+    layers.fireWeatherOutlooks, layers.stormReports,
     nhcTropicalWeatherEnabled,
     criticalInfraEnabled,
     schoolsLayerEnabled,
@@ -1195,14 +1206,59 @@ export default function LiveTrackerPage() {
     return () => observer.disconnect();
   }, [selectedRadarSite?.id]);
 
+  // The SPC outlook selector docks above the same bottom-bar stack (see
+  // MapView), so it needs to be measured too — the Layers panel and the
+  // bar/radar-panel top corners all need to account for it being on top.
+  const outlookShowing = (activeMapTab === MAP_TABS.weather || activeMapTab === MAP_TABS.allhazard)
+    && Boolean(layers.spcWeatherOutlooks);
+  const spcOutlookPanelRef = useRef(null);
+  const [spcOutlookPanelHeight, setSpcOutlookPanelHeight] = useState(0);
+
+  useEffect(() => {
+    const el = spcOutlookPanelRef.current;
+    if (!el) {
+      setSpcOutlookPanelHeight(0);
+      return undefined;
+    }
+    const observer = new ResizeObserver(() => {
+      setSpcOutlookPanelHeight(el.getBoundingClientRect().height);
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [outlookShowing]);
+
+  // The Wildfire tab's fire weather outlook selector docks above the bottom
+  // bar the same way — measured for the same reasons as the SPC outlook
+  // selector above.
+  const fireWxOutlookShowing = activeMapTab === MAP_TABS.wildfire && Boolean(layers.fireWeatherOutlooks);
+  const fireWxOutlookPanelRef = useRef(null);
+  const [fireWxOutlookPanelHeight, setFireWxOutlookPanelHeight] = useState(0);
+
+  useEffect(() => {
+    const el = fireWxOutlookPanelRef.current;
+    if (!el) {
+      setFireWxOutlookPanelHeight(0);
+      return undefined;
+    }
+    const observer = new ResizeObserver(() => {
+      setFireWxOutlookPanelHeight(el.getBoundingClientRect().height);
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [fireWxOutlookShowing]);
+
   // Either radar control can be docked above the bottom bar, and both can be
-  // open together (the site popup then stacks flush on top of the timeline)
+  // open together (the site popup then stacks flush on top of the timeline),
+  // and the SPC/fire-weather outlook selector can dock on top of all of that
   // — so the bar's own "something is attached to my top edge" flag and the
   // Layers panel's clearance both need to account for whichever combination
   // is actually showing.
-  const radarBottomBarAttached = radarScrubberAttached || Boolean(selectedRadarSite);
+  const radarBottomBarAttached = radarScrubberAttached || Boolean(selectedRadarSite) || outlookShowing || fireWxOutlookShowing;
   const radarStackHeight = (radarScrubberAttached ? radarTimelineHeight : 0) + (selectedRadarSite ? radarSitePanelHeight : 0);
-  const layerPanelRadarClearance = radarStackHeight ? radarStackHeight + 8 : 0;
+  const totalDockedHeight = radarStackHeight
+    + (outlookShowing ? spcOutlookPanelHeight : 0)
+    + (fireWxOutlookShowing ? fireWxOutlookPanelHeight : 0);
+  const layerPanelRadarClearance = totalDockedHeight ? totalDockedHeight + 8 : 0;
 
   return (
     <div className="h-screen w-screen flex flex-col bg-sentinel-900 text-white overflow-hidden select-none">
@@ -1267,12 +1323,8 @@ export default function LiveTrackerPage() {
             fireWeatherOutlooksGeoJSON={fireWeatherOutlooksGeoJSON}
             fireWxOutlookType={fireWxOutlookType}
             fireWxActiveDay={fireWxActiveDay}
-            fireWeatherOutlooksLoading={fireWeatherOutlooksLoading}
-            fireWxValidTime={fireWxValidTime}
             onFireWxOutlookTypeChange={setFireWxOutlookType}
             onFireWxActiveDayChange={setFireWxActiveDay}
-            spcWeatherOutlookMode={spcWeatherOutlookMode}
-            onSpcWeatherOutlookModeChange={setSpcWeatherOutlookMode}
             savedLocations={savedLocations}
             measureActive={measureActive}
             measureMode={measureMode}
@@ -1299,7 +1351,10 @@ export default function LiveTrackerPage() {
             onMrmsNext={onMrmsNext}
             mapBottomBarWidth={mapBottomBarSize.width}
             mapBottomBarHeight={mapBottomBarSize.height}
+            radarStackHeight={radarStackHeight}
             radarTimelineRef={radarTimelineRef}
+            spcOutlookPanelRef={spcOutlookPanelRef}
+            fireWxOutlookPanelRef={fireWxOutlookPanelRef}
             calFireHistoricalPerimetersGeoJSON={calFireHistoricalPerimetersGeoJSON}
             californiaCamerasGeoJSON={californiaCamerasGeoJSON}
             wpcEroGeoJSON={wpcEroGeoJSON}
@@ -1330,7 +1385,7 @@ export default function LiveTrackerPage() {
           <MapBottomBar
             ref={mapBottomBarRef}
             activeMapTab={activeMapTab}
-            onTabChange={setActiveMapTab}
+            onTabChange={handleTabChange}
             infrastructureLayersEntitled={hasProInfrastructureAccess}
             measureActive={measureActive}
             measureMode={measureMode}
@@ -1345,7 +1400,6 @@ export default function LiveTrackerPage() {
           <Legend
             spcOutlookType={spcOutlookType}
             spcActiveDay={spcActiveDay}
-            spcWeatherOutlookMode={spcWeatherOutlookMode}
             fireWxOutlookType={fireWxOutlookType}
             radarScanActive={Boolean(selectedRadarSite)}
             radarScanProduct={radarProduct}
@@ -1371,6 +1425,7 @@ export default function LiveTrackerPage() {
               bottomBarHeight={
                 mapBottomBarSize.height + (radarScrubberAttached ? radarTimelineHeight : 0)
               }
+              topAttached={outlookShowing}
             />
           )}
           {selectedCamera && (

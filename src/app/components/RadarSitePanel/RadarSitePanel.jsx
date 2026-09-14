@@ -49,7 +49,7 @@ function minutesAgo(scanTime) {
   return `${mins}m ago`;
 }
 
-const RadarSitePanel = memo(forwardRef(function RadarSitePanel({ site, product, onProductChange, meta, status, error, onClose, bottomBarWidth, bottomBarHeight }, ref) {
+const RadarSitePanel = memo(forwardRef(function RadarSitePanel({ site, product, onProductChange, meta, status, error, onClose, bottomBarWidth, bottomBarHeight, topAttached = false }, ref) {
   if (!site) return null;
 
   const display = resolveDisplayStatus(site.status, status);
@@ -61,9 +61,15 @@ const RadarSitePanel = memo(forwardRef(function RadarSitePanel({ site, product, 
       ref={ref}
       role="group"
       aria-label="NEXRAD Level II radar site"
-      className="absolute bottom-20 left-1/2 -translate-x-1/2 z-20 w-[min(34rem,calc(100vw-2rem))]
+      className={`absolute bottom-20 left-1/2 -translate-x-1/2 z-20 w-[min(34rem,calc(100vw-2rem))]
                     bg-white/90 dark:bg-black/90 backdrop-blur-sm border border-sentinel-200 dark:border-zinc-700
-                    rounded-t-2xl shadow-2xl shadow-black/10 dark:shadow-black/60 px-2.5 py-1.5"
+                    shadow-2xl shadow-black/10 dark:shadow-black/60 px-2.5 py-1.5 ${
+                      // Squared off and borderless on top when the SPC outlook
+                      // popup is docked directly above — otherwise this is the
+                      // topmost element, so it keeps the rounded "growing out
+                      // of the bar" cap.
+                      topAttached ? 'rounded-none border-t-0' : 'rounded-t-2xl'
+                    }`}
       style={{
         width: bottomBarWidth ? `${bottomBarWidth}px` : undefined,
         bottom: bottomBarHeight ? `${bottomBarHeight + 16}px` : undefined,
