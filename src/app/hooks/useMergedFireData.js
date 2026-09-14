@@ -394,6 +394,7 @@ function mergeFireData(perimeters, incidents, calFireDotsGeoJSON = null) {
       properties: {
         ...f.properties,
         IncidentName: inc.IncidentName,
+        UniqueFireIdentifier: inc.UniqueFireIdentifier || f.properties.UniqueFireIdentifier,
         FireCause: f.properties.FireCause || inc.FireCause || 'Undetermined',
         GISAcres: Math.max(f.properties.GISAcres || 0, inc.GISAcres || 0),
         TotalIncidentPersonnel:
@@ -427,6 +428,7 @@ function mergeFireData(perimeters, incidents, calFireDotsGeoJSON = null) {
       properties: {
         ...f.properties,
         IncidentName: inc.IncidentName,
+        UniqueFireIdentifier: inc.UniqueFireIdentifier || f.properties.UniqueFireIdentifier,
         FireCause: f.properties.FireCause || inc.FireCause || 'Undetermined',
         GISAcres: Math.max(f.properties.GISAcres || 0, inc.GISAcres || 0),
         TotalIncidentPersonnel:

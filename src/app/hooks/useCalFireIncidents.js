@@ -5,8 +5,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { fetchCalFireGeoJsonList, normalizeCalFireIncidents } from '../api/calFire';
 import { throttleError } from '../../shared/utils/errorThrottle';
-import { insertAutomatedUpdate } from './useIncidentUpdates';
-import { publishIncidentChange } from '../utils/incidentChangeBus';
 
 const REFRESH_MS = parseInt(import.meta.env.VITE_REFRESH_INTERVAL || '300000', 10);
 
@@ -20,7 +18,6 @@ export function useCalFireIncidents(includeInactive = false, enabled = true) {
   const [error, setError] = useState(null);
   const intervalRef = useRef(null);
   const mountedRef = useRef(true);
-  const prevMapRef = useRef({}); // incidentId → snapshot of key fields
 
   const load = useCallback(async () => {
     if (!enabled) return;
@@ -31,48 +28,6 @@ export function useCalFireIncidents(includeInactive = false, enabled = true) {
       if (!mountedRef.current) return;
       const normalized = normalizeCalFireIncidents(geojson);
       const sorted = normalized.sort((a, b) => b.acres - a.acres);
-
-      // Detect meaningful field changes vs previous fetch and emit "Data Updated"
-      // entries into the incident_updates feed. Skip on the very first load.
-      const prev = prevMapRef.current;
-      if (Object.keys(prev).length > 0) {
-        for (const inc of sorted) {
-          const old = prev[inc.id];
-          if (!old) continue;
-
-          const changes = [];
-          if (old.contained !== inc.contained)
-            changes.push(`Containment: ${old.contained}% → ${inc.contained}%`);
-          if (old.acres !== inc.acres)
-            changes.push(`Acres: ${old.acres.toLocaleString()} → ${inc.acres.toLocaleString()}`);
-          if (old.status !== inc.status)
-            changes.push(`Status: ${old.status} → ${inc.status}`);
-
-          if (changes.length > 0) {
-            const localUpdate = {
-              id:            `local-${Date.now()}-${inc.id}`,
-              incident_id:   inc.id,
-              incident_name: inc.name,
-              content:       changes.join('\n'),
-              source_type:   'automated',
-              source_name:   'CAL FIRE',
-              created_at:    new Date().toISOString(),
-            };
-            // Publish immediately so open panels update without waiting on Supabase.
-            publishIncidentChange(inc.id, localUpdate);
-            // Persist so the update survives reloads and appears for other users.
-            insertAutomatedUpdate({
-              incidentId:   inc.id,
-              incidentName: inc.name,
-              content:      changes.join('\n'),
-              sourceName:   'CAL FIRE',
-            }).catch(() => {});
-          }
-        }
-      }
-      prevMapRef.current = Object.fromEntries(
-        sorted.map((inc) => [inc.id, { contained: inc.contained, acres: inc.acres, status: inc.status }])
-      );
 
       setIncidents(sorted);
     } catch (err) {
