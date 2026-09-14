@@ -10,72 +10,10 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  lint:
-    name: Lint
+  ci:
+    name: CI
     runs-on: ubuntu-latest
-    timeout-minutes: 5
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 24
-          cache: npm
-      - run: npm ci
-      - run: npm run lint -- --max-warnings=200
-
-  build:
-    name: Build
-    runs-on: ubuntu-latest
-    needs: [lint]
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 24
-          cache: npm
-      - run: npm ci
-      - run: npm run build
-      - uses: actions/upload-artifact@v4
-        with:
-          name: dist
-          path: dist/
-          retention-days: 7
-
-  test:
-    name: Tests
-    runs-on: ubuntu-latest
-    needs: [build]
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 24
-          cache: npm
-      - run: npm ci
-      - run: npm run test
-
-  coverage:
-    name: Coverage
-    runs-on: ubuntu-latest
-    needs: [test]
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 24
-          cache: npm
-      - run: npm ci
-      - run: npm run test:coverage
-
-  e2e:
-    name: E2E Tests
-    runs-on: ubuntu-latest
-    needs: [build]
-    if: github.event.pull_request.base.ref == 'Main' || github.event.pull_request.base.ref == 'stage' || github.event.pull_request.base.ref == 'dev'
-    timeout-minutes: 15
+    timeout-minutes: 30
     env:
       VITE_SUPABASE_URL: https://placeholder.supabase.co
       VITE_SUPABASE_ANON_KEY: placeholder-anon-key
@@ -86,17 +24,27 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
+      - run: npm run lint -- --max-warnings=200
       - run: npm run build
+      # test:coverage runs the full `vitest run` suite with coverage
+      # instrumentation enabled, so it supersedes a plain `npm run test` —
+      # running both would execute the same tests twice.
+      - run: npm run test:coverage
+      - name: Determine if E2E should run
+        id: e2e-gate
+        run: echo "run=${{ github.event.pull_request.base.ref == 'Main' || github.event.pull_request.base.ref == 'stage' || github.event.pull_request.base.ref == 'dev' }}" >> "$GITHUB_OUTPUT"
       - uses: actions/cache@v4
         id: playwright-cache
+        if: steps.e2e-gate.outputs.run == 'true'
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
       - run: npx playwright install chromium
-        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        if: steps.e2e-gate.outputs.run == 'true' && steps.playwright-cache.outputs.cache-hit != 'true'
       - run: npm run test:e2e
+        if: steps.e2e-gate.outputs.run == 'true'
       - uses: actions/upload-artifact@v4
-        if: always()
+        if: always() && steps.e2e-gate.outputs.run == 'true'
         with:
           name: playwright-report
           path: playwright-report/

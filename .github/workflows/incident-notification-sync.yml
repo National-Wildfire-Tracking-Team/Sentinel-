@@ -1,0 +1,68 @@
+name: Incident & Notification Sync
+
+# incident-updates-sync.mjs (public incident_updates feed) and
+# notification-sync.mjs (per-user email alerts) previously ran as two
+# separate workflows on the identical */5 schedule. They share no data
+# dependency — notification-sync.mjs fetches WFIGS/NWS itself rather than
+# reading incident_updates — and write to different tables, so they're
+# combined here purely to avoid paying for a second checkout/runner every
+# 5 minutes. Neither script imports any npm package (both use only global
+# fetch and Node built-ins), so no `npm ci` step is needed for either.
+# The notification step uses `if: always()` so a failure in the incident
+# step (still surfaced as an overall job failure) never silently skips
+# email delivery — preserving the two scripts' original independence.
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "*/5 * * * *"
+
+concurrency:
+  group: incident-notification-sync
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Verify required secrets exist
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+        run: |
+          test -n "$SUPABASE_URL" || (echo "Missing SUPABASE_URL" && exit 1)
+          test -n "$SUPABASE_SERVICE_ROLE_KEY" || (echo "Missing SUPABASE_SERVICE_ROLE_KEY" && exit 1)
+          test -n "$RESEND_API_KEY" || (echo "Missing RESEND_API_KEY" && exit 1)
+
+      - name: Run incident updates sync
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: node scripts/incident-updates-sync.mjs
+
+      # always() so notification-sync still runs (and still sends alerts) even
+      # if the incident-updates step above failed — same independence the two
+      # scripts had as separate workflows.
+      - name: Run notification sync
+        if: always()
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          RESEND_FROM_EMAIL: ${{ vars.RESEND_FROM_EMAIL }}
+          APP_URL: ${{ vars.APP_URL }}
+        run: node scripts/notification-sync.mjs
