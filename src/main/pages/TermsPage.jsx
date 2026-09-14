@@ -1,3 +1,5 @@
+import Seo from '../../shared/components/Seo';
+
 const sections = [
   {
     title: '1. About Sentinel',
@@ -134,6 +136,11 @@ const sections = [
 export default function TermsPage() {
   return (
     <section className="py-16 px-4 sm:px-6 lg:px-8">
+      <Seo
+        title="Terms of Service | National Wildfire Tracking Team"
+        description="Terms of service for Sentinel and the National Wildfire Tracking Team's website, tools, and data."
+        path="/terms"
+      />
       <div className="max-w-4xl mx-auto">
         <p className="text-fire-400 text-sm font-semibold uppercase tracking-wider mb-2">Legal</p>
         <h1 className="text-4xl md:text-5xl font-bold mb-4">Sentinel Terms of Service</h1>

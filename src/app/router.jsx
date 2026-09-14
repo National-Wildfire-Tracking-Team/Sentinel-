@@ -8,8 +8,10 @@
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { lazy, Suspense, useEffect } from 'react';
 import { getReporterOrigin } from '../shared/utils/getAppOrigin';
+import Seo from '../shared/components/Seo';
 
 const LiveTrackerPage = lazy(() => import('./pages/LiveTrackerPage'));
+const FireIncidentPage = lazy(() => import('./pages/FireIncidentPage'));
 const LoginPage = lazy(() => import('./pages/LoginPage'));
 const RegisterPage = lazy(() => import('./pages/RegisterPage'));
 const AccountPage = lazy(() => import('./pages/AccountPage'));
@@ -47,7 +49,12 @@ function ReporterPortalRedirect({ reporterPath }) {
   useEffect(() => {
     window.location.replace(`${getReporterOrigin()}${reporterPath}`);
   }, [reporterPath]);
-  return <RouteLoader />;
+  return (
+    <>
+      <Seo noindex />
+      <RouteLoader />
+    </>
+  );
 }
 
 export default function AppRouter() {
@@ -59,29 +66,44 @@ export default function AppRouter() {
           {/* Full-screen live tracker — app root */}
           <Route path="/" element={<LiveTrackerPage />} />
 
-          {/* Auth pages */}
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/register" element={<RegisterPage />} />
+          {/* Standalone, shareable, indexable overview for a single fire */}
+          <Route path="/fire/:id" element={<FireIncidentPage />} />
+
+          {/* Auth pages — noindex: thin forms with no standalone search value */}
+          <Route path="/login" element={<><Seo title="Sign In | Sentinel" noindex /><LoginPage /></>} />
+          <Route path="/register" element={<><Seo title="Create Account | Sentinel" noindex /><RegisterPage /></>} />
 
           {/* Reporter portal moved to its own subdomain — redirect old bookmarks/links */}
           <Route path="/reporter-login" element={<ReporterPortalRedirect reporterPath="/login" />} />
           <Route path="/reporter-register" element={<ReporterPortalRedirect reporterPath="/register" />} />
           <Route path="/reporter-dashboard" element={<ReporterPortalRedirect reporterPath="/" />} />
 
-          {/* Account settings — protected, not linked in public nav */}
-          <Route path="/account" element={<AccountPage />} />
-          <Route path="/manage-zipcodes" element={<ManageZipcodesPage />} />
+          {/* Account settings — protected, not linked in public nav, noindex */}
+          <Route path="/account" element={<><Seo title="Account Settings | Sentinel" noindex /><AccountPage /></>} />
+          <Route path="/manage-zipcodes" element={<><Seo title="Manage Alert Zip Codes | Sentinel" noindex /><ManageZipcodesPage /></>} />
 
-          {/* Admin — protected (see AdminDashboardPage's own auth/role gate), never exposed on the main domain */}
-          <Route path="/admin" element={<AdminDashboardPage />} />
-          <Route path="/admin/deployments" element={<ManageDeploymentsPage />} />
+          {/* Admin — protected (see AdminDashboardPage's own auth/role gate), never exposed on the main domain, noindex */}
+          <Route path="/admin" element={<><Seo title="Admin Dashboard | Sentinel" noindex /><AdminDashboardPage /></>} />
+          <Route path="/admin/deployments" element={<><Seo title="Manage Deployments | Sentinel" noindex /><ManageDeploymentsPage /></>} />
 
-          {/* Disaster Response volunteer program */}
-          <Route path="/deployments" element={<DeploymentsPage />} />
-          <Route path="/volunteer-profile" element={<VolunteerProfilePage />} />
+          {/* Disaster Response volunteer program — public content */}
+          <Route
+            path="/deployments"
+            element={(
+              <>
+                <Seo
+                  title="Disaster Response Deployments | NWTT"
+                  description="Browse upcoming disaster-response deployment opportunities and volunteer signups from the National Wildfire Tracking Team."
+                  path="/deployments"
+                />
+                <DeploymentsPage />
+              </>
+            )}
+          />
+          <Route path="/volunteer-profile" element={<><Seo title="Volunteer Profile | Sentinel" noindex /><VolunteerProfilePage /></>} />
 
-          {/* Test-only route for ErrorBoundary e2e testing */}
-          <Route path="/error-test" element={<ErrorTestPage />} />
+          {/* Test-only route for ErrorBoundary e2e testing, noindex */}
+          <Route path="/error-test" element={<><Seo noindex /><ErrorTestPage /></>} />
 
           {/* Catch-all: redirect unknown routes to the tracker instead of black screen */}
           <Route path="*" element={<Navigate to="/" replace />} />

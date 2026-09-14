@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import Seo from '../../../shared/components/Seo';
 import {
   ShieldAlert,
   ArrowRight,
@@ -50,6 +51,11 @@ const teasers = [
 export default function DisasterResponsePage() {
   return (
     <div className="min-h-screen">
+      <Seo
+        title="Disaster Response & Recovery | National Wildfire Tracking Team"
+        description="How the National Wildfire Tracking Team supports disaster response: preparedness guidance, volunteer deployments, and recovery resources for wildfire and severe weather events."
+        path="/disaster-response"
+      />
       <PageHeader
         icon={ShieldAlert}
         eyebrow="Emergency Response Ready"

@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import Seo from '../../../shared/components/Seo';
 import {
   CloudLightning,
   ArrowRight,
@@ -39,6 +40,11 @@ const capabilities = [
 export default function PreparednessPage() {
   return (
     <div className="min-h-screen">
+      <Seo
+        title="Wildfire Preparedness Guide | NWTT"
+        description="Preparedness guidance from the National Wildfire Tracking Team: how WXIntel activation, training, and planning tools help communities get ready before a wildfire starts."
+        path="/disaster-response/preparedness"
+      />
       <PageHeader
         icon={CloudLightning}
         eyebrow="Preparedness"

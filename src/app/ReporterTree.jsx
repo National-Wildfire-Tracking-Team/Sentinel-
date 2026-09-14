@@ -11,6 +11,7 @@
 
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { lazy, Suspense, useEffect } from 'react';
+import Seo from '../shared/components/Seo';
 
 const ReporterDashboardPage = lazy(() => import('./pages/reporter-dashboard'));
 const ReporterLoginPage = lazy(() => import('./pages/ReporterLoginPage'));
@@ -38,9 +39,10 @@ export default function ReporterTree() {
       <ScrollToTop />
       <Suspense fallback={<RouteLoader />}>
         <Routes>
-          <Route path="/" element={<ReporterDashboardPage />} />
-          <Route path="/login" element={<ReporterLoginPage />} />
-          <Route path="/register" element={<ReporterRegisterPage />} />
+          {/* Internal tool for verified reporters — not public content, noindex site-wide */}
+          <Route path="/" element={<><Seo title="Reporter Dashboard | Sentinel" noindex /><ReporterDashboardPage /></>} />
+          <Route path="/login" element={<><Seo title="Reporter Sign In | Sentinel" noindex /><ReporterLoginPage /></>} />
+          <Route path="/register" element={<><Seo title="Reporter Registration | Sentinel" noindex /><ReporterRegisterPage /></>} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Suspense>

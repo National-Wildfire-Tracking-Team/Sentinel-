@@ -1,4 +1,6 @@
 import { Link } from 'react-router-dom';
+import Seo from '../../shared/components/Seo';
+import { getAppOrigin } from '../../shared/utils/getAppOrigin';
 import {
   Flame,
   Target,
@@ -10,7 +12,37 @@ import {
   ArrowRight,
   Award,
   Clock,
+  Database,
+  RefreshCw,
+  AlertTriangle,
 } from 'lucide-react';
+
+const dataSources = [
+  {
+    name: 'NASA FIRMS',
+    description: 'Satellite-detected active fire hotspots (VIIRS and MODIS), refreshed multiple times per day.',
+  },
+  {
+    name: 'NIFC',
+    description: 'National Interagency Fire Center incident data, including large-fire status and containment.',
+  },
+  {
+    name: 'InciWeb',
+    description: 'Official incident reports and public information for active wildfire responses.',
+  },
+  {
+    name: 'CAL FIRE',
+    description: 'California-specific incident and perimeter data, preferred over national feeds for CA fires.',
+  },
+  {
+    name: 'NOAA / National Weather Service',
+    description: 'Red Flag Warnings, Fire Weather Watches, and other alerts tied to elevated fire risk.',
+  },
+  {
+    name: 'AirNow & EPA',
+    description: 'Air Quality Index readings used to show smoke impact on nearby communities.',
+  },
+];
 
 const values = [
   {
@@ -54,6 +86,11 @@ const values = [
 export default function AboutPage() {
   return (
     <div className="min-h-screen">
+      <Seo
+        title="About Us | National Wildfire Tracking Team (NWTT)"
+        description="The National Wildfire Tracking Team (NWTT) is an all-volunteer nonprofit. Learn who operates Sentinel, our mission, and how we source and verify wildfire, weather, and air quality data."
+        path="/about"
+      />
       {/* ── Hero ── */}
       <section className="relative overflow-hidden bg-sentinel-900">
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_rgba(255,90,0,0.08),_transparent_60%)]" />
@@ -172,6 +209,70 @@ export default function AboutPage() {
                 </div>
               );
             })}
+          </div>
+        </div>
+      </section>
+
+      {/* ── Data Sources & Methodology ── */}
+      <section id="data-methodology" className="bg-sentinel-800 py-20">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-16">
+            <div className="flex items-center justify-center gap-2 mb-4">
+              <Database size={18} className="text-fire-400" />
+              <span className="text-fire-400 font-semibold text-sm uppercase tracking-wider">Data & Methodology</span>
+            </div>
+            <h2 className="text-3xl sm:text-4xl font-bold text-white">Where Our Data Comes From</h2>
+            <p className="mt-4 text-sentinel-300 text-lg max-w-2xl mx-auto">
+              Sentinel does not generate its own fire detections. We aggregate, cross-reference, and
+              display data published by public agencies, then layer in our own verification.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
+            {dataSources.map((source) => (
+              <div
+                key={source.name}
+                className="p-6 rounded-2xl bg-sentinel-900 border border-sentinel-700"
+              >
+                <h3 className="text-white font-semibold mb-2">{source.name}</h3>
+                <p className="text-sentinel-300 text-sm leading-relaxed">{source.description}</p>
+              </div>
+            ))}
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="p-6 rounded-2xl bg-sentinel-900 border border-sentinel-700 flex gap-4">
+              <RefreshCw size={20} className="text-fire-400 flex-shrink-0 mt-1" />
+              <div>
+                <h3 className="text-white font-semibold mb-1">Update Frequency</h3>
+                <p className="text-sentinel-300 text-sm leading-relaxed">
+                  Satellite hotspots and weather alerts refresh continuously throughout the day.
+                  Incident perimeters and containment figures update as fast as source agencies
+                  publish them, which is typically once or twice daily during active incidents.
+                </p>
+              </div>
+            </div>
+            <div className="p-6 rounded-2xl bg-sentinel-900 border border-sentinel-700 flex gap-4">
+              <AlertTriangle size={20} className="text-fire-400 flex-shrink-0 mt-1" />
+              <div>
+                <h3 className="text-white font-semibold mb-1">Limitations</h3>
+                <p className="text-sentinel-300 text-sm leading-relaxed">
+                  Sentinel is not a government agency or an official emergency service, and
+                  information shown may be delayed, incomplete, or occasionally inaccurate. Always
+                  confirm evacuation orders and emergency instructions with official local sources.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-10 text-center">
+            <a
+              href={`${getAppOrigin()}/`}
+              className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-sentinel-700 text-white font-semibold hover:bg-sentinel-600 transition-colors border border-sentinel-600"
+            >
+              View the Live Wildfire Tracker
+              <ArrowRight size={18} />
+            </a>
           </div>
         </div>
       </section>

@@ -1,3 +1,4 @@
+import Seo from '../../shared/components/Seo';
 import {
   Flame,
   Database,
@@ -78,6 +79,11 @@ const roles = [
 export default function VolunteerPage() {
   return (
     <div className="min-h-screen">
+      <Seo
+        title="Volunteer With NWTT | National Wildfire Tracking Team"
+        description="Join the National Wildfire Tracking Team as a volunteer. Help with data monitoring, mapping, engineering, and public communications for our free wildfire tracking platform."
+        path="/volunteer"
+      />
       {/* ── Hero ── */}
       <section className="relative bg-sentinel-900 overflow-hidden">
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_rgba(255,90,0,0.08),_transparent_50%)]" />

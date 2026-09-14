@@ -1,3 +1,5 @@
+import Seo from '../../shared/components/Seo';
+
 const sections = [
   {
     title: '1. Information We Collect',
@@ -47,9 +49,9 @@ const sections = [
   {
     title: '7. Advertising & Cookies',
     body: [
-      'We use Google AdSense to display advertising on this website. Google and its partners use cookies and similar technologies (including the DoubleClick cookie) to serve ads based on your prior visits to this and other websites.',
-      'Google\'s use of advertising cookies enables it and its partners to serve ads based on your visit to this site and/or other sites on the Internet. You may opt out of personalized advertising by visiting Google\'s Ads Settings at adssettings.google.com, or opt out of a participating third-party vendor\'s use of cookies for personalized advertising by visiting aboutads.info/choices.',
-      'These third-party ad vendors\' use of cookies is subject to their own privacy policies, not ours. We do not control the content of ads served by Google or the data Google collects to serve them.',
+      'We use Google AdSense to display advertising on this website, configured to serve non-personalized ads. Ad selection is not based on your browsing history or an advertising profile; Google may still use cookies and similar technologies for basic functions such as frequency capping, aggregated reporting, and fraud prevention.',
+      'If you would like to review or control how Google uses data across its own services generally, you can visit Google\'s Ads Settings at adssettings.google.com or the industry opt-out tool at aboutads.info/choices.',
+      'Google\'s ad delivery is subject to Google\'s own privacy policy, not ours. We do not control the content of ads served by Google or the data Google collects to serve them.',
     ],
   },
   {
@@ -69,6 +71,11 @@ const sections = [
 export default function PrivacyPolicyPage() {
   return (
     <section className="py-16 px-4 sm:px-6 lg:px-8">
+      <Seo
+        title="Privacy Policy | National Wildfire Tracking Team"
+        description="How the National Wildfire Tracking Team collects, uses, and protects information from visitors to Sentinel and the NWTT website."
+        path="/privacy-policy"
+      />
       <div className="max-w-4xl mx-auto">
         <p className="text-fire-400 text-sm font-semibold uppercase tracking-wider mb-2">Legal</p>
         <h1 className="text-4xl md:text-5xl font-bold mb-4">Privacy Policy</h1>

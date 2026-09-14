@@ -5,6 +5,7 @@
  */
 
 import { memo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import {
   X, Flame, MapPin, Users, Home, Calendar, Thermometer,
   AlertTriangle, Wind, ExternalLink, TrendingUp, ShieldAlert,
@@ -381,6 +382,17 @@ function IncidentDetail({ fire }) {
             <span>Coordinates</span>
             <span className="text-white font-semibold">{fire.lat?.toFixed(4)}°, {fire.lng?.toFixed(4)}°</span>
           </div>
+          {fire.id && (
+            <Link
+              to={`/fire/${fire.id}`}
+              className="flex items-center justify-center gap-2 w-full mt-3 py-2 bg-sentinel-700/60
+                         border border-sentinel-600 rounded-lg text-sentinel-200 text-sm font-medium
+                         hover:bg-sentinel-700 transition-colors"
+            >
+              <FileText size={13} />
+              Open Full Incident Page
+            </Link>
+          )}
           {fire.url && (
             <a
               href={fire.url}
