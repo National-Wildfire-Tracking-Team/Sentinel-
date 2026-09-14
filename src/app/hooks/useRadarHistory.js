@@ -9,8 +9,8 @@
  * supply small adapter functions (fetchHistory/fetchPayload/rasterize) so
  * this one engine can drive either radar layer's timeline without
  * duplicating per-pipeline database logic here. Currently instantiated only
- * for Composite Radar (see useMrmsComposite.js) — NEXRAD Level II keeps its
- * own, already-independent history UI (RadarSitePanel.jsx's scrub slider).
+ * for Composite Radar (see useMrmsComposite.js) — NEXRAD Level II has no
+ * history scrub of its own (RadarSitePanel.jsx is live-only).
  *
  * `selectedTimestamp` is exposed already resolved to a concrete value (never
  * null) for the UI's convenience — internally, "tracking live" is modeled as

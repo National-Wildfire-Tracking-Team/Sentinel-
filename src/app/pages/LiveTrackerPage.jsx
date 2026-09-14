@@ -245,9 +245,6 @@ export default function LiveTrackerPage() {
   const [measureMode, setMeasureMode] = useState('distance');
   const [precipRingActive, setPrecipRingActive] = useState(false);
 
-  // NEXRAD Level II site history scrub — independent of the composite layer.
-  const [radarSiteMinutesAgo, setRadarSiteMinutesAgo] = useState(0);
-
   const onMeasureActivate = useCallback((mode) => {
     setMeasureMode(mode);
     setMeasureActive(true);
@@ -274,11 +271,6 @@ export default function LiveTrackerPage() {
   useEffect(() => {
     if (!layers.radarNexrad) selectRadarSite(null);
   }, [layers.radarNexrad, selectRadarSite]);
-
-  // A freshly-selected site (or no site) always starts live.
-  useEffect(() => {
-    setRadarSiteMinutesAgo(0);
-  }, [selectedRadarSite?.id]);
 
   useEffect(() => {
     if (!criticalInfraEntitled && layers.criticalInfrastructure) {
@@ -613,15 +605,14 @@ export default function LiveTrackerPage() {
     geoJSON: californiaCamerasGeoJSON,
   } = useCaliforniaCameras(layers.wildfireCameras);
 
-  // Level II sweep for whichever radar site is currently selected — live, or
-  // scrubbed back through that site's own history via radarSiteMinutesAgo.
+  // Live Level II sweep for whichever radar site is currently selected.
   const [radarProduct, setRadarProduct] = useState('reflectivity');
   useEffect(() => {
     setRadarProduct('reflectivity');
   }, [selectedRadarSite?.id]);
 
   const { meta: radarScanMeta, payload: radarScanPayload, status: radarScanStatus, error: radarScanError } =
-    useNexradScan(selectedRadarSite?.id, radarProduct, Boolean(selectedRadarSite), radarSiteMinutesAgo);
+    useNexradScan(selectedRadarSite?.id, radarProduct, Boolean(selectedRadarSite));
 
   const radarRaster = useNexradRaster(
     selectedRadarSite?.id,
@@ -1145,8 +1136,9 @@ export default function LiveTrackerPage() {
   ]);
 
   // Measures the bottom bar's own rendered size so the Composite Radar
-  // scrub bar (rendered separately, inside MapView) can match its width
-  // and sit flush against it, instead of guessing a fixed size.
+  // scrub bar (rendered separately, inside MapView) and the NEXRAD Level II
+  // site popup (below) can match its width and sit flush against it,
+  // instead of guessing a fixed size.
   const mapBottomBarRef = useRef(null);
   const [mapBottomBarSize, setMapBottomBarSize] = useState({ width: 0, height: 0 });
 
@@ -1185,7 +1177,32 @@ export default function LiveTrackerPage() {
     return () => observer.disconnect();
   }, [radarScrubberAttached]);
 
-  const layerPanelRadarClearance = radarScrubberAttached ? radarTimelineHeight + 8 : 0;
+  // Measures the NEXRAD Level II site popup's own height so the Layers panel
+  // can clear it too — same reasoning as the Composite Radar scrub bar above.
+  const radarSitePanelRef = useRef(null);
+  const [radarSitePanelHeight, setRadarSitePanelHeight] = useState(0);
+
+  useEffect(() => {
+    const el = radarSitePanelRef.current;
+    if (!el) {
+      setRadarSitePanelHeight(0);
+      return undefined;
+    }
+    const observer = new ResizeObserver(() => {
+      setRadarSitePanelHeight(el.getBoundingClientRect().height);
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [selectedRadarSite?.id]);
+
+  // Either radar control can be docked above the bottom bar, and both can be
+  // open together (the site popup then stacks flush on top of the timeline)
+  // — so the bar's own "something is attached to my top edge" flag and the
+  // Layers panel's clearance both need to account for whichever combination
+  // is actually showing.
+  const radarBottomBarAttached = radarScrubberAttached || Boolean(selectedRadarSite);
+  const radarStackHeight = (radarScrubberAttached ? radarTimelineHeight : 0) + (selectedRadarSite ? radarSitePanelHeight : 0);
+  const layerPanelRadarClearance = radarStackHeight ? radarStackHeight + 8 : 0;
 
   return (
     <div className="h-screen w-screen flex flex-col bg-sentinel-900 text-white overflow-hidden select-none">
@@ -1321,7 +1338,7 @@ export default function LiveTrackerPage() {
             onMeasureClose={onMeasureClose}
             precipRingActive={precipRingActive}
             onPrecipRingToggle={onPrecipRingToggle}
-            radarScrubberAttached={radarScrubberAttached}
+            radarScrubberAttached={radarBottomBarAttached}
             radarPanelClearance={layerPanelRadarClearance}
           />
 
@@ -1342,6 +1359,7 @@ export default function LiveTrackerPage() {
           )}
           {selectedRadarSite && (
             <RadarSitePanel
+              ref={radarSitePanelRef}
               site={selectedRadarSite}
               product={radarProduct}
               onProductChange={setRadarProduct}
@@ -1349,8 +1367,10 @@ export default function LiveTrackerPage() {
               status={radarScanStatus}
               error={radarScanError}
               onClose={() => selectRadarSite(null)}
-              historyMinutesAgo={radarSiteMinutesAgo}
-              onHistoryMinutesAgoChange={setRadarSiteMinutesAgo}
+              bottomBarWidth={mapBottomBarSize.width}
+              bottomBarHeight={
+                mapBottomBarSize.height + (radarScrubberAttached ? radarTimelineHeight : 0)
+              }
             />
           )}
           {selectedCamera && (

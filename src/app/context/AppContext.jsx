@@ -122,19 +122,27 @@ const A = {
   SET_USER_LOCATION:  'SET_USER_LOCATION',
 };
 
+// Composite Radar and NEXRAD Level II render the same map area two
+// different ways, and their controls now share one docked spot above the
+// bottom bar — so only one may be on at a time. Turning one on switches the
+// other off (which in turn clears any selected NEXRAD site, via the effect
+// watching layers.radarNexrad in LiveTrackerPage.jsx).
+function applyRadarExclusivity(layers, changedLayer, value) {
+  const next = { ...layers, [changedLayer]: value };
+  if (value && changedLayer === 'radarComposite') next.radarNexrad = false;
+  if (value && changedLayer === 'radarNexrad') next.radarComposite = false;
+  return next;
+}
+
 // ─── Reducer ─────────────────────────────────────────────────────────────────
 function reducer(state, action) {
   switch (action.type) {
-    case A.TOGGLE_LAYER:
-      return {
-        ...state,
-        layers: { ...state.layers, [action.layer]: !state.layers[action.layer] },
-      };
+    case A.TOGGLE_LAYER: {
+      const next = !state.layers[action.layer];
+      return { ...state, layers: applyRadarExclusivity(state.layers, action.layer, next) };
+    }
     case A.SET_LAYER:
-      return {
-        ...state,
-        layers: { ...state.layers, [action.layer]: action.value },
-      };
+      return { ...state, layers: applyRadarExclusivity(state.layers, action.layer, action.value) };
     case A.SET_FIRE_RISK_DAY:
       return { 
         ...state,
