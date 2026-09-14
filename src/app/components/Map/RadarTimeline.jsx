@@ -7,8 +7,8 @@
  * component stays reusable across radar layers even though only Composite
  * Radar wires it up today.
  *
- * Styling reuses Sentinel's existing floating-card conventions (see
- * RadarSitePanel.jsx): bg-sentinel-900/95-style shell, cyan for live/active
+ * Styling reuses Sentinel's existing floating-card conventions (also used by
+ * RadarSitePanel.jsx, docked above the same bottom bar): cyan for live/active
  * accents, amber for the historical/stale state — paired with literal text
  * ("LIVE"/"HISTORICAL"), never color alone.
  */
@@ -37,6 +37,7 @@ const RadarTimeline = memo(forwardRef(function RadarTimeline({
   onNext,
   bottomBarWidth,
   bottomBarHeight,
+  topAttached = false,
 }, ref) {
   const selectedIndex = useMemo(() => {
     const idx = frames.findIndex((f) => f.sourceTime === selectedTimestamp);
@@ -71,9 +72,14 @@ const RadarTimeline = memo(forwardRef(function RadarTimeline({
       ref={ref}
       role="group"
       aria-label="Composite Radar timeline"
-      className="absolute bottom-20 left-1/2 -translate-x-1/2 z-20 w-[min(34rem,calc(100vw-2rem))]
+      className={`absolute bottom-20 left-1/2 -translate-x-1/2 z-20 w-[min(34rem,calc(100vw-2rem))]
                     bg-white/90 dark:bg-black/90 backdrop-blur-sm border border-sentinel-200 dark:border-zinc-700
-                    rounded-t-2xl shadow-2xl shadow-black/10 dark:shadow-black/60 px-2.5 py-1.5"
+                    shadow-2xl shadow-black/10 dark:shadow-black/60 px-2.5 py-1.5 ${
+                      // Squared off and borderless on top when the NEXRAD site popup is
+                      // docked directly above — otherwise this is the topmost element in
+                      // the stack, so it keeps the rounded "growing out of the bar" cap.
+                      topAttached ? 'rounded-none border-t-0' : 'rounded-t-2xl'
+                    }`}
       style={{
         width: bottomBarWidth ? `${bottomBarWidth}px` : undefined,
         bottom: bottomBarHeight ? `${bottomBarHeight + 16}px` : undefined,

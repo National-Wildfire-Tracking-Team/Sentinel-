@@ -2179,6 +2179,7 @@ export default function MapView({
           onNext={onMrmsNext}
           bottomBarWidth={mapBottomBarWidth}
           bottomBarHeight={mapBottomBarHeight}
+          topAttached={Boolean(selectedRadarSite)}
         />
       )}
 
