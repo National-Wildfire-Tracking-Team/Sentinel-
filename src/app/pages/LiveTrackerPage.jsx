@@ -4,6 +4,7 @@
  * Refactored from the original App.jsx single-page layout.
  */
 
+import Seo from '../../shared/components/Seo';
 import { useApp } from '../context/AppContext';
 import { useViewport } from '../context/ViewportContext';
 import { nwsAlertCategory } from '../utils/nwsColors';
@@ -50,6 +51,7 @@ import { useCaliforniaCameras } from '../hooks/useCaliforniaCameras';
 import { useCalFirePerimeters } from '../hooks/useCalFirePerimeters';
 import { polygonCentroid } from '../utils/geoUtils';
 import { incidentsToGeoJSON } from '../api/inciweb';
+import { mergeIrwinAndCalFireIncidents } from '../utils/mergeIncidents';
 
 // Components
 import Header from '../components/Header/Header';
@@ -224,26 +226,6 @@ function filterActiveFiresGeoJSON(geoJSON, { containedKey }) {
       return contained < 95;
     }),
   };
-}
-
-/**
- * Combine IRWIN national incidents with CAL FIRE GeoJsonList.
- * When both list the same fire (normalized name), CAL FIRE wins — it's the
- * originating state agency for CA fires and typically more current than IRWIN.
- */
-function mergeIrwinAndCalFireIncidents(irwinIncidents, calFireIncidents) {
-  const calFireKeys = new Set();
-  calFireIncidents.forEach(inc => {
-    const key = getFireMatchKey(inc.name);
-    if (key) calFireKeys.add(key);
-  });
-  const out = [...calFireIncidents];
-  irwinIncidents.forEach(inc => {
-    const key = getFireMatchKey(inc.name);
-    if (key && calFireKeys.has(key)) return;
-    out.push(inc);
-  });
-  return out.sort((a, b) => b.acres - a.acres);
 }
 
 // RAWS stations load once the map is zoomed in to roughly county scale
@@ -1207,6 +1189,11 @@ export default function LiveTrackerPage() {
 
   return (
     <div className="h-screen w-screen flex flex-col bg-sentinel-900 text-white overflow-hidden select-none">
+      <Seo
+        title="Live Wildfire Map & Tracker | Sentinel by NWTT"
+        description="Track active wildfires in real time with satellite hotspot detection, fire perimeters, containment status, red flag warnings, radar, and air quality — free, from the National Wildfire Tracking Team."
+        path="/"
+      />
       {/* ── Top bar ── */}
       <Header onRefresh={handleRefresh} />
 

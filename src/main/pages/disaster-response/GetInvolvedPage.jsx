@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import Seo from '../../../shared/components/Seo';
 import {
   Users,
   ArrowRight,
@@ -70,6 +71,11 @@ const benefits = [
 export default function GetInvolvedPage() {
   return (
     <div className="min-h-screen">
+      <Seo
+        title="Get Involved in Disaster Response | NWTT"
+        description="Ways to get involved with the National Wildfire Tracking Team's disaster response program, from field roles to remote support and training opportunities."
+        path="/disaster-response/get-involved"
+      />
       <PageHeader
         icon={Users}
         eyebrow="Get Involved"

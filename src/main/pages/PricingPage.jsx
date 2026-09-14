@@ -8,6 +8,7 @@
 
 import { useEffect, useState, createElement } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import Seo from '../../shared/components/Seo';
 import {
   Flame, Check, X, ChevronRight, AlertCircle, Lock,
   Radio, Camera, MapPin, Bell, BellRing,
@@ -161,6 +162,11 @@ export default function PricingPage() {
 
   return (
     <div className="bg-[#0a0c0e] text-white min-h-screen">
+      <Seo
+        title="Pricing & Plans | Sentinel Wildfire Tracker"
+        description="Compare Sentinel's Free, Plus, and Pro plans for wildfire tracking: satellite hotspots, fire perimeters, radar, alerts, and more from the National Wildfire Tracking Team."
+        path="/pricing"
+      />
 
       {/* ── Hero ── */}
       <section className="max-w-4xl mx-auto px-4 sm:px-6 pt-20 pb-14 text-center">

@@ -30,6 +30,9 @@ export default function Footer() {
                 <Link to="/about" className="text-sentinel-300 hover:text-fire-400 text-sm transition-colors">About the Team</Link>
               </li>
               <li>
+                <Link to="/about#data-methodology" className="text-sentinel-300 hover:text-fire-400 text-sm transition-colors">Data Sources &amp; Methodology</Link>
+              </li>
+              <li>
                 <Link to="/disaster-response" className="text-sentinel-300 hover:text-fire-400 text-sm transition-colors">Disaster Response &amp; Recovery</Link>
               </li>
               <li>
