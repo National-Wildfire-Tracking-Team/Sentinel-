@@ -2,9 +2,17 @@ name: Prod → Main Merge Gate
 
 on:
   pull_request:
+    # Repo's production/default branch is "Main" (capital M, confirmed via
+    # `gh repo view --json defaultBranchRef` and the existing branch list —
+    # there is no lowercase "main" branch). This previously read "main", so
+    # this gate's condition never matched a real PR and the job never ran.
     branches:
-      - main
+      - Main
     types: [opened, synchronize, reopened]
+
+concurrency:
+  group: prod-merge-gate-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
 
 permissions:
   contents: read

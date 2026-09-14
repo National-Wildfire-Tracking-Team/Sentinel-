@@ -5,10 +5,15 @@ on:
     branches: [Main]
   workflow_dispatch:
 
+concurrency:
+  group: deploy-main
+  cancel-in-progress: true
+
 jobs:
-  build:
-    name: Build
+  deploy:
+    name: Build and Deploy to Netlify
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -33,26 +38,6 @@ jobs:
       - run: npx playwright install chromium
         if: steps.playwright-cache.outputs.cache-hit != 'true'
       - run: npm run prerender
-      - uses: actions/upload-artifact@v4
-        with:
-          name: dist
-          path: dist/
-
-  deploy-netlify:
-    name: Deploy to Netlify
-    runs-on: ubuntu-latest
-    needs: [build]
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 24
-          cache: npm
-      - run: npm ci
-      - uses: actions/download-artifact@v4
-        with:
-          name: dist
-          path: dist/
       # Deploy with the Netlify CLI (not a raw folder upload) so netlify.toml's
       # redirects/headers and the netlify/edge-functions/ directory actually get
       # processed — a plain publish-dir upload skips both, which is why prior
