@@ -93,6 +93,128 @@ function pointNearGeometry(point, geometry, bufferDeg) {
       && py >= minLat - bufferDeg && py <= maxLat + bufferDeg;
 }
 
+function bboxArea([minLng, minLat, maxLng, maxLat]) {
+  return Math.max(0, maxLng - minLng) * Math.max(0, maxLat - minLat);
+}
+
+/** Intersection-over-union of two [minLng, minLat, maxLng, maxLat] boxes. */
+function bboxIoU(a, b) {
+  const ix = Math.max(0, Math.min(a[2], b[2]) - Math.max(a[0], b[0]));
+  const iy = Math.max(0, Math.min(a[3], b[3]) - Math.max(a[1], b[1]));
+  const interArea = ix * iy;
+  if (interArea <= 0) return 0;
+  const unionArea = bboxArea(a) + bboxArea(b) - interArea;
+  return unionArea > 0 ? interArea / unionArea : 0;
+}
+
+// A fire that grew a lot between two mapping flights can drop well below a
+// "near-total overlap" threshold, so this is kept fairly low.
+const DUPLICATE_MAPPING_IOU_THRESHOLD = 0.4;
+
+class UnionFind {
+  constructor(n) {
+    this.parent = Array.from({ length: n }, (_, i) => i);
+  }
+  find(i) {
+    while (this.parent[i] !== i) {
+      this.parent[i] = this.parent[this.parent[i]];
+      i = this.parent[i];
+    }
+    return i;
+  }
+  union(i, j) {
+    const ri = this.find(i);
+    const rj = this.find(j);
+    if (ri !== rj) this.parent[ri] = rj;
+  }
+}
+
+/**
+ * A fire is sometimes mapped more than once (a new perimeter record under a
+ * new UniqueFireIdentifier, older capture left in place). Records are
+ * grouped by shared ID or heavily overlapping geometry — not name, since the
+ * same fire name commonly recurs across unrelated fires nationwide. Every
+ * record but the most recently modified one in a group is tagged historical.
+ */
+export function tagHistoricalMappings(perimeters) {
+  const features = perimeters?.features;
+  if (!features?.length || features.length < 2) return perimeters;
+
+  const n = features.length;
+  const bboxes = features.map(f => geometryBBox(f.geometry));
+  const uf = new UnionFind(n);
+
+  for (let i = 0; i < n; i++) {
+    const idI = features[i].properties?.UniqueFireIdentifier;
+    for (let j = i + 1; j < n; j++) {
+      const idJ = features[j].properties?.UniqueFireIdentifier;
+      const sameId = Boolean(idI) && idI === idJ;
+      if (sameId || bboxIoU(bboxes[i], bboxes[j]) >= DUPLICATE_MAPPING_IOU_THRESHOLD) {
+        uf.union(i, j);
+      }
+    }
+  }
+
+  const groups = new Map();
+  for (let i = 0; i < n; i++) {
+    const root = uf.find(i);
+    if (!groups.has(root)) groups.set(root, []);
+    groups.get(root).push(i);
+  }
+
+  const mappingTime = f => {
+    const t = new Date(f.properties.ModifiedOnDateTime || f.properties.FireDiscoveryDateTime || 0).getTime();
+    return Number.isNaN(t) ? 0 : t;
+  };
+
+  // A capture's own name field is sometimes blank (e.g. a FIRIS mission's
+  // later heat-perimeter capture drops incident_name); inherit the most
+  // recently known real name from elsewhere in the cluster so the active
+  // record doesn't fall back to a placeholder like "Unknown Fire" when a
+  // sibling capture already carries the fire's real name.
+  const historicalIdx = new Set();
+  const inheritedName = new Map();
+  groups.forEach(idxs => {
+    if (idxs.length < 2) return;
+    const maxTime = Math.max(...idxs.map(idx => mappingTime(features[idx])));
+    idxs.forEach(idx => {
+      if (mappingTime(features[idx]) < maxTime) historicalIdx.add(idx);
+    });
+
+    let bestNamedIdx = null;
+    idxs.forEach(idx => {
+      if (!getFireMatchKey(features[idx].properties.IncidentName)) return;
+      if (bestNamedIdx === null || mappingTime(features[idx]) > mappingTime(features[bestNamedIdx])) {
+        bestNamedIdx = idx;
+      }
+    });
+    if (bestNamedIdx !== null) {
+      idxs.forEach(idx => {
+        if (!getFireMatchKey(features[idx].properties.IncidentName)) {
+          inheritedName.set(idx, features[bestNamedIdx].properties.IncidentName);
+        }
+      });
+    }
+  });
+
+  if (historicalIdx.size === 0 && inheritedName.size === 0) return perimeters;
+
+  return {
+    ...perimeters,
+    features: features.map((f, idx) => {
+      if (!historicalIdx.has(idx) && !inheritedName.has(idx)) return f;
+      return {
+        ...f,
+        properties: {
+          ...f.properties,
+          ...(inheritedName.has(idx) ? { IncidentName: inheritedName.get(idx) } : null),
+          ...(historicalIdx.has(idx) ? { isHistoricalMapping: true } : null),
+        },
+      };
+    }),
+  };
+}
+
 /**
  * Merge two perimeter FeatureCollections. Primary (WFIGS) features take priority;
  * secondary (FIRIS) features are added when their incident_name doesn't already
@@ -125,14 +247,9 @@ function mergePerimeterSources(primary, secondary) {
  * @param {object} calFireDotsGeoJSON  Optional CAL FIRE incident dots (CA); merged into incidents before matching.
  */
 function mergeFireData(perimeters, incidents, calFireDotsGeoJSON = null) {
-  // Index incidents by match key
-  const incidentsByKey = new Map();
-  incidents.features.forEach(f => {
-    const key = getFireMatchKey(f.properties.IncidentName);
-    if (key) incidentsByKey.set(key, f.properties);
-  });
-
-  // CAL FIRE features for California — merge as extra incident dots (deduped below).
+  // CAL FIRE features for California — the originating state agency, and
+  // (per direct comparison against IRWIN on live fires) typically more
+  // current, so it's treated as authoritative for CA fires below.
   const calFeatures = calFireDotsGeoJSON?.features?.length
     ? calFireDotsGeoJSON.features.map((f, i) => {
         const inc = calFireFeatureToIncident(f, i);
@@ -157,31 +274,44 @@ function mergeFireData(perimeters, incidents, calFireDotsGeoJSON = null) {
       })
     : [];
 
-  const mergedIncidentFeatures = [...incidents.features, ...calFeatures];
+  const incidentTime = props => {
+    const t = new Date(props.ModifiedOnDateTime || props.FireDiscoveryDateTime || 0).getTime();
+    return Number.isNaN(t) ? 0 : t;
+  };
 
-  // Dedupe: IRWIN + CAL FIRE often share the same fire name — keep IRWIN (first wins).
-  const seenKeys = new Set();
-  const dedupedFeatures = [];
-  mergedIncidentFeatures.forEach(f => {
+  // Index incidents by match key: when IRWIN and CAL FIRE both report the
+  // same CA fire, CAL FIRE's record wins; within the same source, keep the
+  // more recently modified one rather than whichever happens to come last
+  // in the API's result order.
+  const featuresByKey = new Map();
+  const noKeyFeatures = [];
+  const considerIncident = f => {
     const key = getFireMatchKey(f.properties.IncidentName);
-    if (key) {
-      if (seenKeys.has(key)) return;
-      seenKeys.add(key);
+    if (!key) { noKeyFeatures.push(f); return; }
+    const existing = featuresByKey.get(key);
+    if (!existing) { featuresByKey.set(key, f); return; }
+    const existingIsCalFire = existing.properties._source === 'CAL_FIRE';
+    const candidateIsCalFire = f.properties._source === 'CAL_FIRE';
+    if (candidateIsCalFire !== existingIsCalFire) {
+      if (candidateIsCalFire) featuresByKey.set(key, f);
+      return;
     }
-    dedupedFeatures.push(f);
-  });
+    if (incidentTime(f.properties) > incidentTime(existing.properties)) {
+      featuresByKey.set(key, f);
+    }
+  };
+  incidents.features.forEach(considerIncident);
+  calFeatures.forEach(considerIncident);
 
-  const mergedIncidents = { ...incidents, features: dedupedFeatures };
+  const mergedIncidents = {
+    ...incidents,
+    features: [...featuresByKey.values(), ...noKeyFeatures],
+  };
+
+  const incidentsByKey = new Map();
+  featuresByKey.forEach((f, key) => incidentsByKey.set(key, f.properties));
 
   const usedKeys = new Set();
-
-  // Re-index merged incidents (includes CAL FIRE) for matching
-  mergedIncidents.features.forEach(f => {
-    const key = getFireMatchKey(f.properties.IncidentName);
-    if (key && !incidentsByKey.has(key)) {
-      incidentsByKey.set(key, f.properties);
-    }
-  });
 
   // Pass 0: ID-based matching — WFIGS Perimeters and Incident Locations both
   // carry the same canonical UniqueFireIdentifier for a given real-world
@@ -208,13 +338,19 @@ function mergeFireData(perimeters, incidents, calFireDotsGeoJSON = null) {
         IncidentName: getFireMatchKey(f.properties.IncidentName) ? f.properties.IncidentName : inc.IncidentName,
         FireCause: f.properties.FireCause || inc.FireCause || 'Undetermined',
         GISAcres: Math.max(f.properties.GISAcres || 0, inc.GISAcres || 0),
+        PercentContained: Math.max(f.properties.PercentContained || 0, inc.PercentContained || 0),
         TotalIncidentPersonnel:
           f.properties.TotalIncidentPersonnel || inc.TotalIncidentPersonnel || 0,
       },
     };
   });
 
-  // Pass 1: name-based matching
+  // Pass 1: name-based matching. Also adopts the incident's canonical
+  // UniqueFireIdentifier — a name-only match means Pass 0's ID lookup didn't
+  // find this incident, so the perimeter's own id is source-specific (e.g. a
+  // FIRIS capture's GlobalID) rather than the real fire's id, and features
+  // downstream (incident update history, community reports) are keyed off
+  // the canonical id.
   const enrichedFeatures = idMatchedFeatures.map(f => {
     const key = getFireMatchKey(f.properties.IncidentName);
     if (key && incidentsByKey.has(key)) {
@@ -224,8 +360,10 @@ function mergeFireData(perimeters, incidents, calFireDotsGeoJSON = null) {
         ...f,
         properties: {
           ...f.properties,
+          UniqueFireIdentifier: inc.UniqueFireIdentifier || f.properties.UniqueFireIdentifier,
           FireCause: f.properties.FireCause || inc.FireCause || 'Undetermined',
           GISAcres: Math.max(f.properties.GISAcres || 0, inc.GISAcres || 0),
+          PercentContained: Math.max(f.properties.PercentContained || 0, inc.PercentContained || 0),
           TotalIncidentPersonnel:
             f.properties.TotalIncidentPersonnel || inc.TotalIncidentPersonnel || 0,
         },
@@ -348,7 +486,7 @@ export function useMergedFireData(minAcres = 0, enabled = true, calFireIncludeIn
 
       // Merge NIFC WFIGS + FIRIS perimeters. WFIGS takes priority for duplicates
       // (matched by normalized incident name); FIRIS adds CA-only fires not in WFIGS.
-      const mergedPerimeters = mergePerimeterSources(perimeters, firisPerimeters);
+      const mergedPerimeters = tagHistoricalMappings(mergePerimeterSources(perimeters, firisPerimeters));
 
       const calFiltered = {
         ...calFireGeoJSON,

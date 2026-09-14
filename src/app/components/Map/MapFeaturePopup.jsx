@@ -39,7 +39,10 @@ function getTitle(item) {
   return item.name || item.title || item.zoneName || TYPE_LABELS[item.type] || 'Item';
 }
 
+const HISTORICAL_ACCENT = '#6b7280';
+
 function getAccentColor(item) {
+  if (item.historical) return HISTORICAL_ACCENT;
   if (item.type === 'weather-alert') return nwsAlertColor(item.eventType);
   return DEFAULT_ACCENT;
 }
@@ -59,6 +62,7 @@ function formatExpiresIn(expires) {
 }
 
 function getSubtitle(item) {
+  if (item.historical) return { prefix: 'Previous mapping', bold: null };
   if (item.type === 'weather-alert' && item.expires) {
     const rel = formatExpiresIn(item.expires);
     if (rel) return { prefix: 'Expires ', bold: rel };
@@ -102,7 +106,7 @@ function ItemHeader({ item }) {
   return (
     <span className="flex-1 min-w-0 flex items-center justify-between gap-2">
       <span className="min-w-0">
-        <div className="text-white font-semibold text-[15px] leading-snug truncate">{title}</div>
+        <div className={`font-semibold text-[15px] leading-snug truncate ${item.historical ? 'text-sentinel-300' : 'text-white'}`}>{title}</div>
         {subtitle && (
           <div className="text-[13px] text-sentinel-200 mt-0.5">
             {subtitle.prefix}
@@ -127,7 +131,7 @@ function ListRow({ item, onSelect }) {
       <span className="w-1 rounded-full shrink-0" style={{ background: getAccentColor(item) }} />
       <span className="flex-1 min-w-0 flex items-center justify-between gap-2">
         <span className="min-w-0">
-          <div className="text-sm font-semibold text-white truncate">{title}</div>
+          <div className={`text-sm font-semibold truncate ${item.historical ? 'text-sentinel-300' : 'text-white'}`}>{title}</div>
           {subtitle && (
             <div className="text-xs text-sentinel-300 mt-0.5">
               {subtitle.prefix}

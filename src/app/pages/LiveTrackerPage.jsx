@@ -228,20 +228,19 @@ function filterActiveFiresGeoJSON(geoJSON, { containedKey }) {
 
 /**
  * Combine IRWIN national incidents with CAL FIRE GeoJsonList.
- * When both list the same fire (normalized name), IRWIN wins for authoritative stats.
+ * When both list the same fire (normalized name), CAL FIRE wins — it's the
+ * originating state agency for CA fires and typically more current than IRWIN.
  */
 function mergeIrwinAndCalFireIncidents(irwinIncidents, calFireIncidents) {
-  const seen = new Set();
-  const out = [];
-  irwinIncidents.forEach(inc => {
-    const key = getFireMatchKey(inc.name);
-    if (key) seen.add(key);
-    out.push(inc);
-  });
+  const calFireKeys = new Set();
   calFireIncidents.forEach(inc => {
     const key = getFireMatchKey(inc.name);
-    if (key && seen.has(key)) return;
-    if (key) seen.add(key);
+    if (key) calFireKeys.add(key);
+  });
+  const out = [...calFireIncidents];
+  irwinIncidents.forEach(inc => {
+    const key = getFireMatchKey(inc.name);
+    if (key && calFireKeys.has(key)) return;
     out.push(inc);
   });
   return out.sort((a, b) => b.acres - a.acres);

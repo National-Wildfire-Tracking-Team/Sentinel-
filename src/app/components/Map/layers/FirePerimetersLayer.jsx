@@ -26,7 +26,12 @@ const FirePerimetersLayer = memo(function FirePerimetersLayer({ geoJSON, visible
     if (!geoJSON?.features?.length) return EMPTY_GEOJSON;
 
     const candidates = geoJSON.features.filter(f => !f.properties?.HideFromCentroid);
-    candidates.sort((a, b) => (b.properties?.GISAcres || 0) - (a.properties?.GISAcres || 0));
+    // Prefer the active record over historical ones for the dot/label.
+    candidates.sort((a, b) => {
+      const histDelta = (a.properties?.isHistoricalMapping ? 1 : 0) - (b.properties?.isHistoricalMapping ? 1 : 0);
+      if (histDelta !== 0) return histDelta;
+      return (b.properties?.GISAcres || 0) - (a.properties?.GISAcres || 0);
+    });
 
     const seen = new Set();
     const features = [];
@@ -51,12 +56,12 @@ const FirePerimetersLayer = memo(function FirePerimetersLayer({ geoJSON, visible
     return { type: 'FeatureCollection', features };
   }, [geoJSON]);
 
-  // Grey out fully contained perimeters, and perimeters that haven't been
-  // updated in 30+ days (isStaleFire, set in LiveTrackerPage); active fires
-  // keep their normal color.
+  // Grey out fully contained, stale (isStaleFire), or historically re-mapped
+  // (isHistoricalMapping) perimeters; active fires keep their normal color.
   const isContained = ['>=', ['coalesce', ['get', 'PercentContained'], 0], 100];
   const isStale = ['boolean', ['get', 'isStaleFire'], false];
-  const isGreyedOut = ['any', isContained, isStale];
+  const isHistorical = ['boolean', ['get', 'isHistoricalMapping'], false];
+  const isGreyedOut = ['any', isContained, isStale, isHistorical];
 
   return (
     <>
@@ -125,7 +130,7 @@ const FirePerimetersLayer = memo(function FirePerimetersLayer({ geoJSON, visible
           id="fire-perimeter-centroids-glow"
           type="circle"
           source="fire-perimeter-centroids"
-          filter={['all', ['<', ['coalesce', ['get', 'PercentContained'], 0], 100], ['!', isStale]]}
+          filter={['all', ['<', ['coalesce', ['get', 'PercentContained'], 0], 100], ['!', isStale], ['!', isHistorical]]}
           layout={{ visibility: vis }}
           paint={{
             'circle-radius': 14,
@@ -138,7 +143,7 @@ const FirePerimetersLayer = memo(function FirePerimetersLayer({ geoJSON, visible
           id="fire-perimeter-centroids-circle"
           type="circle"
           source="fire-perimeter-centroids"
-          filter={['all', ['<', ['coalesce', ['get', 'PercentContained'], 0], 100], ['!', isStale]]}
+          filter={['all', ['<', ['coalesce', ['get', 'PercentContained'], 0], 100], ['!', isStale], ['!', isHistorical]]}
           layout={{ visibility: vis }}
           paint={{
             'circle-radius': 7,
