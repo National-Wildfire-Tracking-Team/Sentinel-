@@ -3,10 +3,14 @@
  * Map overlay for controlling the SPC Fire Weather Outlook display.
  *   - Outlook type tabs (Wind & RH / Dry Lightning)
  *   - Day pill selector (Day 1 – Day 8)
- *   - Loading spinner + valid-time label
+ *
+ * Docked flush above MapBottomBar and matched to its width — mirrors
+ * SPCOutlookSelector.jsx / RadarTimeline.jsx / RadarSitePanel.jsx so every
+ * bottom-bar control grows out of the same bar instead of floating
+ * independently.
  */
 
-import { memo } from 'react';
+import { memo, forwardRef } from 'react';
 import { FIRE_WX_OUTLOOK_TYPES, FIRE_WX_DAYS, FIRE_WX_LAYER_ID_MAP } from '../../api/spcFireWeatherOutlooks';
 
 const TYPE_ICONS = {
@@ -32,28 +36,14 @@ const TYPE_DESCRIPTIONS = {
   dry_thunderstorm:   'Isolated/Scattered dry thunderstorm risk (lightning with little rain)',
 };
 
-function Spinner() {
-  return (
-    <svg
-      className="animate-spin text-orange-400 shrink-0"
-      width="12" height="12" viewBox="0 0 24 24" fill="none"
-    >
-      <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeOpacity="0.25" />
-      <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
-    </svg>
-  );
-}
-
-const FireWeatherOutlookSelector = memo(function FireWeatherOutlookSelector({
+const FireWeatherOutlookSelector = memo(forwardRef(function FireWeatherOutlookSelector({
   outlookType,
   onOutlookTypeChange,
   activeDay,
   onActiveDayChange,
-  loading = false,
-  validTime = null,
-  /** When true, no absolute positioning (nest inside a parent that handles layout) */
-  inline = false,
-}) {
+  bottomBarWidth,
+  bottomBarHeight,
+}, ref) {
   const colors = TYPE_COLORS[outlookType] || TYPE_COLORS.winds_low_humidity;
 
   function handleTypeChange(newType) {
@@ -65,20 +55,6 @@ const FireWeatherOutlookSelector = memo(function FireWeatherOutlookSelector({
     if (!FIRE_WX_LAYER_ID_MAP[dayKey]?.[outlookType]) return;
     onActiveDayChange(dayKey);
   }
-
-  const validLabel = validTime
-    ? (() => {
-        const s = String(validTime);
-        if (s.length !== 12) return null;
-        const d = new Date(`${s.slice(0,4)}-${s.slice(4,6)}-${s.slice(6,8)}T${s.slice(8,10)}:${s.slice(10,12)}Z`);
-        if (isNaN(d)) return null;
-        return d.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'UTC', hour12: false }) + ' UTC';
-      })()
-    : null;
-
-  // Split days into two rows for compact layout: 1-4 and 5-8
-  const daysRow1 = FIRE_WX_DAYS.slice(0, 4);
-  const daysRow2 = FIRE_WX_DAYS.slice(4);
 
   function DayButton({ dayKey, label }) {
     const supported = Boolean(FIRE_WX_LAYER_ID_MAP[dayKey]?.[outlookType]);
@@ -105,9 +81,23 @@ const FireWeatherOutlookSelector = memo(function FireWeatherOutlookSelector({
     );
   }
 
-  const card = (
-    <div className="bg-black border border-zinc-700 rounded-2xl shadow-2xl shadow-black/60 overflow-hidden w-full max-w-full ring-1 ring-white/10">
-
+  return (
+    <div
+      ref={ref}
+      role="group"
+      aria-label="SPC Fire Weather Outlook selector"
+      className="absolute bottom-20 left-1/2 -translate-x-1/2 z-20 w-[min(34rem,calc(100vw-2rem))]
+                    bg-black border border-zinc-700 rounded-t-2xl shadow-2xl shadow-black/60 ring-1 ring-white/10
+                    overflow-hidden"
+      style={{
+        width: bottomBarWidth ? `${bottomBarWidth}px` : undefined,
+        bottom: bottomBarHeight ? `${bottomBarHeight + 16}px` : undefined,
+        maxWidth: 'calc(100vw - 1rem)',
+      }}
+    >
+      {/* Capped so a short viewport never pushes this above the header —
+          content scrolls internally instead of growing the popup taller. */}
+      <div className="max-h-[45vh] overflow-y-auto">
         {/* ── Type tab bar ── */}
         <div className="flex items-stretch border-b border-zinc-800">
           {FIRE_WX_OUTLOOK_TYPES.map(type => {
@@ -140,56 +130,17 @@ const FireWeatherOutlookSelector = memo(function FireWeatherOutlookSelector({
         </div>
 
         {/* ── Day pills ── */}
-        <div className="px-3 pt-2 pb-1">
-          <div className="flex items-center gap-1 mb-1">
-            <span className="text-[10px] font-semibold text-zinc-500 uppercase tracking-widest shrink-0 w-8">Day</span>
-            <div className="flex items-center gap-1">
-              {daysRow1.map(({ key, label }) => (
-                <DayButton key={key} dayKey={key} label={label.replace('Day ', '')} />
-              ))}
-            </div>
-          </div>
-          <div className="flex items-center gap-1">
-            <span className="w-8" />
-            <div className="flex items-center gap-1">
-              {daysRow2.map(({ key, label }) => (
-                <DayButton key={key} dayKey={key} label={label.replace('Day ', '')} />
-              ))}
-            </div>
+        <div className="flex items-center gap-1 px-3 pt-2 pb-2">
+          <span className="text-[10px] font-semibold text-zinc-500 uppercase tracking-widest shrink-0 w-8">Day</span>
+          <div className="flex items-center gap-1 flex-wrap">
+            {FIRE_WX_DAYS.map(({ key, label }) => (
+              <DayButton key={key} dayKey={key} label={label.replace('Day ', '')} />
+            ))}
           </div>
         </div>
-
-        {/* ── Status row ── */}
-        <div className="flex items-center justify-between px-3 pb-2">
-          <span className="text-[10px] text-zinc-400 font-medium">
-            SPC Fire Weather Outlook
-          </span>
-          {loading ? (
-            <div className="flex items-center gap-1.5 text-[10px] text-zinc-400">
-              <Spinner />
-              <span className="hidden sm:inline">Loading…</span>
-            </div>
-          ) : validLabel ? (
-            <span className="text-[10px] text-zinc-400 whitespace-nowrap hidden sm:block" title="SPC issue time (UTC)">
-              {validLabel}
-            </span>
-          ) : null}
-        </div>
+      </div>
     </div>
   );
-
-  if (inline) {
-    return <div className="w-full max-w-full pointer-events-auto animate-fade-in" style={{ maxWidth: 'calc(100vw - 1rem)' }}>{card}</div>;
-  }
-
-  return (
-    <div
-      className="absolute top-3 left-1/2 -translate-x-1/2 z-20 pointer-events-auto animate-fade-in"
-      style={{ maxWidth: 'calc(100vw - 1rem)' }}
-    >
-      {card}
-    </div>
-  );
-});
+}));
 
 export default FireWeatherOutlookSelector;

@@ -187,7 +187,6 @@ const LIVE_VELOCITY_LEGEND_SCALE = LIVE_VELOCITY_SCALE.map(({ min, color }) => (
 
 const Legend = memo(function Legend({
   spcOutlookType = 'categorical',
-  spcWeatherOutlookMode = 'convective',
   fireWxOutlookType = 'winds_low_humidity',
   radarScanActive = false,
   radarScanProduct = null,
@@ -272,7 +271,7 @@ const Legend = memo(function Legend({
               </Section>
             )}
 
-            {layers.spcWeatherOutlooks && spcWeatherOutlookMode === 'convective' && (
+            {layers.spcWeatherOutlooks && (
               <Section title={spcScale.title}>
                 {spcScale.scale.map(row => <ColorRow key={row.label} {...row} />)}
               </Section>
@@ -369,15 +368,13 @@ const Legend = memo(function Legend({
               <ColorRow color="#F0E68C" label="Tropical Storm Watch" />
             </Section>
 
-            {(layers.fireWeatherOutlooks || (layers.spcWeatherOutlooks && spcWeatherOutlookMode === 'fireWx'))
-              && fireWxOutlookType === 'winds_low_humidity' && (
+            {layers.fireWeatherOutlooks && fireWxOutlookType === 'winds_low_humidity' && (
               <Section title="Fire Weather – Wind &amp; RH">
                 {FIRE_WX_WIND_SCALE.map(row => <ColorRow key={row.label} {...row} />)}
               </Section>
             )}
 
-            {(layers.fireWeatherOutlooks || (layers.spcWeatherOutlooks && spcWeatherOutlookMode === 'fireWx'))
-              && fireWxOutlookType === 'dry_thunderstorm' && (
+            {layers.fireWeatherOutlooks && fireWxOutlookType === 'dry_thunderstorm' && (
               <Section title="Fire Weather – Dry Lightning">
                 {FIRE_WX_LIGHTNING_SCALE.map(row => <ColorRow key={row.label} {...row} />)}
               </Section>
