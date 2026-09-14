@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import Seo from '../../shared/components/Seo';
 import {
   Satellite,
   Radio,
@@ -60,6 +61,11 @@ const stats = [
 export default function HomePage() {
   return (
     <div className="min-h-screen">
+      <Seo
+        title="Sentinel Wildfire Tracker | National Wildfire Tracking Team (NWTT)"
+        description="Free real-time wildfire tracking from the National Wildfire Tracking Team: satellite fire detection, fire perimeters, weather alerts, and air quality data across the United States."
+        path="/"
+      />
       {/* ── Hero Section ── */}
       <section className="relative overflow-hidden">
         {/* Background gradient */}

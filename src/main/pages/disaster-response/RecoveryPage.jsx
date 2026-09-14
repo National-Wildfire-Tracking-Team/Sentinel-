@@ -1,5 +1,6 @@
 import { HeartHandshake, ClipboardCheck, FileClock, ArrowRight } from 'lucide-react';
 import PageHeader from './PageHeader';
+import Seo from '../../../shared/components/Seo';
 import { getAppOrigin } from '../../../shared/utils/getAppOrigin';
 
 const recoveryStages = [
@@ -43,6 +44,11 @@ const recoveryResources = [
 export default function RecoveryPage() {
   return (
     <div className="min-h-screen">
+      <Seo
+        title="Disaster Recovery Resources | NWTT"
+        description="Recovery stages after a wildfire or disaster event: damage assessment, after-action debriefs, and resources coordinated by the National Wildfire Tracking Team."
+        path="/disaster-response/recovery"
+      />
       <PageHeader
         icon={HeartHandshake}
         eyebrow="Recovery"
