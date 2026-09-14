@@ -161,6 +161,7 @@ function buildFeatureRecord(feature, lngLat, alerts) {
         orgType:     p.IncidentManagementOrganization,
         cause:       p.FireCause || null,
         source:      p.Source || null,
+        historical:  Boolean(p.isHistoricalMapping),
       };
 
     case 'fire-incidents-circle':
@@ -442,11 +443,17 @@ function getHoverContent(feature) {
       break;
     }
     case 'fire-perimeters-fill':
-    case 'fire-perimeter-centroids-circle':
+    case 'fire-perimeter-centroids-circle': {
+      const isHistorical = Boolean(p.isHistoricalMapping);
       content = (
         <>
-          <div className="font-semibold text-orange-400">
+          <div className={`font-semibold ${isHistorical ? 'text-gray-400' : 'text-orange-400'}`}>
             {p.IncidentName}
+            {isHistorical && (
+              <span className="ml-1.5 text-[10px] font-normal uppercase tracking-wide text-gray-500">
+                Previous mapping
+              </span>
+            )}
           </div>
           <div className="text-gray-300 text-xs mt-0.5">
             {formatAcres(num(p.GISAcres))} · {formatContainment(num(p.PercentContained))} contained
@@ -455,6 +462,7 @@ function getHoverContent(feature) {
         </>
       );
       break;
+    }
     case 'aqi-stations-circle':
       content = (
         <>
@@ -1672,7 +1680,14 @@ export default function MapView({
       selectFire(records[0].record);
       return;
     }
-  }, [measureActive, alerts, selectFire, selectGauge, layerPanelOpen, closeLayerPanel]);
+
+    selectFire(null);
+    setFeaturePopup({
+      items: records.map((r) => r.record),
+      mouseLngLat: evt.lngLat,
+      anchorFeature: records[0].feature,
+    });
+  }, [measureActive, alerts, selectFire, selectGauge, selectRadarSite, selectCamera, layerPanelOpen, closeLayerPanel]);
 
   // Handle mouse move – update hover tooltip OR measurement preview
   const handleMouseMove = useCallback((evt) => {
