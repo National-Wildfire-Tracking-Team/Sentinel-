@@ -215,6 +215,17 @@ const FutureFeaturesPanel = memo(function FutureFeaturesPanel({ mapType = 'satel
           onClick={closePanel}
         />
 
+        <SectionLabel>Radar Settings</SectionLabel>
+        <PrefRow
+          label="Storm Motion Vectors"
+          description="For storms under an active Severe Thunderstorm or Tornado Warning that reports motion: a point at its current position, a line to where it will be in one hour, with tick marks at 30 and 60 minutes."
+        >
+          <PrefSwitch
+            checked={prefs.stormMotionVectors}
+            onChange={(v) => updatePrefs({ stormMotionVectors: v })}
+          />
+        </PrefRow>
+
         <SectionLabel>Preferences</SectionLabel>
 
         <PrefRow label="Dark Mode">

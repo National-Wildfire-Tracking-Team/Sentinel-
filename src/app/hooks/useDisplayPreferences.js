@@ -17,6 +17,7 @@ export const DEFAULT_DISPLAY_PREFERENCES = {
   popupSpotlight: false,
   spotlightOpacity: 50,
   popupDragHandle: false,
+  stormMotionVectors: false,
 };
 
 function fromRow(row) {
@@ -28,6 +29,7 @@ function fromRow(row) {
     popupSpotlight: row.popup_spotlight,
     spotlightOpacity: row.spotlight_opacity,
     popupDragHandle: row.popup_drag_handle,
+    stormMotionVectors: row.storm_motion_vectors,
   };
 }
 
@@ -40,6 +42,7 @@ function toRow(userId, prefs) {
     popup_spotlight: prefs.popupSpotlight,
     spotlight_opacity: prefs.spotlightOpacity,
     popup_drag_handle: prefs.popupDragHandle,
+    storm_motion_vectors: prefs.stormMotionVectors,
     updated_at: new Date().toISOString(),
   };
 }
