@@ -16,7 +16,6 @@ import {
 import { useAuth } from '../../shared/context/AuthContext';
 import { supabase } from '../../shared/api/supabaseClient';
 import { getMainOrigin } from '../../shared/utils/getAppOrigin';
-import { openExternalUrl } from '../../shared/utils/openExternalUrl';
 import { useSavedLocations } from '../hooks/useSavedLocations';
 import { useNotificationPreferences } from '../hooks/useNotificationPreferences';
 import { usePlan } from '../../shared/hooks/usePlan';
@@ -93,7 +92,7 @@ export default function AccountPage() {
       if (res.error || !res.data?.url) {
         throw new Error(res.data?.error ?? res.error?.message ?? 'Failed to open billing portal.');
       }
-      openExternalUrl(res.data.url);
+      window.location.href = res.data.url;
     } catch (err) {
       setPortalError(err.message);
     } finally {

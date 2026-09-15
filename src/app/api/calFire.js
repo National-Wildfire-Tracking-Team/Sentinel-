@@ -11,7 +11,6 @@
 import { getCached, setCached, dedupeInflight } from '../utils/dataCache';
 import { supabase, isSupabaseConfigured } from '../../shared/api/supabaseClient';
 import { throttleError } from '../../shared/utils/errorThrottle';
-import { API_ORIGIN } from '../../shared/utils/apiOrigin';
 
 export const CAL_FIRE_GEOJSON_BASE =
   'https://incidents.fire.ca.gov/umbraco/api/IncidentApi/GeoJsonList';
@@ -59,7 +58,7 @@ export async function fetchCalFireGeoJsonList({ includeInactive = false } = {}) 
     if (typeof window !== 'undefined') {
       attempts.push({
         label: 'same-origin /api/calfire',
-        run: () => fetchJson(`${API_ORIGIN}/api/calfire?${q}`),
+        run: () => fetchJson(`/api/calfire?${q}`),
       });
     }
 

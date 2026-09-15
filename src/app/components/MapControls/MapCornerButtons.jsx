@@ -9,7 +9,6 @@ import { Menu, LocateFixed, User } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { useViewport } from '../../context/ViewportContext';
 import { useAuth } from '../../../shared/context/AuthContext';
-import { isGeolocationSupported, getCurrentPosition } from '../../../shared/utils/geolocation';
 
 const GEOLOCATION_ERROR_MESSAGES = {
   1: 'Location permission denied. Enable location access for this site in your browser settings.',
@@ -60,7 +59,7 @@ const MapCornerButtons = memo(function MapCornerButtons() {
   // Once granted, every subsequent click just re-centers the map (the browser
   // won't re-prompt), and location tracking (the live dot) keeps running.
   const handleLocateMe = useCallback(() => {
-    if (!isGeolocationSupported()) {
+    if (typeof navigator === 'undefined' || !navigator.geolocation) {
       setLocationError('Location is not supported in this browser.');
       return;
     }
@@ -89,7 +88,7 @@ const MapCornerButtons = memo(function MapCornerButtons() {
       // or indoors — retry once with a looser, cache-friendly request before
       // giving up (unless the user has denied permission outright).
       if (err?.code !== 1) {
-        getCurrentPosition(onSuccess, () => {
+        navigator.geolocation.getCurrentPosition(onSuccess, () => {
           setLocationError(GEOLOCATION_ERROR_MESSAGES[err?.code] || 'Could not get your location.');
         }, { enableHighAccuracy: false, timeout: 10000, maximumAge: 60000 });
         return;
@@ -97,7 +96,7 @@ const MapCornerButtons = memo(function MapCornerButtons() {
       setLocationError(GEOLOCATION_ERROR_MESSAGES[err?.code] || 'Could not get your location.');
     };
 
-    getCurrentPosition(onSuccess, onError, {
+    navigator.geolocation.getCurrentPosition(onSuccess, onError, {
       enableHighAccuracy: true,
       timeout: 10000,
       maximumAge: 15000,

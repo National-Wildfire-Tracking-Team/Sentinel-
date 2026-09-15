@@ -18,7 +18,6 @@ import {
   enrichAlertsWithGeometry,
 } from "../api/noaaWeather";
 import { fetchFemaAlerts } from "../api/fema";
-import { API_ORIGIN } from "../../shared/utils/apiOrigin";
 
 const REFRESH_MS = 60 * 1000;
 
@@ -27,13 +26,13 @@ const REFRESH_MS = 60 * 1000;
    ========================= */
 const PUBLIC_ZONES_URL =
   "https://services2.arcgis.com/C8EMgrsFcRFL6LrL/arcgis/rest/services/LatestNWSZones/FeatureServer/0/query?where=1%3D1&outFields=STATE,ZONE&outSR=4326&f=geojson";
-const FIRE_WX_ZONES_URL = `${API_ORIGIN}/api/noaa/firewxzones`;
-const MARINE_ZONES_URL = `${API_ORIGIN}/api/noaa/marinezones`;
+const FIRE_WX_ZONES_URL = "/api/noaa/firewxzones";
+const MARINE_ZONES_URL = "/api/noaa/marinezones";
 
 /* =========================
    COUNTIES (Census Bureau TIGERweb API)
 ========================= */
-const COUNTY_URL = `${API_ORIGIN}/api/census/counties`;
+const COUNTY_URL = '/api/census/counties';
 
 const FIPS_TO_STATE = {
   "01":"AL","02":"AK","04":"AZ","05":"AR","06":"CA","08":"CO","09":"CT",
@@ -49,7 +48,7 @@ const FIPS_TO_STATE = {
 /* =========================
    CWA LAYER (FIX FOR MIDWEST)
 ========================= */
-const CWA_URL = `${API_ORIGIN}/api/noaa/cwa`;
+const CWA_URL = "/api/noaa/cwa";
 
 /* =========================
    LOAD HELPERS

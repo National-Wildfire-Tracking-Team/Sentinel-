@@ -24,11 +24,10 @@
  */
 
 import { getCached, setCached } from '../utils/dataCache';
-import { API_ORIGIN } from '../../shared/utils/apiOrigin';
 
 // Requests are routed through /api/nwps to avoid CORS issues (Vite proxy in
 // dev, Netlify edge function in production).
-const BASE = `${API_ORIGIN}/api/nwps`;
+const BASE = '/api/nwps';
 
 const HEADERS = { Accept: 'application/json' };
 
@@ -224,7 +223,7 @@ function extractGaugeList(json) {
 // NWPS's own list endpoint is kept as a fallback below in case roles ever
 // reverse. Source: https://mapservices.weather.noaa.gov/eventdriven/rest/services/water/riv_gauges/MapServer
 
-const ARCGIS_BASE = `${API_ORIGIN}/api/river-gauges`;
+const ARCGIS_BASE = '/api/river-gauges';
 const ARCGIS_PAGE_SIZE = 10000; // the service's own per-query cap
 const ARCGIS_MAX_PAGES = 6; // guards against runaway pagination (~12.8k gauges today)
 
@@ -288,7 +287,7 @@ async function fetchArcgisRiverGauges() {
 // map declutter (see WaterGaugesLayer) — the observed gauge list above stays
 // the source of truth for position/current stage/color.
 
-const FORECAST_ARCGIS_BASE = `${API_ORIGIN}/api/river-gauges-forecast`;
+const FORECAST_ARCGIS_BASE = '/api/river-gauges-forecast';
 const FORECAST_CACHE_KEY = 'noaa-water-gauges-forecast';
 
 /** Fetch { lid -> { forecastStage, forecastCategory } } from the forecast layer. */

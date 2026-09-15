@@ -18,18 +18,9 @@
     "test:coverage": "vitest run --coverage",
     "test:ui": "vitest --ui",
     "test:e2e": "npx playwright test",
-    "lint": "eslint .",
-    "cap:sync": "vite build && npx cap sync",
-    "cap:open:ios": "npx cap open ios",
-    "cap:open:android": "npx cap open android"
+    "lint": "eslint ."
   },
   "dependencies": {
-    "@capacitor/app": "^8.1.1",
-    "@capacitor/browser": "^8.0.4",
-    "@capacitor/core": "^8.5.2",
-    "@capacitor/geolocation": "^8.2.2",
-    "@capacitor/splash-screen": "^8.0.2",
-    "@capacitor/status-bar": "^8.0.3",
     "@mapbox/mapbox-gl-draw": "^1.5.1",
     "@supabase/supabase-js": "^2.103.0",
     "date-fns": "^3.6.0",
@@ -46,10 +37,6 @@
     "**/*.css"
   ],
   "devDependencies": {
-    "@capacitor/android": "^8.5.2",
-    "@capacitor/assets": "^3.0.5",
-    "@capacitor/cli": "^8.5.2",
-    "@capacitor/ios": "^8.5.2",
     "@eslint/js": "^10.0.1",
     "@playwright/test": "^1.61.0",
     "@testing-library/jest-dom": "^6.9.1",

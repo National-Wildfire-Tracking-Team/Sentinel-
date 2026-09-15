@@ -62,8 +62,6 @@ import NexradScanLayer from './layers/NexradScanLayer';
 import CalFirePerimetersLayer from './layers/CalFirePerimetersLayer';
 import HazardEventsLayer from './layers/HazardEventsLayer';
 import DamageAssessmentLayer from './layers/DamageAssessmentLayer';
-import { isGeolocationSupported, watchPosition, clearWatch } from '../../../shared/utils/geolocation';
-import { openExternalUrlInNewTab } from '../../../shared/utils/openExternalUrl';
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN || '';
 const HAS_MAPBOX_TOKEN = Boolean(MAPBOX_TOKEN.trim());
@@ -1494,9 +1492,9 @@ export default function MapView({
   // Live location tracking is only ever started after the user explicitly grants
   // it via the locate-me corner button (MapCornerButtons) — never automatically.
   useEffect(() => {
-    if (!locationGranted || !isGeolocationSupported()) return undefined;
+    if (!locationGranted || typeof navigator === 'undefined' || !navigator.geolocation) return undefined;
 
-    const watchId = watchPosition(
+    const watchId = navigator.geolocation.watchPosition(
       ({ coords }) => {
         setUserLocation({
           latitude: coords.latitude,
@@ -1507,7 +1505,7 @@ export default function MapView({
       { enableHighAccuracy: true, maximumAge: 10000, timeout: 15000 }
     );
 
-    return () => clearWatch(watchId);
+    return () => navigator.geolocation.clearWatch(watchId);
   }, [locationGranted, setUserLocation]);
 
   // Only include interactive layer IDs for layers that are currently visible.
@@ -1648,7 +1646,7 @@ export default function MapView({
     if (feature.layer.id === 'spc-md-fill') {
       // Open the SPC MD page in a new tab when the user clicks a polygon
       if (p.url) {
-        openExternalUrlInNewTab(p.url);
+        window.open(p.url, '_blank', 'noopener,noreferrer');
       }
       return;
     }
