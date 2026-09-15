@@ -1,0 +1,16 @@
+{
+  "appId": "org.nationalwildfiretrackingteam.sentinel",
+  "appName": "Sentinel",
+  "webDir": "dist",
+  "backgroundColor": "#0a0c0e",
+  "plugins": {
+    "SplashScreen": {
+      "backgroundColor": "#0a0c0e",
+      "showSpinner": false
+    },
+    "StatusBar": {
+      "style": "DARK",
+      "backgroundColor": "#0a0c0e"
+    }
+  }
+}

@@ -18,12 +18,13 @@ import { acquireSlot } from '../utils/firmsRateLimiter';
 import { MOCK_FIRE_HOTSPOTS } from '../data/mockData';
 import { supabase, isSupabaseConfigured } from '../../shared/api/supabaseClient';
 import { throttleError } from '../../shared/utils/errorThrottle';
+import { API_ORIGIN } from '../../shared/utils/apiOrigin';
 
 const IS_DEV = import.meta.env.DEV;
 
 // Direct-access fallback via Netlify edge-function proxy (requires
 // VITE_NASA_FIRMS_API_KEY in .env – key will be visible in the URL).
-const FIRMS_BASE = '/api/firms/api/area';
+const FIRMS_BASE = `${API_ORIGIN}/api/firms/api/area`;
 const MAP_KEY = import.meta.env.VITE_NASA_FIRMS_API_KEY;
 
 /**

@@ -37,9 +37,17 @@
 
     <title>National Wildfire Tracking Team – NWTT</title>
 
-    <!-- Google AdSense -->
-    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-4422680282099770"
-     crossorigin="anonymous"></script>
+    <!-- Google AdSense — skipped inside the Capacitor native shell, where
+         there's no ad inventory to serve and no web referrer to key off. -->
+    <script>
+      if (!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform())) {
+        var adsScript = document.createElement('script');
+        adsScript.async = true;
+        adsScript.crossOrigin = 'anonymous';
+        adsScript.src = 'https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-4422680282099770';
+        document.head.appendChild(adsScript);
+      }
+    </script>
 
   </head>
   <body class="bg-sentinel-900 text-white antialiased">
