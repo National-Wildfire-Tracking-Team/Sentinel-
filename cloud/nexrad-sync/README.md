@@ -107,7 +107,12 @@ invocation, no automatic retry (a failed run just waits for the next
 2-minute Scheduler tick, same as a failed GitHub Actions run would have).
 `--task-timeout 600s` (10 minutes) gives comfortable headroom under the
 previous 15-minute GitHub Actions `timeout-minutes`, since a normal run
-finishes in well under a minute per active site.
+finishes in well under a minute per active site — but the job now syncs
+every known NEXRAD site each run (reflectivity, for Composite Radar), not
+just actively-viewed ones, so run duration is meaningfully longer than it
+used to be. Watch actual run times after deploying and raise
+`--task-timeout` / `CONCURRENCY` in `sync.mjs` if runs are getting close to
+600s.
 
 If you need more memory than the Cloud Run Job default, add e.g.
 `--memory 1Gi` — full-volume NEXRAD decode is the reason this moved off
