@@ -267,10 +267,12 @@ export default function LiveTrackerPage() {
     }
   }, [activeMapTab]);
 
-  // NEXRAD Level II turned off closes any open site radar panel.
+  // NEXRAD Level II turned off, or leaving the weather/all-hazard tabs,
+  // closes any open site radar panel so its live scan polling stops.
+  const isWeatherOrAllHazardTab = activeMapTab === MAP_TABS.weather || activeMapTab === MAP_TABS.allhazard;
   useEffect(() => {
-    if (!layers.radarNexrad) selectRadarSite(null);
-  }, [layers.radarNexrad, selectRadarSite]);
+    if (!layers.radarNexrad || !isWeatherOrAllHazardTab) selectRadarSite(null);
+  }, [layers.radarNexrad, isWeatherOrAllHazardTab, selectRadarSite]);
 
   useEffect(() => {
     if (!criticalInfraEntitled && layers.criticalInfrastructure) {
@@ -609,7 +611,7 @@ export default function LiveTrackerPage() {
   // NWS NEXRAD Level 2 radar sites — live operability status
   const {
     geoJSON: nexradSitesGeoJSON,
-  } = useNexradSites(layers.radarNexrad);
+  } = useNexradSites(weatherDataEnabled && layers.radarNexrad);
 
   // Live California highway cameras — Caltrans District CCTV
   const {
@@ -651,7 +653,7 @@ export default function LiveTrackerPage() {
     pause: onMrmsPause,
     previous: onMrmsPrevious,
     next: onMrmsNext,
-  } = useMrmsComposite(layers.radarComposite);
+  } = useMrmsComposite(weatherDataEnabled && layers.radarComposite);
   // IEM fallback only ever makes sense in live mode — IEM has no historical
   // capability, so substituting it under a historical timestamp would
   // silently show the wrong image (see RadarLayer.jsx's mrmsFresh prop).

@@ -1819,7 +1819,7 @@ export default function MapView({
         onLoad={handleMapLoad}
         transformRequest={transformRequest}
         attributionControl={false}
-        maxTileCacheSize={150}
+        maxTileCacheSize={30}
         fadeDuration={150}
         projection="globe"
         fog={GLOBE_FOG}
