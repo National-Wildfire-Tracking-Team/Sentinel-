@@ -2,8 +2,8 @@
  * nexrad-heartbeat – Supabase Edge Function
  *
  * Records that a NEXRAD radar site is currently being viewed, so the
- * ingestion cron (scripts/nexrad-radar-sync.mjs) keeps refreshing it on
- * schedule. On top of that, if this site has no recent published scan yet
+ * ingestion job (cloud/nexrad-sync/sync.mjs, a Google Cloud Run Job) keeps
+ * refreshing it on schedule. On top of that, if this site has no recent published scan yet
  * (first-ever view, or reactivated after being idle), this function also
  * synchronously decodes and publishes ONE scan right here before returning
  * — so the frontend's very first meta poll after the heartbeat already
@@ -19,11 +19,12 @@
  * laid out sequentially in the file starting with the lowest tilt, so a
  * truncated prefix reliably contains the base-tilt reflectivity + velocity
  * cuts (elevations 1-2 in a split-cut VCP) while using a small fraction of
- * the memory a full-file parse would. The steady-state cron keeps using the
- * full file (fine there — GitHub Actions runners have plenty of memory).
+ * the memory a full-file parse would. The steady-state job keeps using the
+ * full file (fine there — it runs on Cloud Run, not this edge function's
+ * limited memory).
  *
  * Source: the NOAA/Unidata AWS archive bucket "unidata-nexrad-level2" (see
- * scripts/nexrad-radar-sync.mjs's module doc comment for the full rationale),
+ * cloud/nexrad-sync/sync.mjs's module doc comment for the full rationale),
  * with tgftp.nws.noaa.gov kept as an automatic migration fallback — both
  * serve identical Archive II bytes and both support byte-range GETs, so the
  * truncation trick above works unchanged regardless of which one serves the
@@ -139,7 +140,7 @@ function utcDateParts(offsetDays = 0) {
   };
 }
 
-/** Same listing approach as scripts/nexrad-radar-sync.mjs's listAwsVolumeKeys. */
+/** Same listing approach as cloud/nexrad-sync/sync.mjs's listAwsVolumeKeys. */
 async function listAwsVolumeKeys(site: string, { yyyy, mm, dd }: { yyyy: string; mm: string; dd: string }): Promise<string[]> {
   const prefix = `${yyyy}/${mm}/${dd}/${site}/`;
   const resp = await fetch(`${AWS_NEXRAD_BASE}/?list-type=2&prefix=${encodeURIComponent(prefix)}&max-keys=1000`);
@@ -195,9 +196,9 @@ async function publishProduct(
   const { site, product, elevationDeg, azimuths, radials, scanTimeMs, sourceFile } = args;
   const first = radials.find(Boolean);
   const gateCount = first.gate_count;
-  const gateSizeM = first.gate_size * 1000; // library returns km, not m — see scripts/nexrad-radar-sync.mjs
+  const gateSizeM = first.gate_size * 1000; // library returns km, not m — see cloud/nexrad-sync/sync.mjs
   const firstGateM = first.first_gate * 1000;
-  // See scripts/nexrad-radar-sync.mjs's publishProduct for why velocity and
+  // See cloud/nexrad-sync/sync.mjs's publishProduct for why velocity and
   // spectrum width (same Doppler message) are converted to knots and ZDR/CC
   // are left as the decoder returns them.
   const unitConvert = (product === 'velocity' || product === 'spectrumWidth')

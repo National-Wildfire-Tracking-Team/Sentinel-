@@ -1,8 +1,8 @@
 /**
  * nexradScans.js
  * Frontend access to live NEXRAD Level II scan data published by
- * scripts/nexrad-radar-sync.mjs: a heartbeat call to keep a site "active"
- * (so the ingestion cron keeps refreshing it), plus reads of the resulting
+ * cloud/nexrad-sync/sync.mjs (a Google Cloud Run Job): a heartbeat call to
+ * keep a site "active" (so the ingestion job keeps refreshing it), plus reads of the resulting
  * scan metadata + compact binary payload from Supabase.
  */
 

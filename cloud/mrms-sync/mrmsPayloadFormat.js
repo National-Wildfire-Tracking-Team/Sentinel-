@@ -1,11 +1,10 @@
 /**
  * mrmsPayloadFormat.js
  * Compact binary format for one decoded NOAA MRMS composite reflectivity
- * frame (a regular geographic grid), shared between the Node ingestion
- * job (cloud/mrms-sync/sync.mjs, a Google Cloud Run Job) and the browser
- * (src/app/utils/mrmsRaster.js) so the encode/decode logic can never drift
- * apart. A copy also lives in cloud/mrms-sync/ since it can't import across
- * the deploy boundary — keep both in sync. Uses only ArrayBuffer/DataView/
+ * frame (a regular geographic grid). This is a copy of
+ * src/app/utils/mrmsPayloadFormat.js for the Cloud Run ingestion job
+ * (cloud/mrms-sync/sync.mjs), which cannot import across the deploy
+ * boundary — keep both copies in sync. Uses only ArrayBuffer/DataView/
  * TypedArray — no Node- or browser-specific APIs — so it runs unchanged in
  * both environments.
  *
