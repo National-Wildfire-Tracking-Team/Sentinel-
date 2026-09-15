@@ -29,7 +29,7 @@ const initialState = {
     spcWeatherOutlooks: false,
     fireWeatherOutlooks: false,
     fireRiskOutlook: false,
-    /** National composite reflectivity mosaic (NOAA MRMS / IEM) */
+    /** Every NEXRAD site's own reflectivity sweep, composited (IEM fallback if unavailable) */
     radarComposite:    false,
     /** NEXRAD Level II — per-site reflectivity/velocity scans */
     radarNexrad:       false,

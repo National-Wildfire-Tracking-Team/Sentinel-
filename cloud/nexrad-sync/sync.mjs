@@ -2,14 +2,24 @@
  * sync.mjs
  * Decodes live NWS NEXRAD Level II radar data (reflectivity, velocity,
  * spectrum width, differential reflectivity, correlation coefficient — all
- * base tilt) for whichever radar sites someone currently has open in Sentinel, and
- * publishes a compact pre-processed payload to Supabase for the frontend to
- * render. Runs as a Google Cloud Run Job, triggered every 2 minutes by Cloud
- * Scheduler (see README.md for deploy steps) — moved here from GitHub
- * Actions because a full-fidelity decode already crashes Supabase Edge
- * Functions on memory (see supabase/functions/nexrad-heartbeat/index.ts),
- * and Cloud Run gives this a proper container runtime with configurable
- * memory instead of a GitHub Actions minute budget.
+ * base tilt) and publishes a compact pre-processed payload to Supabase for
+ * the frontend to render. Runs as a Google Cloud Run Job, triggered every 2
+ * minutes by Cloud Scheduler (see README.md for deploy steps) — moved here
+ * from GitHub Actions because a full-fidelity decode already crashes
+ * Supabase Edge Functions on memory (see
+ * supabase/functions/nexrad-heartbeat/index.ts), and Cloud Run gives this a
+ * proper container runtime with configurable memory instead of a GitHub
+ * Actions minute budget.
+ *
+ * Every known NEXRAD site (from NWS's public station list, see
+ * fetchAllNexradSites) gets reflectivity synced every run — that's all the
+ * Composite Radar layer needs to render each site's own sweep as its own map
+ * layer (see radarRaster.js's rasterizeSweep / NexradScanLayer.jsx /
+ * RadarLayer.jsx; there's no MRMS-style national grid or cross-site
+ * blending). Whichever sites someone currently has open in Sentinel's
+ * single-site detail view (tracked via the nexrad_active_sites heartbeat)
+ * additionally get every other product, since only that per-site view uses
+ * velocity/spectrum width/ZDR/CC. See buildProductPlan below.
  *
  * Primary data source: the NOAA/Unidata AWS archive bucket
  * "unidata-nexrad-level2" (successor to the discontinued "noaa-nexrad-level2"
@@ -68,16 +78,45 @@ if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
 const AWS_NEXRAD_BASE = 'https://unidata-nexrad-level2.s3.amazonaws.com';
 const AWS_VOLUME_FILE_RE = /^[A-Z]{4}\d{8}_\d{6}_V06$/;
 const TGFTP_BASE = 'https://tgftp.nws.noaa.gov/data/radar/nexrad_level2';
+const NWS_STATIONS_URL = 'https://api.weather.gov/radar/stations';
 const STORAGE_BUCKET = 'nexrad-scans';
 const xmlParser = new XMLParser();
 const ACTIVE_WINDOW_MS = 15 * 60 * 1000; // sites with no heartbeat in this long are ignored
-const CONCURRENCY = 4;
+// Every known site (~200) now gets synced every run, not just a handful of
+// actively-viewed ones — more in-flight network fetches needed to finish
+// inside the workflow's timeout-minutes budget. Revisit after watching real
+// run times in production.
+const CONCURRENCY = 16;
 const MIN_RADIALS = 300; // sanity floor: a real base-tilt cut has 360-720 radials
 const ELEVATION_CANDIDATES = [1, 2, 3, 4]; // see split-cut note above
 
-// The site radar popup's scrub bar exposes 2 hours of history; keep a little
-// past that so a scan at the very edge of the slider is never missing.
-const HISTORY_RETENTION_MS = 2 * 60 * 60 * 1000 + 15 * 60 * 1000;
+// Composite Radar (every site) only ever needs reflectivity. Single-site
+// detail view (RadarSitePanel.jsx) offers all five — see module doc comment.
+const ALL_PRODUCTS = ['reflectivity', 'velocity', 'spectrumWidth', 'zdr', 'cc'];
+const REFLECTIVITY_ONLY = ['reflectivity'];
+
+const PRODUCT_GETTERS = {
+  reflectivity: (radar) => radar.getHighresReflectivity(),
+  velocity: (radar) => radar.getHighresVelocity(),
+  spectrumWidth: (radar) => radar.getHighresSpectrum(),
+  zdr: (radar) => radar.getHighresDiffReflectivity(),
+  cc: (radar) => radar.getHighresCorrelationCoefficient(),
+};
+
+// Retention window, per product, before nexrad_scan_history rows are pruned
+// (see pruneHistory below) — kept a little past the actual UI window so a
+// scan at the very edge of a scrub bar is never missing. Reflectivity gets
+// 24h for Composite Radar's national playback (useNexradComposite.js /
+// nexradScans.js's COMPOSITE_HISTORY_WINDOW_MS); every other product only
+// ever backs the single-site radar popup's own 2-hour scrub bar
+// (useNexradScan.js), so there's no reason to retain those any longer.
+const HISTORY_RETENTION_BY_PRODUCT = {
+  reflectivity: 24 * 60 * 60 * 1000 + 15 * 60 * 1000,
+  velocity: 2 * 60 * 60 * 1000 + 15 * 60 * 1000,
+  spectrumWidth: 2 * 60 * 60 * 1000 + 15 * 60 * 1000,
+  zdr: 2 * 60 * 60 * 1000 + 15 * 60 * 1000,
+  cc: 2 * 60 * 60 * 1000 + 15 * 60 * 1000,
+};
 const HISTORY_PRUNE_BATCH = 500;
 
 function supabaseHeaders(extra = {}) {
@@ -91,29 +130,38 @@ function supabaseHeaders(extra = {}) {
 async function main() {
   console.log('[nexrad-sync] starting');
 
-  const activeSites = await fetchActiveSites();
-  console.log(`[nexrad-sync] ${activeSites.length} active site(s)`);
-  if (!activeSites.length) {
+  const [activeSites, allSiteIds] = await Promise.all([
+    fetchActiveSites(),
+    fetchAllNexradSites().catch((err) => {
+      console.warn('[nexrad-sync] failed to fetch full site list, composite sync skipped this run:', err?.message || err);
+      return [];
+    }),
+  ]);
+
+  const productPlan = buildProductPlan(allSiteIds, activeSites.map((s) => s.site_id));
+  const siteIds = [...productPlan.keys()];
+  console.log(`[nexrad-sync] ${siteIds.length} site(s) total (${activeSites.length} active, all products)`);
+  if (!siteIds.length) {
     console.log('[nexrad-sync] nothing to do');
     return;
   }
 
-  const publishedFiles = await fetchPublishedSourceFiles(activeSites.map((s) => s.site_id));
+  const publishedFiles = await fetchPublishedSourceFiles(siteIds);
 
   let cursor = 0;
   async function worker() {
-    while (cursor < activeSites.length) {
-      const site = activeSites[cursor++];
+    while (cursor < siteIds.length) {
+      const site = siteIds[cursor++];
       try {
-        await syncSite(site.site_id, publishedFiles.get(site.site_id) ?? null);
+        await syncSite(site, publishedFiles.get(site) ?? null, productPlan.get(site));
       } catch (err) {
-        console.warn(`[nexrad-sync] ${site.site_id} failed:`, err?.message || err);
+        console.warn(`[nexrad-sync] ${site} failed:`, err?.message || err);
       }
     }
   }
 
   await Promise.all(
-    Array.from({ length: Math.min(CONCURRENCY, activeSites.length) }, worker),
+    Array.from({ length: Math.min(CONCURRENCY, siteIds.length) }, worker),
   );
 
   try {
@@ -133,6 +181,36 @@ async function fetchActiveSites() {
   );
   if (!resp.ok) throw new Error(`Failed to list active sites: ${resp.status} ${await resp.text().catch(() => '')}`);
   return resp.json();
+}
+
+/**
+ * All NEXRAD site IDs from NWS's public station list — the authoritative
+ * "sync this site's reflectivity for the composite" list. Mirrors
+ * src/app/api/nexradSites.js's client-side fetch of the same endpoint;
+ * duplicated (not imported) since that module's browser-oriented caching
+ * wrapper doesn't apply to this plain-Node script.
+ */
+async function fetchAllNexradSites() {
+  const resp = await fetch(NWS_STATIONS_URL, { headers: { Accept: 'application/geo+json' } });
+  if (!resp.ok) throw new Error(`NWS radar stations fetch failed: ${resp.status}`);
+  const json = await resp.json();
+  const features = Array.isArray(json?.features) ? json.features : [];
+  return features.map((f) => f?.properties?.id).filter(Boolean);
+}
+
+/**
+ * Merge the full site list (reflectivity only, for Composite Radar) with the
+ * heartbeat-active list (every product, for the single-site detail view)
+ * into one site -> products-to-sync map, so a site never gets double-synced
+ * in the same run. An active site absent from the NWS list (shouldn't happen
+ * in practice — the client sources its site picker from the same endpoint —
+ * but kept defensive) still gets synced with every product.
+ */
+function buildProductPlan(allSiteIds, activeSiteIds) {
+  const plan = new Map();
+  for (const siteId of allSiteIds) plan.set(siteId, REFLECTIVITY_ONLY);
+  for (const siteId of activeSiteIds) plan.set(siteId, ALL_PRODUCTS);
+  return plan;
 }
 
 /**
@@ -317,7 +395,7 @@ function findBestElevation(radar, getter) {
   return null;
 }
 
-async function syncSite(site, lastPublishedFile) {
+async function syncSite(site, lastPublishedFile, productsToSync) {
   const latest = await findLatestFile(site);
   if (!latest) {
     console.log(`[nexrad-sync] ${site}: no files listed yet`);
@@ -344,13 +422,10 @@ async function syncSite(site, lastPublishedFile) {
     ? julianToEpochMs(radar.header.modified_julian_date, radar.header.milliseconds)
     : Date.now();
 
-  const products = {
-    reflectivity: findBestElevation(radar, () => radar.getHighresReflectivity()),
-    velocity: findBestElevation(radar, () => radar.getHighresVelocity()),
-    spectrumWidth: findBestElevation(radar, () => radar.getHighresSpectrum()),
-    zdr: findBestElevation(radar, () => radar.getHighresDiffReflectivity()),
-    cc: findBestElevation(radar, () => radar.getHighresCorrelationCoefficient()),
-  };
+  const products = {};
+  for (const product of productsToSync) {
+    products[product] = findBestElevation(radar, () => PRODUCT_GETTERS[product](radar));
+  }
 
   const jobs = [];
   for (const [product, found] of Object.entries(products)) {
@@ -472,7 +547,21 @@ async function publishProduct({ site, product, elevationDeg, azimuths, radials, 
 /** Append one scan to nexrad_scan_history — a separate object per scan (not overwritten in place like latest.bin). */
 async function publishHistoryEntry({ site, product, scanTimeMs, elevationDeg, compressed, gateCount, radialCount }) {
   const scanTimeIso = new Date(scanTimeMs).toISOString();
-  const historyPath = `${site}/${product}/history/${scanTimeIso}.bin`;
+  // Root cause of history never actually accumulating in production: a raw
+  // ISO timestamp ("2026-09-15T20:47:23.015Z") in a Supabase Storage object
+  // key — confirmed live against the deployed bucket: every latest.bin (no
+  // colons in its path) exists and is readable, but not one single
+  // history/<timestamp>.bin object for any site/product ever landed in
+  // storage, despite nexrad_scan_meta showing regular successful syncs the
+  // whole time. Storage keys built from a colon/dot-bearing raw ISO string
+  // are the one thing that differs between the two paths, so every write
+  // via this path silently failed at the storage-upload step (caught by the
+  // .catch() at this function's call site, logged, and otherwise ignored) —
+  // stripping those characters keeps the key lexicographically sortable
+  // (same character order, just different delimiters) while avoiding
+  // whatever key-format restriction was rejecting it.
+  const historyKey = scanTimeIso.replace(/[:.]/g, '-');
+  const historyPath = `${site}/${product}/history/${historyKey}.bin`;
 
   const uploadResp = await fetch(
     `${SUPABASE_URL}/storage/v1/object/${STORAGE_BUCKET}/${historyPath}`,
@@ -519,15 +608,15 @@ async function publishHistoryEntry({ site, product, scanTimeMs, elevationDeg, co
   }
 }
 
-/** Delete history rows (and their storage objects) past the retention window. */
-async function pruneHistory() {
-  const cutoffIso = new Date(Date.now() - HISTORY_RETENTION_MS).toISOString();
+/** Delete one product's history rows (and their storage objects) past its own retention window. */
+async function pruneHistoryForProduct(product, retentionMs) {
+  const cutoffIso = new Date(Date.now() - retentionMs).toISOString();
   const listResp = await fetch(
-    `${SUPABASE_URL}/rest/v1/nexrad_scan_history?select=id,storage_path&scan_time=lt.${encodeURIComponent(cutoffIso)}&limit=${HISTORY_PRUNE_BATCH}`,
+    `${SUPABASE_URL}/rest/v1/nexrad_scan_history?select=id,storage_path&product=eq.${product}&scan_time=lt.${encodeURIComponent(cutoffIso)}&limit=${HISTORY_PRUNE_BATCH}`,
     { headers: supabaseHeaders() },
   );
   if (!listResp.ok) {
-    console.warn(`[nexrad-sync] prune: failed to list stale history rows: ${listResp.status}`);
+    console.warn(`[nexrad-sync] prune(${product}): failed to list stale history rows: ${listResp.status}`);
     return;
   }
 
@@ -542,7 +631,7 @@ async function pruneHistory() {
   if (!deleteObjResp.ok) {
     // A dangling object in a public bucket is harmless (unreferenced once its
     // row is gone) — still drop the rows below so the table doesn't grow forever.
-    console.warn(`[nexrad-sync] prune: storage delete failed: ${deleteObjResp.status} ${await deleteObjResp.text().catch(() => '')}`);
+    console.warn(`[nexrad-sync] prune(${product}): storage delete failed: ${deleteObjResp.status} ${await deleteObjResp.text().catch(() => '')}`);
   }
 
   const idList = rows.map((r) => r.id).join(',');
@@ -551,10 +640,17 @@ async function pruneHistory() {
     { method: 'DELETE', headers: supabaseHeaders() },
   );
   if (!deleteRowsResp.ok) {
-    console.warn(`[nexrad-sync] prune: row delete failed: ${deleteRowsResp.status} ${await deleteRowsResp.text().catch(() => '')}`);
+    console.warn(`[nexrad-sync] prune(${product}): row delete failed: ${deleteRowsResp.status} ${await deleteRowsResp.text().catch(() => '')}`);
     return;
   }
-  console.log(`[nexrad-sync] prune: removed ${rows.length} stale history row(s)`);
+  console.log(`[nexrad-sync] prune(${product}): removed ${rows.length} stale history row(s)`);
+}
+
+/** Delete stale history rows for every product, each against its own retention window. */
+async function pruneHistory() {
+  for (const [product, retentionMs] of Object.entries(HISTORY_RETENTION_BY_PRODUCT)) {
+    await pruneHistoryForProduct(product, retentionMs);
+  }
 }
 
 main().catch((err) => {

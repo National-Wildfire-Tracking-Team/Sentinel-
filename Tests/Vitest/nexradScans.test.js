@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { gzipSync } from 'node:zlib';
 
 // Mock Sentinel's own Supabase wrapper directly, at the exact layer
-// nexradScans.js uses (mirrors the pattern in mrmsComposite.test.js).
+// nexradScans.js uses.
 const mockGetPublicUrl = vi.fn((path) => ({
   data: { publicUrl: `https://cdn.example.com/nexrad-scans/${path}` },
 }));

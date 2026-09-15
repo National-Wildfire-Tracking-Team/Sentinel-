@@ -9,17 +9,19 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { ChevronDown, ChevronUp, Lock, Unlock, X } from 'lucide-react';
 import { classifyDbz, sampleRadarAtPoint } from '../../services/radarProbe';
+import { REFLECTIVITY_SCALE } from '../../utils/radarRaster';
 
-// dBZ value → display color
+// dBZ value → display color. Uses REFLECTIVITY_SCALE (the same table that
+// rasterizes the map's reflectivity imagery) so the probe's dot/ring always
+// matches the color band actually painted under it, rather than drifting
+// out of sync with a separately hand-picked scale.
 function dbzColor(dbz) {
   if (dbz === null) return '#4b5563';
-  if (dbz < 15) return '#22d3ee';
-  if (dbz < 30) return '#4ade80';
-  if (dbz < 40) return '#facc15';
-  if (dbz < 50) return '#f97316';
-  if (dbz < 60) return '#ef4444';
-  if (dbz <= 70) return '#f43f5e';
-  return '#d946ef';
+  let match = null;
+  for (const stop of REFLECTIVITY_SCALE) {
+    if (dbz >= stop.min) match = stop;
+  }
+  return match ? match.color : '#4b5563';
 }
 
 // ── PrecipitationRing ─────────────────────────────────────────────────────────

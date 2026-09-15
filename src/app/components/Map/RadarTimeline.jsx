@@ -1,11 +1,10 @@
 /**
  * RadarTimeline.jsx
  * Compact radar history/playback control bar. Purely presentational — it
- * has no idea whether it's driving MRMS or NEXRAD, no Supabase access, and
- * no decoding/rasterization logic. All data and behavior are supplied by the
- * caller (see useRadarHistory.js), exactly the props listed below, so this
- * component stays reusable across radar layers even though only Composite
- * Radar wires it up today.
+ * has no Supabase access and no decoding/rasterization logic of its own. All
+ * data and behavior are supplied by the caller (see useNexradComposite.js),
+ * exactly the props listed below, so this component stays reusable across
+ * radar layers even though only Composite Radar wires it up today.
  *
  * Styling reuses Sentinel's existing floating-card conventions (also used by
  * RadarSitePanel.jsx, docked above the same bottom bar): cyan for live/active

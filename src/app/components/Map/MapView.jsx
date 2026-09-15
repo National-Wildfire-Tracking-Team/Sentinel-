@@ -36,6 +36,7 @@ import StormReportsLayer  from './layers/StormReportsLayer';
 import UserReportsLayer   from './layers/UserReportsLayer';
 import SPCOutlookLayer from './layers/SPCOutlookLayer';
 import RadarLayer from './layers/RadarLayer';
+import StormMotionVectorLayer from './layers/StormMotionVectorLayer';
 import EvacuationZonesLayer from './layers/EvacuationZonesLayer';
 import { MeasurementLayer, MeasurementPanel } from './MeasurementTool';
 import { PrecipitationRing } from './PrecipitationRing';
@@ -1231,6 +1232,8 @@ function HoverTooltip({ features, lngLat }) {
  * @param {object|null} props.fireBehaviorModelingGeoJSON
  * @param {object|null} props.aqiGeoJSON
  * @param {object|null} props.alertsGeoJSON
+ * @param {object|null} props.stormMotionVectorsGeoJSON
+ * @param {boolean}     [props.stormMotionVectorsVisible]
  * @param {object|null} props.stormReportsGeoJSON
  * @param {object|null} props.damageAssessmentPointsGeoJSON
  * @param {object|null} props.damageAssessmentLinesGeoJSON
@@ -1283,6 +1286,8 @@ export default function MapView({
   fireBehaviorModelingGeoJSON,
   aqiGeoJSON,
   alertsGeoJSON,
+  stormMotionVectorsGeoJSON,
+  stormMotionVectorsVisible,
   stormReportsGeoJSON,
   damageAssessmentPointsGeoJSON,
   damageAssessmentLinesGeoJSON,
@@ -1331,19 +1336,17 @@ export default function MapView({
   nexradSitesGeoJSON,
   nexradScanUrl,
   nexradScanCoordinates,
-  mrmsDataUrl,
-  mrmsCoordinates,
-  mrmsFresh,
-  mrmsTimelineVisible,
-  mrmsFrames,
-  mrmsSelectedTimestamp,
-  mrmsIsPlaying,
-  mrmsError,
-  onMrmsSelectFrame,
-  onMrmsPlay,
-  onMrmsPause,
-  onMrmsPrevious,
-  onMrmsNext,
+  nexradCompositeSites,
+  nexradCompositeTimelineVisible,
+  nexradCompositeFrames,
+  nexradCompositeSelectedTimestamp,
+  nexradCompositeIsPlaying,
+  nexradCompositeError,
+  onNexradCompositeSelectFrame,
+  onNexradCompositePlay,
+  onNexradCompositePause,
+  onNexradCompositePrevious,
+  onNexradCompositeNext,
   calFireHistoricalPerimetersGeoJSON,
   californiaCamerasGeoJSON,
   wpcEroGeoJSON,
@@ -1852,12 +1855,10 @@ export default function MapView({
           fire18Visible={(isWildfireTab || isAllHazardTab) && layers.goesFire18}
         />
 
-        {/* NEXRAD radar reflectivity — national composite mosaic, live only */}
+        {/* NEXRAD radar reflectivity — every site's own sweep, composited */}
         <RadarLayer
           visible={(isWeatherTab || isAllHazardTab) && layers.radarComposite}
-          mrmsDataUrl={mrmsDataUrl}
-          mrmsCoordinates={mrmsCoordinates}
-          mrmsFresh={mrmsFresh}
+          sites={nexradCompositeSites}
           beforeId={radarBeforeId}
         />
 
@@ -1869,6 +1870,13 @@ export default function MapView({
           geoJSON={alertsGeoJSON}
           spcMdGeoJSON={isWildfireTab ? null : spcMdGeoJSON}
           visible={(isWildfireTab || isWeatherTab || isAllHazardTab) && layers.weatherAlerts}
+        />
+
+        {/* Radar Settings: Storm Motion Vectors — a display preference, not
+            a layer toggle, so not gated to any particular map tab */}
+        <StormMotionVectorLayer
+          geoJSON={stormMotionVectorsGeoJSON}
+          visible={stormMotionVectorsVisible}
         />
 
         {/* SPC convective outlook polygons */}
@@ -2160,18 +2168,18 @@ export default function MapView({
       <MapZoomControl mapRef={mapRef} />
 
       {/* Composite Radar timeline — history/playback control, independent of NEXRAD */}
-      {mrmsTimelineVisible && (
+      {nexradCompositeTimelineVisible && (
         <RadarTimeline
           ref={radarTimelineRef}
-          frames={mrmsFrames}
-          selectedTimestamp={mrmsSelectedTimestamp}
-          isPlaying={mrmsIsPlaying}
-          error={mrmsError}
-          onSelectFrame={onMrmsSelectFrame}
-          onPlay={onMrmsPlay}
-          onPause={onMrmsPause}
-          onPrevious={onMrmsPrevious}
-          onNext={onMrmsNext}
+          frames={nexradCompositeFrames}
+          selectedTimestamp={nexradCompositeSelectedTimestamp}
+          isPlaying={nexradCompositeIsPlaying}
+          error={nexradCompositeError}
+          onSelectFrame={onNexradCompositeSelectFrame}
+          onPlay={onNexradCompositePlay}
+          onPause={onNexradCompositePause}
+          onPrevious={onNexradCompositePrevious}
+          onNext={onNexradCompositeNext}
           bottomBarWidth={mapBottomBarWidth}
           bottomBarHeight={mapBottomBarHeight}
           topAttached={Boolean(selectedRadarSite) || outlookDocked}
