@@ -24,6 +24,7 @@ const AccountPanel = memo(function AccountPanel() {
   useEffect(() => {
     if (!accountPanelOpen) return;
     const handler = (e) => {
+      if (showLoginModal || showAddressSetup) return;
       if (e.target.closest('[data-account-trigger]')) return;
       if (panelRef.current && !panelRef.current.contains(e.target)) {
         toggleAccountPanel();
@@ -31,7 +32,7 @@ const AccountPanel = memo(function AccountPanel() {
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
-  }, [accountPanelOpen, toggleAccountPanel]);
+  }, [accountPanelOpen, showLoginModal, showAddressSetup, toggleAccountPanel]);
 
   const handleLoginSuccess = () => {
     setShowLoginModal(false);
