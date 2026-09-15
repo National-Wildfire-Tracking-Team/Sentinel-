@@ -31,11 +31,12 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { fetchCAEvacZones }    from '../api/caEvacZones';
 import { ipawsAlertsToEvacFeatures } from '../utils/ipawsEvacGeoJSON';
+import { API_ORIGIN } from '../../shared/utils/apiOrigin';
 
 const REFRESH_MS = parseInt(import.meta.env.VITE_REFRESH_INTERVAL || '300000', 10);
 /** In dev, default to Vite proxy → Node poller; in prod default to edge function proxy. */
 const IPAWS_ALERTS_URL = (
-  import.meta.env.VITE_IPAWS_ALERTS_URL ?? (import.meta.env.DEV ? '/alerts' : '/api/fema')
+  import.meta.env.VITE_IPAWS_ALERTS_URL ?? (import.meta.env.DEV ? '/alerts' : `${API_ORIGIN}/api/fema`)
 ).trim();
 const EMPTY_GEOJSON = { type: 'FeatureCollection', features: [] };
 

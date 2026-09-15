@@ -14,9 +14,10 @@
  */
 
 import { getCached, setCached } from '../utils/dataCache';
+import { API_ORIGIN } from '../../shared/utils/apiOrigin';
 
 const FEMA_URL = (
-  import.meta.env.VITE_IPAWS_ALERTS_URL ?? (import.meta.env.DEV ? '/alerts' : '/api/fema')
+  import.meta.env.VITE_IPAWS_ALERTS_URL ?? (import.meta.env.DEV ? '/alerts' : `${API_ORIGIN}/api/fema`)
 ).trim();
 
 /**
