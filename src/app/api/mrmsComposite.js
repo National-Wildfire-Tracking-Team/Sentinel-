@@ -1,7 +1,7 @@
 /**
  * mrmsComposite.js
  * Frontend access to the NOAA MRMS composite reflectivity frame published by
- * scripts/mrms-radar-sync.mjs: reads of the latest frame metadata + compact
+ * cloud/mrms-sync/sync.mjs (a Google Cloud Run Job): reads of the latest frame metadata + compact
  * binary payload from Supabase, and a windowed view of the persistent
  * mrms_radar_archive for the Composite Radar timeline. Independent of
  * api/nexradScans.js — separate bucket, separate tables, separate payload
@@ -27,7 +27,7 @@ export async function fetchLatestMrmsMeta() {
 
 // Playback window size — the timeline scrubs through at most this many of
 // the most recent frames. mrms_radar_archive is separately pruned to a 24h
-// retention window by scripts/mrms-radar-sync.mjs (ARCHIVE_RETENTION_MS);
+// retention window by cloud/mrms-sync/sync.mjs (ARCHIVE_RETENTION_MS);
 // this is a further query-side window on top of that, matching Phase 6A's
 // split between "hot playback window" and "long-term archive retention."
 const PLAYBACK_WINDOW_SIZE = 100;

@@ -4,7 +4,7 @@
  * (if that location has fire alerts enabled), or a new NWS alert of a
  * type they've opted into is issued for a saved location's point.
  * Run on a schedule by .github/workflows/notification-sync.yml, mirroring
- * scripts/nexrad-radar-sync.mjs's pattern (plain Node, raw REST calls to
+ * cloud/nexrad-sync/sync.mjs's pattern (plain Node, raw REST calls to
  * Supabase with the service-role key, no @supabase/supabase-js client).
  *
  * "New" is determined by public.notification_log: each (user, kind,

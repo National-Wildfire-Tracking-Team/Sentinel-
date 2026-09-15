@@ -1,13 +1,15 @@
 /**
- * nexrad-radar-sync.mjs
+ * sync.mjs
  * Decodes live NWS NEXRAD Level II radar data (reflectivity, velocity,
  * spectrum width, differential reflectivity, correlation coefficient — all
  * base tilt) for whichever radar sites someone currently has open in Sentinel, and
  * publishes a compact pre-processed payload to Supabase for the frontend to
- * render. Run on a schedule by .github/workflows/nexrad-radar-sync.yml,
- * mirroring the existing scripts/opensky-sync.mjs pattern (plain Node, raw
- * REST calls to Supabase with the service-role key, no @supabase/supabase-js
- * client).
+ * render. Runs as a Google Cloud Run Job, triggered every 2 minutes by Cloud
+ * Scheduler (see README.md for deploy steps) — moved here from GitHub
+ * Actions because a full-fidelity decode already crashes Supabase Edge
+ * Functions on memory (see supabase/functions/nexrad-heartbeat/index.ts),
+ * and Cloud Run gives this a proper container runtime with configurable
+ * memory instead of a GitHub Actions minute budget.
  *
  * Primary data source: the NOAA/Unidata AWS archive bucket
  * "unidata-nexrad-level2" (successor to the discontinued "noaa-nexrad-level2"
@@ -54,7 +56,7 @@
 import { gzipSync } from 'node:zlib';
 import Level2Radar from 'nexrad-level-2-data';
 import { XMLParser } from 'fast-xml-parser';
-import { encodeScanPayload } from '../src/app/utils/nexradPayloadFormat.js';
+import { encodeScanPayload } from './nexradPayloadFormat.js';
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;

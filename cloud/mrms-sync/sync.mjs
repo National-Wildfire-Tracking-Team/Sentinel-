@@ -1,14 +1,16 @@
 /**
- * mrms-radar-sync.mjs
+ * sync.mjs
  * Decodes NOAA's real-time MRMS national composite reflectivity product
  * (MergedReflectivityQCComposite) and publishes a compact pre-processed
  * payload to Supabase for the frontend's Composite Radar layer to render.
- * Run on a schedule by .github/workflows/mrms-radar-sync.yml, mirroring
- * scripts/nexrad-radar-sync.mjs's plain-Node, raw-REST-to-Supabase-with-
- * service-role-key pattern — but this is a fully independent pipeline: a
- * different source, different decoder, different Supabase bucket/tables,
- * and a genuinely different grid geometry (regular lat/lon, not NEXRAD's
- * polar radials). NEXRAD Level II is untouched by this script.
+ * Runs as a Google Cloud Run Job, triggered every 2 minutes by Cloud
+ * Scheduler (see README.md for deploy steps) — moved here from GitHub
+ * Actions for the same reason NEXRAD's sync moved (see
+ * cloud/nexrad-sync/sync.mjs): a proper container runtime instead of a
+ * GitHub Actions minute budget. This pipeline is fully independent of
+ * NEXRAD's: a different source, different decoder, different Supabase
+ * bucket/tables, and a genuinely different grid geometry (regular lat/lon,
+ * not NEXRAD's polar radials).
  *
  * Data source: mrms.ncep.noaa.gov/2D/MergedReflectivityQCComposite/, NOAA's
  * official real-time MRMS product server. It publishes one timestamped
@@ -19,20 +21,21 @@
  * filenames are regex-extracted from `href="..."` the same way tgftp's
  * dir.list was scraped for NEXRAD.
  *
- * Decoding: wgrib2 (pinned 3.8.0, installed via conda-forge in CI — see the
- * workflow file) owns all GRIB2-specific interpretation. In one invocation it
- * decompresses the GRIB2 message, regrids the native 0.01°(~7000x3500,
- * 24.5M cell) grid onto REGRID_NX x REGRID_NY below — currently the same
- * 0.01° spacing as native (see the constants' own comment for the sizing
- * history/rationale) using NEAREST-NEIGHBOR interpolation for THIS regrid
- * step specifically (not bilinear) so real values are never blended with
- * the "no data" sentinels below, and dumps the result as flat big-endian
- * IEEE floats. (The client-side Mapbox raster layer's own resampling — see
- * RadarLayer.jsx — is a separate, later concern: smoothing between two
- * already-valid real cells for display is fine and, in practice, produces a
- * more professional-looking result than leaving grid cells as visible
- * squares; only this ingestion-time regrid must avoid blending real data
- * with sentinels.)
+ * Decoding: wgrib2 (pinned 3.8.0, installed via conda-forge in the
+ * Dockerfile's build stage — see the Dockerfile) owns all GRIB2-specific
+ * interpretation. In one invocation it decompresses the GRIB2 message,
+ * regrids the native 0.01°(~7000x3500, 24.5M cell) grid onto REGRID_NX x
+ * REGRID_NY below — currently the same 0.01° spacing as native (see the
+ * constants' own comment for the sizing history/rationale) using
+ * NEAREST-NEIGHBOR interpolation for THIS regrid step specifically (not
+ * bilinear) so real values are never blended with the "no data" sentinels
+ * below, and dumps the result as flat big-endian IEEE floats. (The
+ * client-side Mapbox raster layer's own resampling — see RadarLayer.jsx —
+ * is a separate, later concern: smoothing between two already-valid real
+ * cells for display is fine and, in practice, produces a more
+ * professional-looking result than leaving grid cells as visible squares;
+ * only this ingestion-time regrid must avoid blending real data with
+ * sentinels.)
  *
  * Missing values — confirmed against a real production file during
  * implementation, not assumed: this product uses no GRIB2 bitmap
@@ -57,7 +60,7 @@ import { mkdtempSync, readFileSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { gunzipSync, gzipSync } from 'node:zlib';
-import { encodeMrmsPayload } from '../src/app/utils/mrmsPayloadFormat.js';
+import { encodeMrmsPayload } from './mrmsPayloadFormat.js';
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -86,7 +89,7 @@ const WGRIB2_BIN = process.env.WGRIB2_BIN || 'wgrib2';
 // payload size grows roughly 4x versus the 0.02° step (still dominated by
 // the same ~94%-no-data sparsity pattern compressing well); rasterization
 // cost scales with the ~5-6% of cells carrying real values (~1.5M pixels
-// doing a color-band scan, up from ~370K); GitHub Actions cost is unaffected
+// doing a color-band scan, up from ~370K); compute cost is unaffected
 // (decoding the native 24.5M-cell GRIB2 already dominated regardless of
 // regrid target); mrms_radar_archive is pruned to a 24h retention window
 // (see ARCHIVE_RETENTION_MS/pruneArchive below), and within that window the
@@ -105,10 +108,10 @@ const REGRID_NY = 3500;
 const NO_DATA_SENTINELS = [-999, -99]; // no coverage, below threshold
 
 const PROCESSING_VERSION = 3; // bump whenever the regrid/quantization/resample logic changes
-const DECODER_VERSION = '3.8.0'; // wgrib2 version — keep in sync with the workflow's pinned version
+const DECODER_VERSION = '3.8.0'; // wgrib2 version — keep in sync with the Dockerfile's pinned version
 
 // Archive retention — rows/objects older than this are deleted each run, same
-// prune-on-every-sync pattern as scripts/nexrad-radar-sync.mjs. 24h comfortably
+// prune-on-every-sync pattern as cloud/nexrad-sync/sync.mjs. 24h comfortably
 // covers the ~3.3h playback window (100 frames @ ~2min cadence — see
 // PLAYBACK_WINDOW_SIZE in src/app/api/mrmsComposite.js) while keeping the
 // archive from growing forever.
