@@ -9,8 +9,8 @@
 --
 -- Actual decoded frame bytes live in Supabase Storage (bucket "mrms-scans");
 -- these tables only point at them. Writes come exclusively from the
--- service-role ingestion script (scripts/mrms-radar-sync.mjs) — never
--- directly from the browser.
+-- service-role ingestion job (cloud/mrms-sync/sync.mjs, a Google Cloud Run
+-- Job) — never directly from the browser.
 -- ═══════════════════════════════════════════════════════════════════════════
 
 create table if not exists public.mrms_frame_meta (

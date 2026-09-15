@@ -1,14 +1,15 @@
 /**
  * nexradPayloadFormat.js
  * Compact binary format for one decoded NEXRAD Level II scan (one site,
- * one product, one elevation), shared between the Node ingestion job
- * (cloud/nexrad-sync/sync.mjs, a Google Cloud Run Job) and the browser
- * (src/app/utils/radarRaster.js) so the encode/decode logic can never drift
- * apart. A near-identical copy also lives in cloud/nexrad-sync/ and
- * supabase/functions/nexrad-heartbeat/ since neither can import across the
- * deploy boundary — keep all three in sync. Uses only ArrayBuffer/
- * DataView/TypedArray — no Node- or browser-specific APIs — so it runs
- * unchanged in both environments.
+ * one product, one elevation). This is a copy of
+ * src/app/utils/nexradPayloadFormat.js for the Cloud Run ingestion job
+ * (cloud/nexrad-sync/sync.mjs), which cannot import across the deploy
+ * boundary. A second copy already exists for the same reason at
+ * supabase/functions/nexrad-heartbeat/nexradPayloadFormat.js (Deno edge
+ * runtime). All three copies (browser, nexrad-heartbeat, this one) must be
+ * kept byte-for-byte identical — update all three together. Uses only
+ * ArrayBuffer/DataView/TypedArray — no Node- or browser-specific APIs — so
+ * it runs unchanged in every environment.
  *
  * Layout (little-endian):
  *   Header (44 bytes)

@@ -12,8 +12,8 @@
  * Composite and NEXRAD Level II render with one consistent palette.
  *
  * The payload's grid is already row 0 = north, column 0 = west, with rows
- * pre-resampled onto Web Mercator-uniform spacing by the ingestion script
- * (see scripts/mrms-radar-sync.mjs) — so rendering here is a direct 1:1
+ * pre-resampled onto Web Mercator-uniform spacing by the ingestion job
+ * (see cloud/mrms-sync/sync.mjs) — so rendering here is a direct 1:1
  * pixel copy, no reprojection math needed client-side.
  */
 
