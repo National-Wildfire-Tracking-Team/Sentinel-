@@ -60,9 +60,13 @@ if (!GCS_BUCKET) {
 }
 
 // Application Default Credentials throughout — see sync.mjs's module doc
-// comment for why no explicit key/config is needed on Cloud Run.
+// comment for why no explicit key/config is needed on Cloud Run. databaseId
+// must be explicit: the project's Firestore database is a named database
+// ("nexradcomp"), not "(default)" — every Firestore client in this pipeline
+// (this one, the browser, cloud/nexrad-sync) must agree on this same ID.
+const FIRESTORE_DATABASE_ID = 'nexradcomp';
 initializeApp();
-const firestore = new Firestore();
+const firestore = new Firestore({ databaseId: FIRESTORE_DATABASE_ID });
 const storage = new Storage();
 const bucket = storage.bucket(GCS_BUCKET);
 const xmlParser = new XMLParser();
