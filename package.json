@@ -25,6 +25,7 @@
     "@supabase/supabase-js": "^2.103.0",
     "date-fns": "^3.6.0",
     "fast-xml-parser": "^5.7.2",
+    "firebase": "^12.19.0",
     "lucide-react": "^0.344.0",
     "mapbox-gl": "^3.21.0",
     "nexrad-level-2-data": "^3.0.2",

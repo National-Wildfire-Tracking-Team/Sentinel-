@@ -2,20 +2,43 @@
  * nexradScans.js
  * Frontend access to live NEXRAD Level II scan data published by
  * cloud/nexrad-sync/sync.mjs (a Google Cloud Run Job): a heartbeat call to
- * keep a site "active" (so the ingestion job keeps refreshing it), plus reads of the resulting
- * scan metadata + compact binary payload from Supabase.
+ * the cloud/nexrad-heartbeat Cloud Run service (keeps a site "active" so
+ * the ingestion job keeps refreshing it, and primes brand-new sites
+ * on-demand), plus reads of the resulting scan metadata (Firestore) and
+ * compact binary payload (Google Cloud Storage).
+ *
+ * Metadata/binary reads return the exact same shapes this module always
+ * has (scan_time/updated_at as ISO strings, etc.) regardless of the
+ * Firestore Timestamp/GCS-URL plumbing underneath — every consumer
+ * (useNexradScan.js, useNexradComposite.js) needed zero changes for this
+ * migration off Supabase.
  */
 
-import { supabase, isSupabaseConfigured } from '../../shared/api/supabaseClient';
+import {
+  collection, doc, getDoc, getDocs, query, where, orderBy,
+  Timestamp,
+} from 'firebase/firestore';
+import { db, isFirebaseConfigured, getAnonymousIdToken } from '../../shared/api/firebaseClient';
 import { decodeScanPayload } from '../utils/nexradPayloadFormat';
 
-const STORAGE_BUCKET = 'nexrad-scans';
+const GCS_BUCKET = import.meta.env.VITE_NEXRAD_SCANS_BUCKET || '';
+const HEARTBEAT_URL = import.meta.env.VITE_NEXRAD_HEARTBEAT_URL || '';
+
+/** Firestore Timestamp -> ISO string, passed through unchanged if already a string/null. */
+function tsToIso(value) {
+  return value?.toDate ? value.toDate().toISOString() : value ?? null;
+}
 
 /** Tell the backend this site is currently being viewed. Fire-and-forget. */
 export async function sendRadarHeartbeat(siteId) {
-  if (!isSupabaseConfigured || !siteId) return;
+  if (!isFirebaseConfigured || !HEARTBEAT_URL || !siteId) return;
   try {
-    await supabase.functions.invoke('nexrad-heartbeat', { body: { site_id: siteId } });
+    const idToken = await getAnonymousIdToken();
+    await fetch(HEARTBEAT_URL, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${idToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ site_id: siteId }),
+    });
   } catch (err) {
     console.warn('[NexradScans] Heartbeat failed:', err.message);
   }
@@ -23,35 +46,82 @@ export async function sendRadarHeartbeat(siteId) {
 
 /** Latest scan pointer for a site+product, or null if none published yet. */
 export async function fetchScanMeta(siteId, product) {
-  const { data, error } = await supabase
-    .from('nexrad_scan_meta')
-    .select('*')
-    .eq('site_id', siteId)
-    .eq('product', product)
-    .maybeSingle();
-  if (error) throw error;
-  return data;
+  const snap = await getDoc(doc(db, 'nexradScanMeta', `${siteId}_${product}`));
+  if (!snap.exists()) return null;
+  const data = snap.data();
+  return { ...data, scan_time: tsToIso(data.scan_time), updated_at: tsToIso(data.updated_at) };
 }
 
-// Matches the ingestion script's HISTORY_RETENTION_MS-backed prune window and
-// the site radar popup's 2-hour scrub bar.
+// Matches the ingestion job's HISTORY_RETENTION_BY_PRODUCT-backed prune
+// window for every product but reflectivity, and the site radar popup's
+// 2-hour scrub bar. Composite Radar's own, much wider window is
+// COMPOSITE_HISTORY_WINDOW_MS below.
 const HISTORY_WINDOW_MS = 2 * 60 * 60 * 1000;
 
 /** Every scan published for a site+product in the last 2 hours, oldest to newest. */
 export async function fetchScanHistory(siteId, product) {
-  const sinceIso = new Date(Date.now() - HISTORY_WINDOW_MS).toISOString();
-  const { data, error } = await supabase
-    .from('nexrad_scan_history')
-    .select('scan_time, storage_path')
-    .eq('site_id', siteId)
-    .eq('product', product)
-    .gte('scan_time', sinceIso)
-    .order('scan_time', { ascending: true });
-  if (error) throw error;
-  return data ?? [];
+  const since = Timestamp.fromDate(new Date(Date.now() - HISTORY_WINDOW_MS));
+  const snap = await getDocs(query(
+    collection(db, 'nexradScanHistory'),
+    where('site_id', '==', siteId),
+    where('product', '==', product),
+    where('scan_time', '>=', since),
+    orderBy('scan_time', 'asc'),
+  ));
+  return snap.docs.map((d) => {
+    const data = d.data();
+    return { scan_time: tsToIso(data.scan_time), storage_path: data.storage_path };
+  });
 }
 
-/** Decompress a gzip-compressed ArrayBuffer (the sync script gzips every payload). */
+/**
+ * Latest reflectivity scan pointer for every site that has one — one bulk
+ * query instead of per-site fetchScanMeta calls, for Composite Radar's
+ * "every site at once" rendering (see useNexradComposite.js).
+ */
+export async function fetchAllLatestReflectivity() {
+  const snap = await getDocs(query(
+    collection(db, 'nexradScanMeta'),
+    where('product', '==', 'reflectivity'),
+  ));
+  return snap.docs.map((d) => {
+    const data = d.data();
+    return { site_id: data.site_id, scan_time: tsToIso(data.scan_time), storage_path: data.storage_path };
+  });
+}
+
+// Composite Radar's playback window — much wider than the single-site
+// scrub bar's 2 hours, so it gets its own constant and its own retention on
+// the ingestion side (cloud/nexrad-sync/sync.mjs's HISTORY_RETENTION_BY_PRODUCT).
+export const COMPOSITE_HISTORY_WINDOW_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * Every reflectivity scan published for any site in the last 24 hours,
+ * across all sites in one query — useNexradComposite.js indexes this
+ * per-site client-side for timeline scrubbing, rather than issuing ~200
+ * individual fetchScanHistory calls.
+ *
+ * Pass `sinceIso` (a previously-seen row's scan_time) to fetch only rows
+ * newer than that instead of the full 24h window — useNexradComposite.js
+ * calls this once with no argument to bootstrap, then keeps polling with an
+ * ever-advancing cursor so repeat polls stay cheap (tens of new rows, not
+ * the whole day) instead of re-downloading the entire window every cycle.
+ */
+export async function fetchAllReflectivityHistory(sinceIso) {
+  const cutoff = Timestamp.fromDate(new Date(sinceIso ?? Date.now() - COMPOSITE_HISTORY_WINDOW_MS));
+  const snap = await getDocs(query(
+    collection(db, 'nexradScanHistory'),
+    where('product', '==', 'reflectivity'),
+    where('scan_time', '>', cutoff),
+    orderBy('scan_time', 'asc'),
+  ));
+  return snap.docs.map((d) => {
+    const data = d.data();
+    return { site_id: data.site_id, scan_time: tsToIso(data.scan_time), storage_path: data.storage_path };
+  });
+}
+
+/** Decompress a gzip-compressed ArrayBuffer (the sync job gzips every payload). */
 async function gunzip(arrayBuffer) {
   const stream = new Blob([arrayBuffer]).stream().pipeThrough(new DecompressionStream('gzip'));
   return new Response(stream).arrayBuffer();
@@ -71,9 +141,8 @@ async function gunzip(arrayBuffer) {
  * fetch vs ~45-70ms for a repeat request to the same stable URL).
  */
 export async function fetchScanPayload(storagePath, { immutable = false } = {}) {
-  const { data } = supabase.storage.from(STORAGE_BUCKET).getPublicUrl(storagePath);
-  const url = data?.publicUrl;
-  if (!url) throw new Error('Could not resolve scan storage URL');
+  if (!GCS_BUCKET) throw new Error('Could not resolve scan storage URL');
+  const url = `https://storage.googleapis.com/${GCS_BUCKET}/${storagePath}`;
 
   const fetchUrl = immutable ? url : `${url}?t=${Date.now()}`;
   const resp = await fetch(fetchUrl);

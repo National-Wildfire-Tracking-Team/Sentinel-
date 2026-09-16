@@ -14,39 +14,36 @@
 const CANVAS_SIZE = 768; // px, square output — NexradScanLayer.jsx renders this with 'nearest' raster-resampling (no GPU smoothing), so resolution here is what determines on-screen grain
 const METERS_PER_DEG_LAT = 111320;
 
-// Standard NWS/NOAA base reflectivity color table (the familiar
-// cyan->blue->green->yellow->orange->red->magenta->purple->white bands used
-// by weather.gov, GRLevel3, and IEM's own NEXRAD WMS mosaic — which this
-// project's RadarLayer.jsx fallback already renders server-side, so this
-// keeps the primary MRMS source and that fallback visually identical), with
-// saturation reduced three times from the standard table's fully-saturated
-// values: 10% (S x0.9), then a further 20% (S x0.8), then a further 10%
-// (S x0.9) — ~0.648x the original saturation overall — hue and lightness
-// unchanged throughout.
+// Standard NWS/NOAA base reflectivity color table, at full saturation — the
+// familiar cyan->blue->green->yellow->orange->red->magenta->purple->white
+// bands used by weather.gov, GRLevel3, and IEM's own NEXRAD WMS mosaic
+// (which this project's RadarLayer.jsx renders as its whole-pipeline
+// fallback), so the two stay visually identical.
 // Discrete 5-dBZ steps from 5 dBZ up; nothing below 5 dBZ is rendered (see
 // belowMinIsNoData in colorForProduct below), matching standard practice of
-// not displaying sub-5-dBZ returns.
+// not displaying sub-5-dBZ returns. Reflectivity additionally hides
+// everything below 20 dBZ specifically — see NEXRAD_REFLECTIVITY_HIDE_BELOW_DBZ
+// further down.
 //
-// Shared (imported, not duplicated) by mrmsRaster.js so Composite and
-// NEXRAD Level II reflectivity render with the identical palette — see
-// that file's module doc comment. This is a shared color constant only;
-// each renderer's actual rasterization pipeline (polar sweep vs. regular
-// grid) remains fully independent.
+// Used by both rasterizeSweep (below, single-site NEXRAD) and
+// useNexradComposite.js (Composite Radar — every site's own sweep,
+// rasterized via this same function) — one shared color constant powering
+// every reflectivity render in the app.
 export const REFLECTIVITY_SCALE = [
-  { min: 5, color: '#2cc1c0' },  // 5-10 dBZ
-  { min: 10, color: '#2c92c9' }, // 10-15 dBZ
-  { min: 15, color: '#2d2bc9' }, // 15-20 dBZ
-  { min: 20, color: '#2ed12e' }, // 20-25 dBZ
-  { min: 25, color: '#23a323' }, // 25-30 dBZ
-  { min: 30, color: '#197519' }, // 30-35 dBZ
-  { min: 35, color: '#d1cd2e' }, // 35-40 dBZ
-  { min: 40, color: '#bda228' }, // 40-45 dBZ
-  { min: 45, color: '#d18d2c' }, // 45-50 dBZ
-  { min: 50, color: '#d12c2c' }, // 50-55 dBZ
-  { min: 55, color: '#ae2626' }, // 55-60 dBZ
-  { min: 60, color: '#9b2121' }, // 60-65 dBZ
-  { min: 65, color: '#cd2cd1' }, // 65-70 dBZ
-  { min: 70, color: '#9468b2' }, // 70-75 dBZ
+  { min: 5, color: '#04e9e7' },  // 5-10 dBZ
+  { min: 10, color: '#019ff4' }, // 10-15 dBZ
+  { min: 15, color: '#0300f4' }, // 15-20 dBZ
+  { min: 20, color: '#02fd02' }, // 20-25 dBZ
+  { min: 25, color: '#01c501' }, // 25-30 dBZ
+  { min: 30, color: '#008e00' }, // 30-35 dBZ
+  { min: 35, color: '#fdf802' }, // 35-40 dBZ
+  { min: 40, color: '#e5bc00' }, // 40-45 dBZ
+  { min: 45, color: '#fd9500' }, // 45-50 dBZ
+  { min: 50, color: '#fd0000' }, // 50-55 dBZ
+  { min: 55, color: '#d40000' }, // 55-60 dBZ
+  { min: 60, color: '#bc0000' }, // 60-65 dBZ
+  { min: 65, color: '#f800fd' }, // 65-70 dBZ
+  { min: 70, color: '#9854c6' }, // 70-75 dBZ
   { min: 75, color: '#fdfdfd' }, // 75+ dBZ (already achromatic, unaffected)
 ];
 
@@ -118,11 +115,13 @@ function bandColor(value, scale, belowMinIsNoData) {
   return hexToRgb(match.color);
 }
 
-// NEXRAD Level II hides reflectivity below 20 dBZ — a stricter, NEXRAD-only
-// threshold than REFLECTIVITY_SCALE's own first band (5 dBZ, still used
-// as-is by MRMS Composite via mrmsRaster.js's own bandColor). Kept as a
-// separate constant rather than changing the shared scale's first stop so
-// Composite's display threshold is unaffected.
+// Reflectivity hides everything below 20 dBZ, a stricter threshold than
+// REFLECTIVITY_SCALE's own first band (5 dBZ) — applies uniformly to every
+// caller of rasterizeSweep, both single-site NEXRAD and Composite Radar
+// (useNexradComposite.js), since both render through this same function.
+// Kept as a separate constant rather than changing the shared scale's first
+// stop so the underlying scale itself stays a faithful copy of the standard
+// table.
 const NEXRAD_REFLECTIVITY_HIDE_BELOW_DBZ = 20;
 
 function colorForProduct(product, realValue) {

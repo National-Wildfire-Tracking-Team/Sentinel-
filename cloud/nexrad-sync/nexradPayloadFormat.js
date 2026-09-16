@@ -3,13 +3,13 @@
  * Compact binary format for one decoded NEXRAD Level II scan (one site,
  * one product, one elevation). This is a copy of
  * src/app/utils/nexradPayloadFormat.js for the Cloud Run ingestion job
- * (cloud/nexrad-sync/sync.mjs), which cannot import across the deploy
- * boundary. A second copy already exists for the same reason at
- * supabase/functions/nexrad-heartbeat/nexradPayloadFormat.js (Deno edge
- * runtime). All three copies (browser, nexrad-heartbeat, this one) must be
- * kept byte-for-byte identical — update all three together. Uses only
- * ArrayBuffer/DataView/TypedArray — no Node- or browser-specific APIs — so
- * it runs unchanged in every environment.
+ * (sync.mjs in this directory), which cannot import across the deploy
+ * boundary. A second copy exists for the same reason at
+ * cloud/nexrad-heartbeat/nexradPayloadFormat.js (the Cloud Run
+ * heartbeat/priming service). All three copies (browser, cloud/nexrad-sync,
+ * cloud/nexrad-heartbeat) must be kept byte-for-byte identical — update all
+ * three together. Uses only ArrayBuffer/DataView/TypedArray — no Node- or
+ * browser-specific APIs — so it runs unchanged in every environment.
  *
  * Layout (little-endian):
  *   Header (44 bytes)
