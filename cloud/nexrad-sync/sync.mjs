@@ -81,8 +81,12 @@ if (!GCS_BUCKET) {
 
 // No explicit project/credentials — both clients pick up the Cloud Run
 // service account's Application Default Credentials automatically. See
-// module doc comment.
-const firestore = new Firestore();
+// module doc comment. databaseId must be explicit: the project's Firestore
+// database is a named database ("nexradcomp"), not "(default)" — every
+// Firestore client in this pipeline (this one, the browser, cloud/nexrad-heartbeat)
+// must agree on this same ID.
+const FIRESTORE_DATABASE_ID = 'nexradcomp';
+const firestore = new Firestore({ databaseId: FIRESTORE_DATABASE_ID });
 const storage = new Storage();
 const bucket = storage.bucket(GCS_BUCKET);
 

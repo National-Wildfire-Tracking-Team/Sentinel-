@@ -7,10 +7,11 @@ Function `supabase/functions/nexrad-heartbeat/`. Unlike
 **Cloud Run service** — it answers on-demand HTTP requests from the browser
 every time someone opens a radar site's detail view.
 
-It shares the same Firestore database and Cloud Storage bucket as
-`cloud/nexrad-sync/` — deploy that job's Firestore rules/indexes and bucket
-first (see its README) before this service, since both write to the same
-`nexradScanMeta` collection and bucket.
+It shares the same Firestore database (the named database `nexradcomp` —
+see `cloud/nexrad-sync/README.md` §2 for why it's not "(default)") and
+Cloud Storage bucket as `cloud/nexrad-sync/` — deploy that job's Firestore
+rules/indexes and bucket first (see its README) before this service, since
+both write to the same `nexradScanMeta` collection and bucket.
 
 Replace `<PROJECT_ID>`, `<REGION>`, and `<BUCKET_NAME>` throughout (same
 values used for `cloud/nexrad-sync/`).
@@ -101,6 +102,7 @@ project instead of writing manual cleanup code:
 ```bash
 gcloud firestore fields ttls update expires_at \
   --collection-group=edgeRateLimits \
+  --database=nexradcomp \
   --enable-ttl
 ```
 

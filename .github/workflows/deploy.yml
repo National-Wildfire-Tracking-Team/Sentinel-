@@ -26,6 +26,20 @@ jobs:
           VITE_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
           VITE_MAPBOX_TOKEN: ${{ secrets.VITE_MAPBOX_TOKEN }}
+          # NEXRAD radar pipeline (Firestore + Cloud Storage + the
+          # nexrad-heartbeat Cloud Run service) — see .env.example and
+          # cloud/nexrad-sync/README.md / cloud/nexrad-heartbeat/README.md.
+          # All five VITE_FIREBASE_* values are public (same publicity level
+          # as the Supabase URL/anon key above), not secrets in the security
+          # sense — stored as repo secrets here only because that's this
+          # workflow's existing mechanism for build-time env vars.
+          VITE_FIREBASE_API_KEY: ${{ secrets.VITE_FIREBASE_API_KEY }}
+          VITE_FIREBASE_AUTH_DOMAIN: ${{ secrets.VITE_FIREBASE_AUTH_DOMAIN }}
+          VITE_FIREBASE_PROJECT_ID: ${{ secrets.VITE_FIREBASE_PROJECT_ID }}
+          VITE_FIREBASE_STORAGE_BUCKET: ${{ secrets.VITE_FIREBASE_STORAGE_BUCKET }}
+          VITE_FIREBASE_APP_ID: ${{ secrets.VITE_FIREBASE_APP_ID }}
+          VITE_NEXRAD_SCANS_BUCKET: ${{ secrets.VITE_NEXRAD_SCANS_BUCKET }}
+          VITE_NEXRAD_HEARTBEAT_URL: ${{ secrets.VITE_NEXRAD_HEARTBEAT_URL }}
       # Snapshot the marketing pages as static HTML for crawlers (see
       # scripts/prerender.mjs). Deliberately run here rather than as part of
       # `npm run build` itself, so netlify.toml's own build command (used

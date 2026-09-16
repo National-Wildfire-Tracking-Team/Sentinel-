@@ -15,11 +15,22 @@
  * These are all public identifiers, not secrets (same publicity level as
  * Supabase's URL/anon key) — access control lives in Firestore Security
  * Rules and Firebase Auth, not in keeping this config private.
+ *
+ * Firestore database: a named database, "nexradcomp" (see
+ * FIRESTORE_DATABASE_ID below), not the "(default)" one every Firestore
+ * client assumes unless told otherwise.
  */
 
 import { initializeApp } from 'firebase/app';
 import { getFirestore } from 'firebase/firestore';
 import { getAuth, signInAnonymously } from 'firebase/auth';
+
+// The project's Firestore database is a named database ("nexradcomp"), not
+// the "(default)" one Firestore assumes if you don't say otherwise — every
+// Firestore client in this pipeline (this one, cloud/nexrad-sync/sync.mjs,
+// cloud/nexrad-heartbeat/index.mjs) must pass this same ID explicitly, or it
+// silently talks to a "(default)" database that doesn't exist/isn't set up.
+export const FIRESTORE_DATABASE_ID = 'nexradcomp';
 
 const FIREBASE_CONFIG = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY || '',
@@ -44,7 +55,7 @@ const app = initializeApp(
   isFirebaseConfigured ? FIREBASE_CONFIG : { ...FIREBASE_CONFIG, apiKey: 'placeholder', projectId: 'placeholder' }
 );
 
-export const db = getFirestore(app);
+export const db = getFirestore(app, FIRESTORE_DATABASE_ID);
 export const auth = getAuth(app);
 
 let anonymousSignInPromise = null;

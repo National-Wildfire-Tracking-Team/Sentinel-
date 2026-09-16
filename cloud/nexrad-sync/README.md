@@ -36,20 +36,32 @@ gcloud services enable \
 ## 2. Create the Firestore database (once per project)
 
 Skip this if a Firestore database already exists for the project (e.g.
-because `cloud/nexrad-heartbeat/` was already set up first — they share one
+because `cloud/nexrad-heartbeat/` was already set up first, or Firebase
+auto-provisioned one when the project was created — they share one
 database).
 
+This pipeline uses a **named** database, `nexradcomp` — not Firestore's
+"(default)" database. Every Firestore client in this pipeline
+(`sync.mjs`, `cloud/nexrad-heartbeat/index.mjs`, the browser's
+`src/shared/api/firebaseClient.js`) passes this exact database ID
+explicitly, so whatever you create/already have must be named this too
+(check with `gcloud firestore databases list --project <PROJECT_ID>` —
+look at the `name` field, e.g. `projects/<PROJECT_ID>/databases/nexradcomp`,
+and confirm `type: FIRESTORE_NATIVE`, not `DATASTORE_MODE`):
+
 ```bash
-gcloud firestore databases create --location=<REGION>
+gcloud firestore databases create --database=nexradcomp --location=<REGION>
 ```
 
 Deploy the security rules and composite indexes (see `firestore.rules` /
 `firestore.indexes.json` / `firebase.json` at the repo root — shared config,
 since both this job and `cloud/nexrad-heartbeat` write to the same
-database) with the Firebase CLI:
+database; `firebase.json` already targets the `nexradcomp` database
+specifically) with the Firebase CLI:
 
 ```bash
 npm install -g firebase-tools   # if not already installed
+firebase login
 firebase deploy --only firestore:rules,firestore:indexes --project <PROJECT_ID>
 ```
 
