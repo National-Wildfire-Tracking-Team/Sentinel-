@@ -191,11 +191,9 @@ export default function Navbar() {
             <a
               href={`${getAppOrigin()}/`}
               onClick={() => setMobileOpen(false)}
-              className="block px-4 py-2.5 rounded-lg text-sm font-medium text-sentinel-200 hover:text-white hover:bg-sentinel-700/60 transition-colors"
+              className="block px-4 py-2.5 rounded-lg text-sm font-semibold bg-fire-600 text-white hover:bg-fire-500 transition-colors"
             >
-              Sentinel<sup className="block px-4 py-2.5 rounded-lg text-sm font-semibold bg-fire-600 text-white hover:bg-fire-500 transition-colors"
-                >Beta
-              </sup>
+              Sentinel<sup className="ml-0.5 text-[0.6em] font-bold tracking-wider align-super">BETA</sup>
             </a>
 
             {isAuthenticated && (

@@ -204,7 +204,6 @@ export default function ReporterRegisterPage() {
                   type="button"
                   onClick={() => setShowPassword((v) => !v)}
                   className="absolute right-3.5 top-1/2 -translate-y-1/2 text-sentinel-500 hover:text-sentinel-300 transition-colors"
-                  tabIndex={-1}
                   aria-label={showPassword ? 'Hide password' : 'Show password'}
                 >
                   {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
@@ -248,7 +247,6 @@ export default function ReporterRegisterPage() {
                   type="button"
                   onClick={() => setShowConfirm((v) => !v)}
                   className="absolute right-3.5 top-1/2 -translate-y-1/2 text-sentinel-500 hover:text-sentinel-300 transition-colors"
-                  tabIndex={-1}
                   aria-label={showConfirm ? 'Hide password' : 'Show password'}
                 >
                   {showConfirm ? <EyeOff size={15} /> : <Eye size={15} />}

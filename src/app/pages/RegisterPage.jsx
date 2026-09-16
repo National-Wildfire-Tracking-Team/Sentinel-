@@ -27,7 +27,7 @@ export default function RegisterPage() {
 
   const inputBase =
     'w-full rounded-lg bg-sentinel-800 border border-sentinel-700 text-white placeholder-sentinel-500 ' +
-    'focus:outline-none focus:border-[#0096ff] focus:ring-1 focus:ring-[#0096ff]/20 transition-colors text-sm';
+    'focus:outline-none focus:border-fire-500 focus:ring-1 focus:ring-fire-500/40 transition-colors text-sm';
 
   async function handleRegister(e) {
     e.preventDefault();
@@ -63,13 +63,13 @@ export default function RegisterPage() {
 
   if (confirmationSent) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#0d1117] p-8">
+      <div className="min-h-screen flex items-center justify-center bg-sentinel-900 p-8">
         <div className="w-full max-w-md text-center">
           <div className="flex items-center justify-center gap-2 mb-8">
             <Flame size={20} className="text-fire-400" />
             <span className="text-white font-bold text-sm">Sentinel NWTT</span>
           </div>
-          <div className="bg-[#161b22] border border-[#30363d] rounded-2xl p-8 shadow-2xl">
+          <div className="bg-sentinel-800 border border-sentinel-700 rounded-2xl p-8 shadow-2xl">
             <div className="flex flex-col items-center gap-4">
               <div className="w-12 h-12 rounded-full bg-green-950/40 border border-green-800/60 flex items-center justify-center">
                 <Mail size={22} className="text-green-400" />
@@ -88,7 +88,7 @@ export default function RegisterPage() {
               </div>
               <Link
                 to="/login"
-                className="mt-2 w-full py-3 rounded-lg font-bold text-sm tracking-widest uppercase text-white bg-[#0096ff] hover:brightness-110 transition-all block"
+                className="mt-2 w-full py-3 rounded-lg font-bold text-sm tracking-widest uppercase text-white bg-fire-600 hover:bg-fire-500 transition-all block"
               >
                 Go to Sign In
               </Link>
@@ -158,7 +158,7 @@ export default function RegisterPage() {
       </div>
 
       {/* ══════════════════ RIGHT PANEL — Register form ══════════════════ */}
-      <div className="w-full lg:w-1/2 flex items-center justify-center bg-[#0d1117] p-8">
+      <div className="w-full lg:w-1/2 flex items-center justify-center bg-sentinel-900 p-8">
         <div className="w-full max-w-md">
 
           {/* Mobile logo */}
@@ -169,7 +169,7 @@ export default function RegisterPage() {
 
           <>
               <div className="flex items-center gap-3 mb-1">
-                <UserPlus size={22} className="text-[#0096ff]" />
+                <UserPlus size={22} className="text-fire-400" />
                 <h2 className="text-3xl font-bold text-white">Create Account</h2>
               </div>
               <p className="text-sentinel-400 text-sm mb-8">
@@ -227,7 +227,7 @@ export default function RegisterPage() {
                       type="button"
                       onClick={() => setShowPassword((v) => !v)}
                       className="absolute right-3.5 top-1/2 -translate-y-1/2 text-sentinel-400 hover:text-white transition-colors"
-                      tabIndex={-1}
+                      aria-label={showPassword ? 'Hide password' : 'Show password'}
                     >
                       {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
                     </button>
@@ -255,7 +255,7 @@ export default function RegisterPage() {
                       type="button"
                       onClick={() => setShowConfirm((v) => !v)}
                       className="absolute right-3.5 top-1/2 -translate-y-1/2 text-sentinel-400 hover:text-white transition-colors"
-                      tabIndex={-1}
+                      aria-label={showConfirm ? 'Hide password' : 'Show password'}
                     >
                       {showConfirm ? <EyeOff size={15} /> : <Eye size={15} />}
                     </button>
@@ -274,9 +274,8 @@ export default function RegisterPage() {
                 <button
                   type="submit"
                   disabled={busy || !isSupabaseConfigured}
-                  style={{ backgroundColor: '#0096ff' }}
                   className="w-full py-3 rounded-lg font-bold text-sm tracking-widest uppercase text-white
-                             hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed
+                             bg-fire-600 hover:bg-fire-500 disabled:opacity-50 disabled:cursor-not-allowed
                              transition-all"
                 >
                   {busy ? 'Creating account…' : 'Create Account'}
@@ -285,7 +284,7 @@ export default function RegisterPage() {
 
               <p className="mt-6 text-center text-sm text-sentinel-400">
                 Already have an account?{' '}
-                <Link to="/login" className="text-[#0096ff] hover:text-blue-300 font-medium transition-colors">
+                <Link to="/login" className="text-fire-400 hover:text-fire-300 font-medium transition-colors">
                   Sign in
                 </Link>
               </p>

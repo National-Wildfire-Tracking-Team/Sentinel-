@@ -199,7 +199,7 @@ const Legend = memo(function Legend({
 
   return (
     <div className="absolute bottom-20 sm:bottom-10 left-4 z-20 animate-fade-in">
-      <div className="bg-sentinel-900/95 backdrop-blur-sm border border-sentinel-700 rounded-xl shadow-2xl overflow-hidden w-48">
+      <div className="bg-sentinel-900/95 backdrop-blur-sm border border-sentinel-700 rounded-2xl shadow-2xl overflow-hidden w-48">
         {/* Header */}
         <button
           onClick={() => setCollapsed(c => !c)}

@@ -22,7 +22,7 @@ export default function PhotoThumbnailGrid({ images, onRemove, compact = false }
       {images.map((img, idx) => (
         <div
           key={idx}
-          className={`relative group rounded-lg overflow-hidden border border-[#30363d] bg-[#161b22] ${
+          className={`relative group rounded-lg overflow-hidden border border-sentinel-700 bg-sentinel-800 ${
             compact ? 'w-16 h-16 shrink-0' : ''
           }`}
         >
@@ -41,7 +41,7 @@ export default function PhotoThumbnailGrid({ images, onRemove, compact = false }
             </button>
           </div>
           {!compact && (
-            <div className="px-2 py-1 text-[10px] text-[#484f58] truncate bg-[#0d1117]">{img.name}</div>
+            <div className="px-2 py-1 text-[10px] text-sentinel-500 truncate bg-sentinel-900">{img.name}</div>
           )}
         </div>
       ))}

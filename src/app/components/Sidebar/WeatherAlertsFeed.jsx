@@ -26,11 +26,25 @@ import { useViewport } from '../../context/ViewportContext';
 import { formatRelativeTime } from '../../utils/formatUtils';
 import AlertErrorBanner from './AlertErrorBanner';
 
-const NAVY = '#1D2951';
-const MAROON = '#8B0000';
-/** Text on dark sidebar (category / type rows) — avoids navy-on-sentinel-900 */
+/** Text on dark sidebar (category / type rows) */
 const ON_DARK = 'text-sentinel-100';
 const ON_DARK_MUTED = 'text-sentinel-400';
+
+/**
+ * Dark-theme card styling per alert category — matches the severity-card
+ * treatment used elsewhere in the sidebar (AddressAlertSearch) instead of
+ * a light "paper bulletin" look. Also matches this file's own FILTER_COLORS
+ * palette below (red/orange/yellow/sky), so the filter pills and the cards
+ * they filter now agree on what each category looks like.
+ */
+const CATEGORY_STYLES = {
+  warning:   { border: 'border-red-600/60',    bg: 'bg-red-950/50',    text: 'text-red-100',    tag: 'bg-sentinel-700' },
+  watch:     { border: 'border-orange-600/60', bg: 'bg-orange-950/50', text: 'text-orange-100', tag: 'bg-sentinel-700' },
+  advisory:  { border: 'border-yellow-600/60', bg: 'bg-yellow-950/50', text: 'text-yellow-100', tag: 'bg-sentinel-700' },
+  statement: { border: 'border-sky-600/60',    bg: 'bg-sky-950/50',    text: 'text-sky-100',    tag: 'bg-sentinel-700' },
+  eas:       { border: 'border-purple-600/60', bg: 'bg-purple-950/50', text: 'text-purple-100', tag: 'bg-sentinel-700' },
+  other:     { border: 'border-sentinel-600',  bg: 'bg-sentinel-800/60', text: 'text-sentinel-200', tag: 'bg-sentinel-700' },
+};
 
 /** Compute a representative center [lng, lat] from a GeoJSON Polygon or MultiPolygon. */
 function getAlertCenter(alert) {
@@ -89,15 +103,6 @@ function categoryLabel(key) {
 
 const CATEGORY_ORDER = ['warning', 'watch', 'advisory', 'statement', 'eas', 'other'];
 
-const CATEGORY_CARD_BG = {
-  warning: '#FDE2E2',
-  watch: '#FFF4E5',
-  advisory: '#F0F9FF',
-  statement: '#F1F5F9',
-  eas: '#FEF3C7',
-  other: '#F1F5F9',
-};
-
 const SEVERITY_ICONS = {
   Extreme: ShieldAlert,
   Severe: AlertTriangle,
@@ -107,28 +112,22 @@ const SEVERITY_ICONS = {
 };
 
 function SelectedAlertBanner({ alert, onClear }) {
-  const bg = CATEGORY_CARD_BG[nwsAlertCategory(alert.type)] || CATEGORY_CARD_BG.other;
+  const styles = CATEGORY_STYLES[nwsAlertCategory(alert.type)] || CATEGORY_STYLES.other;
   const pop = firstPopulation(alert.parameters);
   const state = firstStateCode(alert.geocodes || alert.geocode?.UGC);
   const office = issuingOfficeCode(alert);
 
   return (
-    <div
-      className="mx-2.5 mb-3 rounded-xl px-3.5 py-3 border border-black/10 shadow-md"
-      style={{ backgroundColor: bg }}
-    >
+    <div className={`mx-2.5 mb-3 rounded-xl px-3.5 py-3 border shadow-md ${styles.border} ${styles.bg}`}>
       <div className="flex items-start justify-between gap-3">
-        <p
-          className="text-sm font-bold leading-relaxed pr-1 line-clamp-4"
-          style={{ color: MAROON }}
-        >
+        <p className={`text-sm font-bold leading-relaxed pr-1 line-clamp-4 ${styles.text}`}>
           {alert.headline || alert.type}
         </p>
         {onClear && (
           <button
             type="button"
             onClick={onClear}
-            className="shrink-0 text-xs font-semibold text-[#1D2951]/80 hover:text-[#1D2951] underline-offset-2 hover:underline"
+            className={`shrink-0 text-xs font-semibold underline-offset-2 hover:underline hover:text-white ${ON_DARK}`}
           >
             Back to list
           </button>
@@ -136,39 +135,30 @@ function SelectedAlertBanner({ alert, onClear }) {
       </div>
       <div className="flex flex-wrap gap-2 mt-2.5">
         {pop != null && (
-          <span
-            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold text-white tabular-nums"
-            style={{ backgroundColor: NAVY }}
-          >
+          <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold text-white tabular-nums ${styles.tag}`}>
             <span aria-hidden="true">👤</span>
             {pop.toLocaleString()}
           </span>
         )}
         {state && (
-          <span
-            className="px-2.5 py-1 rounded-full text-xs font-bold text-white"
-            style={{ backgroundColor: NAVY }}
-          >
+          <span className={`px-2.5 py-1 rounded-full text-xs font-bold text-white ${styles.tag}`}>
             {state}
           </span>
         )}
         {office && (
-          <span
-            className="px-2.5 py-1 rounded-full text-xs font-bold text-white"
-            style={{ backgroundColor: NAVY }}
-          >
+          <span className={`px-2.5 py-1 rounded-full text-xs font-bold text-white ${styles.tag}`}>
             {office}
           </span>
         )}
       </div>
       {alert.response && (
-        <p className="text-xs mt-2.5 leading-relaxed text-[#1a2747]">
-          <span className="font-semibold text-[#152038]">{alert.type}:</span>{' '}
+        <p className={`text-xs mt-2.5 leading-relaxed ${ON_DARK}`}>
+          <span className="font-semibold">{alert.type}:</span>{' '}
           <span className="font-bold">{alert.response}</span>
         </p>
       )}
       {alert.expires && (
-        <p className="text-xs mt-2 font-semibold leading-snug" style={{ color: MAROON }}>
+        <p className={`text-xs mt-2 font-semibold leading-snug ${styles.text}`}>
           Expires {formatRelativeTime(alert.expires)}
         </p>
       )}
@@ -205,10 +195,7 @@ function AlertTypeRow({
         <span className={`flex-1 min-w-0 font-semibold text-sm leading-snug text-left line-clamp-2 ${ON_DARK}`}>
           {eventType}
         </span>
-        <span
-          className="shrink-0 px-2 py-0.5 rounded-full text-xs font-bold text-white tabular-nums min-w-[1.5rem] text-center"
-          style={{ backgroundColor: NAVY }}
-        >
+        <span className="shrink-0 px-2 py-0.5 rounded-full text-xs font-bold text-white tabular-nums min-w-[1.5rem] text-center bg-sentinel-700">
           {count}
         </span>
         <span className={`shrink-0 p-1 rounded-md hover:bg-white/10 ${ON_DARK_MUTED}`} title="NWS event type">
@@ -239,7 +226,7 @@ function AlertTypeRow({
 }
 
 function CompactAlertCard({ alert, categoryKey, selected, onSelect }) {
-  const bg = CATEGORY_CARD_BG[categoryKey] || CATEGORY_CARD_BG.other;
+  const styles = CATEGORY_STYLES[categoryKey] || CATEGORY_STYLES.other;
   const pop = firstPopulation(alert.parameters);
   const state = firstStateCode(alert.geocodes || alert.geocode?.UGC);
   const office = issuingOfficeCode(alert);
@@ -248,54 +235,41 @@ function CompactAlertCard({ alert, categoryKey, selected, onSelect }) {
     <button
       type="button"
       onClick={onSelect}
-      className={`w-full text-left rounded-xl px-3.5 py-3 border transition-shadow ${
+      className={`w-full text-left rounded-xl px-3.5 py-3 border transition-shadow ${styles.bg} ${
         selected
           ? 'ring-2 ring-sky-400 ring-offset-2 ring-offset-sentinel-900 border-sky-500/40 shadow-md'
-          : 'border-black/10 hover:border-black/20'
+          : `${styles.border} hover:brightness-110`
       } shadow-sm hover:shadow-md`}
-      style={{ backgroundColor: bg }}
     >
-      <p
-        className="text-sm font-bold leading-relaxed line-clamp-4 text-left"
-        style={{ color: MAROON }}
-      >
+      <p className={`text-sm font-bold leading-relaxed line-clamp-4 text-left ${styles.text}`}>
         {alert.headline || alert.type}
       </p>
       <div className="flex flex-wrap gap-2 mt-2.5">
         {pop != null && (
-          <span
-            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold text-white tabular-nums"
-            style={{ backgroundColor: NAVY }}
-          >
+          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold text-white tabular-nums bg-sentinel-700">
             <span aria-hidden="true">👤</span>
             {pop.toLocaleString()}
           </span>
         )}
         {state && (
-          <span
-            className="px-2.5 py-1 rounded-full text-xs font-bold text-white"
-            style={{ backgroundColor: NAVY }}
-          >
+          <span className="px-2.5 py-1 rounded-full text-xs font-bold text-white bg-sentinel-700">
             {state}
           </span>
         )}
         {office && (
-          <span
-            className="px-2.5 py-1 rounded-full text-xs font-bold text-white"
-            style={{ backgroundColor: NAVY }}
-          >
+          <span className="px-2.5 py-1 rounded-full text-xs font-bold text-white bg-sentinel-700">
             {office}
           </span>
         )}
       </div>
       {alert.response && (
-        <p className="text-xs mt-2.5 leading-relaxed text-left text-[#1a2747]">
-          <span className="font-semibold text-[#152038]">{alert.type}:</span>{' '}
+        <p className={`text-xs mt-2.5 leading-relaxed text-left ${ON_DARK}`}>
+          <span className="font-semibold">{alert.type}:</span>{' '}
           <span className="font-bold">{alert.response}</span>
         </p>
       )}
       {alert.expires && (
-        <p className="text-xs mt-2 font-semibold leading-snug text-left" style={{ color: MAROON }}>
+        <p className={`text-xs mt-2 font-semibold leading-snug text-left ${styles.text}`}>
           Expires {formatRelativeTime(alert.expires)}
         </p>
       )}
@@ -303,15 +277,15 @@ function CompactAlertCard({ alert, categoryKey, selected, onSelect }) {
         <span
           className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${
             alert.geometry
-              ? 'bg-green-100 text-green-800'
-              : 'bg-slate-100 text-slate-500'
+              ? 'bg-green-900/60 text-green-200'
+              : 'bg-sentinel-700 text-sentinel-300'
           }`}
         >
           <MapPin size={10} />
           {alert.geometry ? 'On map' : 'Text only'}
         </span>
         {alert.expires && new Date(alert.expires).getTime() - Date.now() < 30 * 60 * 1000 && (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-orange-100 text-orange-800">
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-orange-900/60 text-orange-200">
             <Clock size={10} />
             Expiring soon
           </span>
@@ -319,8 +293,8 @@ function CompactAlertCard({ alert, categoryKey, selected, onSelect }) {
         {alert.source && (
           <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${
             alert.source === 'fema'
-              ? 'bg-purple-100 text-purple-800'
-              : 'bg-blue-100 text-blue-800'
+              ? 'bg-purple-900/60 text-purple-200'
+              : 'bg-sky-900/60 text-sky-200'
           }`}>
             <Globe size={10} />
             {alert.source === 'fema' ? 'FEMA' : 'NWS'}
@@ -364,10 +338,7 @@ function CategorySection({
         <span className={`flex-1 text-left font-bold text-[15px] tracking-tight ${ON_DARK}`}>
           {categoryLabel(categoryKey)}
         </span>
-        <span
-          className="shrink-0 px-2 py-0.5 rounded-full text-xs font-bold text-white tabular-nums min-w-[1.5rem] text-center"
-          style={{ backgroundColor: NAVY }}
-        >
+        <span className="shrink-0 px-2 py-0.5 rounded-full text-xs font-bold text-white tabular-nums min-w-[1.5rem] text-center bg-sentinel-700">
           {total}
         </span>
         <span className={`shrink-0 p-1 rounded-md hover:bg-white/10 ${ON_DARK_MUTED}`} title="Alerts in this category">

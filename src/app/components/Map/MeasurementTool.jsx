@@ -213,7 +213,7 @@ export function MeasurementPanel({ mode, points, onClear, onClose }) {
         </div>
         <button
           onClick={onClose}
-          className="text-gray-400 hover:text-white transition-colors rounded p-0.5"
+          className="text-sentinel-300 hover:text-white transition-colors rounded p-0.5"
           title="Close measurement tool"
         >
           <X size={15} />
@@ -222,24 +222,24 @@ export function MeasurementPanel({ mode, points, onClear, onClose }) {
 
       {/* Body */}
       {points.length === 0 && (
-        <p className="text-gray-400 text-xs">Click the map to place points.</p>
+        <p className="text-sentinel-300 text-xs">Click the map to place points.</p>
       )}
 
       {mode === 'distance' && points.length === 1 && (
-        <p className="text-gray-400 text-xs">Click to add another point.</p>
+        <p className="text-sentinel-300 text-xs">Click to add another point.</p>
       )}
 
       {mode === 'distance' && points.length >= 2 && (
         <div>
           <div className="text-white font-medium text-base">{formatDistance(totalKm)}</div>
-          <div className="text-gray-400 text-xs mt-1">
+          <div className="text-sentinel-300 text-xs mt-1">
             {points.length} point{points.length !== 1 ? 's' : ''} · {points.length - 1} segment{points.length > 2 ? 's' : ''}
           </div>
         </div>
       )}
 
       {mode === 'polygon' && points.length > 0 && points.length < 3 && (
-        <p className="text-gray-400 text-xs">
+        <p className="text-sentinel-300 text-xs">
           Add {3 - points.length} more point{3 - points.length > 1 ? 's' : ''} to measure area.
         </p>
       )}
@@ -247,19 +247,19 @@ export function MeasurementPanel({ mode, points, onClear, onClose }) {
       {mode === 'polygon' && points.length >= 3 && (
         <div className="space-y-2">
           <div>
-            <div className="text-gray-400 text-xs uppercase tracking-wider mb-0.5">Area</div>
+            <div className="text-sentinel-300 text-xs uppercase tracking-wider mb-0.5">Area</div>
             <div className="text-white font-medium text-base">
               {km2ToAcres(areaKm2).toLocaleString(undefined, { maximumFractionDigits: 1 })} acres
             </div>
-            <div className="text-gray-400 text-xs">
+            <div className="text-sentinel-300 text-xs">
               {km2ToSqMi(areaKm2).toFixed(3)} mi²  ·  {areaKm2.toFixed(4)} km²
             </div>
           </div>
           <div className="border-t border-sentinel-700 pt-2">
-            <div className="text-gray-400 text-xs uppercase tracking-wider mb-0.5">Perimeter</div>
+            <div className="text-sentinel-300 text-xs uppercase tracking-wider mb-0.5">Perimeter</div>
             <div className="text-white">{formatDistance(perimeterKm)}</div>
           </div>
-          <div className="text-gray-500 text-xs">{points.length} vertices</div>
+          <div className="text-sentinel-400 text-xs">{points.length} vertices</div>
         </div>
       )}
 
@@ -268,12 +268,12 @@ export function MeasurementPanel({ mode, points, onClear, onClose }) {
         <div className="flex items-center gap-3 mt-3 pt-3 border-t border-sentinel-700">
           <button
             onClick={onClear}
-            className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-white transition-colors"
+            className="flex items-center gap-1.5 text-xs text-sentinel-300 hover:text-white transition-colors"
           >
             <Trash2 size={12} /> Clear
           </button>
-          <span className="text-gray-600 text-xs">·</span>
-          <span className="text-gray-600 text-xs">ESC to close</span>
+          <span className="text-sentinel-500 text-xs">·</span>
+          <span className="text-sentinel-500 text-xs">ESC to close</span>
         </div>
       )}
     </div>
@@ -289,9 +289,9 @@ export function MeasurementPanel({ mode, points, onClear, onClose }) {
 export function MeasurementToolbar({ active, mode, onActivate, onClose }) {
   const [hovered, setHovered] = useState(null);
   const baseBtn = 'w-9 h-9 flex items-center justify-center rounded-lg shadow-lg transition-all';
-  const inactiveBtn = `${baseBtn} bg-sentinel-800 text-gray-300 hover:bg-sentinel-700 hover:text-white border border-sentinel-600`;
+  const inactiveBtn = `${baseBtn} bg-sentinel-800 text-sentinel-200 hover:bg-sentinel-700 hover:text-white border border-sentinel-600`;
   const activeBtn = `${baseBtn} bg-orange-500 text-white ring-2 ring-orange-400/50 border border-orange-400`;
-  const tooltip = 'absolute top-full mt-1.5 left-1/2 -translate-x-1/2 whitespace-nowrap rounded px-2 py-0.5 text-[11px] font-medium bg-gray-900 text-gray-100 shadow pointer-events-none z-50';
+  const tooltip = 'absolute top-full mt-1.5 left-1/2 -translate-x-1/2 whitespace-nowrap rounded px-2 py-0.5 text-[11px] font-medium bg-sentinel-800 text-sentinel-100 shadow pointer-events-none z-50';
 
   return (
     <div className="absolute bottom-32 right-3 z-40 flex flex-col gap-1.5 pointer-events-auto">

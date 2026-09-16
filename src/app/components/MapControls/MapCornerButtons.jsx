@@ -26,7 +26,7 @@ function CornerButton({ active, onClick, ariaLabel, children }) {
       className={`flex items-center justify-center w-11 h-11 rounded-full border shadow-xl backdrop-blur-sm transition-colors ${
         active
           ? 'bg-fire-600 border-fire-500 text-white'
-          : 'bg-white/90 dark:bg-black/90 border-sentinel-200 dark:border-zinc-700 text-sentinel-700 dark:text-white hover:bg-sentinel-100 dark:hover:bg-zinc-800'
+          : 'bg-white/90 dark:bg-sentinel-900/90 border-sentinel-200 dark:border-sentinel-600 text-sentinel-700 dark:text-white hover:bg-sentinel-100 dark:hover:bg-sentinel-700'
       }`}
     >
       {children}
@@ -145,7 +145,7 @@ const MapCornerButtons = memo(function MapCornerButtons() {
         {locationError && (
           <div
             role="alert"
-            className="absolute top-0 left-full ml-2 w-56 rounded-lg border border-sentinel-200 dark:border-zinc-700 bg-white dark:bg-black/95 px-3 py-2 text-xs text-sentinel-900 dark:text-white shadow-xl"
+            className="absolute top-0 left-full ml-2 w-56 rounded-lg border border-sentinel-200 dark:border-sentinel-600 bg-white dark:bg-sentinel-900/95 px-3 py-2 text-xs text-sentinel-900 dark:text-white shadow-xl"
           >
             {locationError}
           </div>

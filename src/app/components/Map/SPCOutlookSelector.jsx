@@ -123,7 +123,7 @@ const SPCOutlookSelector = memo(forwardRef(function SPCOutlookSelector({
       role="group"
       aria-label="SPC outlook selector"
       className="absolute bottom-20 left-1/2 -translate-x-1/2 z-20 w-[min(34rem,calc(100vw-2rem))]
-                    bg-black border border-zinc-700 rounded-t-2xl shadow-2xl shadow-black/60 ring-1 ring-white/10
+                    bg-sentinel-900 border border-sentinel-600 rounded-t-2xl shadow-2xl shadow-black/60 ring-1 ring-white/10
                     overflow-hidden"
       style={{
         width: bottomBarWidth ? `${bottomBarWidth}px` : undefined,
@@ -133,7 +133,7 @@ const SPCOutlookSelector = memo(forwardRef(function SPCOutlookSelector({
     >
 
         {/* ── Type tab bar ── */}
-        <div className="flex items-stretch border-b border-zinc-800">
+        <div className="flex items-stretch border-b border-sentinel-700">
           {OUTLOOK_TYPES.map(type => {
             const isActive = outlookType === type.key;
             const c = TYPE_COLORS[type.key];
@@ -147,8 +147,8 @@ const SPCOutlookSelector = memo(forwardRef(function SPCOutlookSelector({
                   flex-1 flex flex-col items-center gap-0.5 px-3 py-2 text-[10px] font-bold
                   uppercase tracking-wide transition-all relative
                   ${isActive
-                    ? `${c.text} bg-zinc-900/90`
-                    : 'text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900/70'
+                    ? `${c.text} bg-sentinel-800/90`
+                    : 'text-sentinel-300 hover:text-sentinel-100 hover:bg-sentinel-800/70'
                   }
                 `}
                 aria-pressed={isActive}
@@ -157,7 +157,7 @@ const SPCOutlookSelector = memo(forwardRef(function SPCOutlookSelector({
                 {isActive && (
                   <span className={`absolute bottom-0 left-2 right-2 h-0.5 rounded-full ${c.bg} opacity-90`} />
                 )}
-                <span className={isActive ? c.text : 'text-zinc-500'}>{TYPE_ICONS[type.key]}</span>
+                <span className={isActive ? c.text : 'text-sentinel-400'}>{TYPE_ICONS[type.key]}</span>
                 <span className="hidden sm:block leading-none">{type.label}</span>
               </button>
             );
@@ -167,7 +167,7 @@ const SPCOutlookSelector = memo(forwardRef(function SPCOutlookSelector({
         {/* ── Day pills + status row ── */}
         <div className="flex items-center gap-2 px-3 py-2">
           {/* Label */}
-          <span className="text-[10px] font-semibold text-zinc-500 uppercase tracking-widest shrink-0 hidden xs:block">
+          <span className="text-[10px] font-semibold text-sentinel-400 uppercase tracking-widest shrink-0 hidden xs:block">
             Day
           </span>
 
@@ -186,10 +186,10 @@ const SPCOutlookSelector = memo(forwardRef(function SPCOutlookSelector({
                   className={`
                     px-3 py-1 rounded-lg text-xs font-semibold transition-all
                     ${!supported
-                      ? 'text-zinc-700 cursor-not-allowed'
+                      ? 'text-sentinel-600 cursor-not-allowed'
                       : isActive
                         ? `${c.bg} text-white shadow-sm ring-1 ${c.ring}`
-                        : 'text-zinc-200 hover:text-white hover:bg-zinc-800'
+                        : 'text-sentinel-100 hover:text-white hover:bg-sentinel-700'
                     }
                   `}
                   aria-pressed={isActive}
@@ -207,12 +207,12 @@ const SPCOutlookSelector = memo(forwardRef(function SPCOutlookSelector({
 
           {/* Loading / valid time */}
           {loading ? (
-            <div className="flex items-center gap-1.5 text-[10px] text-zinc-400">
+            <div className="flex items-center gap-1.5 text-[10px] text-sentinel-300">
               <Spinner />
               <span className="hidden sm:inline">Loading…</span>
             </div>
           ) : validLabel ? (
-            <span className="text-[10px] text-zinc-400 whitespace-nowrap hidden sm:block" title="SPC issue time (UTC)">
+            <span className="text-[10px] text-sentinel-300 whitespace-nowrap hidden sm:block" title="SPC issue time (UTC)">
               {validLabel}
             </span>
           ) : null}
