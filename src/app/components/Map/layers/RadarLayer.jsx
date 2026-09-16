@@ -15,7 +15,7 @@
  * `layers.radarComposite` upstream, never NEXRAD site/product state.
  */
 
-import { memo } from 'react';
+import { memo, useEffect, useRef, useState } from 'react';
 import { Source, Layer } from 'react-map-gl';
 
 // IEM NEXRAD composite reflectivity (N0Q) — all CONUS WSR-88D stations.
@@ -26,6 +26,68 @@ const IEM_NEXRAD_WMS =
   '&FORMAT=image/png&TRANSPARENT=true&SRS=EPSG:3857' +
   '&WIDTH=256&HEIGHT=256&BBOX={bbox-epsg-3857}';
 
+// How long a site's new frame takes to cross-fade in over its previous one.
+// Sites scan on independent, staggered schedules (see useNexradComposite.js),
+// so scrubbing/playing through history — or just watching live updates land
+// — means each site's own image swaps at its own moment, not in sync with
+// any other site. Without a cross-fade, that reads as a jarring per-site
+// "pop" every time a site's turn comes up; with one, motion stays smooth
+// even though the underlying updates are inherently unsynchronized. Kept
+// comfortably under useNexradComposite.js's PLAYBACK_FRAME_MS (700ms) so
+// each fade fully resolves before the next tick lands during playback.
+const CROSSFADE_MS = 200;
+
+/**
+ * One site's image layer, cross-fading between two alternating Mapbox
+ * `image` sources whenever `dataUrl` changes — the same two-slot trick
+ * Composite Radar's old MRMS-backed version used for its one national
+ * frame (see git history), now applied per site instead. A hard swap
+ * (updateImage() / changing the `url` prop) always flashes instantly no
+ * matter what `raster-fade-duration` is set to — that property only
+ * smooths tile-source updates, not `image`-source ones — so an actual
+ * cross-fade needs two sources ramping opacity past each other instead.
+ */
+const CrossfadingSiteLayer = memo(function CrossfadingSiteLayer({ siteId, dataUrl, coordinates, beforeId }) {
+  const [slots, setSlots] = useState([null, null]);
+  const [activeSlot, setActiveSlot] = useState(0);
+  const activeSlotRef = useRef(0);
+  const lastUrlRef = useRef(null);
+
+  useEffect(() => {
+    if (!dataUrl || !coordinates || dataUrl === lastUrlRef.current) return;
+    lastUrlRef.current = dataUrl;
+    const nextActive = activeSlotRef.current === 0 ? 1 : 0;
+    activeSlotRef.current = nextActive;
+    setSlots((prev) => {
+      const next = [...prev];
+      next[nextActive] = { url: dataUrl, coordinates };
+      return next;
+    });
+    setActiveSlot(nextActive);
+  }, [dataUrl, coordinates]);
+
+  return slots.map((slot, i) => slot && (
+    <Source key={i} id={`nexrad-composite-${siteId}-${i}`} type="image" url={slot.url} coordinates={slot.coordinates}>
+      <Layer
+        id={`nexrad-composite-raster-${siteId}-${i}`}
+        type="raster"
+        beforeId={beforeId}
+        paint={{
+          'raster-opacity': activeSlot === i ? 0.75 : 0,
+          'raster-opacity-transition': { duration: CROSSFADE_MS },
+          'raster-fade-duration': 0,
+          // 'nearest', not 'linear' — no GPU resampling, full native grain
+          // of each site's own rasterized sweep at every zoom (deliberate
+          // per-cell look, not a resolution/resampling mismatch — see
+          // NexradScanLayer.jsx for the same call). The cross-fade above
+          // smooths *when* a new frame appears, not the pixels within it.
+          'raster-resampling': 'nearest',
+        }}
+      />
+    </Source>
+  ));
+});
+
 const RadarLayer = memo(function RadarLayer({ visible, sites, beforeId }) {
   const hasSites = visible && Array.isArray(sites) && sites.length > 0;
   const iemVis = visible && !hasSites ? 'visible' : 'none';
@@ -33,22 +95,7 @@ const RadarLayer = memo(function RadarLayer({ visible, sites, beforeId }) {
   return (
     <>
       {hasSites && sites.map(({ siteId, dataUrl, coordinates }) => (
-        <Source key={siteId} id={`nexrad-composite-${siteId}`} type="image" url={dataUrl} coordinates={coordinates}>
-          <Layer
-            id={`nexrad-composite-raster-${siteId}`}
-            type="raster"
-            beforeId={beforeId}
-            paint={{
-              'raster-opacity': 0.75,
-              'raster-fade-duration': 300,
-              // 'nearest', not 'linear' — no GPU resampling, full native
-              // grain of each site's own rasterized sweep at every zoom
-              // (deliberate per-cell look, not a resolution/resampling
-              // mismatch — see NexradScanLayer.jsx for the same call).
-              'raster-resampling': 'nearest',
-            }}
-          />
-        </Source>
+        <CrossfadingSiteLayer key={siteId} siteId={siteId} dataUrl={dataUrl} coordinates={coordinates} beforeId={beforeId} />
       ))}
 
       <Source

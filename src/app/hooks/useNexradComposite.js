@@ -83,15 +83,30 @@ function coordsFromGeoJSON(geoJSON) {
   return map;
 }
 
-function nearestAtOrBefore(sortedFrames, targetMs) {
+/**
+ * Nearest frame to `targetMs` in either direction, not just the most recent
+ * one before it. Sites scan on independent, staggered schedules, so a
+ * strictly-before-only pick can leave a site up to nearly a full tick
+ * interval stale relative to the others at any given moment (RadarLayer.jsx
+ * cross-fades the visual jump either way, but there's no reason to
+ * needlessly widen the actual time gap between what different sites are
+ * showing for the "same" tick when the frame just after it is closer).
+ */
+function nearestFrame(sortedFrames, targetMs) {
   if (!sortedFrames?.length) return null;
-  let best = null;
+  let before = null;
+  let after = null;
   for (const frame of sortedFrames) {
     const t = new Date(frame.scan_time).getTime();
-    if (t <= targetMs) best = frame;
-    else break;
+    if (t <= targetMs) { before = frame; continue; }
+    after = frame;
+    break;
   }
-  return best;
+  if (!before) return after;
+  if (!after) return before;
+  const beforeDiffMs = targetMs - new Date(before.scan_time).getTime();
+  const afterDiffMs = new Date(after.scan_time).getTime() - targetMs;
+  return afterDiffMs < beforeDiffMs ? after : before;
 }
 
 /** Drop entries older than `cutoffMs` from the front of each site's sorted (ascending) history array. */
@@ -216,7 +231,7 @@ export function useNexradComposite(enabled, sitesGeoJSON, viewport) {
         const latest = siteLatestRef.current.get(siteId);
         if (latest && Date.now() - new Date(latest.scan_time).getTime() <= STALE_MS) frame = latest;
       } else {
-        frame = nearestAtOrBefore(siteHistoryRef.current.get(siteId), targetMs);
+        frame = nearestFrame(siteHistoryRef.current.get(siteId), targetMs);
       }
       if (!frame) continue;
       jobs.push(loadSiteRaster(siteId, frame, coords, !isLive));
