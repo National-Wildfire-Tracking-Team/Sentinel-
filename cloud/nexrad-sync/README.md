@@ -40,23 +40,26 @@ because `cloud/nexrad-heartbeat/` was already set up first, or Firebase
 auto-provisioned one when the project was created — they share one
 database).
 
-This pipeline uses a **named** database, `nexradcomp` — not Firestore's
+This pipeline uses a **named** database, `nexrad-composite` — not Firestore's
 "(default)" database. Every Firestore client in this pipeline
 (`sync.mjs`, `cloud/nexrad-heartbeat/index.mjs`, the browser's
 `src/shared/api/firebaseClient.js`) passes this exact database ID
 explicitly, so whatever you create/already have must be named this too
 (check with `gcloud firestore databases list --project <PROJECT_ID>` —
-look at the `name` field, e.g. `projects/<PROJECT_ID>/databases/nexradcomp`,
+look at the `name` field, e.g. `projects/<PROJECT_ID>/databases/nexrad-composite`,
 and confirm `type: FIRESTORE_NATIVE`, not `DATASTORE_MODE`):
 
 ```bash
-gcloud firestore databases create --database=nexradcomp --location=<REGION>
+gcloud firestore databases create --database=nexrad-composite --location=<REGION> \
+  --type=firestore-native --edition=standard
 ```
+
+**Be explicit about `--edition=standard`.** A database created as `--edition=enterprise` without also passing `--enable-firestore-data-access` disables the Firestore Native API entirely (`firestoreDataAccessMode: DATA_ACCESS_MODE_DISABLED`) in favor of MongoDB-compatible-only access — and that setting is baked in at creation time, permanently (confirmed live: `sync.mjs` failed with `FAILED_PRECONDITION: Access to this database via the Firestore in Native mode API is disabled` and there was no way to fix it short of creating an entirely new database). `gcloud firestore databases create` defaults to `--edition=standard` if you omit the flag, which is fine — pass it explicitly anyway so this can't happen by accident via the Firebase console's own "Create database" flow, which does let you pick Enterprise.
 
 Deploy the security rules and composite indexes (see `firestore.rules` /
 `firestore.indexes.json` / `firebase.json` at the repo root — shared config,
 since both this job and `cloud/nexrad-heartbeat` write to the same
-database; `firebase.json` already targets the `nexradcomp` database
+database; `firebase.json` already targets the `nexrad-composite` database
 specifically) with the Firebase CLI:
 
 ```bash
@@ -76,12 +79,20 @@ table's zero RLS policies — heartbeat writes only ever come from
 gcloud storage buckets create gs://<BUCKET_NAME> \
   --location=<REGION> \
   --uniform-bucket-level-access
-
-# Public read, matching the old Supabase Storage bucket's `public: true`.
-gcloud storage buckets add-iam-policy-binding gs://<BUCKET_NAME> \
-  --member=allUsers \
-  --role=roles/storage.objectViewer
 ```
+
+**Deliberately not public**, unlike the old Supabase Storage bucket. Most GCP
+organizations run an `iam.allowedPolicyMemberDomains` org policy that blocks
+granting any role to `allUsers`/`allAuthenticatedUsers` outright (confirmed
+live: `add-iam-policy-binding --member=allUsers` failed with `HTTPError 412:
+One or more users named in the policy do not belong to a permitted
+customer`) — and even where it's allowed, a public bucket is a bigger
+exposure than this needs. Instead, `cloud/nexrad-heartbeat`'s `GET
+/scan/<path>` route proxies reads using its own service account's
+credentials (see that service's module doc comment and README) — the
+browser never talks to this bucket directly, so it never needs to be
+public. `nexrad-sync-runtime`'s `roles/storage.objectAdmin` grant (step 5
+below) is what lets both this job and the heartbeat service read/write it.
 
 ## 4. Build and push the container image
 
@@ -139,7 +150,9 @@ gcloud run jobs deploy nexrad-radar-sync \
   --image <REGION>-docker.pkg.dev/<PROJECT_ID>/nexrad-sync/nexrad-sync:latest \
   --region <REGION> \
   --service-account nexrad-sync-runtime@<PROJECT_ID>.iam.gserviceaccount.com \
-  --set-env-vars NEXRAD_SCANS_BUCKET=<BUCKET_NAME> \
+  --set-env-vars NEXRAD_SCANS_BUCKET=<BUCKET_NAME>,NODE_OPTIONS=--max-old-space-size=3072 \
+  --memory 4Gi \
+  --cpu 2 \
   --tasks 1 \
   --max-retries 0 \
   --task-timeout 600s
@@ -152,28 +165,42 @@ gcloud run jobs add-iam-policy-binding nexrad-radar-sync \
 
 `--tasks 1 --max-retries 0` matches the original job: one run per
 invocation, no automatic retry (a failed run just waits for the next
-2-minute Scheduler tick). `--task-timeout 600s` (10 minutes) gives
-comfortable headroom, since a normal run finishes in well under a minute per
-active site — but the job syncs every known NEXRAD site each run
-(reflectivity, for Composite Radar), not just actively-viewed ones, so run
-duration is meaningfully longer than a per-site-only sync would be. Watch
-actual run times after deploying and raise `--task-timeout` / `CONCURRENCY`
-in `sync.mjs` if runs are getting close to 600s.
+Scheduler tick).
 
-If you need more memory than the Cloud Run Job default, add e.g.
-`--memory 1Gi` — full-volume NEXRAD decode is the reason this moved off
-Edge Functions, so give this some room if you see OOM kills in logs.
+**`--memory 4Gi --cpu 2` and `NODE_OPTIONS=--max-old-space-size=3072` are
+required, not optional headroom** — confirmed live: the Cloud Run default
+(512Mi) OOM'd immediately (`FATAL ERROR: Reached heap limit... JavaScript
+heap out of memory`) decoding real volumes at `CONCURRENCY=6` (already
+lowered once from an initial 16 for the same reason), and even bumping to
+`--memory 2Gi` alone still OOM'd at ~1GB — Node doesn't automatically size
+its heap to match the container's memory limit, so `NODE_OPTIONS` has to
+say so explicitly. `--task-timeout 600s` (10 minutes) is real headroom
+above the actual observed run time (~9-10 minutes syncing every known
+site at `CONCURRENCY=6`), not a generous guess — raise `--task-timeout` /
+`CONCURRENCY` further only after watching real run times, and lower
+`CONCURRENCY` again (not just raise memory) if OOM recurs — this workload
+is memory-per-concurrent-decode bound, not just memory-bound.
 
-## 7. Cloud Scheduler — trigger every 2 minutes
+## 7. Cloud Scheduler
 
 ```bash
 gcloud scheduler jobs create http nexrad-radar-sync \
   --location <REGION> \
-  --schedule "*/2 * * * *" \
+  --schedule "*/10 * * * *" \
   --uri "https://<REGION>-run.googleapis.com/v2/projects/<PROJECT_ID>/locations/<REGION>/jobs/nexrad-radar-sync:run" \
   --http-method POST \
   --oauth-service-account-email nexrad-sync-invoker@<PROJECT_ID>.iam.gserviceaccount.com
 ```
+
+**Every 10 minutes, not every 2** — Cloud Run Jobs don't skip a scheduled
+trigger just because the previous run is still going (unlike the old
+GitHub Actions `concurrency: group` setup, which serialized runs
+automatically). Confirmed live: leaving this at the originally-planned
+`*/2 * * * *` while a real run takes ~9-10 minutes piled up 4 overlapping
+executions before anyone noticed. 10 minutes gives real (if thin) margin
+over the observed run time — tighten it only after `--task-timeout`/
+`CONCURRENCY` are tuned down further, and prefer raising this interval
+over shrinking it if you're ever unsure.
 
 ## 8. Verify
 

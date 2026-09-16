@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { gzipSync } from 'node:zlib';
 
-vi.stubEnv('VITE_NEXRAD_SCANS_BUCKET', 'test-bucket');
 vi.stubEnv('VITE_NEXRAD_HEARTBEAT_URL', 'https://heartbeat.example.com');
 
 // A fake Firestore Timestamp shaped just like the real @google-cloud/firestore
@@ -55,7 +54,7 @@ describe('fetchScanPayload — historical vs live fetch URLs', () => {
 
     expect(global.fetch).toHaveBeenCalledTimes(1);
     const [calledUrl] = global.fetch.mock.calls[0];
-    expect(calledUrl).toBe('https://storage.googleapis.com/test-bucket/KTLX/reflectivity/history/2026-09-10T14-00-00-000Z.bin');
+    expect(calledUrl).toBe('https://heartbeat.example.com/scan/KTLX/reflectivity/history/2026-09-10T14-00-00-000Z.bin');
     expect(calledUrl).not.toContain('?t=');
   });
 
@@ -64,7 +63,7 @@ describe('fetchScanPayload — historical vs live fetch URLs', () => {
 
     expect(global.fetch).toHaveBeenCalledTimes(1);
     const [calledUrl] = global.fetch.mock.calls[0];
-    expect(calledUrl).toMatch(/^https:\/\/storage\.googleapis\.com\/test-bucket\/KTLX\/reflectivity\/latest\.bin\?t=\d+$/);
+    expect(calledUrl).toMatch(/^https:\/\/heartbeat\.example\.com\/scan\/KTLX\/reflectivity\/latest\.bin\?t=\d+$/);
   });
 
   it('appends a cache-busting query param when immutable is explicitly false', async () => {

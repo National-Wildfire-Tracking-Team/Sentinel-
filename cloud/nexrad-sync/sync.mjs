@@ -82,10 +82,10 @@ if (!GCS_BUCKET) {
 // No explicit project/credentials — both clients pick up the Cloud Run
 // service account's Application Default Credentials automatically. See
 // module doc comment. databaseId must be explicit: the project's Firestore
-// database is a named database ("nexradcomp"), not "(default)" — every
+// database is a named database ("nexrad-composite"), not "(default)" — every
 // Firestore client in this pipeline (this one, the browser, cloud/nexrad-heartbeat)
 // must agree on this same ID.
-const FIRESTORE_DATABASE_ID = 'nexradcomp';
+const FIRESTORE_DATABASE_ID = 'nexrad-composite';
 const firestore = new Firestore({ databaseId: FIRESTORE_DATABASE_ID });
 const storage = new Storage();
 const bucket = storage.bucket(GCS_BUCKET);
@@ -101,9 +101,13 @@ const ACTIVE_WINDOW_MS = 15 * 60 * 1000; // sites with no heartbeat in this long
 const FIRESTORE_IN_CHUNK_SIZE = 30;
 // Every known site (~200) now gets synced every run, not just a handful of
 // actively-viewed ones — more in-flight network fetches needed to finish
-// inside the workflow's timeout-minutes budget. Revisit after watching real
-// run times in production.
-const CONCURRENCY = 16;
+// inside the workflow's timeout-minutes budget. Lowered from an initial 16:
+// confirmed live on Cloud Run that 16 concurrent full-volume decodes (each
+// holding sizable radial/moment arrays) OOM'd even a 2Gi container — each
+// decode is memory-heavy enough that concurrency, not just raw memory, has
+// to come down too. Revisit after watching real run times/memory in
+// production.
+const CONCURRENCY = 6;
 const MIN_RADIALS = 300; // sanity floor: a real base-tilt cut has 360-720 radials
 const ELEVATION_CANDIDATES = [1, 2, 3, 4]; // see split-cut note above
 
