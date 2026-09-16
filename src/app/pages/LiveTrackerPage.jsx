@@ -1073,13 +1073,37 @@ export default function LiveTrackerPage() {
   // selectedFireId up in, instead of branching across two separate GeoJSON
   // props — which fire it is (perimeter vs. dot) is then just a matter of
   // that feature's own geometry type, not which list it came from.
+  //
+  // deduplicatedIncidentsGeoJSON (IncidentLocationsLayer's markers — the
+  // dot-only fires with no NIFC perimeter or reporter duplicate, which is
+  // most fires most users click) uses its own property names (id/name/acres/
+  // contained) instead of the WFIGS ones, so it's normalized to the
+  // UniqueFireIdentifier/IncidentName/GISAcres/PercentContained shape the
+  // modeling hook expects before merging in. No overlap with the other two
+  // lists: perimeter- and reporter-matched incidents are already excluded
+  // from deduplicatedIncidentsGeoJSON, and finalIncidentDotsGeoJSON already
+  // excludes anything that appears in deduplicatedIncidentsGeoJSON.
+  const normalizedIncidentLocations = useMemo(() => (
+    (deduplicatedIncidentsGeoJSON?.features || []).map((f) => ({
+      ...f,
+      properties: {
+        ...f.properties,
+        UniqueFireIdentifier: f.properties?.id,
+        IncidentName: f.properties?.name,
+        GISAcres: f.properties?.acres,
+        PercentContained: f.properties?.contained,
+      },
+    }))
+  ), [deduplicatedIncidentsGeoJSON]);
+
   const fireFeaturesForModeling = useMemo(() => ({
     type: 'FeatureCollection',
     features: [
       ...(filteredPerimetersGeoJSON?.features || []),
       ...(finalIncidentDotsGeoJSON?.features || []),
+      ...normalizedIncidentLocations,
     ],
-  }), [filteredPerimetersGeoJSON, finalIncidentDotsGeoJSON]);
+  }), [filteredPerimetersGeoJSON, finalIncidentDotsGeoJSON, normalizedIncidentLocations]);
 
   const selectedFireId = ['incident', 'perimeter'].includes(selectedFire?.type) ? selectedFire.id : null;
   const { geoJSON: fireBehaviorModelingGeoJSON } = useFireBehaviorModeling(
