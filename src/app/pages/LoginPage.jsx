@@ -113,7 +113,7 @@ export default function LoginPage() {
   /* ── Shared styles ── */
   const inputBase =
     'w-full rounded-lg bg-sentinel-800 border border-sentinel-700 text-white placeholder-sentinel-500 ' +
-    'focus:outline-none focus:border-[#0096ff] focus:ring-1 focus:ring-[#0096ff]/20 transition-colors text-sm';
+    'focus:outline-none focus:border-fire-500 focus:ring-1 focus:ring-fire-500/40 transition-colors text-sm';
 
   return (
     <div className="min-h-screen flex">
@@ -173,7 +173,7 @@ export default function LoginPage() {
       </div>
 
       {/* ══════════════════ RIGHT PANEL — Login form ══════════════════ */}
-      <div className="w-full lg:w-1/2 flex items-center justify-center bg-[#0d1117] p-8">
+      <div className="w-full lg:w-1/2 flex items-center justify-center bg-sentinel-900 p-8">
         <div className="w-full max-w-md">
 
           {/* Mobile logo */}
@@ -241,7 +241,7 @@ export default function LoginPage() {
                       type="button"
                       onClick={() => setShowPassword((v) => !v)}
                       className="absolute right-3.5 top-1/2 -translate-y-1/2 text-sentinel-400 hover:text-white transition-colors"
-                      tabIndex={-1}
+                      aria-label={showPassword ? 'Hide password' : 'Show password'}
                     >
                       {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
                     </button>
@@ -255,14 +255,14 @@ export default function LoginPage() {
                       type="checkbox"
                       checked={rememberMe}
                       onChange={(e) => setRememberMe(e.target.checked)}
-                      className="w-4 h-4 rounded border-sentinel-600 bg-sentinel-800 accent-[#0096ff] cursor-pointer"
+                      className="w-4 h-4 rounded border-sentinel-600 bg-sentinel-800 accent-fire-600 cursor-pointer"
                     />
                     <span className="text-sm text-sentinel-300">Remember me</span>
                   </label>
                   <button
                     type="button"
                     onClick={() => { setForgotMode(true); setError(null); setResetEmail(email); }}
-                    className="text-sm font-medium text-[#0096ff] hover:text-blue-300 transition-colors"
+                    className="text-sm font-medium text-fire-400 hover:text-fire-300 transition-colors"
                   >
                     Forgot Password?
                   </button>
@@ -280,9 +280,8 @@ export default function LoginPage() {
                 <button
                   type="submit"
                   disabled={busy || !isSupabaseConfigured}
-                  style={{ backgroundColor: '#0096ff' }}
                   className="w-full py-3 rounded-lg font-bold text-sm tracking-widest uppercase text-white
-                             hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed
+                             bg-fire-600 hover:bg-fire-500 disabled:opacity-50 disabled:cursor-not-allowed
                              transition-all"
                 >
                   {busy ? 'Signing in…' : 'Log In'}
@@ -330,9 +329,8 @@ export default function LoginPage() {
                   <button
                     type="submit"
                     disabled={busy}
-                    style={{ backgroundColor: '#0096ff' }}
                     className="w-full py-3 rounded-lg font-bold text-sm tracking-widest uppercase text-white
-                               hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed
+                               bg-fire-600 hover:bg-fire-500 disabled:opacity-50 disabled:cursor-not-allowed
                                transition-all"
                   >
                     {busy ? 'Sending…' : 'Send Reset Link'}
@@ -349,7 +347,7 @@ export default function LoginPage() {
 
           <p className="mt-6 text-center text-sm text-sentinel-400">
             Don&apos;t have an account?{' '}
-            <Link to="/register" className="text-[#0096ff] hover:text-blue-300 font-medium transition-colors">
+            <Link to="/register" className="text-fire-400 hover:text-fire-300 font-medium transition-colors">
               Create one
             </Link>
           </p>

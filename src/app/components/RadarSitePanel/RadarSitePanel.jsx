@@ -62,7 +62,7 @@ const RadarSitePanel = memo(forwardRef(function RadarSitePanel({ site, product, 
       role="group"
       aria-label="NEXRAD Level II radar site"
       className={`absolute bottom-20 left-1/2 -translate-x-1/2 z-20 w-[min(34rem,calc(100vw-2rem))]
-                    bg-white/90 dark:bg-black/90 backdrop-blur-sm border border-sentinel-200 dark:border-zinc-700
+                    bg-white/90 dark:bg-sentinel-900/90 backdrop-blur-sm border border-sentinel-200 dark:border-sentinel-600
                     shadow-2xl shadow-black/10 dark:shadow-black/60 px-2.5 py-1.5 ${
                       // Squared off and borderless on top when the SPC outlook
                       // popup is docked directly above — otherwise this is the
@@ -79,7 +79,7 @@ const RadarSitePanel = memo(forwardRef(function RadarSitePanel({ site, product, 
         <RadioTower size={14} className="shrink-0 text-cyan-500 dark:text-cyan-400" />
         <div className="min-w-0 flex items-center gap-1.5 leading-tight">
           <span className="text-xs font-bold text-sentinel-900 dark:text-white truncate">{site.id}</span>
-          <span className="text-[11px] text-sentinel-500 dark:text-zinc-400 truncate">{site.name}</span>
+          <span className="text-[11px] text-sentinel-500 dark:text-sentinel-300 truncate">{site.name}</span>
         </div>
         {isLoading && (
           <span className="shrink-0 flex items-center gap-1.5 text-[10px] text-sentinel-500 dark:text-sentinel-400">
@@ -95,7 +95,7 @@ const RadarSitePanel = memo(forwardRef(function RadarSitePanel({ site, product, 
           {display.label}
         </span>
         {!isLoading && (
-          <span className="shrink-0 text-[10px] font-mono text-sentinel-500 dark:text-zinc-400">
+          <span className="shrink-0 text-[10px] font-mono text-sentinel-500 dark:text-sentinel-300">
             {formatScanTime(scanTime) ?? '—'}
             {scanTime && <span className="ml-1 hidden sm:inline">({minutesAgo(scanTime)})</span>}
           </span>
@@ -104,7 +104,7 @@ const RadarSitePanel = memo(forwardRef(function RadarSitePanel({ site, product, 
           type="button"
           onClick={onClose}
           aria-label="Close"
-          className="shrink-0 text-sentinel-500 dark:text-zinc-400 hover:text-sentinel-900 dark:hover:text-white transition-colors p-0.5"
+          className="shrink-0 text-sentinel-500 dark:text-sentinel-300 hover:text-sentinel-900 dark:hover:text-white transition-colors p-0.5"
         >
           <X size={14} />
         </button>
@@ -122,7 +122,7 @@ const RadarSitePanel = memo(forwardRef(function RadarSitePanel({ site, product, 
               className={`min-h-9 flex items-center justify-center text-center px-0.5 py-1 rounded text-[9px] leading-tight font-bold transition-all border ${
                 active
                   ? 'bg-cyan-500 text-white border-cyan-400'
-                  : 'bg-sentinel-50 dark:bg-zinc-950 text-sentinel-600 dark:text-zinc-400 border-sentinel-200 dark:border-zinc-700 hover:bg-sentinel-100 dark:hover:bg-zinc-800 hover:text-sentinel-900 dark:hover:text-white'
+                  : 'bg-sentinel-100 dark:bg-sentinel-900 text-sentinel-600 dark:text-sentinel-300 border-sentinel-200 dark:border-sentinel-600 hover:bg-sentinel-200 dark:hover:bg-sentinel-700 hover:text-sentinel-900 dark:hover:text-white'
               }`}
             >
               {p.label}
