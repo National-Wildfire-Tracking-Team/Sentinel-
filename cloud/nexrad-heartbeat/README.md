@@ -7,7 +7,7 @@ Function `supabase/functions/nexrad-heartbeat/`. Unlike
 **Cloud Run service** — it answers on-demand HTTP requests from the browser
 every time someone opens a radar site's detail view.
 
-It shares the same Firestore database (the named database `nexradcomp` —
+It shares the same Firestore database (the named database `nexrad-composite` —
 see `cloud/nexrad-sync/README.md` §2 for why it's not "(default)") and
 Cloud Storage bucket as `cloud/nexrad-sync/` — deploy that job's Firestore
 rules/indexes and bucket first (see its README) before this service, since
@@ -80,13 +80,42 @@ gcloud run deploy nexrad-heartbeat \
   --timeout 30s
 ```
 
-`--allow-unauthenticated` is intentional and safe: this service is called
-directly from the browser with a Firebase ID token in the `Authorization`
-header, which Cloud Run's own IAM-based invoker check doesn't understand
-(that mechanism is for Google-signed service-to-service tokens, not
-app-level Firebase tokens) — the real auth/abuse gate is
-`verifyAndRateLimit()` inside `index.mjs` itself, the direct equivalent of
-the old Edge Function's Supabase-JWT + Postgres-RPC guard.
+`--allow-unauthenticated` is intentional and safe: this service handles two
+kinds of public traffic — the heartbeat POST (auth/abuse-gated internally by
+`verifyAndRateLimit()`, the direct equivalent of the old Edge Function's
+Supabase-JWT + Postgres-RPC guard) and the `GET /scan/<path>` proxy (public
+NWS data, gated only by `SCAN_PATH_RE`, nothing sensitive). Cloud Run's own
+IAM-based invoker check doesn't understand either of these — that mechanism
+is for Google-signed service-to-service tokens, not app-level Firebase
+tokens or plain public GETs — so both rely entirely on the app-level checks
+inside `index.mjs`, not Cloud Run's IAM.
+
+**If `gcloud run deploy` above completes with `Setting IAM policy failed`
+and later `gcloud run services add-iam-policy-binding ... --member=allUsers`
+fails with `FAILED_PRECONDITION: One or more users named in the policy do
+not belong to a permitted customer`**, that's the project's (or org's)
+`iam.allowedPolicyMemberDomains` policy blocking the `allUsers` grant this
+service needs to be reachable from a browser at all — confirmed to happen
+by default on this project. Fix with a **project-level exception** (doesn't
+loosen the policy for any other project) from whoever holds **Organization
+Policy Administrator** — note this is a distinct role from Organization
+Administrator; having the latter is not enough, confirmed live via the IAM
+Policy Troubleshooter (`console.cloud.google.com/iam-admin/troubleshooter`)
+reporting "Access is not granted by any IAM allow policies" for someone who
+already had Organization Administrator:
+
+```bash
+cat > /tmp/allow-public-policy.yaml << 'EOF'
+constraint: constraints/iam.allowedPolicyMemberDomains
+listPolicy:
+  allValues: ALLOW
+EOF
+gcloud resource-manager org-policies set-policy /tmp/allow-public-policy.yaml --project=<PROJECT_ID>
+```
+
+Then retry the `add-iam-policy-binding` command — may take a few minutes to
+propagate before Cloud Run actually honors it, even after the policy update
+itself reports success.
 
 Note the deployed URL (`gcloud run services describe nexrad-heartbeat
 --region <REGION> --format 'value(status.url)'`) — the client needs it (see
@@ -102,7 +131,7 @@ project instead of writing manual cleanup code:
 ```bash
 gcloud firestore fields ttls update expires_at \
   --collection-group=edgeRateLimits \
-  --database=nexradcomp \
+  --database=nexrad-composite \
   --enable-ttl
 ```
 
@@ -110,6 +139,13 @@ gcloud firestore fields ttls update expires_at \
 
 ```bash
 curl -i -X OPTIONS https://<service-url>   # should return 204 with CORS headers
+
+# GET /scan/<path> proxy — needs a real storage_path from a nexradScanMeta
+# doc (cloud/nexrad-sync must have run at least once already). Expect 200
+# with binary content, not a platform-level 403 (403 there means the
+# allUsers/roles/run.invoker binding above didn't actually take — see the
+# org policy note).
+curl -sD - -o /dev/null https://<service-url>/scan/KABR/reflectivity/latest.bin
 
 # From the browser console on the deployed app (after signing in
 # anonymously via the Firebase client SDK):

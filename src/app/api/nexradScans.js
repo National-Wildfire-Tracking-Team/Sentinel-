@@ -9,9 +9,16 @@
  *
  * Metadata/binary reads return the exact same shapes this module always
  * has (scan_time/updated_at as ISO strings, etc.) regardless of the
- * Firestore Timestamp/GCS-URL plumbing underneath — every consumer
+ * Firestore Timestamp/proxy plumbing underneath — every consumer
  * (useNexradScan.js, useNexradComposite.js) needed zero changes for this
  * migration off Supabase.
+ *
+ * Binary payloads are fetched through cloud/nexrad-heartbeat's `GET
+ * /scan/<path>` route, not a direct storage.googleapis.com URL — the
+ * bucket itself can't be made public (the org's
+ * iam.allowedPolicyMemberDomains policy blocks granting allUsers any
+ * role), so that service proxies reads using its own service-account
+ * credentials instead. See its module doc comment.
  */
 
 import {
@@ -21,7 +28,6 @@ import {
 import { db, isFirebaseConfigured, getAnonymousIdToken } from '../../shared/api/firebaseClient';
 import { decodeScanPayload } from '../utils/nexradPayloadFormat';
 
-const GCS_BUCKET = import.meta.env.VITE_NEXRAD_SCANS_BUCKET || '';
 const HEARTBEAT_URL = import.meta.env.VITE_NEXRAD_HEARTBEAT_URL || '';
 
 /** Firestore Timestamp -> ISO string, passed through unchanged if already a string/null. */
@@ -141,8 +147,8 @@ async function gunzip(arrayBuffer) {
  * fetch vs ~45-70ms for a repeat request to the same stable URL).
  */
 export async function fetchScanPayload(storagePath, { immutable = false } = {}) {
-  if (!GCS_BUCKET) throw new Error('Could not resolve scan storage URL');
-  const url = `https://storage.googleapis.com/${GCS_BUCKET}/${storagePath}`;
+  if (!HEARTBEAT_URL) throw new Error('Could not resolve scan storage URL');
+  const url = `${HEARTBEAT_URL}/scan/${storagePath}`;
 
   const fetchUrl = immutable ? url : `${url}?t=${Date.now()}`;
   const resp = await fetch(fetchUrl);

@@ -1,7 +1,11 @@
 /**
  * index.mjs
  * nexrad-heartbeat — Google Cloud Run service (HTTP), replacing the old
- * Supabase Edge Function of the same name.
+ * Supabase Edge Function of the same name. Also serves GET /scan/<path>
+ * (see serveScan below), streaming scan payloads out of the otherwise-
+ * private GCS bucket — the org's iam.allowedPolicyMemberDomains policy
+ * blocks making the bucket itself public, so this doubles as that proxy
+ * rather than standing up a second Cloud Run service for it.
  *
  * Records that a NEXRAD radar site is currently being viewed, so
  * cloud/nexrad-sync's ingestion job keeps refreshing it on schedule. On top
@@ -62,9 +66,9 @@ if (!GCS_BUCKET) {
 // Application Default Credentials throughout — see sync.mjs's module doc
 // comment for why no explicit key/config is needed on Cloud Run. databaseId
 // must be explicit: the project's Firestore database is a named database
-// ("nexradcomp"), not "(default)" — every Firestore client in this pipeline
+// ("nexrad-composite"), not "(default)" — every Firestore client in this pipeline
 // (this one, the browser, cloud/nexrad-sync) must agree on this same ID.
-const FIRESTORE_DATABASE_ID = 'nexradcomp';
+const FIRESTORE_DATABASE_ID = 'nexrad-composite';
 initializeApp();
 const firestore = new Firestore({ databaseId: FIRESTORE_DATABASE_ID });
 const storage = new Storage();
@@ -86,7 +90,7 @@ const FUNCTION_NAME = 'nexrad-heartbeat';
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
   'Access-Control-Allow-Headers': 'Authorization, Content-Type',
 };
 
@@ -366,12 +370,63 @@ async function readJsonBody(req) {
   }
 }
 
+// Only ever matches the exact shapes cloud/nexrad-sync/sync.mjs and
+// primeSite() above ever write — rejects anything else outright, so this
+// route can never be used to read arbitrary bucket paths.
+const SCAN_PATH_RE = /^[A-Z]{4}\/(?:reflectivity|velocity|spectrumWidth|zdr|cc)\/(?:latest\.bin|history\/[A-Za-z0-9-]+\.bin)$/;
+
+/**
+ * Stream one scan payload straight from the (otherwise-private) GCS bucket.
+ * The bucket itself can't be made public — the org's iam.allowedPolicyMemberDomains
+ * policy blocks granting allUsers any role — so the browser fetches scan
+ * payloads through this route instead of a direct storage.googleapis.com
+ * URL, using this service's own credentials (the same nexrad-sync-runtime
+ * service account cloud/nexrad-sync uses) to read the object. No auth
+ * required on this route itself: it only ever serves public NWS radar data
+ * matching SCAN_PATH_RE, nothing sensitive or user-specific.
+ */
+async function serveScan(path, res) {
+  if (!SCAN_PATH_RE.test(path)) {
+    jsonResponse(res, { error: 'Invalid scan path' }, 400);
+    return;
+  }
+
+  const file = bucket.file(path);
+  const [exists] = await file.exists();
+  if (!exists) {
+    jsonResponse(res, { error: 'Not found' }, 404);
+    return;
+  }
+
+  // Matches the caching intent the direct-GCS-URL design always had:
+  // latest.bin is overwritten in place every cycle, so it must revalidate;
+  // history/<key>.bin is unique per scan and never rewritten, so it's safe
+  // to cache indefinitely.
+  const isImmutable = path.includes('/history/');
+  res.writeHead(200, {
+    ...CORS_HEADERS,
+    'Content-Type': 'application/octet-stream',
+    'Cache-Control': isImmutable ? 'public, max-age=31536000, immutable' : 'no-cache',
+  });
+  file.createReadStream()
+    .on('error', () => { if (!res.headersSent) jsonResponse(res, { error: 'Read failed' }, 500); else res.end(); })
+    .pipe(res);
+}
+
 const server = createServer(async (req, res) => {
   if (req.method === 'OPTIONS') {
     res.writeHead(204, CORS_HEADERS);
     res.end();
     return;
   }
+
+  const { pathname } = new URL(req.url, 'http://localhost');
+
+  if (req.method === 'GET' && pathname.startsWith('/scan/')) {
+    await serveScan(pathname.slice('/scan/'.length), res);
+    return;
+  }
+
   if (req.method !== 'POST') {
     jsonResponse(res, { error: 'Method not allowed' }, 405);
     return;
