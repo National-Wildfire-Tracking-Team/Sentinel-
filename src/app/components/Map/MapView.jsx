@@ -412,15 +412,15 @@ function getHoverContent(feature) {
           <div className="font-semibold text-orange-400">
             {isConsolidated ? `FIRMS Detection (${detections} sensors)` : 'FIRMS Detection'}
           </div>
-          <div className="text-gray-300 text-xs mt-0.5">
+          <div className="text-sentinel-200 text-xs mt-0.5">
             FRP: <span className="text-white font-medium">{formatFRP(num(p.frp))}</span>
             {' '}· {frpToLabel(num(p.frp))} intensity
             {isConsolidated && (
-              <span className="text-gray-400"> · Combined: {formatFRP(num(p.total_frp))}</span>
+              <span className="text-sentinel-300"> · Combined: {formatFRP(num(p.total_frp))}</span>
             )}
           </div>
-          <div className="text-gray-400 text-xs">{p.satellite} · {p.acq_date}</div>
-          <div className="text-gray-500 text-[10px] mt-1">
+          <div className="text-sentinel-300 text-xs">{p.satellite} · {p.acq_date}</div>
+          <div className="text-sentinel-400 text-[10px] mt-1">
             ({num(p.latitude).toFixed(4)}, {num(p.longitude).toFixed(4)})
           </div>
         </>
@@ -431,12 +431,12 @@ function getHoverContent(feature) {
       content = (
         <>
           <div className="font-semibold text-orange-400">GOES Fire Detection</div>
-          <div className="text-gray-300 text-xs mt-0.5">
+          <div className="text-sentinel-200 text-xs mt-0.5">
             FRP: <span className="text-white font-medium">{formatFRP(num(p.frp))}</span>
             {' '}· {p.confidence} confidence
           </div>
-          <div className="text-gray-400 text-xs">{p.satellite} · {p.acq_date_time}</div>
-          <div className="text-gray-500 text-[10px] mt-1">
+          <div className="text-sentinel-300 text-xs">{p.satellite} · {p.acq_date_time}</div>
+          <div className="text-sentinel-400 text-[10px] mt-1">
             ({num(p.latitude).toFixed(4)}, {num(p.longitude).toFixed(4)})
           </div>
         </>
@@ -448,18 +448,18 @@ function getHoverContent(feature) {
       const isHistorical = Boolean(p.isHistoricalMapping);
       content = (
         <>
-          <div className={`font-semibold ${isHistorical ? 'text-gray-400' : 'text-orange-400'}`}>
+          <div className={`font-semibold ${isHistorical ? 'text-sentinel-300' : 'text-orange-400'}`}>
             {p.IncidentName}
             {isHistorical && (
-              <span className="ml-1.5 text-[10px] font-normal uppercase tracking-wide text-gray-500">
+              <span className="ml-1.5 text-[10px] font-normal uppercase tracking-wide text-sentinel-400">
                 Previous mapping
               </span>
             )}
           </div>
-          <div className="text-gray-300 text-xs mt-0.5">
+          <div className="text-sentinel-200 text-xs mt-0.5">
             {formatAcres(num(p.GISAcres))} · {formatContainment(num(p.PercentContained))} contained
           </div>
-          <div className="text-gray-400 text-xs">{p.POOState} · {p.POOCounty} County</div>
+          <div className="text-sentinel-300 text-xs">{p.POOState} · {p.POOCounty} County</div>
         </>
       );
       break;
@@ -468,11 +468,11 @@ function getHoverContent(feature) {
       content = (
         <>
           <div className="font-semibold text-blue-400">{p.reportingArea}</div>
-          <div className="text-gray-300 text-xs mt-0.5">
+          <div className="text-sentinel-200 text-xs mt-0.5">
             AQI: <span className="text-white font-medium">{num(p.aqi)}</span>
             {' '}· {p.category}
           </div>
-          <div className="text-gray-400 text-xs">PM2.5: {num(p.pm25)} µg/m³</div>
+          <div className="text-sentinel-300 text-xs">PM2.5: {num(p.pm25)} µg/m³</div>
         </>
       );
       break;
@@ -480,10 +480,10 @@ function getHoverContent(feature) {
       content = (
         <>
           <div className="font-semibold text-orange-400">{p.IncidentName}</div>
-          <div className="text-gray-300 text-xs mt-0.5">
+          <div className="text-sentinel-200 text-xs mt-0.5">
             {formatAcres(p.GISAcres)} · {formatContainment(p.PercentContained)} contained
           </div>
-          <div className="text-gray-400 text-xs">{p.POOState} · {p.POOCounty} County</div>
+          <div className="text-sentinel-300 text-xs">{p.POOState} · {p.POOCounty} County</div>
         </>
       );
       break;
@@ -491,7 +491,7 @@ function getHoverContent(feature) {
       content = (
         <>
           <div className="font-semibold text-red-400">{p.type}</div>
-          <div className="text-gray-300 text-xs mt-0.5 max-w-[200px] line-clamp-2">{p.headline}</div>
+          <div className="text-sentinel-200 text-xs mt-0.5 max-w-[200px] line-clamp-2">{p.headline}</div>
         </>
       );
       break;
@@ -504,21 +504,21 @@ function getHoverContent(feature) {
             </span>
           </div>
           {p.lsrDescription && (
-            <div className="text-gray-300 text-xs mt-0.5 line-clamp-2">{p.lsrDescription}</div>
+            <div className="text-sentinel-200 text-xs mt-0.5 line-clamp-2">{p.lsrDescription}</div>
           )}
-          {p.wfo && <div className="text-gray-400 text-xs">{p.wfo}</div>}
-          <div className="text-gray-300 text-xs mt-0.5">
+          {p.wfo && <div className="text-sentinel-300 text-xs">{p.wfo}</div>}
+          <div className="text-sentinel-200 text-xs mt-0.5">
             {p.city ? `${p.city}, ` : ''}{p.state}
             {p.county ? ` · ${p.county} County` : ''}
           </div>
-          {p.magnitude && <div className="text-gray-300 text-xs">Magnitude: {p.magnitude}</div>}
+          {p.magnitude && <div className="text-sentinel-200 text-xs">Magnitude: {p.magnitude}</div>}
           {p.reportedAt && (
-            <div className="text-gray-400 text-xs">
+            <div className="text-sentinel-300 text-xs">
               {new Date(p.reportedAt).toLocaleString()}
             </div>
           )}
           {p.comments && (
-            <div className="text-gray-400 text-xs mt-1 max-w-[220px] line-clamp-3">{p.comments}</div>
+            <div className="text-sentinel-300 text-xs mt-1 max-w-[220px] line-clamp-3">{p.comments}</div>
           )}
         </>
       );
@@ -531,9 +531,9 @@ function getHoverContent(feature) {
             {p.name || 'Mesoscale Discussion'}
           </div>
           {tillStr && (
-            <div className="text-gray-300 text-xs mt-0.5">{tillStr}</div>
+            <div className="text-sentinel-200 text-xs mt-0.5">{tillStr}</div>
           )}
-          <div className="text-gray-400 text-xs mt-0.5">SPC Mesoscale Discussion</div>
+          <div className="text-sentinel-300 text-xs mt-0.5">SPC Mesoscale Discussion</div>
           {p.url && (
             <div className="text-sky-400 text-xs mt-1">Click for full discussion ↗</div>
           )}
@@ -564,11 +564,11 @@ function getHoverContent(feature) {
           <div className="font-semibold text-yellow-300">
             SPC Day {dayNum} · {typeLabel}
           </div>
-          <div className="text-zinc-200 text-xs mt-0.5">
+          <div className="text-sentinel-100 text-xs mt-0.5">
             {p.outlookLabel || p.riskCategory || (p.probPct != null ? `${p.probPct}% probability` : 'Outlook')}
           </div>
           {validStr && (
-            <div className="text-zinc-400 text-xs mt-0.5">Valid: {validStr}</div>
+            <div className="text-sentinel-300 text-xs mt-0.5">Valid: {validStr}</div>
           )}
         </>
       );
@@ -578,9 +578,9 @@ function getHoverContent(feature) {
       content = (
         <>
           <div className="font-semibold text-cyan-300">{p.title}</div>
-          <div className="text-gray-300 text-xs mt-0.5">Community report</div>
+          <div className="text-sentinel-200 text-xs mt-0.5">Community report</div>
           {p.created_at && (
-            <div className="text-gray-400 text-xs">
+            <div className="text-sentinel-300 text-xs">
               {new Date(p.created_at).toLocaleString()}
             </div>
           )}
@@ -592,11 +592,11 @@ function getHoverContent(feature) {
       content = (
         <>
           <div className="font-semibold text-purple-300">{p.title}</div>
-          <div className="text-gray-300 text-xs mt-0.5">
+          <div className="text-sentinel-200 text-xs mt-0.5">
             {categoryLabels[p.category] || 'Event'} · {p.severity}
           </div>
           {p.created_at && (
-            <div className="text-gray-400 text-xs">
+            <div className="text-sentinel-300 text-xs">
               {new Date(p.created_at).toLocaleString()}
             </div>
           )}
@@ -608,10 +608,10 @@ function getHoverContent(feature) {
       content = (
         <>
           <div className="font-semibold text-orange-400">{p.name}</div>
-          <div className="text-gray-300 text-xs mt-0.5">
+          <div className="text-sentinel-200 text-xs mt-0.5">
             {formatAcres(num(p.acres))} · {formatContainment(num(p.contained))} contained
           </div>
-          <div className="text-gray-400 text-xs">{p.county} Co., {p.state}</div>
+          <div className="text-sentinel-300 text-xs">{p.county} Co., {p.state}</div>
         </>
       );
       break;
@@ -621,10 +621,10 @@ function getHoverContent(feature) {
       content = (
         <>
           <div className="font-semibold text-purple-300">{p.stationName}</div>
-          <div className="text-gray-400 text-[10px]">
+          <div className="text-sentinel-300 text-[10px]">
             {[p.county && `${p.county} Co.`, p.state, p.agency].filter(Boolean).join(' · ')}
           </div>
-          <div className="text-gray-300 text-xs mt-1.5 space-y-0.5">
+          <div className="text-sentinel-200 text-xs mt-1.5 space-y-0.5">
             <div>
               Temp: <span className="text-white font-medium">{fmt(p.temp, '°F')}</span>
               {' '}· RH: <span className="text-white font-medium">{fmt(p.relHumidity, '%')}</span>
@@ -633,7 +633,7 @@ function getHoverContent(feature) {
               Wind: <span className="text-white font-medium">{fmt(p.windSpeed, ' mph')}</span>
               {' '}@ <span className="text-white font-medium">{fmtD(p.windDir)}</span>
               {p.windSpeedPeak != null && (
-                <span className="text-gray-400"> (peak {fmt(p.windSpeedPeak, ' mph')})</span>
+                <span className="text-sentinel-300"> (peak {fmt(p.windSpeedPeak, ' mph')})</span>
               )}
             </div>
             {(p.fuelMoisture != null || p.fuelTemp != null) && (
@@ -647,7 +647,7 @@ function getHoverContent(feature) {
               <div>Precip: <span className="text-white font-medium">{p.precip.toFixed(2)}"</span></div>
             )}
           </div>
-          <div className="text-gray-500 text-[10px] mt-1 flex justify-between gap-3">
+          <div className="text-sentinel-400 text-[10px] mt-1 flex justify-between gap-3">
             {p.elevation != null && <span>Elev: {Math.round(p.elevation).toLocaleString()} ft</span>}
             {p.observationTime && <span>{new Date(p.observationTime).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</span>}
           </div>
@@ -675,12 +675,12 @@ function getHoverContent(feature) {
               <div className="text-orange-300 text-xs mt-0.5">Fire: {p.incident_name}</div>
             )}
             {(p.county || p.state) && (
-              <div className="text-gray-300 text-xs">
+              <div className="text-sentinel-200 text-xs">
                 {[p.county && `${p.county} County`, p.state].filter(Boolean).join(', ')}
               </div>
             )}
             {p.effective_at && (
-              <div className="text-gray-400 text-xs">
+              <div className="text-sentinel-300 text-xs">
                 Effective: {new Date(p.effective_at).toLocaleString()}
               </div>
             )}
@@ -695,9 +695,9 @@ function getHoverContent(feature) {
           <>
             <div className="font-semibold text-amber-400">IPAWS / EAS</div>
             <div className="text-white text-xs mt-0.5 font-medium">{p.ipawsHeadline || p.zoneName}</div>
-            {p.ipawsAreaDesc && <div className="text-gray-300 text-xs">{p.ipawsAreaDesc}</div>}
+            {p.ipawsAreaDesc && <div className="text-sentinel-200 text-xs">{p.ipawsAreaDesc}</div>}
             {(p.ipawsSent || p.effectiveDate) && (
-              <div className="text-gray-400 text-xs mt-1">
+              <div className="text-sentinel-300 text-xs mt-1">
                 {new Date(p.ipawsSent || p.effectiveDate).toLocaleString()}
               </div>
             )}
@@ -716,15 +716,15 @@ function getHoverContent(feature) {
         <>
           <div className={`font-semibold ${statusClass}`}>{p.warningType || 'Evacuation Zone'}</div>
           {p.zoneName && <div className="text-white text-xs mt-0.5 font-medium">{p.zoneName}</div>}
-          {p.county && <div className="text-gray-300 text-xs">{p.county} County</div>}
-          {p.agency && <div className="text-gray-400 text-xs">{p.agency}</div>}
+          {p.county && <div className="text-sentinel-200 text-xs">{p.county} County</div>}
+          {p.agency && <div className="text-sentinel-300 text-xs">{p.agency}</div>}
           {p.effectiveDate && (
-            <div className="text-gray-400 text-xs">
+            <div className="text-sentinel-300 text-xs">
               Effective: {new Date(p.effectiveDate).toLocaleString()}
             </div>
           )}
           {p.instructions && (
-            <div className="text-gray-400 text-xs mt-1 max-w-[220px] line-clamp-2">{p.instructions}</div>
+            <div className="text-sentinel-300 text-xs mt-1 max-w-[220px] line-clamp-2">{p.instructions}</div>
           )}
         </>
       );
@@ -742,8 +742,8 @@ function getHoverContent(feature) {
         <>
           <div className="font-semibold text-amber-400">CPC Drought Outlook</div>
           <div className="text-white text-xs mt-0.5 font-medium">{outlookLabel}</div>
-          {p.target && <div className="text-zinc-300 text-xs">Forecast: {p.target}</div>}
-          {p.fcst_date && <div className="text-zinc-400 text-xs">Issued: {p.fcst_date}</div>}
+          {p.target && <div className="text-sentinel-200 text-xs">Forecast: {p.target}</div>}
+          {p.fcst_date && <div className="text-sentinel-300 text-xs">Issued: {p.fcst_date}</div>}
         </>
       );
       break;
@@ -763,8 +763,8 @@ function getHoverContent(feature) {
         <>
           <div className="font-semibold text-yellow-200">NOAA Smoke Forecast</div>
           <div className="text-white text-xs mt-0.5 font-medium">{band}</div>
-          {refStr && <div className="text-gray-300 text-xs">From: {refStr}</div>}
-          {toStr && <div className="text-gray-400 text-xs">To: {toStr}</div>}
+          {refStr && <div className="text-sentinel-200 text-xs">From: {refStr}</div>}
+          {toStr && <div className="text-sentinel-300 text-xs">To: {toStr}</div>}
         </>
       );
       break;
@@ -792,38 +792,38 @@ function getHoverContent(feature) {
       content = (
         <>
           <div className="font-semibold text-sky-300">{p.siteName || 'AirNow Monitor'}</div>
-          {p.stateName && <div className="text-gray-400 text-[10px]">{p.stateName}</div>}
+          {p.stateName && <div className="text-sentinel-300 text-[10px]">{p.stateName}</div>}
           <div className="mt-1.5 space-y-0.5">
             <div className="flex items-center gap-1.5">
               <span
                 className="inline-block w-2 h-2 rounded-full shrink-0"
                 style={{ backgroundColor: aqiColor(primaryAqi) }}
               />
-              <span className="text-gray-300 text-xs">
+              <span className="text-sentinel-200 text-xs">
                 AQI: <span className="text-white font-medium">{primaryAqi ?? 'ND'}</span>
                 {primaryAqi != null && (
-                  <span className="text-gray-400"> · {aqiCategory(primaryAqi)}</span>
+                  <span className="text-sentinel-300"> · {aqiCategory(primaryAqi)}</span>
                 )}
               </span>
             </div>
             {p.pm25Aqi != null && (
-              <div className="text-gray-300 text-xs">
+              <div className="text-sentinel-200 text-xs">
                 PM2.5 AQI: <span className="text-white font-medium">{num(p.pm25Aqi)}</span>
               </div>
             )}
             {p.pm10Aqi != null && (
-              <div className="text-gray-300 text-xs">
+              <div className="text-sentinel-200 text-xs">
                 PM10 AQI: <span className="text-white font-medium">{num(p.pm10Aqi)}</span>
               </div>
             )}
             {p.ozoneAqi != null && (
-              <div className="text-gray-300 text-xs">
+              <div className="text-sentinel-200 text-xs">
                 Ozone AQI: <span className="text-white font-medium">{num(p.ozoneAqi)}</span>
               </div>
             )}
           </div>
           {p.localTime && (
-            <div className="text-gray-500 text-[10px] mt-1">{p.localTime}</div>
+            <div className="text-sentinel-400 text-[10px] mt-1">{p.localTime}</div>
           )}
         </>
       );
@@ -872,13 +872,13 @@ function getHoverContent(feature) {
     case 'wpc-wssi-fill': {
       const dayNum = String(p.day || '').replace('day', '');
       const impactColors = {
-        'WINTER WEATHER AREA': 'text-zinc-300',
+        'WINTER WEATHER AREA': 'text-sentinel-200',
         MINOR:    'text-sky-300',
         MODERATE: 'text-blue-400',
         MAJOR:    'text-purple-400',
         EXTREME:  'text-red-400',
       };
-      const impactClass = impactColors[p.impactCategory] || 'text-zinc-300';
+      const impactClass = impactColors[p.impactCategory] || 'text-sentinel-200';
       content = (
         <>
           <div className="font-semibold text-blue-300">WPC Winter Storm Severity Index · Day {dayNum}</div>
@@ -917,7 +917,7 @@ function getHoverContent(feature) {
           <div className={`font-semibold ${frontClass}`}>
             {p.frontType ? `${p.frontType.charAt(0)}${p.frontType.slice(1).toLowerCase()} Front` : 'Front'}
           </div>
-          <div className="text-zinc-400 text-[10px] mt-0.5">WPC Surface Analysis</div>
+          <div className="text-sentinel-300 text-[10px] mt-0.5">WPC Surface Analysis</div>
         </>
       );
       break;
@@ -934,7 +934,7 @@ function getHoverContent(feature) {
               {p.formationChance} formation probability
             </div>
           )}
-          <div className="text-zinc-300 text-xs mt-0.5">
+          <div className="text-sentinel-200 text-xs mt-0.5">
             {p.day2Percent != null && <span>2-day: {p.day2Percent}%</span>}
             {p.day2Percent != null && p.day7Percent != null && <span> · </span>}
             {p.day7Percent != null && <span>7-day: {p.day7Percent}%</span>}
@@ -968,12 +968,12 @@ function getHoverContent(feature) {
             {p.stormType || p.category}
           </div>
           {windKt > 0 && (
-            <div className="text-zinc-300 text-xs mt-0.5">
+            <div className="text-sentinel-200 text-xs mt-0.5">
               Winds: {windMph} mph ({windKt} kt){p.gustKt > 0 && ` · Gusts: ${p.gustKt} kt`}
             </div>
           )}
           {(p.dateLabel || p.fullDateLabel) && (
-            <div className="text-zinc-400 text-[10px] mt-0.5">{p.fullDateLabel || p.dateLabel}</div>
+            <div className="text-sentinel-300 text-[10px] mt-0.5">{p.fullDateLabel || p.dateLabel}</div>
           )}
         </>
       );
@@ -991,7 +991,7 @@ function getHoverContent(feature) {
         <>
           <div className={`font-semibold ${wwClass}`}>{p.wwType || 'Advisory'}</div>
           {p.stormName && (
-            <div className="text-zinc-300 text-xs mt-0.5">{p.stormName}</div>
+            <div className="text-sentinel-200 text-xs mt-0.5">{p.stormName}</div>
           )}
         </>
       );
@@ -999,7 +999,7 @@ function getHoverContent(feature) {
     }
     case 'cmra-transmission-lines': {
       const kv = (label, val) => (val != null && String(val).trim() !== '' ? (
-        <div className="text-gray-300 text-xs">
+        <div className="text-sentinel-200 text-xs">
           {label}: <span className="text-white font-medium">{String(val)}</span>
         </div>
       ) : null);
@@ -1013,16 +1013,16 @@ function getHoverContent(feature) {
           {kv('Status', p.STATUS)}
           {kv('Owner', p.OWNER)}
           {p.NAICS_DESC && (
-            <div className="text-gray-400 text-[10px] mt-1 line-clamp-2">{p.NAICS_DESC}</div>
+            <div className="text-sentinel-300 text-[10px] mt-1 line-clamp-2">{p.NAICS_DESC}</div>
           )}
-          <div className="text-gray-500 text-[10px] mt-1">CMRA · U.S. electric transmission (archive)</div>
+          <div className="text-sentinel-400 text-[10px] mt-1">CMRA · U.S. electric transmission (archive)</div>
         </>
       );
       break;
     }
     case 'eia-gas-pipelines': {
       const k = (label, val) => (val != null && String(val).trim() !== '' ? (
-        <div className="text-gray-300 text-xs">
+        <div className="text-sentinel-200 text-xs">
           {label}: <span className="text-white font-medium">{String(val)}</span>
         </div>
       ) : null);
@@ -1032,7 +1032,7 @@ function getHoverContent(feature) {
           {k('Interstate / intrastate', p.TYPEPIPE)}
           {k('Operator', p.Operator)}
           {k('Status', p.Status)}
-          <div className="text-gray-500 text-[10px] mt-1">EIA U.S. pipeline (public)</div>
+          <div className="text-sentinel-400 text-[10px] mt-1">EIA U.S. pipeline (public)</div>
         </>
       );
       break;
@@ -1046,17 +1046,17 @@ function getHoverContent(feature) {
         <>
           <div className="font-semibold text-blue-300">{p.name || p.lid}</div>
           {(p.county || p.state) && (
-            <div className="text-gray-400 text-[10px]">
+            <div className="text-sentinel-300 text-[10px]">
               {[p.county && `${p.county} Co.`, p.state].filter(Boolean).join(', ')}
             </div>
           )}
           <div className="mt-1 space-y-0.5">
-            <div className="text-gray-300 text-xs">
+            <div className="text-sentinel-200 text-xs">
               Stage: <span className="text-white font-medium">{stage}</span>
             </div>
             <div className={`text-xs font-medium ${catClass}`}>{catLabel}</div>
           </div>
-          <div className="text-gray-500 text-[10px] mt-1">Click for details · NOAA NWPS</div>
+          <div className="text-sentinel-400 text-[10px] mt-1">Click for details · NOAA NWPS</div>
         </>
       );
       break;
@@ -1076,12 +1076,12 @@ function getHoverContent(feature) {
               />
             )}
           </div>
-          {p.route && <div className="text-gray-300 text-xs">{p.route}</div>}
+          {p.route && <div className="text-sentinel-200 text-xs">{p.route}</div>}
           {p.inService === false && (
             <div className="text-red-400 text-xs font-medium mt-0.5">Out of service</div>
           )}
-          {p.county && <div className="text-gray-400 text-[10px] mt-0.5">{p.county} Co.</div>}
-          <div className="text-gray-500 text-[10px] mt-1">Click for live feed · Caltrans CCTV</div>
+          {p.county && <div className="text-sentinel-300 text-[10px] mt-0.5">{p.county} Co.</div>}
+          <div className="text-sentinel-400 text-[10px] mt-1">Click for live feed · Caltrans CCTV</div>
         </>
       );
       break;
@@ -1091,16 +1091,16 @@ function getHoverContent(feature) {
         operate: 'text-green-400',
         alarm: 'text-amber-400',
         offline: 'text-red-400',
-        unknown: 'text-gray-400',
+        unknown: 'text-sentinel-300',
       };
       content = (
         <>
           <div className="font-semibold text-cyan-300">{p.id} · {p.name}</div>
-          <div className={`text-xs font-medium mt-0.5 ${statusColors[p.status] || 'text-gray-400'}`}>
+          <div className={`text-xs font-medium mt-0.5 ${statusColors[p.status] || 'text-sentinel-300'}`}>
             {p.statusLabel}
           </div>
           {p.rdaStatus && (
-            <div className="text-gray-300 text-xs mt-0.5">
+            <div className="text-sentinel-200 text-xs mt-0.5">
               RDA: <span className="text-white font-medium">{p.rdaStatus}</span>
               {p.alarmSummary && p.alarmSummary !== 'No Alarms' && (
                 <span className="text-amber-400"> · {p.alarmSummary}</span>
@@ -1108,7 +1108,7 @@ function getHoverContent(feature) {
             </div>
           )}
           {p.levelTwoLastReceivedTime && (
-            <div className="text-gray-500 text-[10px] mt-1">
+            <div className="text-sentinel-400 text-[10px] mt-1">
               Last Level 2 data: {new Date(p.levelTwoLastReceivedTime).toLocaleString()}
             </div>
           )}
@@ -1125,20 +1125,20 @@ function getHoverContent(feature) {
           <div className="font-semibold text-red-500">
             {p.efscale} <span className="text-sentinel-300">(NWS DAT)</span>
           </div>
-          {p.damage_txt && <div className="text-gray-300 text-xs mt-0.5 line-clamp-2">{p.damage_txt}</div>}
-          {p.office && <div className="text-gray-400 text-xs">{p.office}</div>}
+          {p.damage_txt && <div className="text-sentinel-200 text-xs mt-0.5 line-clamp-2">{p.damage_txt}</div>}
+          {p.office && <div className="text-sentinel-300 text-xs">{p.office}</div>}
           {(p.injuries || p.deaths || p.fatalities) ? (
-            <div className="text-gray-300 text-xs mt-0.5">
+            <div className="text-sentinel-200 text-xs mt-0.5">
               {num(p.injuries) ? `${num(p.injuries)} injuries` : ''}
               {(num(p.injuries) && (num(p.deaths) || num(p.fatalities))) ? ' · ' : ''}
               {(num(p.deaths) || num(p.fatalities)) ? `${num(p.deaths) || num(p.fatalities)} deaths` : ''}
             </div>
           ) : null}
           {p.stormdate && (
-            <div className="text-gray-400 text-xs">{new Date(p.stormdate).toLocaleDateString()}</div>
+            <div className="text-sentinel-300 text-xs">{new Date(p.stormdate).toLocaleDateString()}</div>
           )}
           {p.comments && (
-            <div className="text-gray-400 text-xs mt-1 max-w-[220px] line-clamp-3">{p.comments}</div>
+            <div className="text-sentinel-300 text-xs mt-1 max-w-[220px] line-clamp-3">{p.comments}</div>
           )}
         </>
       );
@@ -1150,7 +1150,7 @@ function getHoverContent(feature) {
         <>
           <div className="font-semibold text-violet-300">USGS National Map</div>
           <div className="text-white text-xs mt-0.5 font-medium line-clamp-2">{name}</div>
-          <div className="text-gray-400 text-[10px] mt-1">Colleges &amp; universities (structures)</div>
+          <div className="text-sentinel-300 text-[10px] mt-1">Colleges &amp; universities (structures)</div>
         </>
       );
       break;
@@ -1160,7 +1160,7 @@ function getHoverContent(feature) {
   }
 
   const popupShell = isOutlookPopup
-    ? 'bg-black border border-zinc-700 rounded-lg p-3 shadow-2xl shadow-black/70 text-sm min-w-[160px] ring-1 ring-white/10'
+    ? 'bg-sentinel-900 border border-sentinel-600 rounded-lg p-3 shadow-2xl shadow-black/70 text-sm min-w-[160px] ring-1 ring-white/10'
     : HOVER_MATCHED_WIDTH_LAYER_IDS.has(layerId)
       ? 'bg-sentinel-800 border border-sentinel-600 rounded-lg p-2.5 shadow-2xl text-sm w-[220px]'
       : 'bg-sentinel-800 border border-sentinel-600 rounded-lg p-2.5 shadow-2xl text-sm min-w-[140px]';
@@ -2110,7 +2110,7 @@ export default function MapView({
                 title={loc.address || loc.name}
               >
                 <div className="relative">
-                  <div className="w-7 h-7 rounded-full bg-black border-2 border-white flex items-center justify-center shadow-lg group-hover:bg-gray-900 transition-colors">
+                  <div className="w-7 h-7 rounded-full bg-black border-2 border-white flex items-center justify-center shadow-lg group-hover:bg-sentinel-800 transition-colors">
                     <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="currentColor" className="text-white">
                       <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
                     </svg>
