@@ -2,14 +2,18 @@
  * sync.mjs
  * Decodes live NWS NEXRAD Level II radar data (reflectivity, velocity,
  * spectrum width, differential reflectivity, correlation coefficient — all
- * base tilt) and publishes a compact pre-processed payload to Supabase for
- * the frontend to render. Runs as a Google Cloud Run Job, triggered every 2
- * minutes by Cloud Scheduler (see README.md for deploy steps) — moved here
- * from GitHub Actions because a full-fidelity decode already crashes
- * Supabase Edge Functions on memory (see
- * supabase/functions/nexrad-heartbeat/index.ts), and Cloud Run gives this a
- * proper container runtime with configurable memory instead of a GitHub
- * Actions minute budget.
+ * base tilt) and publishes a compact pre-processed payload to Google Cloud
+ * for the frontend to render. Runs as a Google Cloud Run Job, triggered
+ * every 2 minutes by Cloud Scheduler (see README.md for deploy steps).
+ *
+ * Metadata (nexradScanMeta / nexradScanHistory / nexradActiveSites) lives in
+ * Firestore; binary payloads live in Google Cloud Storage — both part of
+ * the project's move off Supabase. No explicit credentials are configured
+ * for either client: this job's Cloud Run service account already has
+ * Application Default Credentials available in the container, so it only
+ * needs the right IAM roles granted (see README.md) — same pattern this job
+ * already used for Secret Manager before the Supabase secrets it read went
+ * away entirely.
  *
  * Every known NEXRAD site (from NWS's public station list, see
  * fetchAllNexradSites) gets reflectivity synced every run — that's all the
@@ -17,7 +21,7 @@
  * layer (see radarRaster.js's rasterizeSweep / NexradScanLayer.jsx /
  * RadarLayer.jsx; there's no MRMS-style national grid or cross-site
  * blending). Whichever sites someone currently has open in Sentinel's
- * single-site detail view (tracked via the nexrad_active_sites heartbeat)
+ * single-site detail view (tracked via the nexradActiveSites heartbeat)
  * additionally get every other product, since only that per-site view uses
  * velocity/spectrum width/ZDR/CC. See buildProductPlan below.
  *
@@ -66,22 +70,31 @@
 import { gzipSync } from 'node:zlib';
 import Level2Radar from 'nexrad-level-2-data';
 import { XMLParser } from 'fast-xml-parser';
+import { Firestore, Timestamp } from '@google-cloud/firestore';
+import { Storage } from '@google-cloud/storage';
 import { encodeScanPayload } from './nexradPayloadFormat.js';
 
-const SUPABASE_URL = process.env.SUPABASE_URL;
-const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
-  throw new Error('Missing Supabase env vars');
+const GCS_BUCKET = process.env.NEXRAD_SCANS_BUCKET;
+if (!GCS_BUCKET) {
+  throw new Error('Missing NEXRAD_SCANS_BUCKET env var');
 }
+
+// No explicit project/credentials — both clients pick up the Cloud Run
+// service account's Application Default Credentials automatically. See
+// module doc comment.
+const firestore = new Firestore();
+const storage = new Storage();
+const bucket = storage.bucket(GCS_BUCKET);
 
 const AWS_NEXRAD_BASE = 'https://unidata-nexrad-level2.s3.amazonaws.com';
 const AWS_VOLUME_FILE_RE = /^[A-Z]{4}\d{8}_\d{6}_V06$/;
 const TGFTP_BASE = 'https://tgftp.nws.noaa.gov/data/radar/nexrad_level2';
 const NWS_STATIONS_URL = 'https://api.weather.gov/radar/stations';
-const STORAGE_BUCKET = 'nexrad-scans';
 const xmlParser = new XMLParser();
 const ACTIVE_WINDOW_MS = 15 * 60 * 1000; // sites with no heartbeat in this long are ignored
+// Firestore's `in` operator caps at 30 values per query — batch site-id
+// lookups into chunks this size (see fetchPublishedSourceFiles).
+const FIRESTORE_IN_CHUNK_SIZE = 30;
 // Every known site (~200) now gets synced every run, not just a handful of
 // actively-viewed ones — more in-flight network fetches needed to finish
 // inside the workflow's timeout-minutes budget. Revisit after watching real
@@ -103,7 +116,7 @@ const PRODUCT_GETTERS = {
   cc: (radar) => radar.getHighresCorrelationCoefficient(),
 };
 
-// Retention window, per product, before nexrad_scan_history rows are pruned
+// Retention window, per product, before nexradScanHistory docs are pruned
 // (see pruneHistory below) — kept a little past the actual UI window so a
 // scan at the very edge of a scrub bar is never missing. Reflectivity gets
 // 24h for Composite Radar's national playback (useNexradComposite.js /
@@ -119,28 +132,20 @@ const HISTORY_RETENTION_BY_PRODUCT = {
 };
 const HISTORY_PRUNE_BATCH = 500;
 
-function supabaseHeaders(extra = {}) {
-  return {
-    apikey: SUPABASE_SERVICE_ROLE_KEY,
-    Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
-    ...extra,
-  };
-}
-
 async function main() {
   console.log('[nexrad-sync] starting');
 
-  const [activeSites, allSiteIds] = await Promise.all([
-    fetchActiveSites(),
+  const [activeSiteIds, allSiteIds] = await Promise.all([
+    fetchActiveSiteIds(),
     fetchAllNexradSites().catch((err) => {
       console.warn('[nexrad-sync] failed to fetch full site list, composite sync skipped this run:', err?.message || err);
       return [];
     }),
   ]);
 
-  const productPlan = buildProductPlan(allSiteIds, activeSites.map((s) => s.site_id));
+  const productPlan = buildProductPlan(allSiteIds, activeSiteIds);
   const siteIds = [...productPlan.keys()];
-  console.log(`[nexrad-sync] ${siteIds.length} site(s) total (${activeSites.length} active, all products)`);
+  console.log(`[nexrad-sync] ${siteIds.length} site(s) total (${activeSiteIds.length} active, all products)`);
   if (!siteIds.length) {
     console.log('[nexrad-sync] nothing to do');
     return;
@@ -173,14 +178,14 @@ async function main() {
   console.log('[nexrad-sync] done');
 }
 
-async function fetchActiveSites() {
-  const staleIso = new Date(Date.now() - ACTIVE_WINDOW_MS).toISOString();
-  const resp = await fetch(
-    `${SUPABASE_URL}/rest/v1/nexrad_active_sites?select=site_id&last_seen_at=gte.${encodeURIComponent(staleIso)}`,
-    { headers: supabaseHeaders() },
-  );
-  if (!resp.ok) throw new Error(`Failed to list active sites: ${resp.status} ${await resp.text().catch(() => '')}`);
-  return resp.json();
+async function fetchActiveSiteIds() {
+  const cutoff = Timestamp.fromMillis(Date.now() - ACTIVE_WINDOW_MS);
+  const snap = await firestore
+    .collection('nexradActiveSites')
+    .where('last_seen_at', '>=', cutoff)
+    .select() // doc IDs only, no fields needed
+    .get();
+  return snap.docs.map((doc) => doc.id);
 }
 
 /**
@@ -223,33 +228,47 @@ function buildProductPlan(allSiteIds, activeSiteIds) {
  * chronological order (digits vs. the site's own letters), which without
  * this normalization could make the sync perpetually treat every subsequent
  * AWS volume as "already published" once a single tgftp-sourced scan (e.g.
- * from nexrad-heartbeat's own fallback path) had been recorded — silently
- * starving both the live feed's freshness and, critically, history writes,
- * since nothing downstream would ever see a volume as new again.
+ * from the heartbeat service's own fallback path) had been recorded —
+ * silently starving both the live feed's freshness and, critically, history
+ * writes, since nothing downstream would ever see a volume as new again.
  */
 function timestampKey(filename) {
   const m = filename.match(/(\d{8}_\d{6})/);
   return m ? m[1] : filename;
 }
 
+function chunk(array, size) {
+  const chunks = [];
+  for (let i = 0; i < array.length; i += size) chunks.push(array.slice(i, i + size));
+  return chunks;
+}
+
+/**
+ * Per-site highest-water-mark source_file across every product's
+ * nexradScanMeta doc for that site (a site might have been synced with
+ * different products via different paths — e.g. composite-only reflectivity
+ * vs. a heartbeat-primed full set — so the true "already published?" check
+ * needs the max across all of them, not just one product's doc).
+ * Firestore's `in` operator caps at 30 values, so this batches siteIds into
+ * chunks and runs them in parallel.
+ */
 async function fetchPublishedSourceFiles(siteIds) {
   const map = new Map();
   if (!siteIds.length) return map;
 
-  const inList = siteIds.map((s) => `"${s}"`).join(',');
-  const resp = await fetch(
-    `${SUPABASE_URL}/rest/v1/nexrad_scan_meta?select=site_id,source_file&site_id=in.(${inList})`,
-    { headers: supabaseHeaders() },
+  const chunks = chunk(siteIds, FIRESTORE_IN_CHUNK_SIZE);
+  const snaps = await Promise.all(
+    chunks.map((c) => firestore.collection('nexradScanMeta').where('site_id', 'in', c).get()),
   );
-  if (!resp.ok) throw new Error(`Failed to fetch published source files: ${resp.status}`);
 
-  const rows = await resp.json();
-  for (const row of rows) {
-    // Compare by normalized timestamp (not raw filename) since a site's two
-    // product rows may have been published from different sources.
-    const prev = map.get(row.site_id);
-    if (row.source_file && (!prev || timestampKey(row.source_file) > timestampKey(prev))) {
-      map.set(row.site_id, row.source_file);
+  for (const snap of snaps) {
+    for (const doc of snap.docs) {
+      const row = doc.data();
+      if (!row.source_file) continue;
+      const prev = map.get(row.site_id);
+      if (!prev || timestampKey(row.source_file) > timestampKey(prev)) {
+        map.set(row.site_id, row.source_file);
+      }
     }
   }
   return map;
@@ -494,49 +513,29 @@ async function publishProduct({ site, product, elevationDeg, azimuths, radials, 
 
   const storagePath = `${site}/${product}/latest.bin`;
 
-  const uploadResp = await fetch(
-    `${SUPABASE_URL}/storage/v1/object/${STORAGE_BUCKET}/${storagePath}`,
-    {
-      method: 'POST',
-      headers: supabaseHeaders({
-        'Content-Type': 'application/octet-stream',
-        'x-upsert': 'true',
-      }),
-      body: compressed,
-    },
-  );
-  if (!uploadResp.ok) {
-    throw new Error(`Storage upload failed for ${storagePath}: ${uploadResp.status} ${await uploadResp.text().catch(() => '')}`);
-  }
+  // GCS object writes overwrite in place by default — no explicit upsert
+  // flag needed (unlike the old Supabase Storage 'x-upsert' header).
+  await bucket.file(storagePath).save(compressed, {
+    contentType: 'application/octet-stream',
+    resumable: false, // payloads here are at most a couple MB — a single request is simpler and faster than a resumable session
+  });
 
-  const metaResp = await fetch(
-    `${SUPABASE_URL}/rest/v1/nexrad_scan_meta?on_conflict=site_id,product`,
-    {
-      method: 'POST',
-      headers: supabaseHeaders({
-        'Content-Type': 'application/json',
-        Prefer: 'resolution=merge-duplicates',
-      }),
-      body: JSON.stringify({
-        site_id: site,
-        product,
-        scan_time: new Date(scanTimeMs).toISOString(),
-        elevation_deg: elevationDeg,
-        source_file: sourceFile,
-        storage_path: storagePath,
-        byte_size: compressed.byteLength,
-        gate_count: gateCount,
-        radial_count: azimuths.length,
-        updated_at: new Date().toISOString(),
-      }),
-    },
-  );
-  if (!metaResp.ok) {
-    throw new Error(`Scan meta upsert failed for ${site}/${product}: ${metaResp.status} ${await metaResp.text().catch(() => '')}`);
-  }
+  await firestore.collection('nexradScanMeta').doc(`${site}_${product}`).set({
+    site_id: site,
+    product,
+    scan_time: Timestamp.fromMillis(scanTimeMs),
+    elevation_deg: elevationDeg,
+    source_file: sourceFile,
+    storage_path: storagePath,
+    byte_size: compressed.byteLength,
+    gate_count: gateCount,
+    radial_count: azimuths.length,
+    updated_at: Timestamp.now(),
+  }, { merge: true });
 
-  // Best-effort: append this scan to the rolling history table that backs the
-  // site radar popup's scrub bar. A failure here shouldn't fail the live feed.
+  // Best-effort: append this scan to the rolling history collection that
+  // backs the site radar popup's scrub bar and Composite Radar's playback.
+  // A failure here shouldn't fail the live feed.
   await publishHistoryEntry({
     site, product, scanTimeMs, elevationDeg, compressed, gateCount, radialCount: azimuths.length,
   }).catch((err) => {
@@ -544,109 +543,76 @@ async function publishProduct({ site, product, elevationDeg, azimuths, radials, 
   });
 }
 
-/** Append one scan to nexrad_scan_history — a separate object per scan (not overwritten in place like latest.bin). */
+/** Append one scan to nexradScanHistory — a separate object per scan (not overwritten in place like latest.bin). */
 async function publishHistoryEntry({ site, product, scanTimeMs, elevationDeg, compressed, gateCount, radialCount }) {
   const scanTimeIso = new Date(scanTimeMs).toISOString();
-  // Root cause of history never actually accumulating in production: a raw
-  // ISO timestamp ("2026-09-15T20:47:23.015Z") in a Supabase Storage object
-  // key — confirmed live against the deployed bucket: every latest.bin (no
-  // colons in its path) exists and is readable, but not one single
-  // history/<timestamp>.bin object for any site/product ever landed in
-  // storage, despite nexrad_scan_meta showing regular successful syncs the
-  // whole time. Storage keys built from a colon/dot-bearing raw ISO string
-  // are the one thing that differs between the two paths, so every write
-  // via this path silently failed at the storage-upload step (caught by the
-  // .catch() at this function's call site, logged, and otherwise ignored) —
-  // stripping those characters keeps the key lexicographically sortable
-  // (same character order, just different delimiters) while avoiding
-  // whatever key-format restriction was rejecting it.
+  // Colons/periods stripped from the timestamp for the storage key — GCS
+  // itself allows them, but keeping this format (carried over from the
+  // Supabase Storage version of this pipeline, where it was a hard
+  // requirement — colon/period-bearing keys silently failed to upload
+  // there) avoids any URL-construction subtlety and keeps the key
+  // lexicographically sortable either way.
   const historyKey = scanTimeIso.replace(/[:.]/g, '-');
   const historyPath = `${site}/${product}/history/${historyKey}.bin`;
+  const docId = `${site}_${product}_${historyKey}`;
 
-  const uploadResp = await fetch(
-    `${SUPABASE_URL}/storage/v1/object/${STORAGE_BUCKET}/${historyPath}`,
-    {
-      method: 'POST',
-      headers: supabaseHeaders({
-        'Content-Type': 'application/octet-stream',
-        'x-upsert': 'true',
-        // Unlike latest.bin (overwritten in place every cycle, so it must
-        // stay revalidate-on-every-request), this path is unique per scan
-        // and never rewritten once published — genuinely immutable, so it's
-        // safe to tell every intermediate cache to never bother revalidating.
-        'Cache-Control': 'public, max-age=31536000, immutable',
-      }),
-      body: compressed,
-    },
-  );
-  if (!uploadResp.ok) {
-    throw new Error(`History storage upload failed for ${historyPath}: ${uploadResp.status} ${await uploadResp.text().catch(() => '')}`);
-  }
-
-  const insertResp = await fetch(
-    `${SUPABASE_URL}/rest/v1/nexrad_scan_history?on_conflict=site_id,product,scan_time`,
-    {
-      method: 'POST',
-      headers: supabaseHeaders({
-        'Content-Type': 'application/json',
-        Prefer: 'resolution=ignore-duplicates',
-      }),
-      body: JSON.stringify({
-        site_id: site,
-        product,
-        scan_time: scanTimeIso,
-        elevation_deg: elevationDeg,
-        storage_path: historyPath,
-        byte_size: compressed.byteLength,
-        gate_count: gateCount,
-        radial_count: radialCount,
-      }),
-    },
-  );
-  if (!insertResp.ok) {
-    throw new Error(`History row insert failed for ${site}/${product}@${scanTimeIso}: ${insertResp.status} ${await insertResp.text().catch(() => '')}`);
-  }
-}
-
-/** Delete one product's history rows (and their storage objects) past its own retention window. */
-async function pruneHistoryForProduct(product, retentionMs) {
-  const cutoffIso = new Date(Date.now() - retentionMs).toISOString();
-  const listResp = await fetch(
-    `${SUPABASE_URL}/rest/v1/nexrad_scan_history?select=id,storage_path&product=eq.${product}&scan_time=lt.${encodeURIComponent(cutoffIso)}&limit=${HISTORY_PRUNE_BATCH}`,
-    { headers: supabaseHeaders() },
-  );
-  if (!listResp.ok) {
-    console.warn(`[nexrad-sync] prune(${product}): failed to list stale history rows: ${listResp.status}`);
-    return;
-  }
-
-  const rows = await listResp.json();
-  if (!rows.length) return;
-
-  const deleteObjResp = await fetch(`${SUPABASE_URL}/storage/v1/object/${STORAGE_BUCKET}`, {
-    method: 'DELETE',
-    headers: supabaseHeaders({ 'Content-Type': 'application/json' }),
-    body: JSON.stringify({ prefixes: rows.map((r) => r.storage_path) }),
+  await bucket.file(historyPath).save(compressed, {
+    contentType: 'application/octet-stream',
+    resumable: false,
+    // Unlike latest.bin (overwritten in place every cycle, so it must stay
+    // revalidate-on-every-request), this path is unique per scan and never
+    // rewritten once published — genuinely immutable, so it's safe to tell
+    // every intermediate cache to never bother revalidating.
+    metadata: { cacheControl: 'public, max-age=31536000, immutable' },
   });
-  if (!deleteObjResp.ok) {
-    // A dangling object in a public bucket is harmless (unreferenced once its
-    // row is gone) — still drop the rows below so the table doesn't grow forever.
-    console.warn(`[nexrad-sync] prune(${product}): storage delete failed: ${deleteObjResp.status} ${await deleteObjResp.text().catch(() => '')}`);
-  }
 
-  const idList = rows.map((r) => r.id).join(',');
-  const deleteRowsResp = await fetch(
-    `${SUPABASE_URL}/rest/v1/nexrad_scan_history?id=in.(${idList})`,
-    { method: 'DELETE', headers: supabaseHeaders() },
-  );
-  if (!deleteRowsResp.ok) {
-    console.warn(`[nexrad-sync] prune(${product}): row delete failed: ${deleteRowsResp.status} ${await deleteRowsResp.text().catch(() => '')}`);
-    return;
-  }
-  console.log(`[nexrad-sync] prune(${product}): removed ${rows.length} stale history row(s)`);
+  // Doc ID already encodes (site, product, scan_time) uniqueness, so a
+  // plain set() is the idempotent "insert, or harmlessly overwrite with the
+  // same data" this needs — the same role Postgres's
+  // on_conflict + ignore-duplicates played.
+  await firestore.collection('nexradScanHistory').doc(docId).set({
+    site_id: site,
+    product,
+    scan_time: Timestamp.fromMillis(scanTimeMs),
+    elevation_deg: elevationDeg,
+    storage_path: historyPath,
+    byte_size: compressed.byteLength,
+    gate_count: gateCount,
+    radial_count: radialCount,
+    created_at: Timestamp.now(),
+  });
 }
 
-/** Delete stale history rows for every product, each against its own retention window. */
+/** Delete one product's history docs (and their storage objects) past its own retention window. */
+async function pruneHistoryForProduct(product, retentionMs) {
+  const cutoff = Timestamp.fromMillis(Date.now() - retentionMs);
+  const snap = await firestore
+    .collection('nexradScanHistory')
+    .where('product', '==', product)
+    .where('scan_time', '<', cutoff)
+    .limit(HISTORY_PRUNE_BATCH)
+    .get();
+
+  if (snap.empty) return;
+
+  const results = await Promise.allSettled(
+    snap.docs.map((doc) => bucket.file(doc.data().storage_path).delete()),
+  );
+  const failedDeletes = results.filter((r) => r.status === 'rejected').length;
+  if (failedDeletes) {
+    // A dangling object is harmless (unreferenced once its doc is gone) —
+    // still drop the docs below so the collection doesn't grow forever.
+    console.warn(`[nexrad-sync] prune(${product}): ${failedDeletes} storage delete(s) failed`);
+  }
+
+  const batch = firestore.batch();
+  for (const doc of snap.docs) batch.delete(doc.ref);
+  await batch.commit();
+
+  console.log(`[nexrad-sync] prune(${product}): removed ${snap.size} stale history doc(s)`);
+}
+
+/** Delete stale history docs for every product, each against its own retention window. */
 async function pruneHistory() {
   for (const [product, retentionMs] of Object.entries(HISTORY_RETENTION_BY_PRODUCT)) {
     await pruneHistoryForProduct(product, retentionMs);
