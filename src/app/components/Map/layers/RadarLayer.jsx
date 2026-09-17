@@ -5,10 +5,12 @@
  * useNexradComposite.js and radarRaster.js's rasterizeSweep, the same
  * per-site rasterizer NexradScanLayer.jsx uses for the single selected
  * site). Falls back to the Iowa Environmental Mesonet NEXRAD N0Q WMS mosaic
- * only when the whole composite pipeline has nothing to show (e.g. Supabase
- * unreachable) — not per-site, since per-site staleness is already filtered
- * out upstream in useNexradComposite.js. Layer stays mounted; visibility is
- * controlled via layout property.
+ * only while live and only when the whole composite pipeline has nothing to
+ * show (e.g. Firestore/GCS unreachable) — not per-site, since per-site
+ * staleness is already filtered out upstream in useNexradComposite.js, and
+ * never while browsing history (see the `live` prop below) since the IEM
+ * mosaic only ever shows current conditions. Layer stays mounted; visibility
+ * is controlled via layout property.
  *
  * Fully independent of the NEXRAD Level II single-site layer
  * (NexradScanLayer / NexradSitesLayer) — this component only ever reads
@@ -123,7 +125,17 @@ const CrossfadingSiteLayer = memo(function CrossfadingSiteLayer({ siteId, dataUr
 
 const RadarLayer = memo(function RadarLayer({ visible, sites, live = true, beforeId }) {
   const hasSites = visible && Array.isArray(sites) && sites.length > 0;
-  const iemVis = visible && !hasSites ? 'visible' : 'none';
+  // Live-only. The IEM mosaic is a different rendering source entirely (its
+  // own external tiles, not radarRaster.js's REFLECTIVITY_SCALE) and always
+  // shows *current* conditions, never a historical moment — falling back to
+  // it while scrubbing/playing history used to read as "the color coding
+  // changes" the instant a tick happened to resolve zero sites (e.g. no
+  // site in view had a frame near that timestamp, which is unremarkable —
+  // every product elsewhere in the app just shows nothing for a gap like
+  // that) and, worse, silently swapped in live data for whatever historical
+  // time was selected. A history tick with no sites now shows nothing,
+  // same as any other product's data gap.
+  const iemVis = visible && !hasSites && live ? 'visible' : 'none';
   // Cross-fade only while live (smooths each site's own independent poll
   // landing); a scrubbed/playback history view swaps hard instead — see
   // SimpleSiteLayer's doc comment for why, both visually and for lag.
