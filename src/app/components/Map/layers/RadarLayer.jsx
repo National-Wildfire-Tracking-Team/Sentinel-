@@ -26,15 +26,13 @@ const IEM_NEXRAD_WMS =
   '&FORMAT=image/png&TRANSPARENT=true&SRS=EPSG:3857' +
   '&WIDTH=256&HEIGHT=256&BBOX={bbox-epsg-3857}';
 
-// How long a site's new frame takes to cross-fade in over its previous one.
-// Sites scan on independent, staggered schedules (see useNexradComposite.js),
-// so scrubbing/playing through history — or just watching live updates land
-// — means each site's own image swaps at its own moment, not in sync with
-// any other site. Without a cross-fade, that reads as a jarring per-site
-// "pop" every time a site's turn comes up; with one, motion stays smooth
-// even though the underlying updates are inherently unsynchronized. Kept
-// comfortably under useNexradComposite.js's PLAYBACK_FRAME_MS (700ms) so
-// each fade fully resolves before the next tick lands during playback.
+// How long a site's new frame takes to cross-fade in over its previous one,
+// while live (see the `live` prop below — history/playback intentionally
+// skip this, see SimpleSiteLayer's doc comment). Sites scan on independent,
+// staggered schedules (see useNexradComposite.js), so live updates land at
+// each site's own moment, not in sync with any other site — without a
+// cross-fade that reads as a jarring per-site "pop" every time a site's
+// turn comes up.
 const CROSSFADE_MS = 200;
 
 /**
@@ -47,6 +45,41 @@ const CROSSFADE_MS = 200;
  * smooths tile-source updates, not `image`-source ones — so an actual
  * cross-fade needs two sources ramping opacity past each other instead.
  */
+/**
+ * One site's image layer while viewing history (a specific scrubbed
+ * timestamp, or stepping through playback) — a single hard-swapped image
+ * source with no cross-fade, mirroring NexradScanLayer.jsx's single-site
+ * pattern exactly (same 0.75 opacity, same 'nearest' resampling, same
+ * colors from radarRaster.js — nothing about how a frame looks changes,
+ * only how abruptly it appears). Two things make the crossfade wrong once
+ * you're not live: (1) scrubbing/playback are the user directly requesting
+ * a real jump between two specific past moments, not two adjacent live
+ * updates — fading between them reads as motion blur across time, not
+ * smoothing; (2) CrossfadingSiteLayer keeps a second Source/Layer mounted
+ * per site (opacity 0, still fully GPU-uploaded) through every fade, which
+ * doubles Mapbox's per-frame image-source and paint-layer count across
+ * every visible site — real, measurable lag once a scrub or playback tick
+ * changes most sites' frames at once, unlike the live poll this trick was
+ * built for, where usually only a handful of sites update on any given tick.
+ */
+const SimpleSiteLayer = memo(function SimpleSiteLayer({ siteId, dataUrl, coordinates, beforeId }) {
+  if (!dataUrl || !coordinates) return null;
+  return (
+    <Source id={`nexrad-composite-${siteId}`} type="image" url={dataUrl} coordinates={coordinates}>
+      <Layer
+        id={`nexrad-composite-raster-${siteId}`}
+        type="raster"
+        beforeId={beforeId}
+        paint={{
+          'raster-opacity': 0.75,
+          'raster-fade-duration': 0,
+          'raster-resampling': 'nearest',
+        }}
+      />
+    </Source>
+  );
+});
+
 const CrossfadingSiteLayer = memo(function CrossfadingSiteLayer({ siteId, dataUrl, coordinates, beforeId }) {
   const [slots, setSlots] = useState([null, null]);
   const [activeSlot, setActiveSlot] = useState(0);
@@ -88,14 +121,18 @@ const CrossfadingSiteLayer = memo(function CrossfadingSiteLayer({ siteId, dataUr
   ));
 });
 
-const RadarLayer = memo(function RadarLayer({ visible, sites, beforeId }) {
+const RadarLayer = memo(function RadarLayer({ visible, sites, live = true, beforeId }) {
   const hasSites = visible && Array.isArray(sites) && sites.length > 0;
   const iemVis = visible && !hasSites ? 'visible' : 'none';
+  // Cross-fade only while live (smooths each site's own independent poll
+  // landing); a scrubbed/playback history view swaps hard instead — see
+  // SimpleSiteLayer's doc comment for why, both visually and for lag.
+  const SiteLayer = live ? CrossfadingSiteLayer : SimpleSiteLayer;
 
   return (
     <>
       {hasSites && sites.map(({ siteId, dataUrl, coordinates }) => (
-        <CrossfadingSiteLayer key={siteId} siteId={siteId} dataUrl={dataUrl} coordinates={coordinates} beforeId={beforeId} />
+        <SiteLayer key={siteId} siteId={siteId} dataUrl={dataUrl} coordinates={coordinates} beforeId={beforeId} />
       ))}
 
       <Source

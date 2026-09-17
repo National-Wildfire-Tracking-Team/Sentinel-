@@ -658,6 +658,7 @@ export default function LiveTrackerPage() {
   const {
     frames: nexradCompositeFrames,
     selectedTimestamp: nexradCompositeSelectedTimestamp,
+    isLive: nexradCompositeIsLive,
     isPlaying: nexradCompositeIsPlaying,
     error: nexradCompositeError,
     sites: nexradCompositeSites,
@@ -1374,6 +1375,7 @@ export default function LiveTrackerPage() {
             nexradScanUrl={radarRaster?.dataUrl}
             nexradScanCoordinates={radarRaster?.coordinates}
             nexradCompositeSites={nexradCompositeSites}
+            nexradCompositeIsLive={nexradCompositeIsLive}
             nexradCompositeTimelineVisible={(activeMapTab === MAP_TABS.weather || activeMapTab === MAP_TABS.allhazard) && layers.radarComposite}
             nexradCompositeFrames={nexradCompositeFrames}
             nexradCompositeSelectedTimestamp={nexradCompositeSelectedTimestamp}

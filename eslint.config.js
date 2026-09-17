@@ -5,7 +5,7 @@ import reactRefresh from 'eslint-plugin-react-refresh';
 export default [
   js.configs.recommended,
   {
-    files: ['**/*.{js,jsx}'],
+    files: ['**/*.{js,jsx,mjs}'],
     plugins: {
       'react-hooks': reactHooks,
       'react-refresh': reactRefresh,
