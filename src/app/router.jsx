@@ -8,6 +8,7 @@
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { lazy, Suspense, useEffect } from 'react';
 import { getReporterOrigin } from '../shared/utils/getAppOrigin';
+import { supabase } from '../shared/api/supabaseClient';
 import Seo from '../shared/components/Seo';
 
 const LiveTrackerPage = lazy(() => import('./pages/LiveTrackerPage'));
@@ -43,11 +44,39 @@ function RouteLoader() {
  * Backward-compat for old bookmarks/links to the reporter portal's former
  * paths on the app subdomain — the portal now lives on its own subdomain
  * (reporter.nationalwildfiretrackingteam.org), so redirect there instead of
- * rendering it here.
+ * rendering it here. Also the actual target LoginPage.jsx sends a freshly
+ * signed-in reporter/admin to (see its role check), so this doubles as the
+ * one spot handling that handoff.
+ *
+ * The reporter subdomain is a different origin with its own
+ * localStorage/sessionStorage — a signed-in session on app.* can't reach it
+ * on its own, so a signed-in visitor's tokens are carried across in the
+ * redirect URL's hash, in Supabase's own implicit-grant callback format
+ * (access_token/refresh_token/expires_in/token_type). The reporter
+ * subdomain's Supabase client already has `detectSessionInUrl: true` (see
+ * supabaseClient.js) and picks this up automatically on load — the same
+ * mechanism Supabase uses for magic-link/OAuth redirects, just reused here
+ * for a same-app cross-subdomain handoff instead of a provider redirect.
+ * A visitor with no session (or an old bookmark) just lands there logged
+ * out, same as visiting the reporter subdomain directly.
  */
 function ReporterPortalRedirect({ reporterPath }) {
   useEffect(() => {
-    window.location.replace(`${getReporterOrigin()}${reporterPath}`);
+    (async () => {
+      const target = new URL(`${getReporterOrigin()}${reporterPath}`);
+      const { data } = await supabase.auth.getSession().catch(() => ({ data: null }));
+      const session = data?.session;
+      if (session?.access_token && session?.refresh_token) {
+        target.hash = new URLSearchParams({
+          access_token: session.access_token,
+          refresh_token: session.refresh_token,
+          expires_in: String(session.expires_in ?? 3600),
+          token_type: session.token_type ?? 'bearer',
+          type: 'magiclink',
+        }).toString();
+      }
+      window.location.replace(target.toString());
+    })();
   }, [reporterPath]);
   return (
     <>
