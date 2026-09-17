@@ -1337,6 +1337,7 @@ export default function MapView({
   nexradScanUrl,
   nexradScanCoordinates,
   nexradCompositeSites,
+  nexradCompositeIsLive,
   nexradCompositeTimelineVisible,
   nexradCompositeFrames,
   nexradCompositeSelectedTimestamp,
@@ -1859,6 +1860,7 @@ export default function MapView({
         <RadarLayer
           visible={(isWeatherTab || isAllHazardTab) && layers.radarComposite}
           sites={nexradCompositeSites}
+          live={nexradCompositeIsLive}
           beforeId={radarBeforeId}
         />
 
