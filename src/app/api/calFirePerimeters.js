@@ -16,10 +16,12 @@
  * Last-resort fallback is the same FRAP dataset published on California's
  * open data portal ("California Fire Perimeters (all)"):
  *   https://lab.data.ca.gov/dataset/california-fire-perimeters-all
- * That page is a CKAN catalog entry rather than a queryable ArcGIS endpoint,
- * so the actual perimeter file is resolved dynamically via CKAN's
- * package_show API and then fetched as GeoJSON; filtering by year/acreage
- * happens client-side afterward instead of via `where`/`outFields` params.
+ * That page is a CKAN catalog entry rather than a queryable ArcGIS endpoint
+ * — the actual file is a single static GeoJSON export covering every
+ * recorded fire back to the 1800s, with no query params of its own. When
+ * `VITE_CALFIRE_FRAP_PROXY_URL` is set (see cloud/calfire-frap-proxy/), that
+ * filtering happens server-side via this fallback path instead of by
+ * downloading the whole dataset into the browser and filtering there.
  *
  * No API key required – public government data services. Updated ~annually,
  * so results are cached far longer than the live NIFC/FIRIS perimeter feeds.
@@ -28,6 +30,8 @@
 import { fetchWithCache } from '../utils/dataCache';
 import { MOCK_CALFIRE_HISTORICAL_PERIMETERS } from '../data/mockData';
 import { throttleError } from '../../shared/utils/errorThrottle';
+
+const CALFIRE_FRAP_PROXY_URL = import.meta.env.VITE_CALFIRE_FRAP_PROXY_URL || null;
 
 const CALFIRE_EGIS_BASE =
   'https://egis.fire.ca.gov/arcgis/rest/services/FRAP/FirePerimeters_FS/FeatureServer/0/query';
@@ -130,9 +134,24 @@ async function resolveDataCaGovResourceUrl() {
 }
 
 /**
- * Fetch perimeters from the data.ca.gov mirror. Unlike the ArcGIS sources
- * this is a static file rather than a queryable endpoint, so year/acreage
- * filtering is applied client-side after fetching instead of via query params.
+ * Fetch already-filtered perimeters from cloud/calfire-frap-proxy, which
+ * does the CKAN resolve + year/acreage filter server-side. Preferred over
+ * fetchFromDataCaGov whenever VITE_CALFIRE_FRAP_PROXY_URL is configured.
+ */
+async function fetchFromProxy({ year, minAcres }) {
+  const params = new URLSearchParams({ minYear: String(year), minAcres: String(minAcres) });
+  return fetchFromSource(
+    `${CALFIRE_FRAP_PROXY_URL}/perimeters?${params}`,
+    `calfire:proxy:perimeters:${year}:${minAcres}`,
+    '[CAL FIRE FRAP: calfire-frap-proxy]'
+  );
+}
+
+/**
+ * Fetch perimeters directly from the data.ca.gov mirror. Unlike the ArcGIS
+ * sources this is a static file rather than a queryable endpoint, so
+ * year/acreage filtering is applied client-side after fetching instead of
+ * via query params. Used only when VITE_CALFIRE_FRAP_PROXY_URL isn't set.
  */
 async function fetchFromDataCaGov({ year, minAcres }) {
   const resourceUrl = await withRetry(resolveDataCaGovResourceUrl, {
@@ -190,10 +209,9 @@ export async function fetchCalFireHistoricalPerimeters({ minYear, minAcres = 0 }
           '[CAL FIRE FRAP: ArcGIS Online mirror]'
         ),
     },
-    {
-      label: 'data.ca.gov',
-      fetch: () => fetchFromDataCaGov({ year, minAcres }),
-    },
+    CALFIRE_FRAP_PROXY_URL
+      ? { label: 'calfire-frap-proxy', fetch: () => fetchFromProxy({ year, minAcres }) }
+      : { label: 'data.ca.gov', fetch: () => fetchFromDataCaGov({ year, minAcres }) },
   ];
 
   let lastErr;

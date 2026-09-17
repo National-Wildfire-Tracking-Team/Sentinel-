@@ -16,6 +16,15 @@ import { fetchCalFireGeoJsonList, calFireFeatureToIncident } from '../api/calFir
 
 const REFRESH_MS = parseInt(import.meta.env.VITE_REFRESH_INTERVAL || '300000', 10);
 
+// When set, points at cloud/fire-perimeters-merge — a Cloud Run service that
+// fetches all four sources and runs this same merge pipeline server-side on
+// a shared cache, so every client makes one small request instead of
+// independently fetching+merging every REFRESH_MS. See that service's
+// README for the (opt-in, verify-first) rollout plan for this safety-
+// relevant layer. Falls back to the original per-client fetch+merge below
+// when unset.
+const FIRE_MERGE_SERVICE_URL = import.meta.env.VITE_FIRE_MERGE_SERVICE_URL || null;
+
 /**
  * Normalize a fire name into a match key.
  * Strips common suffixes, handles slash-separated names (takes last part),
@@ -465,6 +474,18 @@ function computeFeatureSignature(fc) {
     .join(';');
 }
 
+async function fetchFromMergeService(minAcres, calFireIncludeInactive) {
+  const params = new URLSearchParams({
+    minAcres: String(minAcres),
+    includeInactive: String(calFireIncludeInactive),
+  });
+  const res = await fetch(`${FIRE_MERGE_SERVICE_URL}/merged?${params}`);
+  if (!res.ok) throw new Error(`fire-perimeters-merge HTTP ${res.status}`);
+  const { perimeters, dots } = await res.json();
+  if (!perimeters?.features || !dots?.features) throw new Error('Unexpected fire-perimeters-merge response');
+  return { perimeters, dots };
+}
+
 /**
  * @param {number} minAcres  Minimum fire size to include (default 0 – no filtering)
  * @returns {{
@@ -495,30 +516,36 @@ export function useMergedFireData(minAcres = 0, enabled = true, calFireIncludeIn
     if (!enabled) return;
     try {
       setError(null);
-      const [perimeters, firisPerimeters, incidents, calFireGeoJSON] = await Promise.all([
-        fetchFirePerimeters({ minAcres }),
-        fetchFIRISPerimeters({ minAcres }),
-        fetchIncidentLocationsGeoJSON({ minAcres }),
-        fetchCalFireGeoJsonList({ includeInactive: calFireIncludeInactive }).catch(() => ({
-          type: 'FeatureCollection',
-          features: [],
-        })),
-      ]);
+      let merged, dots;
+      if (FIRE_MERGE_SERVICE_URL) {
+        ({ perimeters: merged, dots } = await fetchFromMergeService(minAcres, calFireIncludeInactive));
+      } else {
+        const [perimeters, firisPerimeters, incidents, calFireGeoJSON] = await Promise.all([
+          fetchFirePerimeters({ minAcres }),
+          fetchFIRISPerimeters({ minAcres }),
+          fetchIncidentLocationsGeoJSON({ minAcres }),
+          fetchCalFireGeoJsonList({ includeInactive: calFireIncludeInactive }).catch(() => ({
+            type: 'FeatureCollection',
+            features: [],
+          })),
+        ]);
+        if (!mountedRef.current) return;
+
+        // Merge NIFC WFIGS + FIRIS perimeters. WFIGS takes priority for duplicates
+        // (matched by normalized incident name); FIRIS adds CA-only fires not in WFIGS.
+        const mergedPerimeters = tagHistoricalMappings(mergePerimeterSources(perimeters, firisPerimeters));
+
+        const calFiltered = {
+          ...calFireGeoJSON,
+          features: (calFireGeoJSON.features || []).filter(f => {
+            const acres = Number(f.properties?.AcresBurned) || 0;
+            return acres >= minAcres;
+          }),
+        };
+
+        ({ perimeters: merged, dots } = mergeFireData(mergedPerimeters, incidents, calFiltered));
+      }
       if (!mountedRef.current) return;
-
-      // Merge NIFC WFIGS + FIRIS perimeters. WFIGS takes priority for duplicates
-      // (matched by normalized incident name); FIRIS adds CA-only fires not in WFIGS.
-      const mergedPerimeters = tagHistoricalMappings(mergePerimeterSources(perimeters, firisPerimeters));
-
-      const calFiltered = {
-        ...calFireGeoJSON,
-        features: (calFireGeoJSON.features || []).filter(f => {
-          const acres = Number(f.properties?.AcresBurned) || 0;
-          return acres >= minAcres;
-        }),
-      };
-
-      const { perimeters: merged, dots } = mergeFireData(mergedPerimeters, incidents, calFiltered);
 
       // Keep the same object reference across polls when nothing actually
       // changed, so Mapbox's Source doesn't re-run setData()/re-tile the
