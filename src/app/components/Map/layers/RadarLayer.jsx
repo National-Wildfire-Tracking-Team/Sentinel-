@@ -37,67 +37,127 @@ const IEM_NEXRAD_WMS =
 // turn comes up.
 const CROSSFADE_MS = 200;
 
+// How long after a cross-fade is handed over the outgoing slot is
+// unmounted. A margin past CROSSFADE_MS so releasing it can never clip
+// the tail of the fade and pop the old frame off a beat early.
+const FADE_RELEASE_MS = CROSSFADE_MS + 50;
+
 /**
- * One site's image layer. While live, cross-fades between two alternating
- * Mapbox `image` sources whenever `dataUrl` changes — the same two-slot
- * trick Composite Radar's old MRMS-backed version used for its one
- * national frame (see git history), now applied per site instead. A hard
- * swap (updateImage() / changing the `url` prop) always flashes instantly
- * no matter what `raster-fade-duration` is set to — that property only
- * smooths tile-source updates, not `image`-source ones — so an actual
- * cross-fade needs two sources ramping opacity past each other instead.
+ * One site's image layer, cross-fading between two alternating Mapbox
+ * `image` sources whenever `dataUrl` changes while live — the same
+ * two-slot trick Composite Radar's old MRMS-backed version used for its
+ * one national frame (see git history), now applied per site instead. A
+ * hard swap (updateImage() / changing the `url` prop) always flashes
+ * instantly no matter what `raster-fade-duration` is set to — that
+ * property only smooths tile-source updates, not `image`-source ones — so
+ * an actual cross-fade needs two sources ramping opacity past each other.
  *
- * While browsing history, only ever populates slot 0, updated in place —
- * one Mapbox source/layer per site, not two. This is still the same
- * stable top-level component regardless of `live` (that's what actually
- * matters for avoiding a remount — see below), so this is a safe,
- * ordinary conditional child, not the bug this used to have.
+ * The second slot only exists for the ~200ms a fade is actually running:
+ * it mounts at opacity 0, is handed the active opacity on the next tick
+ * (so it fades in rather than popping in on top of the outgoing one — a
+ * freshly added Mapbox layer takes its initial paint value with no
+ * transition, so the hand-over has to be a *separate* commit from the
+ * mount), and the outgoing slot is unmounted once it is fully
+ * transparent. Steady state is therefore exactly one image source and one
+ * raster layer per site, live or in history. Browsing history just swaps
+ * the image in the slot that is already on screen — no fade, nothing
+ * added, nothing removed.
  *
- * History used to render through an entirely different, single-source
- * component (matching NexradScanLayer.jsx's single-site pattern), but
- * that meant `<SiteLayer>` in RadarLayer's .map() resolved to a *different
- * component function* for the same `key={siteId}` the instant the user
- * started scrubbing — which React always fully unmounts and remounts for,
- * even with a matching key — up to ~200 sites' worth of Mapbox
- * sources/layers torn down and rebuilt in one commit, confirmed live to
- * occasionally leave the layer blank afterward. Unifying to one component
- * fixed that, but naively always populating both slots regardless of
- * `live` cost every site a second permanently-resident GPU-uploaded
- * texture it never needed outside live's cross-fade, confirmed live to
- * measurably affect the whole map's responsiveness (panning, scrubbing,
- * even general UI) with ~200 sites each carrying double their necessary
- * layer count. Only populating slot 1 while live keeps the "one stable
- * component" fix (so the blank-map bug can't come back — going from 2
- * slots to 1 just removes one of this component's own children, not a
- * top-level identity swap across the whole site list) while restoring
- * history's original single-layer-per-site cost.
+ * That invariant is the whole point, and both halves of it are load-bearing:
+ *
+ *  - The component itself is the same one regardless of `live`. It used to
+ *    switch to a plain single-source component while browsing history
+ *    (matching NexradScanLayer.jsx's single-site pattern), but that meant
+ *    `<SiteLayer>` in RadarLayer's .map() resolved to a *different
+ *    component function* for the same `key={siteId}` the instant the user
+ *    started scrubbing — which React always fully unmounts and remounts
+ *    for, even with a matching key — up to ~200 sites' worth of Mapbox
+ *    sources/layers torn down and rebuilt in one commit, confirmed live to
+ *    leave the composite blank afterward (PR #621).
+ *
+ *  - Its *child list* is the same regardless of `live` too. Unifying to one
+ *    component originally kept both slots permanently populated, so history
+ *    was later changed to collapse to a single slot — but that collapse
+ *    fired for every visible site at once on the first scrub away from the
+ *    newest frame (the newest frame resolves to the same scan the live view
+ *    was already showing, so it no-ops), removing ~200 sources and ~200
+ *    layers in one commit: the same mass mutation as above, and the same
+ *    blank map (PR #626). Releasing the fade slot per site, as each site's
+ *    own fade finishes, means there is nothing left to collapse by the time
+ *    the user scrubs — toggling `live` changes no Mapbox state at all.
+ *
+ * Note that the resident-but-invisible slot was never the GPU cost it was
+ * once described as: mapbox-gl's drawRaster returns immediately when
+ * `raster-opacity` is 0, so a faded-out slot is skipped by the render loop
+ * entirely. What it does cost is style size — every extra layer is another
+ * react-map-gl <Source>/<Layer> re-rendering on every `styledata` event —
+ * which is why releasing it still matters, and why doing it per site
+ * rather than all at once is both cheaper and safe.
  */
 const SiteLayer = memo(function SiteLayer({ siteId, dataUrl, coordinates, beforeId, live }) {
   const [slots, setSlots] = useState([null, null]);
   const [activeSlot, setActiveSlot] = useState(0);
+  // The slot the newest frame lives in. Tracked in a ref as well as state
+  // because the hand-over below is deferred a tick, and a history swap
+  // landing in that window still has to target the incoming slot.
   const activeSlotRef = useRef(0);
   const lastUrlRef = useRef(null);
+  const handoverRef = useRef(null);
+  const releaseRef = useRef(null);
+
+  useEffect(() => () => {
+    clearTimeout(handoverRef.current);
+    clearTimeout(releaseRef.current);
+  }, []);
 
   useEffect(() => {
     if (!dataUrl || !coordinates || dataUrl === lastUrlRef.current) return;
     lastUrlRef.current = dataUrl;
+    const frame = { url: dataUrl, coordinates };
+    const from = activeSlotRef.current;
+
     if (!live) {
-      // History: always slot 0, updated in place. No alternating, no
-      // second slot ever populated — the id never changes, so this is a
-      // plain prop update on an existing Source, not an add/remove.
-      activeSlotRef.current = 0;
-      setSlots([{ url: dataUrl, coordinates }, null]);
-      setActiveSlot(0);
+      // History: scrubbing/playback is the user jumping directly between
+      // two specific past moments, not two adjacent live updates — fading
+      // between them reads as motion blur across time, not smoothing. So
+      // swap the image in place, in the slot that is already on screen.
+      setSlots((prev) => {
+        const next = [...prev];
+        next[from] = frame;
+        return next;
+      });
       return;
     }
-    const nextActive = activeSlotRef.current === 0 ? 1 : 0;
-    activeSlotRef.current = nextActive;
+
+    // Live, step 1: mount the incoming frame in the other slot. `activeSlot`
+    // hasn't moved yet, so it comes up at opacity 0 instead of popping in
+    // at full opacity on top of the frame it is supposed to fade over.
+    const to = from === 0 ? 1 : 0;
+    activeSlotRef.current = to;
     setSlots((prev) => {
       const next = [...prev];
-      next[nextActive] = { url: dataUrl, coordinates };
+      next[to] = frame;
       return next;
     });
-    setActiveSlot(nextActive);
+
+    // Step 2, next tick (a separate commit, so both layers already exist on
+    // the map): hand over. Now it's a paint-property change on each — a
+    // real cross-fade in both directions.
+    clearTimeout(handoverRef.current);
+    handoverRef.current = setTimeout(() => {
+      setActiveSlot(to);
+      // Step 3: once the outgoing slot is fully transparent, release it —
+      // back to one source/layer for this site until its next update.
+      clearTimeout(releaseRef.current);
+      releaseRef.current = setTimeout(() => {
+        setSlots((prev) => {
+          if (!prev[from]) return prev;
+          const next = [...prev];
+          next[from] = null;
+          return next;
+        });
+      }, FADE_RELEASE_MS);
+    }, 0);
   }, [dataUrl, coordinates, live]);
 
   return slots.map((slot, i) => slot && (
