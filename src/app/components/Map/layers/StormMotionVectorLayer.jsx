@@ -41,7 +41,10 @@ const StormMotionVectorLayer = memo(function StormMotionVectorLayer({ visible, g
           'circle-radius': 4,
           'circle-color': '#ffffff',
           'circle-stroke-width': 1,
-          'circle-stroke-color': '#00000080',
+          // rgba(), not an 8-digit hex — Mapbox GL's style validator rejects
+          // #RRGGBBAA (confirmed live: "color expected, #00000080 found" on
+          // every render), even though it's valid CSS Color 4.
+          'circle-stroke-color': 'rgba(0, 0, 0, 0.5)',
         }}
       />
     </Source>

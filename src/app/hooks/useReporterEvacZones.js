@@ -20,8 +20,16 @@ async function checkTableExists() {
   if (tableAvailable !== null) return tableAvailable;
   try {
     const { error } = await supabase.from(TABLE).select('id').limit(1);
-    // PGRST116 = relation does not exist
-    if (error && (error.code === 'PGRST116' || error.status === 404 || String(error.message).includes('404'))) {
+    // PGRST205 = PostgREST's actual "table not in schema cache" code
+    // (confirmed live: {"code":"PGRST205","message":"Could not find the
+    // table 'public.reporter_evac_zones' in the schema cache"}) — PGRST116
+    // means something unrelated ("JSON object requested, multiple/no rows
+    // returned"), and PostgrestError has no `.status` field at all, so
+    // neither of this check's other two conditions could ever match either.
+    // That let a missing table fall through to `tableAvailable = true` and
+    // fire the real query below anyway, doubling the noise from one 404 to
+    // two on every load.
+    if (error && (error.code === 'PGRST205' || String(error.message).includes('schema cache'))) {
       tableAvailable = false;
     } else {
       tableAvailable = true;
@@ -75,7 +83,11 @@ export function useReporterEvacZones(status = 'active', enabled = true) {
 
     const { data, error: err } = await q;
     if (err) {
-      if (err.code === 'PGRST116' || String(err.message).includes('404')) {
+      // Same PGRST205 check as checkTableExists() above — a backstop in
+      // case the table existed at check-time but is gone by the time this
+      // query runs (or vice versa isn't possible, but this keeps both
+      // branches classifying "table missing" the same way).
+      if (err.code === 'PGRST205' || String(err.message).includes('schema cache')) {
         tableAvailable = false;
         setZones([]);
       } else {
