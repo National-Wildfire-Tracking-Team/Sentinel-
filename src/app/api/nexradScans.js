@@ -59,9 +59,8 @@ export async function fetchScanMeta(siteId, product) {
 }
 
 // Matches the ingestion job's HISTORY_RETENTION_BY_PRODUCT-backed prune
-// window for every product but reflectivity, and the site radar popup's
-// 2-hour scrub bar. Composite Radar's own, much wider window is
-// COMPOSITE_HISTORY_WINDOW_MS below.
+// window and the site radar popup's 2-hour scrub bar. Composite Radar's
+// own window is COMPOSITE_HISTORY_WINDOW_MS below.
 const HISTORY_WINDOW_MS = 2 * 60 * 60 * 1000;
 
 /** Every scan published for a site+product in the last 2 hours, oldest to newest. */
@@ -96,22 +95,24 @@ export async function fetchAllLatestReflectivity() {
   });
 }
 
-// Composite Radar's playback window — much wider than the single-site
-// scrub bar's 2 hours, so it gets its own constant and its own retention on
-// the ingestion side (cloud/nexrad-sync/sync.mjs's HISTORY_RETENTION_BY_PRODUCT).
-export const COMPOSITE_HISTORY_WINDOW_MS = 24 * 60 * 60 * 1000;
+// Composite Radar's playback window. Same 2 hours as the single-site scrub
+// bar above (it was 24h until the ingestion side's retention was cut to
+// match — see cloud/nexrad-sync/sync.mjs's HISTORY_RETENTION_BY_PRODUCT),
+// but kept as its own named constant since the two windows serve different
+// features and have diverged before.
+export const COMPOSITE_HISTORY_WINDOW_MS = 2 * 60 * 60 * 1000;
 
 /**
- * Every reflectivity scan published for any site in the last 24 hours,
- * across all sites in one query — useNexradComposite.js indexes this
- * per-site client-side for timeline scrubbing, rather than issuing ~200
- * individual fetchScanHistory calls.
+ * Every reflectivity scan published for any site in the last
+ * COMPOSITE_HISTORY_WINDOW_MS, across all sites in one query —
+ * useNexradComposite.js indexes this per-site client-side for timeline
+ * scrubbing, rather than issuing ~200 individual fetchScanHistory calls.
  *
  * Pass `sinceIso` (a previously-seen row's scan_time) to fetch only rows
- * newer than that instead of the full 24h window — useNexradComposite.js
- * calls this once with no argument to bootstrap, then keeps polling with an
- * ever-advancing cursor so repeat polls stay cheap (tens of new rows, not
- * the whole day) instead of re-downloading the entire window every cycle.
+ * newer than that instead of the full window — useNexradComposite.js calls
+ * this once with no argument to bootstrap, then keeps polling with an
+ * ever-advancing cursor so repeat polls stay cheap (tens of new rows)
+ * instead of re-downloading the entire window every cycle.
  */
 export async function fetchAllReflectivityHistory(sinceIso) {
   const cutoff = Timestamp.fromDate(new Date(sinceIso ?? Date.now() - COMPOSITE_HISTORY_WINDOW_MS));
