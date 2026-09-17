@@ -13,12 +13,14 @@ import {
   ChevronLeft,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
+import { useAppStatus } from '../../context/AppStatusContext';
 
 const AlertBanner = memo(function AlertBanner({
   dismissed,
   onDismiss,
 }) {
-  const { alerts, selectFire } = useApp();
+  const { selectFire } = useApp();
+  const { alerts } = useAppStatus();
   const [activeIndex, setActiveIndex] = useState(0);
 
   // Only show Red Flag Warnings in the banner

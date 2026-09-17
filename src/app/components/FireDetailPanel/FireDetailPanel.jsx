@@ -13,6 +13,7 @@ import {
   GraduationCap, FileText, Copy, Waves, Navigation, Biohazard, HelpCircle,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
+import { useAppStatus } from '../../context/AppStatusContext';
 import {
   formatAcres, formatContainment, formatFRP, formatDateTime,
   formatDate, formatPersonnel, formatRelativeTime,
@@ -1424,7 +1425,8 @@ function NhcWatchWarningDetail({ fire }) {
 // ─── Main Panel ───────────────────────────────────────────────────────────────
 
 const FireDetailPanel = memo(function FireDetailPanel() {
-  const { selectedFire, clearSelected, alerts } = useApp();
+  const { selectedFire, clearSelected } = useApp();
+  const { alerts } = useAppStatus();
   const [shareStatus, setShareStatus] = useState('');
   const isShareableFireType = ['hotspot', 'perimeter', 'incident', 'user-report', 'weather-alert'].includes(selectedFire?.type);
 

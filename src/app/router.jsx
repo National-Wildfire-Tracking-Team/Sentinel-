@@ -10,8 +10,13 @@ import { lazy, Suspense, useEffect } from 'react';
 import { getReporterOrigin } from '../shared/utils/getAppOrigin';
 import { supabase } from '../shared/api/supabaseClient';
 import Seo from '../shared/components/Seo';
+// Statically imported (not lazy) — "/" is the app subdomain's root route and
+// virtually every visit hits it, so lazy-loading it here only adds a serial
+// fetch waterfall (AppTree chunk -> LiveTrackerPage chunk -> vendor-mapbox
+// chunk) instead of letting the browser discover and fetch all three
+// together as soon as AppTree itself is requested.
+import LiveTrackerPage from './pages/LiveTrackerPage';
 
-const LiveTrackerPage = lazy(() => import('./pages/LiveTrackerPage'));
 const FireIncidentPage = lazy(() => import('./pages/FireIncidentPage'));
 const LoginPage = lazy(() => import('./pages/LoginPage'));
 const RegisterPage = lazy(() => import('./pages/RegisterPage'));

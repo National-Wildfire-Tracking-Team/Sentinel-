@@ -34,11 +34,10 @@
  * surfaces.
  */
 
-import { useMemo } from 'react';
+import { useEffect, useState } from 'react';
 import { useRAWSData } from './useRAWSData';
 import { ringCentroid, outerRing } from '../utils/geoUtils';
 import { findNearestStation } from '../utils/fireBehaviorModel';
-import { simulateFireGrowth, createUniformGrid } from '../fireEngine';
 
 const EMPTY_GEOJSON = { type: 'FeatureCollection', features: [] };
 
@@ -81,7 +80,7 @@ function extractIgnitionAndPerimeter(feature) {
   return null;
 }
 
-function projectionFeatures({ incidentName, ignitionPoint, perimeterRing, rawsFeatures }) {
+function projectionFeatures({ simulateFireGrowth, createUniformGrid, incidentName, ignitionPoint, perimeterRing, rawsFeatures }) {
   const nearest = findNearestStation(ignitionPoint, rawsFeatures);
   const stationProps = nearest?.station?.properties;
   const windSpeedMph = stationProps?.windSpeed ?? DEFAULT_WIND_MPH;
@@ -138,25 +137,54 @@ function projectionFeatures({ incidentName, ignitionPoint, perimeterRing, rawsFe
 export function useFireBehaviorModeling(enabled, fireFeaturesGeoJSON, selectedFireId) {
   const active = enabled && Boolean(selectedFireId);
   const { geoJSON: rawsGeoJSON, loading: rawsLoading } = useRAWSData(active);
+  const [geoJSON, setGeoJSON] = useState(EMPTY_GEOJSON);
+  const [engineLoading, setEngineLoading] = useState(false);
 
-  const geoJSON = useMemo(() => {
-    if (!active) return EMPTY_GEOJSON;
+  // The Rothermel engine (src/app/fireEngine/) is dynamically imported here
+  // rather than statically, since modeling is opt-in per fire and most
+  // sessions never activate it — keeps ~1,000 lines of simulation code out
+  // of the initial bundle.
+  useEffect(() => {
+    if (!active) {
+      setGeoJSON(EMPTY_GEOJSON);
+      return;
+    }
 
     const fire = findByFireId(fireFeaturesGeoJSON?.features || [], selectedFireId);
-    if (!fire || !isModelable(fire.properties)) return EMPTY_GEOJSON;
+    if (!fire || !isModelable(fire.properties)) {
+      setGeoJSON(EMPTY_GEOJSON);
+      return;
+    }
 
     const location = extractIgnitionAndPerimeter(fire);
-    if (!location?.ignitionPoint) return EMPTY_GEOJSON;
+    if (!location?.ignitionPoint) {
+      setGeoJSON(EMPTY_GEOJSON);
+      return;
+    }
 
-    const features = projectionFeatures({
-      incidentName: fire.properties?.IncidentName || 'Unnamed fire',
-      ignitionPoint: location.ignitionPoint,
-      perimeterRing: location.perimeterRing,
-      rawsFeatures: rawsGeoJSON?.features,
-    });
+    let cancelled = false;
+    setEngineLoading(true);
+    import('../fireEngine')
+      .then(({ simulateFireGrowth, createUniformGrid }) => {
+        if (cancelled) return;
+        const features = projectionFeatures({
+          simulateFireGrowth,
+          createUniformGrid,
+          incidentName: fire.properties?.IncidentName || 'Unnamed fire',
+          ignitionPoint: location.ignitionPoint,
+          perimeterRing: location.perimeterRing,
+          rawsFeatures: rawsGeoJSON?.features,
+        });
+        setGeoJSON({ type: 'FeatureCollection', features });
+      })
+      .finally(() => {
+        if (!cancelled) setEngineLoading(false);
+      });
 
-    return { type: 'FeatureCollection', features };
+    return () => {
+      cancelled = true;
+    };
   }, [active, fireFeaturesGeoJSON, rawsGeoJSON, selectedFireId]);
 
-  return { geoJSON, loading: active && rawsLoading };
+  return { geoJSON, loading: active && (rawsLoading || engineLoading) };
 }

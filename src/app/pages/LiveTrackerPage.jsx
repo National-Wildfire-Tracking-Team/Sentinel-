@@ -6,12 +6,13 @@
 
 import Seo from '../../shared/components/Seo';
 import { useApp } from '../context/AppContext';
+import { useAppStatus } from '../context/AppStatusContext';
 import { useViewport } from '../context/ViewportContext';
 import { usePreferences } from '../context/PreferencesContext';
 import { nwsAlertCategory } from '../utils/nwsColors';
 import { FIRE_WEATHER_ALERT_TYPES } from '../api/noaaWeather';
 import { useSavedLocations } from '../hooks/useSavedLocations';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, lazy, Suspense } from 'react';
 
 // Data hooks
 import { useFireHotspots } from '../hooks/useFireHotspots';
@@ -65,10 +66,13 @@ import MapCornerButtons from '../components/MapControls/MapCornerButtons';
 import FutureFeaturesPanel from '../components/MapControls/FutureFeaturesPanel';
 import AccountPanel from '../components/AccountPanel/AccountPanel';
 import Legend from '../components/Legend/Legend';
-import FireDetailPanel from '../components/FireDetailPanel/FireDetailPanel';
-import WaterGaugePanel from '../components/WaterGaugePanel/WaterGaugePanel';
-import RadarSitePanel from '../components/RadarSitePanel/RadarSitePanel';
-import CameraPanel from '../components/CameraPanel/CameraPanel';
+// Lazy-loaded: each only ever mounts once the user has actually selected the
+// corresponding fire/gauge/radar site/camera, so their code shouldn't ship in
+// the initial bundle for sessions that never open one.
+const FireDetailPanel = lazy(() => import('../components/FireDetailPanel/FireDetailPanel'));
+const WaterGaugePanel = lazy(() => import('../components/WaterGaugePanel/WaterGaugePanel'));
+const RadarSitePanel = lazy(() => import('../components/RadarSitePanel/RadarSitePanel'));
+const CameraPanel = lazy(() => import('../components/CameraPanel/CameraPanel'));
 
 // US continental bounding box for data fetches
 const US_BOUNDS = { west: -130, south: 24, east: -65, north: 50 };
@@ -234,7 +238,8 @@ function filterActiveFiresGeoJSON(geoJSON, { containedKey }) {
 const RAWS_MIN_ZOOM = 9;
 
 export default function LiveTrackerPage() {
-  const { layers, setLayer, setRefreshed, setLoading, feedFilter, selectedGauge, selectGauge, selectedFire, selectFire, selectedRadarSite, selectRadarSite, selectedCamera, selectCamera, wpcOutlookDay, alerts } = useApp();
+  const { layers, setLayer, feedFilter, selectedGauge, selectGauge, selectedFire, selectFire, selectedRadarSite, selectRadarSite, selectedCamera, selectCamera, wpcOutlookDay } = useApp();
+  const { setRefreshed, setLoading, alerts } = useAppStatus();
   const { viewport, setViewport, flyToFire } = useViewport();
   const { prefs } = usePreferences();
   const { hasProInfrastructureAccess, hasFireBehaviorModelingAccess } = usePlan();
@@ -1441,36 +1446,38 @@ export default function LiveTrackerPage() {
             radarScanActive={Boolean(selectedRadarSite)}
             radarScanProduct={radarProduct}
           />
-          <FireDetailPanel />
-          {selectedGauge && (
-            <WaterGaugePanel
-              gauge={selectedGauge}
-              onClose={() => selectGauge(null)}
-            />
-          )}
-          {selectedRadarSite && (
-            <RadarSitePanel
-              ref={radarSitePanelRef}
-              site={selectedRadarSite}
-              product={radarProduct}
-              onProductChange={setRadarProduct}
-              meta={radarScanMeta}
-              status={radarScanStatus}
-              error={radarScanError}
-              onClose={() => selectRadarSite(null)}
-              bottomBarWidth={mapBottomBarSize.width}
-              bottomBarHeight={
-                mapBottomBarSize.height + (radarScrubberAttached ? radarTimelineHeight : 0)
-              }
-              topAttached={outlookShowing}
-            />
-          )}
-          {selectedCamera && (
-            <CameraPanel
-              camera={selectedCamera}
-              onClose={() => selectCamera(null)}
-            />
-          )}
+          <Suspense fallback={null}>
+            {selectedFire && <FireDetailPanel />}
+            {selectedGauge && (
+              <WaterGaugePanel
+                gauge={selectedGauge}
+                onClose={() => selectGauge(null)}
+              />
+            )}
+            {selectedRadarSite && (
+              <RadarSitePanel
+                ref={radarSitePanelRef}
+                site={selectedRadarSite}
+                product={radarProduct}
+                onProductChange={setRadarProduct}
+                meta={radarScanMeta}
+                status={radarScanStatus}
+                error={radarScanError}
+                onClose={() => selectRadarSite(null)}
+                bottomBarWidth={mapBottomBarSize.width}
+                bottomBarHeight={
+                  mapBottomBarSize.height + (radarScrubberAttached ? radarTimelineHeight : 0)
+                }
+                topAttached={outlookShowing}
+              />
+            )}
+            {selectedCamera && (
+              <CameraPanel
+                camera={selectedCamera}
+                onClose={() => selectCamera(null)}
+              />
+            )}
+          </Suspense>
       </div>
 
     </div>
