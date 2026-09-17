@@ -38,28 +38,39 @@ const IEM_NEXRAD_WMS =
 const CROSSFADE_MS = 200;
 
 /**
- * One site's image layer, cross-fading between two alternating Mapbox
- * `image` sources whenever `dataUrl` changes — the same two-slot trick
- * Composite Radar's old MRMS-backed version used for its one national
- * frame (see git history), now applied per site instead. A hard swap
- * (updateImage() / changing the `url` prop) always flashes instantly no
- * matter what `raster-fade-duration` is set to — that property only
+ * One site's image layer. While live, cross-fades between two alternating
+ * Mapbox `image` sources whenever `dataUrl` changes — the same two-slot
+ * trick Composite Radar's old MRMS-backed version used for its one
+ * national frame (see git history), now applied per site instead. A hard
+ * swap (updateImage() / changing the `url` prop) always flashes instantly
+ * no matter what `raster-fade-duration` is set to — that property only
  * smooths tile-source updates, not `image`-source ones — so an actual
  * cross-fade needs two sources ramping opacity past each other instead.
  *
- * Always uses this same two-slot structure, live or in history — it used
- * to switch to a plain single-source component while browsing history
- * (matching NexradScanLayer.jsx's single-site pattern), but that meant
- * `<SiteLayer>` resolved to a *different component function* for the same
- * `key={siteId}` the instant the user started scrubbing, which React
- * always fully unmounts and remounts for, even with a matching key — up to
- * ~200 sites' worth of Mapbox sources/layers torn down and rebuilt in one
- * commit, confirmed live to occasionally leave the layer blank afterward.
- * `live` now only controls the fade's *duration* (instant snap to the new
- * frame in history, since scrubbing/playback is the user directly jumping
- * between two specific past moments — fading reads as motion blur across
- * time, not smoothing) — the Source/Layer identities never change, so
- * switching between live and history never touches the map's layer list.
+ * While browsing history, only ever populates slot 0, updated in place —
+ * one Mapbox source/layer per site, not two. This is still the same
+ * stable top-level component regardless of `live` (that's what actually
+ * matters for avoiding a remount — see below), so this is a safe,
+ * ordinary conditional child, not the bug this used to have.
+ *
+ * History used to render through an entirely different, single-source
+ * component (matching NexradScanLayer.jsx's single-site pattern), but
+ * that meant `<SiteLayer>` in RadarLayer's .map() resolved to a *different
+ * component function* for the same `key={siteId}` the instant the user
+ * started scrubbing — which React always fully unmounts and remounts for,
+ * even with a matching key — up to ~200 sites' worth of Mapbox
+ * sources/layers torn down and rebuilt in one commit, confirmed live to
+ * occasionally leave the layer blank afterward. Unifying to one component
+ * fixed that, but naively always populating both slots regardless of
+ * `live` cost every site a second permanently-resident GPU-uploaded
+ * texture it never needed outside live's cross-fade, confirmed live to
+ * measurably affect the whole map's responsiveness (panning, scrubbing,
+ * even general UI) with ~200 sites each carrying double their necessary
+ * layer count. Only populating slot 1 while live keeps the "one stable
+ * component" fix (so the blank-map bug can't come back — going from 2
+ * slots to 1 just removes one of this component's own children, not a
+ * top-level identity swap across the whole site list) while restoring
+ * history's original single-layer-per-site cost.
  */
 const SiteLayer = memo(function SiteLayer({ siteId, dataUrl, coordinates, beforeId, live }) {
   const [slots, setSlots] = useState([null, null]);
@@ -70,6 +81,15 @@ const SiteLayer = memo(function SiteLayer({ siteId, dataUrl, coordinates, before
   useEffect(() => {
     if (!dataUrl || !coordinates || dataUrl === lastUrlRef.current) return;
     lastUrlRef.current = dataUrl;
+    if (!live) {
+      // History: always slot 0, updated in place. No alternating, no
+      // second slot ever populated — the id never changes, so this is a
+      // plain prop update on an existing Source, not an add/remove.
+      activeSlotRef.current = 0;
+      setSlots([{ url: dataUrl, coordinates }, null]);
+      setActiveSlot(0);
+      return;
+    }
     const nextActive = activeSlotRef.current === 0 ? 1 : 0;
     activeSlotRef.current = nextActive;
     setSlots((prev) => {
@@ -78,7 +98,7 @@ const SiteLayer = memo(function SiteLayer({ siteId, dataUrl, coordinates, before
       return next;
     });
     setActiveSlot(nextActive);
-  }, [dataUrl, coordinates]);
+  }, [dataUrl, coordinates, live]);
 
   return slots.map((slot, i) => slot && (
     <Source key={i} id={`nexrad-composite-${siteId}-${i}`} type="image" url={slot.url} coordinates={slot.coordinates}>
