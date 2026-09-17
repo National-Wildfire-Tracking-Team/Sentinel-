@@ -38,7 +38,7 @@ const LAYER_DEFS = {
   goesWest:          { label: 'GOES West Imagery',   sublabel: 'NOAA GOES West · visible',    icon: Eye,           color: '#7c3aed' },
   goesFire16:        { label: 'GOES East Fire RGB',  sublabel: 'NOAA GOES East · Day Land Cloud Fire RGB', icon: Eye, color: '#a855f7' },
   goesFire18:        { label: 'GOES West Fire RGB',  sublabel: 'NOAA GOES West · Day Land Cloud Fire RGB', icon: Eye, color: '#9333ea' },
-  radarComposite:    { label: 'Composite Radar',      sublabel: 'NOAA MRMS national mosaic', icon: Radar, color: '#10b981' },
+  radarComposite:    { label: 'Composite Radar',      sublabel: 'Every NEXRAD site, live', icon: Radar, color: '#10b981' },
   radarNexrad:       { label: 'NEXRAD Level II',      sublabel: 'Per-site reflectivity & velocity scans', icon: Radar, color: '#06b6d4' },
   aqi:               { label: 'AQI Heatmap',          sublabel: 'EPA AirNow gradient overlay',  icon: Wind,         color: '#3b82f6' },
   smoke:             { label: 'Smoke Forecast',      sublabel: 'NOAA HRRR',                   icon: CloudRain,    color: '#94a3b8' },
@@ -159,16 +159,16 @@ function LayerToggle({ layerKey, label, sublabel, icon: Icon, color, locked, onT
     return (
       <div className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg opacity-90">
         <div
-          className="shrink-0 w-7 h-7 rounded-md flex items-center justify-center border border-zinc-600"
+          className="shrink-0 w-7 h-7 rounded-md flex items-center justify-center border border-sentinel-500"
         >
-          <Lock size={12} className="text-zinc-400" />
+          <Lock size={12} className="text-sentinel-300" />
         </div>
         <div className="flex-1 min-w-0">
-          <div className="text-sm font-medium text-zinc-100 truncate flex items-center gap-1.5">
+          <div className="text-sm font-medium text-sentinel-100 truncate flex items-center gap-1.5">
             {label}
             <span className="text-[9px] font-bold uppercase tracking-wide text-amber-400">Pro</span>
           </div>
-          <div className="text-[10px] text-zinc-400 truncate">{sublabel}</div>
+          <div className="text-[10px] text-sentinel-300 truncate">{sublabel}</div>
         </div>
         <a
           href={`${getMainOrigin()}/pricing`}
@@ -200,15 +200,15 @@ function LayerToggle({ layerKey, label, sublabel, icon: Icon, color, locked, onT
       </div>
 
       <div className="flex-1 min-w-0">
-        <div className={`text-sm font-medium truncate transition-colors ${active ? 'text-white' : 'text-zinc-100'}`}>
+        <div className={`text-sm font-medium truncate transition-colors ${active ? 'text-white' : 'text-sentinel-100'}`}>
           {label}
         </div>
-        <div className="text-[10px] text-zinc-400 leading-snug line-clamp-2">{sublabel}</div>
+        <div className="text-[10px] text-sentinel-300 leading-snug line-clamp-2">{sublabel}</div>
       </div>
 
       <div
         className={`shrink-0 relative w-9 h-5 rounded-full transition-colors duration-200
-          ${active ? 'bg-fire-600' : 'bg-zinc-600'}`}
+          ${active ? 'bg-fire-600' : 'bg-sentinel-500'}`}
       >
         <span
           className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow
@@ -227,13 +227,13 @@ function FireRiskDaySelector() {
   }
 
   return (
-    <div className="px-2.5 py-2.5 bg-zinc-900/70 border-t border-zinc-800">
+    <div className="px-2.5 py-2.5 bg-sentinel-800/70 border-t border-sentinel-700">
       <div className="flex items-center justify-between mb-2">
         <div>
-          <div className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400">
+          <div className="text-[10px] font-semibold uppercase tracking-wider text-sentinel-300">
             Forecast Day
           </div>
-          <div className="text-[10px] text-zinc-500 mt-0.5">
+          <div className="text-[10px] text-sentinel-400 mt-0.5">
             NIFC 7-Day Significant Fire Potential
           </div>
       </div>
@@ -260,7 +260,7 @@ function FireRiskDaySelector() {
             ${
               active
                 ? 'bg-orange-500 text-white border-orange-400 shadow-lg shadow-orange-900/30'
-                : 'bg-zinc-950 text-zinc-400 border-zinc-700 hover:bg-zinc-800 hover:text-white hover:border-zinc-600'
+                : 'bg-sentinel-900 text-sentinel-300 border-sentinel-600 hover:bg-sentinel-700 hover:text-white hover:border-sentinel-500'
             }
           `}
           >
@@ -270,7 +270,7 @@ function FireRiskDaySelector() {
       })}
     </div>
 
-    <div className="flex justify-between mt-2 text-[9px] text-zinc-600">
+    <div className="flex justify-between mt-2 text-[9px] text-sentinel-500">
       <span>Today</span>
       <span>+7 days</span>
     </div>
@@ -300,13 +300,13 @@ function WpcDaySelector({ layerKey, product, subtitle, accentColor }) {
   const activeDay = wpcOutlookDay[product];
 
   return (
-    <div className="px-2.5 py-2.5 bg-zinc-900/70 border-t border-zinc-800">
+    <div className="px-2.5 py-2.5 bg-sentinel-800/70 border-t border-sentinel-700">
       <div className="flex items-center justify-between mb-2">
         <div>
-          <div className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400">
+          <div className="text-[10px] font-semibold uppercase tracking-wider text-sentinel-300">
             Forecast Day
           </div>
-          <div className="text-[10px] text-zinc-500 mt-0.5">
+          <div className="text-[10px] text-sentinel-400 mt-0.5">
             {subtitle}
           </div>
         </div>
@@ -327,7 +327,7 @@ function WpcDaySelector({ layerKey, product, subtitle, accentColor }) {
                 transition-all border
                 ${active
                   ? 'text-white shadow-lg border-transparent'
-                  : 'bg-zinc-950 text-zinc-400 border-zinc-700 hover:bg-zinc-800 hover:text-white hover:border-zinc-600'
+                  : 'bg-sentinel-900 text-sentinel-300 border-sentinel-600 hover:bg-sentinel-700 hover:text-white hover:border-sentinel-500'
                 }
               `}
               style={active ? { backgroundColor: accentColor } : undefined}
@@ -415,7 +415,7 @@ const LayerControl = memo(function LayerControl({
         onClick={toggleLayerPanel}
         className={`flex items-center gap-2 px-3 py-2.5 rounded-xl
                    text-sentinel-900 dark:text-white text-sm font-medium transition-colors ${
-                     layerPanelOpen ? 'bg-sentinel-100 dark:bg-zinc-800' : 'hover:bg-sentinel-100/70 dark:hover:bg-zinc-800/70'
+                     layerPanelOpen ? 'bg-sentinel-100 dark:bg-sentinel-700' : 'hover:bg-sentinel-100/70 dark:hover:bg-sentinel-700/70'
                    }`}
         aria-label="Toggle layer control"
         aria-pressed={layerPanelOpen}
@@ -429,12 +429,12 @@ const LayerControl = memo(function LayerControl({
           className="absolute left-1/2 -translate-x-1/2 sm:left-0 sm:translate-x-0
                         bottom-20 sm:bottom-full sm:mb-2
                         w-[92vw] max-w-[380px] sm:w-full sm:max-w-none
-                        bg-black backdrop-blur-md border border-zinc-700
+                        bg-sentinel-900 backdrop-blur-md border border-sentinel-600
                         rounded-2xl shadow-2xl shadow-black/60 overflow-hidden
                         origin-bottom animate-slide-up-panel"
           style={radarPanelClearance ? { marginBottom: `${radarPanelClearance}px` } : undefined}
         >
-          <div className={`px-3 pt-3 pb-2 border-b border-zinc-800 bg-gradient-to-b ${tabAccent}`}>
+          <div className={`px-3 pt-3 pb-2 border-b border-sentinel-700 bg-gradient-to-b ${tabAccent}`}>
             <div className="flex items-center justify-between gap-2">
               <div className="min-w-0">
                 <span className="text-[11px] font-bold text-white uppercase tracking-wider">
@@ -451,14 +451,14 @@ const LayerControl = memo(function LayerControl({
                       className={`w-7 h-7 flex items-center justify-center rounded-md transition-all ${
                         precipRingActive
                           ? 'bg-sky-500 text-white border border-sky-400'
-                          : 'text-zinc-300 hover:text-white hover:bg-zinc-800'
+                          : 'text-sentinel-200 hover:text-white hover:bg-sentinel-700'
                       }`}
                       aria-label="Toggle dBZ radar probe"
                       aria-pressed={precipRingActive}
                     >
                       <Crosshair size={13} />
                     </button>
-                    <span className="absolute top-full mt-1.5 left-1/2 -translate-x-1/2 whitespace-nowrap rounded px-2 py-0.5 text-[11px] font-medium bg-gray-900 text-gray-100 shadow pointer-events-none z-50 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <span className="absolute top-full mt-1.5 left-1/2 -translate-x-1/2 whitespace-nowrap rounded px-2 py-0.5 text-[11px] font-medium bg-sentinel-800 text-sentinel-100 shadow pointer-events-none z-50 opacity-0 group-hover:opacity-100 transition-opacity">
                       dBZ radar probe
                     </span>
                   </div>
@@ -470,12 +470,12 @@ const LayerControl = memo(function LayerControl({
                     className={`w-7 h-7 flex items-center justify-center rounded-md transition-all ${
                       measureActive && measureMode === 'distance'
                         ? 'bg-orange-500 text-white border border-orange-400'
-                        : 'text-zinc-300 hover:text-white hover:bg-zinc-800'
+                        : 'text-sentinel-200 hover:text-white hover:bg-sentinel-700'
                     }`}
                   >
                     <Ruler size={13} />
                   </button>
-                  <span className="absolute top-full mt-1.5 left-1/2 -translate-x-1/2 whitespace-nowrap rounded px-2 py-0.5 text-[11px] font-medium bg-gray-900 text-gray-100 shadow pointer-events-none z-50 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <span className="absolute top-full mt-1.5 left-1/2 -translate-x-1/2 whitespace-nowrap rounded px-2 py-0.5 text-[11px] font-medium bg-sentinel-800 text-sentinel-100 shadow pointer-events-none z-50 opacity-0 group-hover:opacity-100 transition-opacity">
                     Distance
                   </span>
                 </div>
@@ -486,12 +486,12 @@ const LayerControl = memo(function LayerControl({
                     className={`w-7 h-7 flex items-center justify-center rounded-md transition-all ${
                       measureActive && measureMode === 'polygon'
                         ? 'bg-orange-500 text-white border border-orange-400'
-                        : 'text-zinc-300 hover:text-white hover:bg-zinc-800'
+                        : 'text-sentinel-200 hover:text-white hover:bg-sentinel-700'
                     }`}
                   >
                     <Hexagon size={13} />
                   </button>
-                  <span className="absolute top-full mt-1.5 left-1/2 -translate-x-1/2 whitespace-nowrap rounded px-2 py-0.5 text-[11px] font-medium bg-gray-900 text-gray-100 shadow pointer-events-none z-50 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <span className="absolute top-full mt-1.5 left-1/2 -translate-x-1/2 whitespace-nowrap rounded px-2 py-0.5 text-[11px] font-medium bg-sentinel-800 text-sentinel-100 shadow pointer-events-none z-50 opacity-0 group-hover:opacity-100 transition-opacity">
                     Area
                   </span>
                 </div>
@@ -512,14 +512,14 @@ const LayerControl = memo(function LayerControl({
                     className="w-full flex items-start gap-2 px-1.5 py-2 rounded-lg hover:bg-white/5 transition-colors text-left"
                   >
                     {isSectionCollapsed ? (
-                      <ChevronRight size={14} className="shrink-0 text-zinc-500 mt-0.5" />
+                      <ChevronRight size={14} className="shrink-0 text-sentinel-400 mt-0.5" />
                     ) : (
-                      <ChevronDown size={14} className="shrink-0 text-zinc-500 mt-0.5" />
+                      <ChevronDown size={14} className="shrink-0 text-sentinel-400 mt-0.5" />
                     )}
                     <div className="flex-1 min-w-0">
                       <div className="text-xs font-semibold text-white leading-tight">{section.title}</div>
                       {section.subtitle && (
-                        <div className="text-[10px] text-zinc-400 mt-0.5 leading-snug">{section.subtitle}</div>
+                        <div className="text-[10px] text-sentinel-300 mt-0.5 leading-snug">{section.subtitle}</div>
                       )}
                     </div>
                   </button>
@@ -529,11 +529,11 @@ const LayerControl = memo(function LayerControl({
                       {section.groups.map((group, groupIndex) => (
                         <div key={`${sectionKey}-${group.label || groupIndex}`}>
                           {group.label && (
-                            <div className="px-2 pb-1.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-500">
+                            <div className="px-2 pb-1.5 text-[10px] font-semibold uppercase tracking-wider text-sentinel-400">
                               {group.label}
                             </div>
                           )}
-                          <div className="rounded-lg bg-zinc-950 border border-zinc-800 divide-y divide-zinc-800 overflow-hidden">
+                          <div className="rounded-lg bg-sentinel-900 border border-sentinel-700 divide-y divide-sentinel-700 overflow-hidden">
                             {group.layers.map((layerRef) => {
                               // A group entry may be a plain layer key, or an object
                               // overriding the label/sublabel for this tab's context

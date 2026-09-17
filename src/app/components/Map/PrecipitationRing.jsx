@@ -9,17 +9,19 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { ChevronDown, ChevronUp, Lock, Unlock, X } from 'lucide-react';
 import { classifyDbz, sampleRadarAtPoint } from '../../services/radarProbe';
+import { REFLECTIVITY_SCALE } from '../../utils/radarRaster';
 
-// dBZ value → display color
+// dBZ value → display color. Uses REFLECTIVITY_SCALE (the same table that
+// rasterizes the map's reflectivity imagery) so the probe's dot/ring always
+// matches the color band actually painted under it, rather than drifting
+// out of sync with a separately hand-picked scale.
 function dbzColor(dbz) {
   if (dbz === null) return '#4b5563';
-  if (dbz < 15) return '#22d3ee';
-  if (dbz < 30) return '#4ade80';
-  if (dbz < 40) return '#facc15';
-  if (dbz < 50) return '#f97316';
-  if (dbz < 60) return '#ef4444';
-  if (dbz <= 70) return '#f43f5e';
-  return '#d946ef';
+  let match = null;
+  for (const stop of REFLECTIVITY_SCALE) {
+    if (dbz >= stop.min) match = stop;
+  }
+  return match ? match.color : '#4b5563';
 }
 
 // ── PrecipitationRing ─────────────────────────────────────────────────────────
@@ -122,17 +124,17 @@ export function PrecipitationRing({
       )}
 
       <section
-        className="absolute left-1/2 top-4 z-30 w-[min(19rem,calc(100%-2rem))] -translate-x-1/2 overflow-hidden rounded-lg border bg-black/90 text-white shadow-2xl backdrop-blur-sm"
+        className="absolute left-1/2 top-4 z-30 w-[min(19rem,calc(100%-2rem))] -translate-x-1/2 overflow-hidden rounded-lg border bg-sentinel-900/90 text-white shadow-2xl backdrop-blur-sm"
         style={{ borderColor: `${color}88` }}
         aria-label="Radar probe"
       >
         <header className="flex h-10 items-center gap-2 border-b border-white/10 px-3">
-          <span className="flex-1 text-xs font-semibold uppercase text-zinc-200">Radar Probe</span>
+          <span className="flex-1 text-xs font-semibold uppercase text-sentinel-100">Radar Probe</span>
           {locked && <span className="text-[10px] font-semibold uppercase text-amber-300">Locked</span>}
-          <button type="button" onClick={() => setCollapsed(value => !value)} className="flex h-7 w-7 items-center justify-center text-zinc-300 hover:text-white" aria-label={collapsed ? 'Expand radar probe' : 'Collapse radar probe'}>
+          <button type="button" onClick={() => setCollapsed(value => !value)} className="flex h-7 w-7 items-center justify-center text-sentinel-200 hover:text-white" aria-label={collapsed ? 'Expand radar probe' : 'Collapse radar probe'}>
             {collapsed ? <ChevronDown size={15} /> : <ChevronUp size={15} />}
           </button>
-          <button type="button" onClick={onClose} className="flex h-7 w-7 items-center justify-center text-zinc-300 hover:text-white" aria-label="Close radar probe">
+          <button type="button" onClick={onClose} className="flex h-7 w-7 items-center justify-center text-sentinel-200 hover:text-white" aria-label="Close radar probe">
             <X size={15} />
           </button>
         </header>
@@ -141,32 +143,32 @@ export function PrecipitationRing({
           <div className="px-3 py-3">
             {!radarVisible && <p className="text-xs text-amber-300">Enable NEXRAD Reflectivity to sample radar.</p>}
             {status === 'loading' && (
-              <p className="text-xs text-zinc-400">Sampling radar...</p>
+              <p className="text-xs text-sentinel-300">Sampling radar...</p>
             )}
             {status === 'error' && (
               <p className="text-xs text-red-400">Radar data is temporarily unavailable.</p>
             )}
             {radarVisible && (status === 'idle' || (status === 'ok' && !hasData)) && (
-              <p className="text-xs text-zinc-400">No measurable precipitation.</p>
+              <p className="text-xs text-sentinel-300">No measurable precipitation.</p>
             )}
             {hasData && (
               <div className="flex items-baseline justify-between gap-3">
                 <strong className="text-2xl tabular-nums" style={{ color }}>{dbz.toFixed(1)} dBZ</strong>
-                <span className="text-right text-xs font-medium text-zinc-200">{classifyDbz(dbz)}</span>
+                <span className="text-right text-xs font-medium text-sentinel-100">{classifyDbz(dbz)}</span>
               </div>
             )}
             <dl className="mt-3 grid grid-cols-[5rem_1fr] gap-x-2 gap-y-1 text-[11px]">
-              <dt className="text-zinc-500">Location</dt>
-              <dd className="text-right tabular-nums text-zinc-200">{lat?.toFixed(4)}, {lng?.toFixed(4)}</dd>
-              <dt className="text-zinc-500">Product</dt>
-              <dd className="text-right text-zinc-200">{result?.product || 'NEXRAD N0Q'}</dd>
-              <dt className="text-zinc-500">Scan time</dt>
-              <dd className="text-right text-zinc-200">{scanTime}</dd>
+              <dt className="text-sentinel-400">Location</dt>
+              <dd className="text-right tabular-nums text-sentinel-100">{lat?.toFixed(4)}, {lng?.toFixed(4)}</dd>
+              <dt className="text-sentinel-400">Product</dt>
+              <dd className="text-right text-sentinel-100">{result?.product || 'NEXRAD N0Q'}</dd>
+              <dt className="text-sentinel-400">Scan time</dt>
+              <dd className="text-right text-sentinel-100">{scanTime}</dd>
             </dl>
             <button
               type="button"
               onClick={onLockToggle}
-              className={`mt-3 flex h-8 w-full items-center justify-center gap-2 rounded-md text-xs font-semibold ${locked ? 'bg-amber-500 text-black hover:bg-amber-400' : 'bg-zinc-700 text-white hover:bg-zinc-600'}`}
+              className={`mt-3 flex h-8 w-full items-center justify-center gap-2 rounded-md text-xs font-semibold ${locked ? 'bg-amber-500 text-black hover:bg-amber-400' : 'bg-sentinel-600 text-white hover:bg-sentinel-500'}`}
             >
               {locked ? <Unlock size={14} /> : <Lock size={14} />}
               {locked ? 'Unlock location' : 'Lock location'}

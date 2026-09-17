@@ -1,0 +1,19 @@
+{
+  "name": "nexrad-sync",
+  "version": "1.0.0",
+  "description": "NEXRAD Level II radar ingestion job for Sentinel, deployed as a Google Cloud Run Job",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "scripts": {
+    "start": "node sync.mjs"
+  },
+  "dependencies": {
+    "@google-cloud/firestore": "^9.1.0",
+    "@google-cloud/storage": "^8.1.0",
+    "fast-xml-parser": "^5.7.2",
+    "nexrad-level-2-data": "^3.0.2"
+  }
+}

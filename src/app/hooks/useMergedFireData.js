@@ -450,6 +450,22 @@ function mergeFireData(perimeters, incidents, calFireDotsGeoJSON = null) {
 }
 
 /**
+ * Cheap per-feature fingerprint used to detect whether a freshly fetched +
+ * merged FeatureCollection actually differs from the previous one. ArcGIS
+ * bumps ModifiedOnDateTime whenever a record (including its geometry) is
+ * re-mapped, so comparing these fields is a good proxy for "did anything
+ * change" without diffing full polygon coordinate arrays.
+ */
+function computeFeatureSignature(fc) {
+  return fc.features
+    .map(f => {
+      const p = f.properties || {};
+      return `${p.UniqueFireIdentifier || ''}|${p.ModifiedOnDateTime || ''}|${p.GISAcres || 0}|${p.PercentContained || 0}|${p.IncidentName || ''}|${p.isHistoricalMapping ? 1 : 0}`;
+    })
+    .join(';');
+}
+
+/**
  * @param {number} minAcres  Minimum fire size to include (default 0 – no filtering)
  * @returns {{
  *   perimetersGeoJSON: object|null,
@@ -470,6 +486,10 @@ export function useMergedFireData(minAcres = 0, enabled = true, calFireIncludeIn
   const [dotsCount,           setDotsCount]           = useState(0);
   const intervalRef = useRef(null);
   const mountedRef = useRef(true);
+  const prevPerimetersSigRef = useRef(null);
+  const prevPerimetersRef = useRef(null);
+  const prevDotsSigRef = useRef(null);
+  const prevDotsRef = useRef(null);
 
   const load = useCallback(async () => {
     if (!enabled) return;
@@ -499,10 +519,27 @@ export function useMergedFireData(minAcres = 0, enabled = true, calFireIncludeIn
       };
 
       const { perimeters: merged, dots } = mergeFireData(mergedPerimeters, incidents, calFiltered);
-      setPerimetersGeoJSON(merged);
-      setIncidentDotsGeoJSON(dots);
-      setPerimetersCount(merged.features.length);
-      setDotsCount(dots.features.length);
+
+      // Keep the same object reference across polls when nothing actually
+      // changed, so Mapbox's Source doesn't re-run setData()/re-tile the
+      // whole layer (and downstream useMemo pipelines don't recompute) on a
+      // refresh that only re-confirmed the existing data.
+      const perimetersSig = computeFeatureSignature(merged);
+      const perimetersToUse = perimetersSig === prevPerimetersSigRef.current
+        ? prevPerimetersRef.current
+        : merged;
+      prevPerimetersSigRef.current = perimetersSig;
+      prevPerimetersRef.current = perimetersToUse;
+
+      const dotsSig = computeFeatureSignature(dots);
+      const dotsToUse = dotsSig === prevDotsSigRef.current ? prevDotsRef.current : dots;
+      prevDotsSigRef.current = dotsSig;
+      prevDotsRef.current = dotsToUse;
+
+      setPerimetersGeoJSON(perimetersToUse);
+      setIncidentDotsGeoJSON(dotsToUse);
+      setPerimetersCount(perimetersToUse.features.length);
+      setDotsCount(dotsToUse.features.length);
     } catch (err) {
       if (mountedRef.current) setError(err.message);
     } finally {

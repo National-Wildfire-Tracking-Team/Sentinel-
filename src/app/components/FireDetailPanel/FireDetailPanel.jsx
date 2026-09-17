@@ -481,7 +481,7 @@ function AlertDetail({ fire, alerts }) {
   const chipInfo = `${chipBase} bg-sky-100/95 text-blue-900 border-blue-200/80`;
   const chipOutline = `${chipBase} bg-white text-[#1D2951] border-[#1D2951]/40`;
   const actionBtn =
-    'inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[11px] font-bold text-gray-900 bg-amber-400 hover:bg-amber-300 border border-amber-500/50 transition-colors';
+    'inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[11px] font-bold text-sentinel-900 bg-amber-400 hover:bg-amber-300 border border-amber-500/50 transition-colors';
 
   return (
     <>
@@ -552,7 +552,7 @@ function AlertDetail({ fire, alerts }) {
         Official bulletin
       </div>
 
-      <div className="rounded-lg border border-sentinel-700 bg-sentinel-950/80 p-3 mb-4 max-h-[min(55vh,420px)] overflow-y-auto">
+      <div className="rounded-lg border border-sentinel-700 bg-sentinel-900/80 p-3 mb-4 max-h-[min(55vh,420px)] overflow-y-auto">
         {bulletinBody ? (
           <pre className="text-[11px] leading-relaxed text-sentinel-200 font-mono whitespace-pre-wrap break-words">
             {bulletinBody}

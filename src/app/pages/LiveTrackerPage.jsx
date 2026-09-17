@@ -8,6 +8,7 @@ import Seo from '../../shared/components/Seo';
 import { useApp } from '../context/AppContext';
 import { useAppStatus } from '../context/AppStatusContext';
 import { useViewport } from '../context/ViewportContext';
+import { usePreferences } from '../context/PreferencesContext';
 import { nwsAlertCategory } from '../utils/nwsColors';
 import { FIRE_WEATHER_ALERT_TYPES } from '../api/noaaWeather';
 import { useSavedLocations } from '../hooks/useSavedLocations';
@@ -47,7 +48,8 @@ import { useWaterGauges } from '../hooks/useWaterGauges';
 import { useNexradSites } from '../hooks/useNexradSites';
 import { useNexradScan } from '../hooks/useNexradScan';
 import { useNexradRaster } from '../hooks/useNexradRaster';
-import { useMrmsComposite } from '../hooks/useMrmsComposite';
+import { useNexradComposite } from '../hooks/useNexradComposite';
+import { useStormMotionVectors } from '../hooks/useStormMotionVectors';
 import { useCaliforniaCameras } from '../hooks/useCaliforniaCameras';
 import { useCalFirePerimeters } from '../hooks/useCalFirePerimeters';
 import { polygonCentroid } from '../utils/geoUtils';
@@ -239,6 +241,7 @@ export default function LiveTrackerPage() {
   const { layers, setLayer, feedFilter, selectedGauge, selectGauge, selectedFire, selectFire, selectedRadarSite, selectRadarSite, selectedCamera, selectCamera, wpcOutlookDay } = useApp();
   const { setRefreshed, setLoading, alerts } = useAppStatus();
   const { viewport, setViewport, flyToFire } = useViewport();
+  const { prefs } = usePreferences();
   const { hasProInfrastructureAccess, hasFireBehaviorModelingAccess } = usePlan();
   const criticalInfraEntitled = hasProInfrastructureAccess;
   const { locations: savedLocations } = useSavedLocations();
@@ -272,10 +275,12 @@ export default function LiveTrackerPage() {
     }
   }, [activeMapTab]);
 
-  // NEXRAD Level II turned off closes any open site radar panel.
+  // NEXRAD Level II turned off, or leaving the weather/all-hazard tabs,
+  // closes any open site radar panel so its live scan polling stops.
+  const isWeatherOrAllHazardTab = activeMapTab === MAP_TABS.weather || activeMapTab === MAP_TABS.allhazard;
   useEffect(() => {
-    if (!layers.radarNexrad) selectRadarSite(null);
-  }, [layers.radarNexrad, selectRadarSite]);
+    if (!layers.radarNexrad || !isWeatherOrAllHazardTab) selectRadarSite(null);
+  }, [layers.radarNexrad, isWeatherOrAllHazardTab, selectRadarSite]);
 
   useEffect(() => {
     if (!criticalInfraEntitled && layers.criticalInfrastructure) {
@@ -411,6 +416,17 @@ export default function LiveTrackerPage() {
     error: alertsError,
     refresh: refreshAlerts,
   } = useWeatherAlerts(mapReady);
+
+  // Radar Settings: "Storm Motion Vectors" — see useStormMotionVectors.js /
+  // utils/stormMotion.js. `alerts` (from useApp(), populated by
+  // useWeatherAlerts above) already carries the raw description/sent fields
+  // this needs. Independent of the weatherAlerts layer toggle (this is a
+  // display preference, not a layer), so it stays available regardless of
+  // which alert types are currently shown.
+  const stormMotionVectorsGeoJSON = useStormMotionVectors(
+    alerts,
+    mapReady && Boolean(prefs.stormMotionVectors)
+  );
 
   // Wildfire tab: only fire-related alerts (Red Flag Warning / Fire Weather Watch).
   // Weather and all-hazard tabs: every active NWS alert, optionally narrowed by
@@ -611,10 +627,12 @@ export default function LiveTrackerPage() {
     geoJSON: waterGaugesGeoJSON,
   } = useWaterGauges(layers.waterGauges);
 
-  // NWS NEXRAD Level 2 radar sites — live operability status
+  // NWS NEXRAD Level 2 radar sites — live operability status. Needed both
+  // for the site-picker layer (radarNexrad) and as the coordinate source for
+  // Composite Radar's per-site rasterization (radarComposite).
   const {
     geoJSON: nexradSitesGeoJSON,
-  } = useNexradSites(layers.radarNexrad);
+  } = useNexradSites(weatherDataEnabled && (layers.radarNexrad || layers.radarComposite));
 
   // Live California highway cameras — Caltrans District CCTV
   const {
@@ -638,29 +656,23 @@ export default function LiveTrackerPage() {
     selectedRadarSite ? { lat: selectedRadarSite.lat, lng: selectedRadarSite.lng } : null
   );
 
-  // National MRMS composite reflectivity — independent of NEXRAD Level II
-  // above; feeds only the Composite Radar layer (layers.radarComposite).
-  // Timeline/playback/cache all live in useRadarHistory, instantiated for
-  // MRMS by useMrmsComposite; this page just wires its state/actions
-  // through to the map and the timeline control.
+  // Composite Radar — every NEXRAD site's own reflectivity sweep, rendered
+  // as its own map layer (see useNexradComposite.js's doc comment for why
+  // this replaced the old national MRMS mosaic). Independent of the
+  // single-site NEXRAD Level II view above; feeds only layers.radarComposite.
   const {
-    frames: mrmsFrames,
-    selectedTimestamp: mrmsSelectedTimestamp,
-    isLive: mrmsIsLive,
-    isPlaying: mrmsIsPlaying,
-    error: mrmsError,
-    raster: mrmsRaster,
-    isFresh: mrmsIsFresh,
-    selectFrame: onMrmsSelectFrame,
-    play: onMrmsPlay,
-    pause: onMrmsPause,
-    previous: onMrmsPrevious,
-    next: onMrmsNext,
-  } = useMrmsComposite(layers.radarComposite);
-  // IEM fallback only ever makes sense in live mode — IEM has no historical
-  // capability, so substituting it under a historical timestamp would
-  // silently show the wrong image (see RadarLayer.jsx's mrmsFresh prop).
-  const mrmsTrustComposite = mrmsIsLive ? mrmsIsFresh : true;
+    frames: nexradCompositeFrames,
+    selectedTimestamp: nexradCompositeSelectedTimestamp,
+    isLive: nexradCompositeIsLive,
+    isPlaying: nexradCompositeIsPlaying,
+    error: nexradCompositeError,
+    sites: nexradCompositeSites,
+    selectFrame: onNexradCompositeSelectFrame,
+    play: onNexradCompositePlay,
+    pause: onNexradCompositePause,
+    previous: onNexradCompositePrevious,
+    next: onNexradCompositeNext,
+  } = useNexradComposite(weatherDataEnabled && layers.radarComposite, nexradSitesGeoJSON, viewport);
 
   // Community-submitted reports – only approved ones, realtime-subscribed.
   // Tertiary tier: a supplemental overlay, not needed for first paint.
@@ -1076,13 +1088,37 @@ export default function LiveTrackerPage() {
   // selectedFireId up in, instead of branching across two separate GeoJSON
   // props — which fire it is (perimeter vs. dot) is then just a matter of
   // that feature's own geometry type, not which list it came from.
+  //
+  // deduplicatedIncidentsGeoJSON (IncidentLocationsLayer's markers — the
+  // dot-only fires with no NIFC perimeter or reporter duplicate, which is
+  // most fires most users click) uses its own property names (id/name/acres/
+  // contained) instead of the WFIGS ones, so it's normalized to the
+  // UniqueFireIdentifier/IncidentName/GISAcres/PercentContained shape the
+  // modeling hook expects before merging in. No overlap with the other two
+  // lists: perimeter- and reporter-matched incidents are already excluded
+  // from deduplicatedIncidentsGeoJSON, and finalIncidentDotsGeoJSON already
+  // excludes anything that appears in deduplicatedIncidentsGeoJSON.
+  const normalizedIncidentLocations = useMemo(() => (
+    (deduplicatedIncidentsGeoJSON?.features || []).map((f) => ({
+      ...f,
+      properties: {
+        ...f.properties,
+        UniqueFireIdentifier: f.properties?.id,
+        IncidentName: f.properties?.name,
+        GISAcres: f.properties?.acres,
+        PercentContained: f.properties?.contained,
+      },
+    }))
+  ), [deduplicatedIncidentsGeoJSON]);
+
   const fireFeaturesForModeling = useMemo(() => ({
     type: 'FeatureCollection',
     features: [
       ...(filteredPerimetersGeoJSON?.features || []),
       ...(finalIncidentDotsGeoJSON?.features || []),
+      ...normalizedIncidentLocations,
     ],
-  }), [filteredPerimetersGeoJSON, finalIncidentDotsGeoJSON]);
+  }), [filteredPerimetersGeoJSON, finalIncidentDotsGeoJSON, normalizedIncidentLocations]);
 
   const selectedFireId = ['incident', 'perimeter'].includes(selectedFire?.type) ? selectedFire.id : null;
   const { geoJSON: fireBehaviorModelingGeoJSON } = useFireBehaviorModeling(
@@ -1172,7 +1208,7 @@ export default function LiveTrackerPage() {
   }, []);
 
   const radarScrubberAttached = (activeMapTab === MAP_TABS.weather || activeMapTab === MAP_TABS.allhazard)
-    && Boolean(layers.radarComposite) && mrmsFrames.length >= 2;
+    && Boolean(layers.radarComposite) && nexradCompositeFrames.length >= 2;
 
   // Measures the radar scrub bar's own height so the Layers panel (opened
   // from inside MapBottomBar) can clear it too, instead of only clearing
@@ -1292,6 +1328,8 @@ export default function LiveTrackerPage() {
             fireBehaviorModelingGeoJSON={fireBehaviorModelingGeoJSON}
             aqiGeoJSON={aqiGeoJSON}
             alertsGeoJSON={filteredAlertsGeoJSON}
+            stormMotionVectorsGeoJSON={stormMotionVectorsGeoJSON}
+            stormMotionVectorsVisible={Boolean(prefs.stormMotionVectors)}
             stormReportsGeoJSON={stormReportsGeoJSON}
             damageAssessmentPointsGeoJSON={damageAssessmentPointsGeoJSON}
             damageAssessmentLinesGeoJSON={damageAssessmentLinesGeoJSON}
@@ -1341,19 +1379,18 @@ export default function LiveTrackerPage() {
             nexradSitesGeoJSON={nexradSitesGeoJSON}
             nexradScanUrl={radarRaster?.dataUrl}
             nexradScanCoordinates={radarRaster?.coordinates}
-            mrmsDataUrl={mrmsRaster?.dataUrl}
-            mrmsCoordinates={mrmsRaster?.coordinates}
-            mrmsFresh={mrmsTrustComposite}
-            mrmsTimelineVisible={(activeMapTab === MAP_TABS.weather || activeMapTab === MAP_TABS.allhazard) && layers.radarComposite}
-            mrmsFrames={mrmsFrames}
-            mrmsSelectedTimestamp={mrmsSelectedTimestamp}
-            mrmsIsPlaying={mrmsIsPlaying}
-            mrmsError={mrmsError}
-            onMrmsSelectFrame={onMrmsSelectFrame}
-            onMrmsPlay={onMrmsPlay}
-            onMrmsPause={onMrmsPause}
-            onMrmsPrevious={onMrmsPrevious}
-            onMrmsNext={onMrmsNext}
+            nexradCompositeSites={nexradCompositeSites}
+            nexradCompositeIsLive={nexradCompositeIsLive}
+            nexradCompositeTimelineVisible={(activeMapTab === MAP_TABS.weather || activeMapTab === MAP_TABS.allhazard) && layers.radarComposite}
+            nexradCompositeFrames={nexradCompositeFrames}
+            nexradCompositeSelectedTimestamp={nexradCompositeSelectedTimestamp}
+            nexradCompositeIsPlaying={nexradCompositeIsPlaying}
+            nexradCompositeError={nexradCompositeError}
+            onNexradCompositeSelectFrame={onNexradCompositeSelectFrame}
+            onNexradCompositePlay={onNexradCompositePlay}
+            onNexradCompositePause={onNexradCompositePause}
+            onNexradCompositePrevious={onNexradCompositePrevious}
+            onNexradCompositeNext={onNexradCompositeNext}
             mapBottomBarWidth={mapBottomBarSize.width}
             mapBottomBarHeight={mapBottomBarSize.height}
             radarStackHeight={radarStackHeight}

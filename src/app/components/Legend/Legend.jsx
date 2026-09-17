@@ -30,31 +30,27 @@ const FRP_SCALE = [
 ];
 
 // Derived directly from radarRaster.js's REFLECTIVITY_SCALE — the actual
-// standard-NWS color table both NEXRAD (radarRaster.js) and MRMS Composite
-// (mrmsRaster.js, which imports that same scale) use to render — so the
-// legend can never drift out of sync with either renderer. Labeled purely
-// by dBZ range, per NOAA's JetStream reflectivity guidance: dBZ is returned
-// radar energy, not a direct rainfall measurement, so no "light/moderate/
-// heavy" rain descriptors are shown. Nothing below 5 dBZ is rendered on
-// Composite, so this (Composite's own legend) starts at the first visible
-// band. NEXRAD Level II uses a stricter, NEXRAD-only 20 dBZ hide threshold
-// (see NEXRAD_REFLECTIVITY_HIDE_BELOW_DBZ in radarRaster.js) — its own
-// legend, NEXRAD_RADAR_DBZ_SCALE below, is filtered to match.
-export const RADAR_DBZ_SCALE = REFLECTIVITY_SCALE.map((stop, i) => {
-  const next = REFLECTIVITY_SCALE[i + 1];
+// standard-NWS color table every reflectivity renderer uses (single-site
+// NEXRAD Level II and Composite Radar alike now render through the same
+// rasterizeSweep, since Composite Radar is itself built from every NEXRAD
+// site's own sweep — see useNexradComposite.js), so the legend can never
+// drift out of sync with either. Labeled purely by dBZ range, per NOAA's
+// JetStream reflectivity guidance: dBZ is returned radar energy, not a
+// direct rainfall measurement, so no "light/moderate/heavy" rain descriptors
+// are shown. Filtered to NEXRAD_REFLECTIVITY_HIDE_BELOW_DBZ (radarRaster.js's
+// hide threshold for the 'reflectivity' product) since nothing below that is
+// ever rendered, on either layer.
+const NEXRAD_REFLECTIVITY_HIDE_BELOW_DBZ = 20;
+const VISIBLE_REFLECTIVITY_SCALE = REFLECTIVITY_SCALE.filter(
+  (stop) => stop.min >= NEXRAD_REFLECTIVITY_HIDE_BELOW_DBZ
+);
+export const RADAR_DBZ_SCALE = VISIBLE_REFLECTIVITY_SCALE.map((stop, i) => {
+  const next = VISIBLE_REFLECTIVITY_SCALE[i + 1];
   return {
     color: stop.color,
     label: next ? `${stop.min}–${next.min} dBZ` : `${stop.min}+ dBZ`,
   };
 });
-
-// NEXRAD Level II hides reflectivity below 20 dBZ (radarRaster.js's
-// NEXRAD_REFLECTIVITY_HIDE_BELOW_DBZ), so its legend omits the bands below
-// that threshold that RADAR_DBZ_SCALE (Composite's legend) still includes.
-const NEXRAD_REFLECTIVITY_HIDE_BELOW_DBZ = 20;
-export const NEXRAD_RADAR_DBZ_SCALE = RADAR_DBZ_SCALE.filter(
-  (_, i) => REFLECTIVITY_SCALE[i].min >= NEXRAD_REFLECTIVITY_HIDE_BELOW_DBZ
-);
 
 // Official SPC categorical palette (NOAA fill colors)
 const SPC_CATEGORICAL_SCALE = [
@@ -203,7 +199,7 @@ const Legend = memo(function Legend({
 
   return (
     <div className="absolute bottom-20 sm:bottom-10 left-4 z-20 animate-fade-in">
-      <div className="bg-sentinel-900/95 backdrop-blur-sm border border-sentinel-700 rounded-xl shadow-2xl overflow-hidden w-48">
+      <div className="bg-sentinel-900/95 backdrop-blur-sm border border-sentinel-700 rounded-2xl shadow-2xl overflow-hidden w-48">
         {/* Header */}
         <button
           onClick={() => setCollapsed(c => !c)}
@@ -304,20 +300,21 @@ const Legend = memo(function Legend({
               </Section>
             )}
 
-            {/* NEXRAD and MRMS Composite each get their own independent legend
-                entry, gated only by that layer's own state — not merged into
-                one shared "radar reflectivity" section — and each is
-                filtered to its own layer's actual hide threshold (NEXRAD
-                hides below 20 dBZ, Composite below 5 dBZ), even though both
-                render from the same imported NOAA-based dBZ color table. */}
+            {/* NEXRAD Level II and Composite Radar each get their own
+                independent legend entry, gated only by that layer's own
+                state — not merged into one shared "radar reflectivity"
+                section — even though both now render identically (same
+                rasterizeSweep, same RADAR_DBZ_SCALE, same 20 dBZ hide
+                threshold), since Composite Radar is itself built from every
+                NEXRAD site's own sweep. */}
             {radarScanActive && radarScanProduct === 'reflectivity' && (
               <Section title="NEXRAD Reflectivity (dBZ)">
-                {NEXRAD_RADAR_DBZ_SCALE.map(row => <ColorRow key={row.label} {...row} />)}
+                {RADAR_DBZ_SCALE.map(row => <ColorRow key={row.label} {...row} />)}
               </Section>
             )}
 
             {layers.radarComposite && (
-              <Section title="MRMS Composite Reflectivity (dBZ)">
+              <Section title="Composite Radar Reflectivity (dBZ)">
                 {RADAR_DBZ_SCALE.map(row => <ColorRow key={row.label} {...row} />)}
               </Section>
             )}

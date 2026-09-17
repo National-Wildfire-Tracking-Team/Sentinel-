@@ -16,18 +16,22 @@ const SCALE_BY_PRODUCT = {
   zdr: ZDR_SCALE,
   cc: CC_SCALE,
 };
-// No product hides part of its range as "no data" below the first band —
-// reflectivity's scale (Phase 7G, NOAA JetStream-aligned) now starts at
-// -35 dBZ specifically so valid low-end values stay visible; the real
-// no-data sentinel is a separate mechanism entirely (rasterizeSweep's
-// noDataByte check, before colorForProduct is ever reached).
+// No product hides part of its range as "no data" below the first band via
+// bandColor's own belowMinIsNoData — but reflectivity gets a separate, extra
+// hard cutoff ahead of that (colorForProduct's NEXRAD_REFLECTIVITY_HIDE_BELOW_DBZ,
+// currently 20 dBZ), so real values below it are never colored even though
+// REFLECTIVITY_SCALE itself starts lower (5 dBZ). The real no-data sentinel
+// is a separate mechanism entirely (rasterizeSweep's noDataByte check, before
+// colorForProduct is ever reached).
 const BELOW_MIN_IS_NO_DATA = {};
+const REFLECTIVITY_HIDE_BELOW_DBZ = 20;
 
 // Reference implementation mirroring the pre-optimization per-pixel logic
 // (hexToRgb + linear band scan), used only here to verify the LUT produces
 // byte-identical colors — this is the same math rasterizeSweep used to run
 // inline before it was hoisted into a precomputed table.
 function referenceColor(product, realValue) {
+  if (product === 'reflectivity' && realValue < REFLECTIVITY_HIDE_BELOW_DBZ) return null;
   const scaleTable = SCALE_BY_PRODUCT[product];
   const belowMinIsNoData = Boolean(BELOW_MIN_IS_NO_DATA[product]);
   if (belowMinIsNoData && realValue < scaleTable[0].min) return null;
@@ -65,30 +69,28 @@ describe('buildColorLut', () => {
     }
   });
 
-  it('preserves valid low reflectivity (-35 to 15 dBZ) as colored, not no-data', () => {
+  it('hides reflectivity below the 20 dBZ NEXRAD threshold as no-data', () => {
     const scale = 0.5;
     const offset = -32;
     const lut = buildColorLut('reflectivity', scale, offset);
-    // raw=0 -> real = -32 dBZ — within the -35..0 dBZ band, must be colored.
-    expect(unpack(lut[0])).not.toBeNull();
+    // raw=0 -> real = -32 dBZ — below the 20 dBZ hide threshold, must be null.
+    expect(unpack(lut[0])).toBeNull();
   });
 
-  it('never returns no-data for reflectivity via the below-min path, even for an extreme low value', () => {
-    // scale/offset chosen so raw=0 decodes to a real value below -35 (the
-    // scale's own floor) — reflectivity's belowMinIsNoData is false, so this
-    // clamps to the lowest bin's color rather than becoming null. The real
-    // no-data sentinel is an entirely separate mechanism (rasterizeSweep's
-    // noDataByte check), not this one.
-    const lut = buildColorLut('reflectivity', 1, -40);
-    expect(unpack(lut[0])).not.toBeNull(); // real = -40, below the -35 floor — still colored
+  it('colors reflectivity at and above the 20 dBZ NEXRAD threshold', () => {
+    const scale = 0.5;
+    const offset = -32;
+    const lut = buildColorLut('reflectivity', scale, offset);
+    // raw=104 -> real = -32 + 104*0.5 = 20 dBZ — right at the threshold, must be colored.
+    expect(unpack(lut[104])).not.toBeNull();
   });
 
-  it('separates NOAA-mandated dBZ breakpoints into 13 visually distinct bins', () => {
+  it('separates NOAA-mandated dBZ breakpoints (at/above the 20 dBZ hide threshold) into distinct bins', () => {
     const scale = 0.5;
     const offset = -32; // matches nexradPayloadFormat.js's real QUANT_RANGE.reflectivity
     const lut = buildColorLut('reflectivity', scale, offset);
-    // One representative real dBZ value per NOAA breakpoint bin.
-    const representativeDbz = [-20, 8, 17, 22, 27, 32, 37, 42, 47, 52, 57, 62, 80];
+    // One representative real dBZ value per band at/above the hide threshold.
+    const representativeDbz = [22, 27, 32, 37, 42, 47, 52, 57, 62, 67, 72, 80];
     const colors = representativeDbz.map((real) => {
       const raw = Math.round((real - offset) / scale);
       return unpack(lut[Math.min(254, Math.max(0, raw))]);

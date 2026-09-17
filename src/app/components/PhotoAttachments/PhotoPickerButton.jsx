@@ -18,7 +18,7 @@ export default function PhotoPickerButton({ images, addFiles, removeImage, error
         type="button"
         onClick={() => fileInputRef.current?.click()}
         className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium
-                   text-[#8b949e] border border-[#30363d] hover:text-white hover:border-[#484f58] transition-colors"
+                   text-sentinel-400 border border-sentinel-700 hover:text-white hover:border-sentinel-500 transition-colors"
       >
         <ImagePlus size={13} />
         {label}

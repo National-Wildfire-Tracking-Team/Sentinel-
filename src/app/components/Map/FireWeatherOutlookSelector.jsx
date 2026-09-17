@@ -67,10 +67,10 @@ const FireWeatherOutlookSelector = memo(forwardRef(function FireWeatherOutlookSe
         className={`
           px-2 py-1 rounded-lg text-xs font-semibold transition-all
           ${!supported
-            ? 'text-zinc-700 cursor-not-allowed'
+            ? 'text-sentinel-600 cursor-not-allowed'
             : isActive
               ? `${colors.bg} text-white shadow-sm ring-1 ${colors.ring}`
-              : 'text-zinc-200 hover:text-white hover:bg-zinc-800'
+              : 'text-sentinel-100 hover:text-white hover:bg-sentinel-700'
           }
         `}
         aria-pressed={isActive}
@@ -87,7 +87,7 @@ const FireWeatherOutlookSelector = memo(forwardRef(function FireWeatherOutlookSe
       role="group"
       aria-label="SPC Fire Weather Outlook selector"
       className="absolute bottom-20 left-1/2 -translate-x-1/2 z-20 w-[min(34rem,calc(100vw-2rem))]
-                    bg-black border border-zinc-700 rounded-t-2xl shadow-2xl shadow-black/60 ring-1 ring-white/10
+                    bg-sentinel-900 border border-sentinel-600 rounded-t-2xl shadow-2xl shadow-black/60 ring-1 ring-white/10
                     overflow-hidden"
       style={{
         width: bottomBarWidth ? `${bottomBarWidth}px` : undefined,
@@ -99,7 +99,7 @@ const FireWeatherOutlookSelector = memo(forwardRef(function FireWeatherOutlookSe
           content scrolls internally instead of growing the popup taller. */}
       <div className="max-h-[45vh] overflow-y-auto">
         {/* ── Type tab bar ── */}
-        <div className="flex items-stretch border-b border-zinc-800">
+        <div className="flex items-stretch border-b border-sentinel-700">
           {FIRE_WX_OUTLOOK_TYPES.map(type => {
             const isActive = outlookType === type.key;
             const c = TYPE_COLORS[type.key];
@@ -113,8 +113,8 @@ const FireWeatherOutlookSelector = memo(forwardRef(function FireWeatherOutlookSe
                   flex-1 flex flex-col items-center gap-0.5 px-4 py-2 text-[10px] font-bold
                   uppercase tracking-wide transition-all relative
                   ${isActive
-                    ? `${c.text} bg-zinc-900/90`
-                    : 'text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900/70'
+                    ? `${c.text} bg-sentinel-800/90`
+                    : 'text-sentinel-300 hover:text-sentinel-100 hover:bg-sentinel-800/70'
                   }
                 `}
                 aria-pressed={isActive}
@@ -122,7 +122,7 @@ const FireWeatherOutlookSelector = memo(forwardRef(function FireWeatherOutlookSe
                 {isActive && (
                   <span className={`absolute bottom-0 left-2 right-2 h-0.5 rounded-full ${c.bg} opacity-90`} />
                 )}
-                <span className={isActive ? c.text : 'text-zinc-500'}>{TYPE_ICONS[type.key]}</span>
+                <span className={isActive ? c.text : 'text-sentinel-400'}>{TYPE_ICONS[type.key]}</span>
                 <span className="leading-none">{type.label}</span>
               </button>
             );
@@ -131,7 +131,7 @@ const FireWeatherOutlookSelector = memo(forwardRef(function FireWeatherOutlookSe
 
         {/* ── Day pills ── */}
         <div className="flex items-center gap-1 px-3 pt-2 pb-2">
-          <span className="text-[10px] font-semibold text-zinc-500 uppercase tracking-widest shrink-0 w-8">Day</span>
+          <span className="text-[10px] font-semibold text-sentinel-400 uppercase tracking-widest shrink-0 w-8">Day</span>
           <div className="flex items-center gap-1 flex-wrap">
             {FIRE_WX_DAYS.map(({ key, label }) => (
               <DayButton key={key} dayKey={key} label={label.replace('Day ', '')} />

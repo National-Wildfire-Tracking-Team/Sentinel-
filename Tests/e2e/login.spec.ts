@@ -314,7 +314,7 @@ test.describe('LoginPage – Successful Login', () => {
     await expect(page).toHaveURL(/^http:\/\/app\.localhost:3000\/$/);
   });
 
-  test('redirects reporter to /reporter-dashboard after login', async ({ page }) => {
+  test('redirects reporter to the reporter portal after login', async ({ page }) => {
     await page.goto(LOGIN_URL);
     await page.route('**/auth/v1/token**', (route) =>
       route.fulfill({
@@ -368,10 +368,17 @@ test.describe('LoginPage – Successful Login', () => {
     await fillPassword(page, 'password123');
     await submitLoginForm(page);
 
-    await expect(page).toHaveURL(/\/reporter-dashboard/);
+    // The reporter portal is a separate origin (reporter.*), reached via a
+    // hard navigation carrying the session across in the URL hash — see
+    // ReporterPortalRedirect in src/app/router.jsx. Supabase's client
+    // (detectSessionInUrl: true) consumes that hash on load and clears it,
+    // though it leaves a bare trailing '#' rather than removing it outright
+    // (a known @supabase/auth-js quirk, not something this app controls).
+    await expect(page).toHaveURL(/^http:\/\/reporter\.localhost:3000\/#?$/);
+    await expect(page.getByText('Reporter Dashboard')).toBeVisible();
   });
 
-  test('redirects admin to /reporter-dashboard after login', async ({ page }) => {
+  test('redirects admin to the reporter portal after login', async ({ page }) => {
     await page.goto(LOGIN_URL);
     await page.route('**/auth/v1/token**', (route) =>
       route.fulfill({
@@ -425,7 +432,14 @@ test.describe('LoginPage – Successful Login', () => {
     await fillPassword(page, 'password123');
     await submitLoginForm(page);
 
-    await expect(page).toHaveURL(/\/reporter-dashboard/);
+    // The reporter portal is a separate origin (reporter.*), reached via a
+    // hard navigation carrying the session across in the URL hash — see
+    // ReporterPortalRedirect in src/app/router.jsx. Supabase's client
+    // (detectSessionInUrl: true) consumes that hash on load and clears it,
+    // though it leaves a bare trailing '#' rather than removing it outright
+    // (a known @supabase/auth-js quirk, not something this app controls).
+    await expect(page).toHaveURL(/^http:\/\/reporter\.localhost:3000\/#?$/);
+    await expect(page.getByText('Reporter Dashboard')).toBeVisible();
   });
 });
 

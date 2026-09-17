@@ -50,6 +50,18 @@ async function withRetry(fn, { attempts = 3, baseDelayMs = 1000, tag = '[NIFC]' 
   throw lastError;
 }
 
+/** Same query URL, but asking for just the match count (`f=json`, not geojson). */
+function toCountOnlyUrl(url) {
+  const u = new URL(url);
+  u.searchParams.set('f', 'json');
+  u.searchParams.set('returnCountOnly', 'true');
+  return u.toString();
+}
+
+function pagedUrlFor(baseUrl, pageSize, offset) {
+  return `${baseUrl}&orderByFields=OBJECTID&resultOffset=${offset}&resultRecordCount=${pageSize}`;
+}
+
 /**
  * Fetch every page of an ArcGIS query, following `exceededTransferLimit`.
  * ArcGIS FeatureServers cap results at their `maxRecordCount` (2000 for this
@@ -58,24 +70,72 @@ async function withRetry(fn, { attempts = 3, baseDelayMs = 1000, tag = '[NIFC]' 
  * matches 2700+ fires, which was silently losing ~800 real fires (including
  * large, notable ones) with no indication anything was missing.
  * Ordered by OBJECTID so `resultOffset` paging is stable across requests.
+ *
+ * The first page and a cheap `returnCountOnly` request fire in parallel; once
+ * the total match count is known, every remaining page is requested in
+ * parallel too instead of awaiting one page at a time. Falls back to the
+ * original sequential loop if the count request fails for any reason.
  */
 async function fetchAllPages(baseUrl, cacheKeyBase, ttlMs, tag) {
   const pageSize = 2000;
   const maxPages = 10; // hard cap against a runaway loop; ~20k records
-  let offset = 0;
-  let allFeatures = [];
-  let geojsonShell = null;
 
-  for (let page = 0; page < maxPages; page++) {
-    const pagedUrl = `${baseUrl}&orderByFields=OBJECTID&resultOffset=${offset}&resultRecordCount=${pageSize}`;
+  const [firstPage, countResult] = await Promise.all([
+    withRetry(
+      () => fetchWithCache(pagedUrlFor(baseUrl, pageSize, 0), `${cacheKeyBase}:offset0`, {}, ttlMs),
+      { tag }
+    ),
+    withRetry(
+      () => fetchWithCache(toCountOnlyUrl(baseUrl), `${cacheKeyBase}:count`, {}, ttlMs),
+      { tag }
+    ).catch(() => null),
+  ]);
+
+  if (firstPage?.error) throw new Error(firstPage.error.message || 'ArcGIS error');
+  if (!firstPage?.features) throw new Error('Unexpected response format');
+
+  let allFeatures = firstPage.features;
+  const geojsonShell = firstPage;
+  const mightHaveMore = firstPage.properties?.exceededTransferLimit || firstPage.features.length >= pageSize;
+
+  if (!mightHaveMore) {
+    return { ...geojsonShell, features: allFeatures };
+  }
+
+  const totalCount = typeof countResult?.count === 'number' ? countResult.count : null;
+
+  if (totalCount != null) {
+    const capped = Math.min(totalCount, pageSize * maxPages);
+    const offsets = [];
+    for (let offset = pageSize; offset < capped; offset += pageSize) offsets.push(offset);
+
+    const pages = await Promise.all(
+      offsets.map(offset =>
+        withRetry(
+          () => fetchWithCache(pagedUrlFor(baseUrl, pageSize, offset), `${cacheKeyBase}:offset${offset}`, {}, ttlMs),
+          { tag }
+        )
+      )
+    );
+    pages.forEach(data => {
+      if (data?.error) throw new Error(data.error.message || 'ArcGIS error');
+      if (!data?.features) throw new Error('Unexpected response format');
+      allFeatures = allFeatures.concat(data.features);
+    });
+    return { ...geojsonShell, features: allFeatures };
+  }
+
+  // Count request failed — fall back to sequential paging so we can still
+  // stop as soon as a short page tells us we've reached the end.
+  let offset = pageSize;
+  for (let page = 1; page < maxPages; page++) {
     const data = await withRetry(
-      () => fetchWithCache(pagedUrl, `${cacheKeyBase}:offset${offset}`, {}, ttlMs),
+      () => fetchWithCache(pagedUrlFor(baseUrl, pageSize, offset), `${cacheKeyBase}:offset${offset}`, {}, ttlMs),
       { tag }
     );
     if (data?.error) throw new Error(data.error.message || 'ArcGIS error');
     if (!data?.features) throw new Error('Unexpected response format');
 
-    geojsonShell = geojsonShell || data;
     allFeatures = allFeatures.concat(data.features);
 
     if (!data.properties?.exceededTransferLimit && data.features.length < pageSize) break;

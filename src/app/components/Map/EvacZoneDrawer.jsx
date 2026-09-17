@@ -405,7 +405,7 @@ export default function EvacZoneDrawer({ onSave, onCancel, saving = false, saveE
           <NavigationControl position="top-right" />
         </Map>
 
-        <div className="absolute bottom-2 left-2 flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-black/60 border border-white/10 text-[11px] text-[#c9d1d9] pointer-events-none">
+        <div className="absolute bottom-2 left-2 flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-sentinel-900/60 border border-white/10 text-[11px] text-sentinel-100 pointer-events-none">
           <Flame size={11} className="text-orange-400" />
           {firesLoading
             ? 'Loading active wildfires…'
