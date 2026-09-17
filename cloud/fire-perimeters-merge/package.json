@@ -1,0 +1,13 @@
+{
+  "name": "fire-perimeters-merge",
+  "version": "1.0.0",
+  "description": "Server-side NIFC/FIRIS/IRWIN/CAL FIRE fetch + merge for the active-fire perimeter layer, deployed as a Google Cloud Run service",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "scripts": {
+    "start": "node index.mjs"
+  }
+}
