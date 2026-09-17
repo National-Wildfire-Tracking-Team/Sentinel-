@@ -30,7 +30,7 @@ const IEM_NEXRAD_WMS =
 
 // How long a site's new frame takes to cross-fade in over its previous one,
 // while live (see the `live` prop below — history/playback intentionally
-// skip this, see SimpleSiteLayer's doc comment). Sites scan on independent,
+// skip this, see SiteLayer's doc comment). Sites scan on independent,
 // staggered schedules (see useNexradComposite.js), so live updates land at
 // each site's own moment, not in sync with any other site — without a
 // cross-fade that reads as a jarring per-site "pop" every time a site's
@@ -46,43 +46,22 @@ const CROSSFADE_MS = 200;
  * matter what `raster-fade-duration` is set to — that property only
  * smooths tile-source updates, not `image`-source ones — so an actual
  * cross-fade needs two sources ramping opacity past each other instead.
+ *
+ * Always uses this same two-slot structure, live or in history — it used
+ * to switch to a plain single-source component while browsing history
+ * (matching NexradScanLayer.jsx's single-site pattern), but that meant
+ * `<SiteLayer>` resolved to a *different component function* for the same
+ * `key={siteId}` the instant the user started scrubbing, which React
+ * always fully unmounts and remounts for, even with a matching key — up to
+ * ~200 sites' worth of Mapbox sources/layers torn down and rebuilt in one
+ * commit, confirmed live to occasionally leave the layer blank afterward.
+ * `live` now only controls the fade's *duration* (instant snap to the new
+ * frame in history, since scrubbing/playback is the user directly jumping
+ * between two specific past moments — fading reads as motion blur across
+ * time, not smoothing) — the Source/Layer identities never change, so
+ * switching between live and history never touches the map's layer list.
  */
-/**
- * One site's image layer while viewing history (a specific scrubbed
- * timestamp, or stepping through playback) — a single hard-swapped image
- * source with no cross-fade, mirroring NexradScanLayer.jsx's single-site
- * pattern exactly (same 0.75 opacity, same 'nearest' resampling, same
- * colors from radarRaster.js — nothing about how a frame looks changes,
- * only how abruptly it appears). Two things make the crossfade wrong once
- * you're not live: (1) scrubbing/playback are the user directly requesting
- * a real jump between two specific past moments, not two adjacent live
- * updates — fading between them reads as motion blur across time, not
- * smoothing; (2) CrossfadingSiteLayer keeps a second Source/Layer mounted
- * per site (opacity 0, still fully GPU-uploaded) through every fade, which
- * doubles Mapbox's per-frame image-source and paint-layer count across
- * every visible site — real, measurable lag once a scrub or playback tick
- * changes most sites' frames at once, unlike the live poll this trick was
- * built for, where usually only a handful of sites update on any given tick.
- */
-const SimpleSiteLayer = memo(function SimpleSiteLayer({ siteId, dataUrl, coordinates, beforeId }) {
-  if (!dataUrl || !coordinates) return null;
-  return (
-    <Source id={`nexrad-composite-${siteId}`} type="image" url={dataUrl} coordinates={coordinates}>
-      <Layer
-        id={`nexrad-composite-raster-${siteId}`}
-        type="raster"
-        beforeId={beforeId}
-        paint={{
-          'raster-opacity': 0.75,
-          'raster-fade-duration': 0,
-          'raster-resampling': 'nearest',
-        }}
-      />
-    </Source>
-  );
-});
-
-const CrossfadingSiteLayer = memo(function CrossfadingSiteLayer({ siteId, dataUrl, coordinates, beforeId }) {
+const SiteLayer = memo(function SiteLayer({ siteId, dataUrl, coordinates, beforeId, live }) {
   const [slots, setSlots] = useState([null, null]);
   const [activeSlot, setActiveSlot] = useState(0);
   const activeSlotRef = useRef(0);
@@ -109,7 +88,7 @@ const CrossfadingSiteLayer = memo(function CrossfadingSiteLayer({ siteId, dataUr
         beforeId={beforeId}
         paint={{
           'raster-opacity': activeSlot === i ? 0.75 : 0,
-          'raster-opacity-transition': { duration: CROSSFADE_MS },
+          'raster-opacity-transition': { duration: live ? CROSSFADE_MS : 0 },
           'raster-fade-duration': 0,
           // 'nearest', not 'linear' — no GPU resampling, full native grain
           // of each site's own rasterized sweep at every zoom (deliberate
@@ -136,15 +115,11 @@ const RadarLayer = memo(function RadarLayer({ visible, sites, live = true, befor
   // time was selected. A history tick with no sites now shows nothing,
   // same as any other product's data gap.
   const iemVis = visible && !hasSites && live ? 'visible' : 'none';
-  // Cross-fade only while live (smooths each site's own independent poll
-  // landing); a scrubbed/playback history view swaps hard instead — see
-  // SimpleSiteLayer's doc comment for why, both visually and for lag.
-  const SiteLayer = live ? CrossfadingSiteLayer : SimpleSiteLayer;
 
   return (
     <>
       {hasSites && sites.map(({ siteId, dataUrl, coordinates }) => (
-        <SiteLayer key={siteId} siteId={siteId} dataUrl={dataUrl} coordinates={coordinates} beforeId={beforeId} />
+        <SiteLayer key={siteId} siteId={siteId} dataUrl={dataUrl} coordinates={coordinates} beforeId={beforeId} live={live} />
       ))}
 
       <Source
