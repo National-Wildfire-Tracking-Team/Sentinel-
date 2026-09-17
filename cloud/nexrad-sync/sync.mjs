@@ -4,7 +4,10 @@
  * spectrum width, differential reflectivity, correlation coefficient — all
  * base tilt) and publishes a compact pre-processed payload to Google Cloud
  * for the frontend to render. Runs as a Google Cloud Run Job, triggered
- * every 2 minutes by Cloud Scheduler (see README.md for deploy steps).
+ * every 10 minutes by Cloud Scheduler (see README.md for deploy steps).
+ * Each run publishes every volume a site has produced since the last run,
+ * not just the newest, so history stays complete regardless of how the job
+ * cadence lines up with each site's own scan cadence.
  *
  * Metadata (nexradScanMeta / nexradScanHistory / nexradActiveSites) lives in
  * Firestore; binary payloads live in Google Cloud Storage — both part of
@@ -46,7 +49,7 @@
  * max" simplicity tgftp.nws.noaa.gov offered, without depending on a
  * non-AWS mirror.
  *
- * tgftp.nws.noaa.gov is kept as an automatic fallback (see findLatestFile)
+ * tgftp.nws.noaa.gov is kept as an automatic fallback (see findNewFiles)
  * for this migration: if the AWS bucket is unreachable or briefly empty for
  * a site, the sync falls back to the original tgftp directory-listing path.
  * Remove the tgftp fallback in a later change once the AWS path has proven
@@ -99,15 +102,22 @@ const ACTIVE_WINDOW_MS = 15 * 60 * 1000; // sites with no heartbeat in this long
 // Firestore's `in` operator caps at 30 values per query — batch site-id
 // lookups into chunks this size (see fetchPublishedSourceFiles).
 const FIRESTORE_IN_CHUNK_SIZE = 30;
-// Every known site (~200) now gets synced every run, not just a handful of
-// actively-viewed ones — more in-flight network fetches needed to finish
-// inside the workflow's timeout-minutes budget. Lowered from an initial 16:
-// confirmed live on Cloud Run that 16 concurrent full-volume decodes (each
-// holding sizable radial/moment arrays) OOM'd even a 2Gi container — each
-// decode is memory-heavy enough that concurrency, not just raw memory, has
-// to come down too. Revisit after watching real run times/memory in
-// production.
-const CONCURRENCY = 6;
+// Every known site (~200) gets synced every run, and each site can now
+// publish several volumes per run (see syncSite's backfill), so this is the
+// main lever on whether a run finishes inside its task timeout. History:
+// an initial 16 OOM'd even a 2Gi container — concurrent full-volume decodes
+// each hold sizable radial/moment arrays, so concurrency, not just raw
+// memory, had to come down; 6 ran ~8.5 minutes at 4Gi doing one volume per
+// site. Raised to 12 alongside the backfill change, which needs both the
+// 8Gi/4-CPU container and the larger --max-old-space-size documented in
+// README step 6. Lower this before raising memory if OOM recurs — this
+// workload is memory-per-concurrent-decode bound.
+const CONCURRENCY = 12;
+// Ceiling on how many volumes one site can publish in a single run — a
+// safety valve for catching up after an outage, not a normal-operation
+// limit (see syncSite). Each volume is a full download+decode, so an
+// uncapped backlog could run the task past its timeout.
+const MAX_VOLUMES_PER_SITE = 4;
 const MIN_RADIALS = 300; // sanity floor: a real base-tilt cut has 360-720 radials
 const ELEVATION_CANDIDATES = [1, 2, 3, 4]; // see split-cut note above
 
@@ -317,15 +327,25 @@ async function listAwsVolumeKeys(site, { yyyy, mm, dd }) {
 }
 
 /**
- * Latest AWS volume key for a site, or null if the bucket has nothing yet.
+ * AWS volume keys for a site newer than `afterKey`, oldest first — or just
+ * the single newest key when `afterKey` is null (first time we've seen this
+ * site, where backfilling a whole day would be pointless work).
+ *
+ * Returning every new volume rather than only the newest is what decouples
+ * how much history we capture from how often this job runs: sites scan
+ * every ~4-10 minutes depending on VCP, so a latest-only fetch on a
+ * 10-minute schedule silently dropped roughly every other volume.
+ *
  * Falls back to yesterday's UTC date so a call made just after UTC midnight
  * doesn't come up empty while today's first volume is still in flight.
  */
-async function findLatestAwsFile(site) {
-  const todayKeys = await listAwsVolumeKeys(site, utcDateParts(0));
-  if (todayKeys.length) return todayKeys[todayKeys.length - 1];
-  const yesterdayKeys = await listAwsVolumeKeys(site, utcDateParts(-1));
-  return yesterdayKeys.length ? yesterdayKeys[yesterdayKeys.length - 1] : null;
+async function findNewAwsKeys(site, afterKey) {
+  let keys = await listAwsVolumeKeys(site, utcDateParts(0));
+  if (!keys.length) keys = await listAwsVolumeKeys(site, utcDateParts(-1));
+  if (!keys.length) return [];
+  if (afterKey == null) return [keys[keys.length - 1]];
+  const after = timestampKey(afterKey);
+  return keys.filter((key) => timestampKey(key) > after);
 }
 
 async function downloadAwsFile(key) {
@@ -359,26 +379,32 @@ async function downloadTgftpFile(site, filename) {
 }
 
 /**
- * Latest volume for a site: { source: 'aws'|'tgftp', filename } or null.
- * Prefers the NOAA/Unidata AWS archive; falls back to tgftp if AWS is
- * unreachable or has no volumes yet for this site. NOTE: source_file's
- * high-water-mark comparison in syncSite() assumes same-source filenames
- * sort chronologically against each other — comparing an AWS key against a
- * tgftp filename (only possible right at a fallback transition) may rarely
- * cause one extra republish of an already-published volume, which is
- * harmless.
+ * Every volume published for a site since `lastPublishedFile`, oldest
+ * first: [{ source: 'aws'|'tgftp', filename }]. Prefers the NOAA/Unidata
+ * AWS archive; falls back to tgftp if AWS is unreachable or has no volumes
+ * yet for this site. NOTE: the high-water-mark comparison assumes
+ * same-source filenames sort chronologically against each other — comparing
+ * an AWS key against a tgftp filename (only possible right at a fallback
+ * transition) may rarely cause one extra republish of an already-published
+ * volume, which is harmless.
+ *
+ * The tgftp fallback stays latest-only: it's an emergency path for when the
+ * AWS archive is down, where keeping the live view current matters more
+ * than backfilling history.
  */
-async function findLatestFile(site) {
+async function findNewFiles(site, lastPublishedFile) {
   try {
-    const awsKey = await findLatestAwsFile(site);
-    if (awsKey) return { source: 'aws', filename: awsKey };
-    console.warn(`[nexrad-sync] ${site}: AWS archive has no volumes yet, falling back to tgftp`);
+    const awsKeys = await findNewAwsKeys(site, lastPublishedFile);
+    if (awsKeys.length) return awsKeys.map((filename) => ({ source: 'aws', filename }));
+    return [];
   } catch (err) {
     console.warn(`[nexrad-sync] ${site}: AWS listing failed (${err?.message || err}), falling back to tgftp`);
   }
 
   const tgftpFile = await findLatestTgftpFile(site);
-  return tgftpFile ? { source: 'tgftp', filename: tgftpFile } : null;
+  if (!tgftpFile) return [];
+  if (lastPublishedFile != null && timestampKey(tgftpFile) <= timestampKey(lastPublishedFile)) return [];
+  return [{ source: 'tgftp', filename: tgftpFile }];
 }
 
 async function downloadFile(site, volume) {
@@ -425,19 +451,42 @@ function findBestElevation(radar, getter) {
 }
 
 async function syncSite(site, lastPublishedFile, productsToSync) {
-  const latest = await findLatestFile(site);
-  if (!latest) {
-    console.log(`[nexrad-sync] ${site}: no files listed yet`);
-    return;
-  }
-  const { filename: latestFile } = latest;
-  if (lastPublishedFile != null && timestampKey(latestFile) <= timestampKey(lastPublishedFile)) {
-    console.log(`[nexrad-sync] ${site}: ${latestFile} already published, waiting for next volume`);
+  let volumes = await findNewFiles(site, lastPublishedFile);
+  if (!volumes.length) {
+    console.log(`[nexrad-sync] ${site}: nothing new since ${lastPublishedFile ?? '(never)'}`);
     return;
   }
 
-  console.log(`[nexrad-sync] ${site}: downloading ${latestFile} (${latest.source})`);
-  const bytes = await downloadFile(site, latest);
+  // Safety valve for a long outage, where `lastPublishedFile` can be hours
+  // behind and the listing comes back with dozens of volumes. At a normal
+  // 10-minute cadence this never binds (it would take a site scanning faster
+  // than every 2.5 minutes), so it only kicks in while catching up — and
+  // there, the newest volumes are the ones worth having, since the UI only
+  // shows a 2-hour window and `latest.bin` drives the live view.
+  if (volumes.length > MAX_VOLUMES_PER_SITE) {
+    console.warn(`[nexrad-sync] ${site}: ${volumes.length} new volumes, capping to newest ${MAX_VOLUMES_PER_SITE}`);
+    volumes = volumes.slice(-MAX_VOLUMES_PER_SITE);
+  }
+
+  // Oldest first, so the newest volume is the last to overwrite latest.bin.
+  for (const volume of volumes) {
+    await publishVolume(site, volume, productsToSync);
+  }
+}
+
+/** Download, decode and publish one volume — history entry plus latest.bin. */
+async function publishVolume(site, volume, productsToSync) {
+  const { filename: sourceFileName } = volume;
+  console.log(`[nexrad-sync] ${site}: downloading ${sourceFileName} (${volume.source})`);
+
+  let bytes;
+  try {
+    bytes = await downloadFile(site, volume);
+  } catch (err) {
+    // One unreadable volume shouldn't abandon the rest of this site's backlog.
+    console.warn(`[nexrad-sync] ${site}: download failed for ${sourceFileName}:`, err?.message || err);
+    return;
+  }
 
   let radar;
   try {
@@ -458,16 +507,16 @@ async function syncSite(site, lastPublishedFile, productsToSync) {
 
   const jobs = [];
   for (const [product, found] of Object.entries(products)) {
-    if (found) jobs.push(publishProduct({ site, product, scanTimeMs, sourceFile: latestFile, ...found }));
+    if (found) jobs.push(publishProduct({ site, product, scanTimeMs, sourceFile: sourceFileName, ...found }));
   }
 
   if (!jobs.length) {
-    console.log(`[nexrad-sync] ${site}: no usable radar data in ${latestFile}`);
+    console.log(`[nexrad-sync] ${site}: no usable radar data in ${sourceFileName}`);
     return;
   }
 
   await Promise.all(jobs);
-  console.log(`[nexrad-sync] ${site}: published ${latestFile}`);
+  console.log(`[nexrad-sync] ${site}: published ${sourceFileName}`);
 }
 
 const MS_TO_KNOTS = 1.943844;

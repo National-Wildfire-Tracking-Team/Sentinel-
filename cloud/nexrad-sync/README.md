@@ -150,12 +150,12 @@ gcloud run jobs deploy nexrad-radar-sync \
   --image <REGION>-docker.pkg.dev/<PROJECT_ID>/nexrad-sync/nexrad-sync:latest \
   --region <REGION> \
   --service-account nexrad-sync-runtime@<PROJECT_ID>.iam.gserviceaccount.com \
-  --set-env-vars NEXRAD_SCANS_BUCKET=<BUCKET_NAME>,NODE_OPTIONS=--max-old-space-size=3072 \
-  --memory 4Gi \
-  --cpu 2 \
+  --set-env-vars NEXRAD_SCANS_BUCKET=<BUCKET_NAME>,NODE_OPTIONS=--max-old-space-size=6144 \
+  --memory 8Gi \
+  --cpu 4 \
   --tasks 1 \
   --max-retries 0 \
-  --task-timeout 600s
+  --task-timeout 900s
 
 gcloud run jobs add-iam-policy-binding nexrad-radar-sync \
   --region <REGION> \
@@ -167,19 +167,30 @@ gcloud run jobs add-iam-policy-binding nexrad-radar-sync \
 invocation, no automatic retry (a failed run just waits for the next
 Scheduler tick).
 
-**`--memory 4Gi --cpu 2` and `NODE_OPTIONS=--max-old-space-size=3072` are
+**`--memory 8Gi --cpu 4` and `NODE_OPTIONS=--max-old-space-size=6144` are
 required, not optional headroom** — confirmed live: the Cloud Run default
 (512Mi) OOM'd immediately (`FATAL ERROR: Reached heap limit... JavaScript
 heap out of memory`) decoding real volumes at `CONCURRENCY=6` (already
 lowered once from an initial 16 for the same reason), and even bumping to
 `--memory 2Gi` alone still OOM'd at ~1GB — Node doesn't automatically size
 its heap to match the container's memory limit, so `NODE_OPTIONS` has to
-say so explicitly. `--task-timeout 600s` (10 minutes) is real headroom
-above the actual observed run time (~9-10 minutes syncing every known
-site at `CONCURRENCY=6`), not a generous guess — raise `--task-timeout` /
-`CONCURRENCY` further only after watching real run times, and lower
-`CONCURRENCY` again (not just raise memory) if OOM recurs — this workload
-is memory-per-concurrent-decode bound, not just memory-bound.
+say so explicitly.
+
+The 8Gi/4-CPU sizing (up from 4Gi/2) pairs with `CONCURRENCY = 12` in
+`sync.mjs`, raised from 6 when the job started backfilling **every** volume
+a site produced since the last run rather than only the newest. That change
+is what makes history complete — sites scan every ~4-10 minutes depending
+on VCP, so a latest-only fetch on a 10-minute schedule silently dropped
+roughly every other volume — but it also means each run does closer to
+twice the download/decode work. Measured before the change: ~8.5 minutes
+per run at `CONCURRENCY=6`/4Gi, against a 600s timeout, i.e. only ~90
+seconds of headroom. `--task-timeout 900s` restores real margin.
+
+If OOM recurs, lower `CONCURRENCY` before raising memory — this workload is
+memory-per-concurrent-decode bound, not just memory-bound. If runs instead
+start approaching 10 minutes (the Scheduler interval), lower
+`MAX_VOLUMES_PER_SITE` or raise the interval, since overlapping executions
+pile up (see step 7).
 
 ## 7. Cloud Scheduler
 
