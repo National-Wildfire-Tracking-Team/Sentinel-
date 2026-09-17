@@ -12,6 +12,7 @@ import 'mapbox-gl/dist/mapbox-gl.css';
 import MapZoomControl from './MapZoomControl';
 
 import { useApp } from '../../context/AppContext';
+import { useAppStatus } from '../../context/AppStatusContext';
 import { useViewport } from '../../context/ViewportContext';
 import { usePreferences } from '../../context/PreferencesContext';
 import { formatAcres, formatContainment, formatFRP } from '../../utils/formatUtils';
@@ -1337,6 +1338,7 @@ export default function MapView({
   nexradScanUrl,
   nexradScanCoordinates,
   nexradCompositeSites,
+  nexradCompositeIsLive,
   nexradCompositeTimelineVisible,
   nexradCompositeFrames,
   nexradCompositeSelectedTimestamp,
@@ -1361,7 +1363,8 @@ export default function MapView({
   spcOutlookPanelRef,
   fireWxOutlookPanelRef,
 }) {
-  const { layers, alerts, selectedFire, selectFire, selectGauge, selectedRadarSite, selectRadarSite, selectCamera, sidebarOpen, locationGranted, userLocation, setUserLocation, layerPanelOpen, closeLayerPanel } = useApp();
+  const { layers, selectedFire, selectFire, selectGauge, selectedRadarSite, selectRadarSite, selectCamera, sidebarOpen, locationGranted, layerPanelOpen, closeLayerPanel } = useApp();
+  const { alerts, userLocation, setUserLocation } = useAppStatus();
   const { viewport, setViewport } = useViewport();
   const { prefs: displayPrefs } = usePreferences();
   const mapRef = useRef(null);
@@ -1859,6 +1862,7 @@ export default function MapView({
         <RadarLayer
           visible={(isWeatherTab || isAllHazardTab) && layers.radarComposite}
           sites={nexradCompositeSites}
+          live={nexradCompositeIsLive}
           beforeId={radarBeforeId}
         />
 

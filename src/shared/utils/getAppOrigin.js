@@ -1,3 +1,18 @@
+// Subdomains this app splits its three route trees across (see main.jsx) —
+// used to find the bare/marketing hostname underneath whichever one the
+// visitor is currently on, so building a *different* subdomain's origin
+// prepends onto that bare host instead of onto the current one.
+const KNOWN_SUBDOMAIN_PREFIXES = ['app.', 'reporter.'];
+
+function baseHostname(hostname) {
+  const prefix = KNOWN_SUBDOMAIN_PREFIXES.find((p) => hostname.startsWith(p));
+  return prefix ? hostname.slice(prefix.length) : hostname;
+}
+
+function withSubdomain(prefix, hostname) {
+  return hostname === 'localhost' ? `${prefix}localhost` : `${prefix}${hostname}`;
+}
+
 /**
  * Resolves the origin of the tracker app subdomain from the current hostname,
  * so cross-subdomain links work in production (app.nationalwildfiretrackingteam.org)
@@ -6,7 +21,7 @@
 export function getAppOrigin() {
   const { protocol, hostname, port } = window.location;
   if (hostname.startsWith('app.')) return window.location.origin;
-  const appHostname = hostname === 'localhost' ? 'app.localhost' : `app.${hostname}`;
+  const appHostname = withSubdomain('app.', baseHostname(hostname));
   return `${protocol}//${appHostname}${port ? `:${port}` : ''}`;
 }
 
@@ -17,8 +32,8 @@ export function getAppOrigin() {
  */
 export function getMainOrigin() {
   const { protocol, hostname, port } = window.location;
-  if (!hostname.startsWith('app.')) return window.location.origin;
-  const mainHostname = hostname.slice('app.'.length);
+  const mainHostname = baseHostname(hostname);
+  if (mainHostname === hostname) return window.location.origin;
   return `${protocol}//${mainHostname}${port ? `:${port}` : ''}`;
 }
 
@@ -31,6 +46,6 @@ export function getMainOrigin() {
 export function getReporterOrigin() {
   const { protocol, hostname, port } = window.location;
   if (hostname.startsWith('reporter.')) return window.location.origin;
-  const reporterHostname = hostname === 'localhost' ? 'reporter.localhost' : `reporter.${hostname}`;
+  const reporterHostname = withSubdomain('reporter.', baseHostname(hostname));
   return `${protocol}//${reporterHostname}${port ? `:${port}` : ''}`;
 }

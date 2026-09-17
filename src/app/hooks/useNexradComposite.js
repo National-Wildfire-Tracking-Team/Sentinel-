@@ -51,6 +51,19 @@ const HISTORY_WINDOW_MS = COMPOSITE_HISTORY_WINDOW_MS;
 const STALE_MS = 20 * 60 * 1000;
 const RASTER_CACHE_SIZE = 300; // bounded across all sites+ticks combined
 const VIEWPORT_DEBOUNCE_MS = 600;
+// A dragged <input type="range"> scrub bar fires onChange continuously
+// (React's onChange is the native 'input' event, not 'change' — it fires on
+// every pixel of drag, not just on release), and each call used to run a
+// full resolveSites pass — a real fetch + a synchronous, CPU-heavy
+// rasterizeSweep canvas loop per visible site — immediately. loadTokenRef
+// already discards a stale resolve's *result*, but not the work itself: by
+// the time a newer drag position invalidates it, the decode already ran and
+// blocked the main thread, so a fast drag across dozens of sites piled up
+// far more rasterization than any single frame actually shown. Debouncing
+// the expensive resolve (not the timestamp label/slider position, which
+// stays instant) means only the drag's final resting point actually
+// decodes.
+const SCRUB_DEBOUNCE_MS = 150;
 
 // Approximate visible radius from viewport zoom (standard Web Mercator tile
 // math), assuming a generous desktop viewport width, plus a margin for a
@@ -146,6 +159,7 @@ export function useNexradComposite(enabled, sitesGeoJSON, viewport) {
   const siteHistoryRef = useRef(new Map()); // siteId -> sorted [{ scan_time, storage_path }]
   const rasterCacheRef = useRef(new Map()); // "siteId|scan_time" -> { dataUrl, coordinates }
   const loadTokenRef = useRef(0);
+  const scrubDebounceRef = useRef(null);
 
   useEffect(() => { framesRef.current = frames; }, [frames]);
   useEffect(() => { selectedTimestampRef.current = selectedTimestamp; }, [selectedTimestamp]);
@@ -159,7 +173,10 @@ export function useNexradComposite(enabled, sitesGeoJSON, viewport) {
 
   useEffect(() => {
     mountedRef.current = true;
-    return () => { mountedRef.current = false; };
+    return () => {
+      mountedRef.current = false;
+      if (scrubDebounceRef.current) clearTimeout(scrubDebounceRef.current);
+    };
   }, []);
 
   // Debounce viewport reads so a drag/zoom gesture doesn't retrigger network
@@ -241,6 +258,14 @@ export function useNexradComposite(enabled, sitesGeoJSON, viewport) {
   }, [visibleSiteIds, loadSiteRaster]);
 
   const loadTimestamp = useCallback(async (targetMs) => {
+    // Any direct resolve (goLive, playback, a viewport change) supersedes
+    // whatever scrub position was still waiting out its debounce — without
+    // this, a pending debounced drag-resolve could fire after and clobber
+    // a `goLive()`/playback resolve that started later but finished sooner.
+    if (scrubDebounceRef.current) {
+      clearTimeout(scrubDebounceRef.current);
+      scrubDebounceRef.current = null;
+    }
     const token = ++loadTokenRef.current;
     setLoading(true);
     try {
@@ -263,8 +288,16 @@ export function useNexradComposite(enabled, sitesGeoJSON, viewport) {
     const list = framesRef.current;
     const newest = list[list.length - 1];
     const isNewest = newest && sourceTime === newest.sourceTime;
+    const targetMs = isNewest ? null : new Date(sourceTime).getTime();
+    // Label/slider position update immediately; the expensive decode is
+    // debounced (see SCRUB_DEBOUNCE_MS) so a drag's intermediate positions
+    // never each pay for a full resolve.
     setSelectedTimestamp(isNewest ? null : sourceTime);
-    loadTimestamp(isNewest ? null : new Date(sourceTime).getTime());
+    if (scrubDebounceRef.current) clearTimeout(scrubDebounceRef.current);
+    scrubDebounceRef.current = setTimeout(() => {
+      scrubDebounceRef.current = null;
+      loadTimestamp(targetMs);
+    }, SCRUB_DEBOUNCE_MS);
   }, [loadTimestamp, stopPlayback]);
 
   const goLive = useCallback(() => {

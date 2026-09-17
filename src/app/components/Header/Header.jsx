@@ -5,7 +5,7 @@
  */
 
 import { useEffect, useMemo, useRef, useState, memo } from 'react';
-import { useApp } from '../../context/AppContext';
+import { useAppStatus } from '../../context/AppStatusContext';
 import { formatRelativeTime } from '../../utils/formatUtils';
 import { Flame, RefreshCw } from 'lucide-react';
 
@@ -14,7 +14,7 @@ const JUST_NOW_VISIBLE_MS = 5_000;
 const GIVEBUTTER_WIDGET_ID = 'j1X43O';
 
 const Header = memo(function Header({ onRefresh }) {
-  const { lastRefreshed, isLoading } = useApp();
+  const { lastRefreshed, isLoading } = useAppStatus();
 
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [showRecentRefreshIndicator, setShowRecentRefreshIndicator] = useState(false);

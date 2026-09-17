@@ -174,13 +174,9 @@ export async function fetchFirePerimeters({ minAcres = 0 } = {}) {
       'attr_FireCause',
     ].join(','),
     outSR: '4326',
-    // Ask ArcGIS to generalize geometry server-side (Douglas-Peucker) and cap
-    // coordinate precision. WFIGS/FIRIS perimeters are often digitized from
-    // GPS tracklogs or IR imagery and can carry thousands of vertices per
-    // fire; ~5m tolerance is imperceptible at the zoom levels this map
-    // renders perimeters at, but sharply cuts payload size and the client-side
-    // geojson-vt re-tiling cost on every source.setData().
-    maxAllowableOffset: '0.00005',
+    // Rounds coordinates to ~1.1m precision — imperceptible at any browser
+    // map zoom, but meaningfully trims payload size for perimeters with
+    // thousands of vertices.
     geometryPrecision: '5',
     f: 'geojson',
   });
@@ -252,7 +248,6 @@ export async function fetchFIRISPerimeters({ minAcres = 0 } = {}) {
       'displayStatus',
     ].join(','),
     outSR: '4326',
-    maxAllowableOffset: '0.00005',
     geometryPrecision: '5',
     f: 'geojson',
   });

@@ -5,13 +5,15 @@
 
 import { Flame, MapPin, Users, Home } from 'lucide-react';
 import { memo } from 'react';
-import { useApp } from '../../context/AppContext';
 import { useViewport } from '../../context/ViewportContext';
 import { formatAcres, formatContainment, formatRelativeTime, formatPersonnel } from '../../utils/formatUtils';
 import { containmentToColor } from '../../utils/colorUtils';
 
-function IncidentCard({ incident, isSelected }) {
-  const { selectFire } = useApp();
+// selectFire is passed as a prop (rather than read via useApp() here) so this
+// component — instantiated once per rendered incident, up to a few hundred —
+// depends on nothing from AppContext and React.memo can actually skip it on
+// unrelated context dispatches (layer toggles, alerts polling, etc).
+function IncidentCard({ incident, isSelected, selectFire }) {
   const { flyToFire } = useViewport();
 
   const handleClick = () => {

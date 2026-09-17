@@ -1,7 +1,10 @@
 /**
  * AppContext.jsx
  * Global application state for Sentinel.
- * Manages: layer visibility, selected fire, sidebar, alerts, map state.
+ * Manages: layer visibility, selected fire, sidebar, map state.
+ *
+ * High-churn background data (alerts, isLoading, lastRefreshed,
+ * userLocation) lives in AppStatusContext instead — see that file for why.
  */
 
 import { createContext, useContext, useReducer, useCallback, useMemo } from 'react';
@@ -80,20 +83,10 @@ const initialState = {
   accountPanelOpen: false,
   // Legend visibility
   legendOpen: true,
-  // Active weather alerts list
-  alerts: [],
-  // Pipeline status for weather alerts (error, loading per-alert-system)
-  alertsStatus: { loading: false, error: null, errorDetail: null, lastRefresh: null },
   // Sidebar feed filter: 'all' or 'focused' (hides old/contained fires)
   feedFilter: 'all',
-  // Last time data was refreshed
-  lastRefreshed: null,
-  // Whether any data fetch is in flight
-  isLoading: false,
   // Whether the user has granted live location (only requested via the locate-me corner button)
   locationGranted: false,
-  // Live user location {latitude, longitude}, once granted
-  userLocation: null,
 };
 
 // ─── Action Types ─────────────────────────────────────────────────────────────
@@ -113,13 +106,8 @@ const A = {
   TOGGLE_FUTURE_PANEL: 'TOGGLE_FUTURE_PANEL',
   TOGGLE_ACCOUNT_PANEL: 'TOGGLE_ACCOUNT_PANEL',
   TOGGLE_LEGEND:      'TOGGLE_LEGEND',
-  SET_ALERTS:         'SET_ALERTS',
-  SET_ALERTS_STATUS:  'SET_ALERTS_STATUS',
-  SET_LOADING:        'SET_LOADING',
-  SET_REFRESHED:      'SET_REFRESHED',
   SET_FEED_FILTER:    'SET_FEED_FILTER',
   GRANT_LOCATION:     'GRANT_LOCATION',
-  SET_USER_LOCATION:  'SET_USER_LOCATION',
 };
 
 // Composite Radar and NEXRAD Level II render the same map area two
@@ -184,20 +172,10 @@ function reducer(state, action) {
     }
     case A.TOGGLE_LEGEND:
       return { ...state, legendOpen: !state.legendOpen };
-    case A.SET_ALERTS:
-      return { ...state, alerts: action.alerts };
-    case A.SET_ALERTS_STATUS:
-      return { ...state, alertsStatus: { ...state.alertsStatus, ...action.status } };
-    case A.SET_LOADING:
-      return { ...state, isLoading: action.value };
-    case A.SET_REFRESHED:
-      return { ...state, lastRefreshed: action.time };
     case A.SET_FEED_FILTER:
       return { ...state, feedFilter: action.value };
     case A.GRANT_LOCATION:
       return { ...state, locationGranted: true };
-    case A.SET_USER_LOCATION:
-      return { ...state, userLocation: action.location };
     default:
       return state;
   }
@@ -224,13 +202,8 @@ export function AppProvider({ children }) {
   const toggleFuturePanel = useCallback(() => dispatch({ type: A.TOGGLE_FUTURE_PANEL }), []);
   const toggleAccountPanel = useCallback(() => dispatch({ type: A.TOGGLE_ACCOUNT_PANEL }), []);
   const toggleLegend     = useCallback(() => dispatch({ type: A.TOGGLE_LEGEND }), []);
-  const setAlerts        = useCallback((alerts) => dispatch({ type: A.SET_ALERTS, alerts }), []);
-  const setAlertsStatus  = useCallback((status) => dispatch({ type: A.SET_ALERTS_STATUS, status }), []);
-  const setLoading       = useCallback((value) => dispatch({ type: A.SET_LOADING, value }), []);
-  const setRefreshed     = useCallback((time = new Date()) => dispatch({ type: A.SET_REFRESHED, time }), []);
   const setFeedFilter    = useCallback((value) => dispatch({ type: A.SET_FEED_FILTER, value }), []);
   const grantLocation    = useCallback(() => dispatch({ type: A.GRANT_LOCATION }), []);
-  const setUserLocation  = useCallback((location) => dispatch({ type: A.SET_USER_LOCATION, location }), []);
 
   // Memoized so a parent re-render that doesn't actually dispatch an action
   // doesn't hand every useApp() consumer a new object reference. The action
@@ -253,13 +226,8 @@ export function AppProvider({ children }) {
     toggleFuturePanel,
     toggleAccountPanel,
     toggleLegend,
-    setAlerts,
-    setAlertsStatus,
-    setLoading,
-    setRefreshed,
     setFeedFilter,
     grantLocation,
-    setUserLocation,
   }), [
     state,
     toggleLayer,
@@ -277,13 +245,8 @@ export function AppProvider({ children }) {
     toggleFuturePanel,
     toggleAccountPanel,
     toggleLegend,
-    setAlerts,
-    setAlertsStatus,
-    setLoading,
-    setRefreshed,
     setFeedFilter,
     grantLocation,
-    setUserLocation,
   ]);
 
   return (

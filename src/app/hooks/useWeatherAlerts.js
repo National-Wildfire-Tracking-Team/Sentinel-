@@ -10,7 +10,7 @@
  */
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { useApp } from "../context/AppContext";
+import { useAppStatus } from "../context/AppStatusContext";
 import { geometryAreaSqMi } from "../utils/geoArea";
 import {
   fetchNWSAlerts,
@@ -268,7 +268,7 @@ export function useWeatherAlerts(enabled = true) {
   const [errorDetail, setErrorDetail] = useState(null);
   const [lastRefresh, setLastRefresh] = useState(null);
 
-  const { setAlerts, setAlertsStatus } = useApp();
+  const { setAlerts, setAlertsStatus } = useAppStatus();
 
   const zoneMapRef = useRef(null);
   const countyMapRef = useRef(null);

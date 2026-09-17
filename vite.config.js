@@ -42,7 +42,7 @@ export default defineConfig({
             if (id.includes('react') || id.includes('react-dom') || id.includes('react-router')) {
               return 'vendor-react';
             }
-            if (id.includes('mapbox-gl') || id.includes('react-map-gl')) {
+            if (id.includes('/node_modules/mapbox-gl/') || id.includes('/node_modules/react-map-gl/')) {
               return 'vendor-mapbox';
             }
             if (id.includes('@supabase')) {

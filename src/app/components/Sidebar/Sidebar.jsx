@@ -6,6 +6,7 @@
 import { memo, useState } from 'react';
 import { Flame, TrendingUp, Wind, CloudSun, ShieldAlert, AlertTriangle, Waves } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
+import { useAppStatus } from '../../context/AppStatusContext';
 import IncidentFeed from './IncidentFeed';
 import WeatherAlertsFeed from './WeatherAlertsFeed';
 import TropicalWeatherFeed from './TropicalWeatherFeed';
@@ -44,7 +45,8 @@ const Sidebar = memo(function Sidebar({
   nhcInvests = [],
   nhcCyclones = [],
 }) {
-  const { sidebarOpen, alerts } = useApp();
+  const { sidebarOpen } = useApp();
+  const { alerts } = useAppStatus();
   const [allHazardFeedTab, setAllHazardFeedTab] = useState('fires');
   const [weatherFeedTab, setWeatherFeedTab] = useState('alerts');
   const isWeatherTab = activeMapTab === 'weather';
