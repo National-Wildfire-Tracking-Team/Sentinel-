@@ -17,6 +17,14 @@
 [context.branch-deploy]
   branch = "dev"
 
+# Vite-hashed assets (JS/CSS chunks) are content-addressed — the filename
+# changes whenever the contents do — so they're safe to cache forever.
+# Without this, browsers re-fetch the ~2MB+ JS bundle on every visit.
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
 # Proxy Mapbox API requests
 [[redirects]]
   from = "/api/mapbox/*"

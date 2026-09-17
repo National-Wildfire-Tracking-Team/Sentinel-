@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { nwsAlertColor, nwsAlertCategory } from '../../utils/nwsColors';
 import { useApp } from '../../context/AppContext';
+import { useAppStatus } from '../../context/AppStatusContext';
 import { useViewport } from '../../context/ViewportContext';
 import { formatRelativeTime } from '../../utils/formatUtils';
 import AlertErrorBanner from './AlertErrorBanner';
@@ -434,7 +435,8 @@ export default function WeatherAlertsFeed({
   onFilterChange,
   onRefresh,
 }) {
-  const { selectFire, selectedFire, clearSelected, alertsStatus } = useApp();
+  const { selectFire, selectedFire, clearSelected } = useApp();
+  const { alertsStatus } = useAppStatus();
   const { setViewport } = useViewport();
 
   const [expandedCategories, setExpandedCategories] = useState(() => new Set(['warning']));

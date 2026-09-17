@@ -7,6 +7,7 @@
 import { memo, useCallback, useEffect, useState } from 'react';
 import { Menu, LocateFixed, User } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
+import { useAppStatus } from '../../context/AppStatusContext';
 import { useViewport } from '../../context/ViewportContext';
 import { useAuth } from '../../../shared/context/AuthContext';
 
@@ -40,8 +41,9 @@ const MapCornerButtons = memo(function MapCornerButtons() {
     futurePanelOpen, toggleFuturePanel,
     accountPanelOpen, toggleAccountPanel,
     layerPanelOpen,
-    locationGranted, grantLocation, setUserLocation, userLocation,
+    locationGranted, grantLocation,
   } = useApp();
+  const { setUserLocation, userLocation } = useAppStatus();
   const { setViewport } = useViewport();
   const { isAuthenticated, user } = useAuth();
 

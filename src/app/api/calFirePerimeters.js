@@ -65,6 +65,10 @@ function buildQueryUrl(base, { year, minAcres }) {
     where: clauses.join(' AND '),
     outFields: OUT_FIELDS,
     outSR: '4326',
+    // Rounds coordinates to ~1.1m precision — imperceptible at any browser
+    // map zoom, but meaningfully trims payload size for perimeters with
+    // thousands of vertices.
+    geometryPrecision: '5',
     f: 'geojson',
   });
 

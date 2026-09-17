@@ -15,7 +15,7 @@ const SORT_OPTIONS = [
 ];
 
 export default function IncidentFeed({ incidents, loading, error }) {
-  const { selectedFire, feedFilter, setFeedFilter } = useApp();
+  const { selectedFire, selectFire, feedFilter, setFeedFilter } = useApp();
   const [search, setSearch] = useState('');
   const [sort,   setSort]   = useState('acres');
 
@@ -142,6 +142,7 @@ export default function IncidentFeed({ incidents, loading, error }) {
             key={inc.id}
             incident={inc}
             isSelected={selectedFire?.id === inc.id}
+            selectFire={selectFire}
           />
         ))}
 
@@ -162,6 +163,7 @@ export default function IncidentFeed({ incidents, loading, error }) {
             key={inc.id}
             incident={inc}
             isSelected={selectedFire?.id === inc.id}
+            selectFire={selectFire}
           />
         ))}
       </div>

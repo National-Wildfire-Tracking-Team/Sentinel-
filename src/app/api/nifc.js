@@ -114,6 +114,10 @@ export async function fetchFirePerimeters({ minAcres = 0 } = {}) {
       'attr_FireCause',
     ].join(','),
     outSR: '4326',
+    // Rounds coordinates to ~1.1m precision — imperceptible at any browser
+    // map zoom, but meaningfully trims payload size for perimeters with
+    // thousands of vertices.
+    geometryPrecision: '5',
     f: 'geojson',
   });
 
@@ -184,6 +188,7 @@ export async function fetchFIRISPerimeters({ minAcres = 0 } = {}) {
       'displayStatus',
     ].join(','),
     outSR: '4326',
+    geometryPrecision: '5',
     f: 'geojson',
   });
 

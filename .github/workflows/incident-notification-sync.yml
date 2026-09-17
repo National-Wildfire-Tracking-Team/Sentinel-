@@ -11,11 +11,16 @@ name: Incident & Notification Sync
 # The notification step uses `if: always()` so a failure in the incident
 # step (still surfaced as an overall job failure) never silently skips
 # email delivery — preserving the two scripts' original independence.
+#
+# Superseded by the Supabase pg_cron + Edge Function pipeline added in
+# migration 20260915165331_scheduled_sync_infrastructure (jobs
+# "incident-updates-sync" / "notification-sync", also */5, confirmed active
+# in cron.job on the live project). Running both was sending duplicate
+# alert emails and double-fetching WFIGS/NWS every 5 minutes. The automatic
+# schedule is disabled here; workflow_dispatch is kept as a manual fallback.
 
 on:
   workflow_dispatch:
-  schedule:
-    - cron: "*/5 * * * *"
 
 concurrency:
   group: incident-notification-sync

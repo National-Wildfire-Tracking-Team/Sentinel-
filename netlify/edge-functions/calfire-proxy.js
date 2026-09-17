@@ -31,6 +31,7 @@ export default async (request) => {
       headers: {
         ...CORS_HEADERS,
         'Content-Type': resp.headers.get('Content-Type') || 'application/json',
+        'Cache-Control': 'public, max-age=60',
       },
     });
   } catch (err) {
