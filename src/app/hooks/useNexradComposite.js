@@ -229,11 +229,26 @@ export function useNexradComposite(enabled, sitesGeoJSON, viewport) {
     try {
       const payload = await fetchScanPayload(frame.storage_path, { immutable });
       const raster = rasterizeSweep(payload, coords);
-      if (!raster) return null;
+      if (!raster) {
+        // rasterizeSweep returns null (doesn't throw) for several distinct
+        // reasons — missing coords, an empty/malformed payload, zero
+        // radials — so this needs its own log line; the catch below never
+        // sees this path at all.
+        console.warn(`[Composite Radar] ${siteId}: rasterizeSweep returned null for ${frame.storage_path}`);
+        return null;
+      }
       cacheSet(cacheKey, raster);
       return { siteId, ...raster };
-    } catch {
-      return null; // one bad site shouldn't blank the rest of the composite
+    } catch (err) {
+      // One bad site shouldn't blank the rest of the composite, so this
+      // still resolves to null rather than rejecting — but silently
+      // swallowing the error entirely (as this used to) means a *systemic*
+      // failure (every site failing the same way, e.g. a decode bug hit by
+      // every payload) looks identical in the UI to "no data for this
+      // tick": a blank map with zero console output, impossible to tell
+      // apart from a genuine data gap.
+      console.warn(`[Composite Radar] ${siteId}: raster load failed:`, err?.message || err);
+      return null;
     }
   }, [cacheGet, cacheSet]);
 
