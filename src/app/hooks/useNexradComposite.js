@@ -31,19 +31,17 @@ import { rasterizeSweep } from '../utils/radarRaster';
 const LIVE_POLL_MS = 30 * 1000;
 // Cheap now that each poll is an incremental fetch (see the history-polling
 // effect below) — only rows newer than the last-seen cursor come back, not
-// the whole 24h window every time.
+// the whole window every time.
 const HISTORY_POLL_MS = 60 * 1000;
 const PLAYBACK_FRAME_MS = 700;
-// 15-minute synthetic scrub-bar granularity — 5 minutes (matching NEXRAD's
-// own typical per-site cadence) would mean ~288 ticks across a 24h window,
-// unnecessarily fine-grained for a full-day loop and a lot of rasterization
-// work if someone plays through the whole thing.
+// 15-minute synthetic scrub-bar granularity, so the 2-hour window below is
+// 9 ticks end to end. Deliberately coarser than NEXRAD's own ~5-minute
+// per-site cadence: each tick resolves and rasterizes every visible site,
+// so finer ticks buy smoother playback at a real CPU cost.
 const TICK_INTERVAL_MS = 15 * 60 * 1000;
 // Matches nexrad-radar-sync.mjs's HISTORY_RETENTION_BY_PRODUCT.reflectivity
-// (24h + a trailing margin) — no point generating ticks past what history
-// actually holds. Composite Radar's own 24h window, wider than the
-// single-site scrub bar's 2 hours (COMPOSITE_HISTORY_WINDOW_MS vs.
-// nexradScans.js's HISTORY_WINDOW_MS).
+// (the same window plus a trailing margin) — no point generating ticks past
+// what history actually holds.
 const HISTORY_WINDOW_MS = COMPOSITE_HISTORY_WINDOW_MS;
 // A site whose latest reflectivity is older than this is dropped from the
 // live view rather than shown stale — mirrors useMrmsComposite's isFresh
@@ -350,12 +348,12 @@ export function useNexradComposite(enabled, sitesGeoJSON, viewport) {
     return () => { cancelled = true; clearInterval(id); };
   }, [enabled, loadTimestamp]);
 
-  // History polling: bootstrap every site's full 24h scan history once, then
+  // History polling: bootstrap every site's full scan history once, then
   // keep polling with an ever-advancing scan_time cursor so repeat polls only
-  // ever fetch what's new since last time (tens of rows nationally, not the
-  // whole day) instead of re-downloading the entire window every 60s — the
-  // difference between a one-time cost when Composite Radar is opened and a
-  // recurring one that would otherwise scale with the playback window size.
+  // ever fetch what's new since last time (tens of rows nationally) instead
+  // of re-downloading the entire window every 60s — the difference between a
+  // one-time cost when Composite Radar is opened and a recurring one that
+  // would otherwise scale with the playback window size.
   const historyCursorRef = useRef(null); // most recent scan_time seen so far
   useEffect(() => {
     if (!enabled) {

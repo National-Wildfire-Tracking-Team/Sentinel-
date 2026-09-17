@@ -126,13 +126,15 @@ const PRODUCT_GETTERS = {
 
 // Retention window, per product, before nexradScanHistory docs are pruned
 // (see pruneHistory below) — kept a little past the actual UI window so a
-// scan at the very edge of a scrub bar is never missing. Reflectivity gets
-// 24h for Composite Radar's national playback (useNexradComposite.js /
-// nexradScans.js's COMPOSITE_HISTORY_WINDOW_MS); every other product only
-// ever backs the single-site radar popup's own 2-hour scrub bar
-// (useNexradScan.js), so there's no reason to retain those any longer.
+// scan at the very edge of a scrub bar is never missing. Every product now
+// backs a 2-hour window: reflectivity for Composite Radar's national
+// playback (useNexradComposite.js / nexradScans.js's
+// COMPOSITE_HISTORY_WINDOW_MS, cut down from 24h), the rest for the
+// single-site radar popup's scrub bar (useNexradScan.js). Kept as a
+// per-product map rather than one shared constant since pruning already
+// runs per product and the windows have diverged before.
 const HISTORY_RETENTION_BY_PRODUCT = {
-  reflectivity: 24 * 60 * 60 * 1000 + 15 * 60 * 1000,
+  reflectivity: 2 * 60 * 60 * 1000 + 15 * 60 * 1000,
   velocity: 2 * 60 * 60 * 1000 + 15 * 60 * 1000,
   spectrumWidth: 2 * 60 * 60 * 1000 + 15 * 60 * 1000,
   zdr: 2 * 60 * 60 * 1000 + 15 * 60 * 1000,
