@@ -1,0 +1,13 @@
+{
+  "name": "calfire-frap-proxy",
+  "version": "1.0.0",
+  "description": "Server-side year/acreage filter for the CAL FIRE FRAP data.ca.gov CKAN fallback, deployed as a Google Cloud Run service",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "scripts": {
+    "start": "node index.mjs"
+  }
+}
