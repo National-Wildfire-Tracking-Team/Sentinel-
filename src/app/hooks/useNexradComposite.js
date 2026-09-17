@@ -34,11 +34,15 @@ const LIVE_POLL_MS = 30 * 1000;
 // the whole window every time.
 const HISTORY_POLL_MS = 60 * 1000;
 const PLAYBACK_FRAME_MS = 700;
-// 15-minute synthetic scrub-bar granularity, so the 2-hour window below is
-// 9 ticks end to end. Deliberately coarser than NEXRAD's own ~5-minute
-// per-site cadence: each tick resolves and rasterizes every visible site,
-// so finer ticks buy smoother playback at a real CPU cost.
-const TICK_INTERVAL_MS = 15 * 60 * 1000;
+// 5-minute synthetic scrub-bar granularity, matching NEXRAD's own per-site
+// volume cadence in precipitation mode, so the 2-hour window below is 25
+// ticks end to end. This only became worth doing once the ingestion job
+// started publishing every new volume rather than just the newest one per
+// run (cloud/nexrad-sync/sync.mjs) — before that, data landed every ~10-15
+// minutes and finer ticks would only have re-rendered duplicate frames.
+// Sites in clear-air mode scan every ~10 minutes, so their frames still
+// repeat across consecutive ticks; that's the radar's cadence, not a bug.
+const TICK_INTERVAL_MS = 5 * 60 * 1000;
 // Matches nexrad-radar-sync.mjs's HISTORY_RETENTION_BY_PRODUCT.reflectivity
 // (the same window plus a trailing margin) — no point generating ticks past
 // what history actually holds.
