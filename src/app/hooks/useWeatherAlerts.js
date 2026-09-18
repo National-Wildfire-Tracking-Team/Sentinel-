@@ -25,7 +25,7 @@ const REFRESH_MS = 60 * 1000;
    ZONES — three sources to cover all NWS zone types
    ========================= */
 const PUBLIC_ZONES_URL =
-  "https://services2.arcgis.com/C8EMgrsFcRFL6LrL/arcgis/rest/services/LatestNWSZones/FeatureServer/0/query?where=1%3D1&outFields=STATE,ZONE&outSR=4326&f=geojson";
+  "/api/arcgis/nws-zones/0/query?where=1%3D1&outFields=STATE,ZONE&outSR=4326&f=geojson";
 const FIRE_WX_ZONES_URL = "/api/noaa/firewxzones";
 const MARINE_ZONES_URL = "/api/noaa/marinezones";
 
@@ -86,7 +86,7 @@ function ugcKeyVariants(code) {
    MAPSERVER
 ========================= */
 const MAPSERVER_BASE =
-  "https://mapservices.weather.noaa.gov/eventdriven/rest/services/WWA/watch_warn_adv/MapServer";
+  "/api/nws/wwa";
 
 const MAPSERVER_LAYERS = [0, 1];
 

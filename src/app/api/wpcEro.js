@@ -17,7 +17,7 @@
 import { fetchWpcLayer } from './wpcShared';
 
 const MAPSERVER_BASE =
-  'https://mapservices.weather.noaa.gov/vector/rest/services/hazards/wpc_precip_hazards/MapServer';
+  '/api/nws/wpc-precip-hazards';
 
 // Map day -> MapServer layer ID
 export const ERO_LAYER_ID_MAP = {

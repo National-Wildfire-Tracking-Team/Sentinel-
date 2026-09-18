@@ -14,7 +14,9 @@ describe('fetchCAEvacZones', () => {
 
     await fetchCAEvacZones();
 
-    const url = new URL(fetchWithCache.mock.calls[0][0]);
+    // The request now targets the relative edge-proxy path (/api/arcgis/…),
+    // so it needs a base to parse as a URL.
+    const url = new URL(fetchWithCache.mock.calls[0][0], 'https://app.test');
     expect(url.searchParams.get('where')).toMatch(/^EDIT_DATE > TIMESTAMP /);
     expect(url.searchParams.get('where')).not.toContain('EditDate');
   });

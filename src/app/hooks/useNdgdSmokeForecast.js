@@ -1,13 +1,13 @@
 /**
  * useNdgdSmokeForecast.js
  * Fetches NOAA NDGD hourly smoke forecast polygons (µg/m³ classes) as GeoJSON.
- * https://services9.arcgis.com/RHVPKKiFTONKtxq3/arcgis/rest/services/NDGD_SmokeForecast_v1/FeatureServer/0
+ * /api/arcgis/ndgd-smoke/0
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 
 const QUERY_URL =
-  'https://services9.arcgis.com/RHVPKKiFTONKtxq3/arcgis/rest/services/NDGD_SmokeForecast_v1/FeatureServer/0/query';
+  '/api/arcgis/ndgd-smoke/0/query';
 
 const REFRESH_MS = 30 * 60 * 1000; // 30 minutes (service updates frequently)
 const PAGE_SIZE = 8000;

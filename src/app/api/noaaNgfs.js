@@ -10,7 +10,7 @@
 import { getCached, setCached } from '../utils/dataCache';
 import { throttleError } from '../../shared/utils/errorThrottle';
 
-const NGFS_BASE = 'https://fire.data.nesdis.noaa.gov/api/ogc/detections/collections';
+const NGFS_BASE = '/api/nesdis/collections';
 
 // The CONUS collections already cover the full US disk; the mesoscale
 // sub-collections are higher-frequency crops within that same coverage,
