@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
+import { Analytics } from '../../services/analytics';
 
 const GTM_ID = 'GTM-546TW8NQ';
-const GA_MEASUREMENT_ID = 'G-JV1EY1VHRQ';
 
 function appendScriptOnce({ src, id, async = true, defer = false }) {
   if (typeof document === 'undefined') return;
@@ -22,10 +22,6 @@ function initAnalytics() {
   window.__nwttAnalyticsLoaded = true;
 
   window.dataLayer = window.dataLayer || [];
-  window.gtag = window.gtag || function gtag() {
-    window.dataLayer.push(arguments);
-  };
-
   window.dataLayer.push({ 'gtm.start': Date.now(), event: 'gtm.js' });
 
   appendScriptOnce({
@@ -33,15 +29,6 @@ function initAnalytics() {
     id: 'nwtt-gtm-script',
     async: true,
   });
-
-  appendScriptOnce({
-    src: `https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`,
-    id: 'nwtt-gtag-script',
-    async: true,
-  });
-
-  window.gtag('js', new Date());
-  window.gtag('config', GA_MEASUREMENT_ID);
 }
 
 function scheduleDeferredAnalyticsLoad() {
@@ -107,6 +94,8 @@ function scheduleDeferredAnalyticsLoad() {
 
 export default function DeferredAnalytics() {
   useEffect(() => {
+    Analytics.trackReturnVisit();
+
     const cleanup = scheduleDeferredAnalyticsLoad();
     return () => {
       cleanup?.();

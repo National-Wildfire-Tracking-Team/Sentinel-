@@ -11,6 +11,7 @@
  * effect), so "View live on the map" round-trips into the same fire there.
  */
 
+import { useEffect, useRef } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import {
   Flame, MapPin, Users, Home, Calendar, Clock, ArrowLeft, ExternalLink,
@@ -19,6 +20,7 @@ import {
 
 import Seo from '../../shared/components/Seo';
 import { getMainOrigin } from '../../shared/utils/getAppOrigin';
+import { Analytics } from '../../shared/services/analytics';
 import { useIncidents } from '../hooks/useIncidents';
 import { useCalFireIncidents } from '../hooks/useCalFireIncidents';
 import { mergeIrwinAndCalFireIncidents } from '../utils/mergeIncidents';
@@ -64,6 +66,14 @@ export default function FireIncidentPage() {
 
   const merged = mergeIrwinAndCalFireIncidents(incidents, calFireIncidents);
   const fire = merged.find((inc) => String(inc.id) === id);
+
+  const trackedFireViewId = useRef(null);
+  useEffect(() => {
+    if (loading || !fire) return;
+    if (trackedFireViewId.current === fire.id) return;
+    trackedFireViewId.current = fire.id;
+    Analytics.trackFireView(fire);
+  }, [loading, fire]);
 
   if (!loading && !fire) {
     return (
@@ -219,6 +229,7 @@ export default function FireIncidentPage() {
         <div className="flex flex-wrap gap-3">
           <Link
             to={`/?incident=${encodeURIComponent(fire.id)}`}
+            onClick={() => Analytics.trackMapOpen(fire)}
             className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-fire-600 text-white text-sm font-semibold hover:bg-fire-500 transition-colors"
           >
             <MapIcon size={15} />
@@ -229,6 +240,7 @@ export default function FireIncidentPage() {
               href={fire.url}
               target="_blank"
               rel="noopener noreferrer"
+              onClick={() => Analytics.trackOfficialSourceClick(fire)}
               className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-sentinel-700 text-white text-sm font-semibold border border-sentinel-600 hover:bg-sentinel-600 transition-colors"
             >
               <ExternalLink size={15} />

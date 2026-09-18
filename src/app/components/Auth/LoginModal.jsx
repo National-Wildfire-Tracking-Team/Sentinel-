@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Eye, EyeOff, Flame, X, Loader2 } from 'lucide-react';
 import { useAuth } from '../../../shared/context/AuthContext';
+import { Analytics, AnalyticsEvent } from '../../../shared/services/analytics';
 
 export default function LoginModal({ onClose, onLoginSuccess }) {
   const { signIn, signUp, isSupabaseConfigured } = useAuth();
@@ -21,6 +22,7 @@ export default function LoginModal({ onClose, onLoginSuccess }) {
     try {
       const { error: err } = await signIn(email.trim(), password, true);
       if (err) throw err;
+      Analytics.trackEvent(AnalyticsEvent.LOGIN);
       onLoginSuccess?.();
     } catch (err) {
       setError(err.message || 'Login failed. Check your credentials and try again.');
@@ -42,10 +44,12 @@ export default function LoginModal({ onClose, onLoginSuccess }) {
     }
     setError('');
     setLoading(true);
+    Analytics.trackEvent(AnalyticsEvent.SIGNUP_START);
     try {
       const { data, error: err } = await signUp(email.trim(), password);
       if (err) throw err;
       if (data?.session) {
+        Analytics.trackEvent(AnalyticsEvent.SIGNUP_COMPLETE);
         onLoginSuccess?.();
       } else {
         setMode('login');

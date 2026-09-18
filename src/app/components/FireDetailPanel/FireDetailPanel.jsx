@@ -4,7 +4,7 @@
  * fire perimeter, AQI station, or NOAA weather alert.
  */
 
-import { memo, useState } from 'react';
+import { memo, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   X, Flame, MapPin, Users, Home, Calendar, Thermometer,
@@ -23,6 +23,7 @@ import { frpToLabel, containmentToColor, getAQICategory } from '../../utils/colo
 import { nwsAlertColor } from '../../utils/nwsColors';
 import IncidentTimeline from '../IncidentTimeline/IncidentTimeline';
 import { HAZARD_CATEGORY_COLORS } from '../Map/layers/HazardEventsLayer';
+import { Analytics, AnalyticsEvent } from '../../../shared/services/analytics';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -531,9 +532,12 @@ function AlertDetail({ fire, alerts }) {
                 typeof navigator.share === 'function' &&
                 (typeof navigator.canShare !== 'function' || navigator.canShare(payload));
               if (canShare) {
-                navigator.share(payload).catch(() => {});
+                navigator.share(payload).then(() => {
+                  Analytics.trackEvent(AnalyticsEvent.FIRE_SHARE, { fire_id: merged.id, fire_source: merged.source });
+                }).catch(() => {});
               } else if (navigator.clipboard?.writeText) {
                 navigator.clipboard.writeText(`${payload.text}\n${payload.url}`);
+                Analytics.trackEvent(AnalyticsEvent.FIRE_SHARE, { fire_id: merged.id, fire_source: merged.source });
                 setCopyStatus('Link copied');
                 window.setTimeout(() => setCopyStatus(''), 2000);
               }
@@ -1430,6 +1434,18 @@ const FireDetailPanel = memo(function FireDetailPanel() {
   const [shareStatus, setShareStatus] = useState('');
   const isShareableFireType = ['hotspot', 'perimeter', 'incident', 'user-report', 'weather-alert'].includes(selectedFire?.type);
 
+  const trackedEvacZoneIdRef = useRef(null);
+  useEffect(() => {
+    const isEvacZone = selectedFire?.type === 'evacuation-zone' || selectedFire?.type === 'reporter-evacuation-zone';
+    if (!isEvacZone) return;
+    if (trackedEvacZoneIdRef.current === selectedFire.id) return;
+    trackedEvacZoneIdRef.current = selectedFire.id;
+    Analytics.trackEvent(AnalyticsEvent.EVACUATION_ZONE_VIEW, {
+      fire_state: selectedFire.state,
+      fire_source: selectedFire.source,
+    });
+  }, [selectedFire]);
+
   const buildShareText = (fire) => {
     if (fire.type === 'weather-alert') {
       const title = fire.eventType || fire.type || 'Weather alert';
@@ -1480,6 +1496,7 @@ const FireDetailPanel = memo(function FireDetailPanel() {
     if (canUseNativeShare) {
       try {
         await navigator.share(payload);
+        Analytics.trackFireShare(selectedFire);
         setShareStatus('Shared');
         window.setTimeout(() => setShareStatus(''), 2500);
         return;
@@ -1498,6 +1515,7 @@ const FireDetailPanel = memo(function FireDetailPanel() {
     try {
       if (navigator.clipboard?.writeText) {
         await navigator.clipboard.writeText(`${payload.text}\n${shareUrl}`);
+        Analytics.trackFireShare(selectedFire);
         setShareStatus('Link copied');
       } else {
         setShareStatus('Sharing unavailable');

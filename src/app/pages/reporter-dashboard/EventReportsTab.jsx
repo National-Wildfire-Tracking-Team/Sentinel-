@@ -15,6 +15,7 @@ import { supabase, isSupabaseConfigured } from '../../../shared/api/supabaseClie
 import { acquireSlot } from '../../utils/mapboxRateLimiter';
 import { submitHazardEvent, updateHazardEvent, deleteHazardEvent } from '../../hooks/useHazardEvents';
 import { HAZARD_CATEGORY_COLORS } from '../../components/Map/layers/HazardEventsLayer';
+import { Analytics, AnalyticsEvent } from '../../../shared/services/analytics';
 import {
   INPUT_CLS, LABEL_CLS, SECTION_CLS, SectionHeader, EVENT_SEVERITY_OPTIONS,
   MAPBOX_TOKEN, geocodeViaDirect,
@@ -245,6 +246,7 @@ export default function EventReportsTab({ events, userId, onRefresh }) {
         userId,
       });
 
+      Analytics.trackEvent(AnalyticsEvent.EVENT_REPORT_SUBMITTED, { report_type: 'hazard_event', hazard_category: category });
       setSuccess('Event submitted and is now live on the map.');
       setCategory('wildfire');
       setTitle('');

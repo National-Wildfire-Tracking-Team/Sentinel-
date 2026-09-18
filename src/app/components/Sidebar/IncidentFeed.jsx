@@ -3,10 +3,11 @@
  * Scrollable list of active wildfire incidents.
  */
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Search, SortDesc, Loader2, AlertCircle } from 'lucide-react';
 import IncidentCard from './IncidentCard';
 import { useApp } from '../../context/AppContext';
+import { Analytics, AnalyticsEvent } from '../../../shared/services/analytics';
 
 const SORT_OPTIONS = [
   { value: 'acres',    label: 'Size' },
@@ -52,6 +53,17 @@ export default function IncidentFeed({ incidents, loading, error }) {
     });
   }, [incidents, search, feedFilter, sort]);
 
+  // Debounced so we don't fire an event per keystroke, only once the user pauses typing.
+  // No raw search text is sent, only the resulting match count, to avoid capturing free-text PII.
+  useEffect(() => {
+    if (!search.trim()) return;
+    const timeoutId = setTimeout(() => {
+      Analytics.trackEvent(AnalyticsEvent.FIRE_SEARCH, { result_count: sorted.length });
+    }, 600);
+    return () => clearTimeout(timeoutId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search]);
+
   // Active vs controlled
   const active     = useMemo(() => sorted.filter(i => i.status !== 'controlled'), [sorted]);
   const controlled = useMemo(() => sorted.filter(i => i.status === 'controlled'), [sorted]);
@@ -94,7 +106,10 @@ export default function IncidentFeed({ incidents, loading, error }) {
         {/* Sidebar incident filter */}
         <div className="flex items-stretch gap-1">
           <button
-            onClick={() => setFeedFilter('all')}
+            onClick={() => {
+              setFeedFilter('all');
+              Analytics.trackEvent(AnalyticsEvent.FIRE_FILTER, { filter_type: 'all' });
+            }}
             className={`flex-1 px-2 py-1 rounded text-xs font-medium border transition-colors flex items-center justify-center
               ${feedFilter === 'all'
                 ? 'bg-fire-600/25 text-fire-400 border-fire-700/50'
@@ -103,7 +118,10 @@ export default function IncidentFeed({ incidents, loading, error }) {
             All Fires
           </button>
           <button
-            onClick={() => setFeedFilter('focused')}
+            onClick={() => {
+              setFeedFilter('focused');
+              Analytics.trackEvent(AnalyticsEvent.FIRE_FILTER, { filter_type: 'focused' });
+            }}
             className={`flex-1 px-2 py-1 rounded text-xs font-medium border transition-colors flex items-center justify-center
               ${feedFilter === 'focused'
                 ? 'bg-fire-600/25 text-fire-400 border-fire-700/50'

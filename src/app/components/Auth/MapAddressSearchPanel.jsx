@@ -3,6 +3,7 @@ import { Search, MapPin, Loader2, CheckCircle, X } from 'lucide-react';
 import { supabase, isSupabaseConfigured } from '../../../shared/api/supabaseClient';
 import { acquireSlot } from '../../utils/mapboxRateLimiter';
 import { useSavedLocations } from '../../hooks/useSavedLocations';
+import { Analytics, AnalyticsEvent } from '../../../shared/services/analytics';
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN || '';
 
@@ -82,6 +83,7 @@ export default function MapAddressSearchPanel({ onClose, asPage = false }) {
         latitude: confirmedLocation.lat,
         longitude: confirmedLocation.lng,
       });
+      Analytics.trackEvent(AnalyticsEvent.SAVED_LOCATION);
       setAddressInput('');
       setConfirmedLocation(null);
     } catch (err) {

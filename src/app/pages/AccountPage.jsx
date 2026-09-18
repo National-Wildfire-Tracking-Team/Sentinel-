@@ -20,6 +20,7 @@ import { useSavedLocations } from '../hooks/useSavedLocations';
 import { useNotificationPreferences } from '../hooks/useNotificationPreferences';
 import { usePlan } from '../../shared/hooks/usePlan';
 import { NOTIFIABLE_ALERT_TYPES } from '../utils/nwsColors';
+import { Analytics, AnalyticsEvent } from '../../shared/services/analytics';
 
 export default function AccountPage() {
   const { user, profile, isAuthenticated, loading, profileLoading, signOut } = useAuth();
@@ -75,6 +76,7 @@ export default function AccountPage() {
   }
 
   async function handleSignOut() {
+    Analytics.trackEvent(AnalyticsEvent.LOGOUT);
     await signOut();
     navigate('/');
   }
@@ -428,7 +430,12 @@ export default function AccountPage() {
                 <button
                   key={type}
                   type="button"
-                  onClick={() => toggleAlertType(type)}
+                  onClick={() => {
+                    const isEnabling = !active;
+                    toggleAlertType(type).then(() => {
+                      if (isEnabling) Analytics.trackEvent(AnalyticsEvent.ALERT_ENABLED, { alert_type: type });
+                    });
+                  }}
                   className={`px-2.5 py-1 rounded-full text-[11px] font-medium border transition-colors ${
                     active
                       ? 'bg-sky-500/15 border-sky-500/50 text-sky-300'

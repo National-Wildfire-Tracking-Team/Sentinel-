@@ -56,6 +56,7 @@ import { useCalFirePerimeters } from '../hooks/useCalFirePerimeters';
 import { polygonCentroid } from '../utils/geoUtils';
 import { incidentsToGeoJSON } from '../api/inciweb';
 import { mergeIrwinAndCalFireIncidents } from '../utils/mergeIncidents';
+import { Analytics, AnalyticsEvent } from '../../shared/services/analytics';
 
 // Components
 import Header from '../components/Header/Header';
@@ -359,7 +360,14 @@ export default function LiveTrackerPage() {
   // community-submitted overlays — is deferred a further step, kicked off
   // only once the browser is idle after the map is ready.
   const [mapReady, setMapReady] = useState(false);
-  const handleMapLoad = useCallback(() => setMapReady(true), []);
+  const mapOpenTrackedRef = useRef(false);
+  const handleMapLoad = useCallback(() => {
+    setMapReady(true);
+    if (!mapOpenTrackedRef.current) {
+      mapOpenTrackedRef.current = true;
+      Analytics.trackEvent(AnalyticsEvent.MAP_OPEN);
+    }
+  }, []);
 
   useEffect(() => {
     if (mapReady) return undefined;

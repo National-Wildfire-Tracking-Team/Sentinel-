@@ -24,6 +24,7 @@ import { getAppOrigin, getMainOrigin } from '../../../shared/utils/getAppOrigin'
 import { useFireReports } from '../../hooks/useFireReports';
 import { useReporterEvacZones } from '../../hooks/useReporterEvacZones';
 import { useHazardEvents } from '../../hooks/useHazardEvents';
+import { Analytics, AnalyticsEvent } from '../../../shared/services/analytics';
 
 import AddIncidentTab from './AddIncidentTab';
 import ManageIncidentsTab from './ManageIncidentsTab';
@@ -151,7 +152,7 @@ export default function ReporterDashboardPage() {
             <span className="hidden sm:inline">Account</span>
           </a>
           <button
-            onClick={async () => { await signOut(); navigate('/login'); }}
+            onClick={async () => { Analytics.trackEvent(AnalyticsEvent.LOGOUT); await signOut(); navigate('/login'); }}
             className="flex items-center gap-1.5 text-xs text-sentinel-300 hover:text-white transition-colors"
           >
             <LogOut size={13} />
@@ -179,7 +180,7 @@ export default function ReporterDashboardPage() {
             type="button"
             role="tab"
             aria-selected={activeTab === 'add'}
-            onClick={() => setActiveTab('add')}
+            onClick={() => { setActiveTab('add'); Analytics.trackEvent(AnalyticsEvent.EVENT_REPORT_STARTED, { report_type: 'incident' }); }}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold uppercase tracking-wider transition-colors
               ${activeTab === 'add'
                 ? 'bg-fire-600 text-white shadow'
@@ -243,7 +244,7 @@ export default function ReporterDashboardPage() {
             type="button"
             role="tab"
             aria-selected={activeTab === 'events'}
-            onClick={() => { setActiveTab('events'); refreshHazardEvents(); }}
+            onClick={() => { setActiveTab('events'); refreshHazardEvents(); Analytics.trackEvent(AnalyticsEvent.EVENT_REPORT_STARTED, { report_type: 'hazard_event' }); }}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold uppercase tracking-wider transition-colors
               ${activeTab === 'events'
                 ? 'bg-purple-600 text-white shadow'

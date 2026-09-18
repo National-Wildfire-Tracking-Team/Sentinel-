@@ -3,6 +3,7 @@ import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { Flame, Menu, X, Heart, Settings, LogOut } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { getAppOrigin } from '../../utils/getAppOrigin';
+import { Analytics, AnalyticsEvent } from '../../services/analytics';
 
 const navLinks = [
   { to: '/', label: 'Home' },
@@ -32,6 +33,7 @@ export default function Navbar() {
 
   async function handleSignOut() {
     setUserMenuOpen(false);
+    Analytics.trackEvent(AnalyticsEvent.LOGOUT);
     await signOut();
     navigate('/');
   }

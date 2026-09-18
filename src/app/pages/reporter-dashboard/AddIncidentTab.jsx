@@ -17,6 +17,7 @@ import { submitFireReport } from '../../hooks/useFireReports';
 import { insertReporterUpdate } from '../../hooks/useIncidentUpdates';
 import { useImageAttachments } from '../../hooks/useImageAttachments';
 import { uploadIncidentPhotos } from '../../api/incidentPhotos';
+import { Analytics, AnalyticsEvent } from '../../../shared/services/analytics';
 import PhotoThumbnailGrid from '../../components/PhotoAttachments/PhotoThumbnailGrid';
 import {
   INPUT_CLS, LABEL_CLS, SECTION_CLS, SectionHeader, CountySelect,
@@ -256,6 +257,7 @@ export default function AddIncidentTab({ userId, profile, onSubmitted }) {
         photoUrls,
       });
 
+      Analytics.trackEvent(AnalyticsEvent.EVENT_REPORT_SUBMITTED, { report_type: 'incident', fire_state: usState });
       setSuccess('Incident submitted and is now live on the map.');
 
       setAddressSearch(''); setIsIntersection(false);

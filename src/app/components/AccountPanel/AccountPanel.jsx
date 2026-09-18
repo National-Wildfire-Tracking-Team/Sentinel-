@@ -12,6 +12,7 @@ import { useAuth } from '../../../shared/context/AuthContext';
 import { LogOut, MapPin, Settings, User, X } from 'lucide-react';
 import LoginModal from '../Auth/LoginModal';
 import MapAddressSearchPanel from '../Auth/MapAddressSearchPanel';
+import { Analytics, AnalyticsEvent } from '../../../shared/services/analytics';
 
 const AccountPanel = memo(function AccountPanel() {
   const { accountPanelOpen, toggleAccountPanel } = useApp();
@@ -86,7 +87,7 @@ const AccountPanel = memo(function AccountPanel() {
                 Account Settings
               </Link>
               <button
-                onClick={() => { toggleAccountPanel(); signOut(); }}
+                onClick={() => { toggleAccountPanel(); Analytics.trackEvent(AnalyticsEvent.LOGOUT); signOut(); }}
                 className="w-full text-left px-3 py-2 text-sm text-sentinel-200 hover:bg-sentinel-700 hover:text-white transition-colors flex items-center gap-2"
               >
                 <LogOut size={13} />

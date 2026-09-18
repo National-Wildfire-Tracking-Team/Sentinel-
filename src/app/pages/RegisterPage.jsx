@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 
 import { useAuth } from '../../shared/context/AuthContext';
+import { Analytics, AnalyticsEvent } from '../../shared/services/analytics';
 
 export default function RegisterPage() {
   const { signUp, isSupabaseConfigured } = useAuth();
@@ -43,6 +44,7 @@ export default function RegisterPage() {
     }
 
     setBusy(true);
+    Analytics.trackEvent(AnalyticsEvent.SIGNUP_START);
     try {
       const { data, error: err } = await signUp(email, password);
       if (err) throw err;
@@ -50,6 +52,7 @@ export default function RegisterPage() {
       // When email confirmation is enabled, signUp returns no session.
       // Show a confirmation prompt instead of navigating blindly.
       if (data?.session) {
+        Analytics.trackEvent(AnalyticsEvent.SIGNUP_COMPLETE);
         navigate('/', { replace: true });
       } else {
         setConfirmationSent(true);

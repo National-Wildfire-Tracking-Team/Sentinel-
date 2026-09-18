@@ -13,6 +13,7 @@ import {
 
 import { useAuth } from '../../shared/context/AuthContext';
 import { supabase } from '../../shared/api/supabaseClient';
+import { Analytics, AnalyticsEvent } from '../../shared/services/analytics';
 
 /** Fetch the profile role for a user id immediately after sign-in. */
 async function fetchRole(userId) {
@@ -51,6 +52,7 @@ export default function LoginPage() {
     try {
       const { data, error: err } = await signIn(email, password, rememberMe);
       if (err) throw err;
+      Analytics.trackEvent(AnalyticsEvent.LOGIN);
 
       // Reporters who accidentally use the member login are redirected to their
       // dashboard; admins also go there. Regular users go to the live tracker.
