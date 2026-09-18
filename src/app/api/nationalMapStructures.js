@@ -5,7 +5,7 @@
  */
 
 export const NATIONAL_MAP_STRUCTURES_MAPSERVER =
-  'https://carto.nationalmap.gov/arcgis/rest/services/structures/MapServer';
+  '/api/natmap/structures';
 
 /** Colleges / universities (National Structures dataset) */
 export const NATIONAL_MAP_COLLEGES_LAYER_ID = 56;

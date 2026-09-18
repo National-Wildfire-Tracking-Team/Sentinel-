@@ -12,8 +12,7 @@
 import { fetchWithCache } from '../utils/dataCache';
 
 const RAWS_URL =
-  'https://services3.arcgis.com/T4QMspbfLg3qTGWY/arcgis/rest/services' +
-  '/PublicView_RAWS/FeatureServer/1/query' +
+  '/api/arcgis/raws/1/query' +
   '?where=1%3D1&outFields=*&outSR=4326&f=json';
 
 const CACHE_KEY = 'raws:stations:v4';

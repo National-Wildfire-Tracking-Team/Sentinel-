@@ -34,11 +34,10 @@ import { throttleError } from '../../shared/utils/errorThrottle';
 const CALFIRE_FRAP_PROXY_URL = import.meta.env.VITE_CALFIRE_FRAP_PROXY_URL || null;
 
 const CALFIRE_EGIS_BASE =
-  'https://egis.fire.ca.gov/arcgis/rest/services/FRAP/FirePerimeters_FS/FeatureServer/0/query';
+  '/api/arcgis/frap-egis/0/query';
 
 const CALFIRE_AGOL_MIRROR_BASE =
-  'https://services1.arcgis.com/jUJYIo9tSA7EHvfZ/arcgis/rest/services' +
-  '/California_Historic_Fire_Perimeters/FeatureServer/0/query';
+  '/api/arcgis/frap-mirror/0/query';
 
 const DATA_CA_GOV_PACKAGE_URL =
   'https://data.ca.gov/api/3/action/package_show?id=california-fire-perimeters-all';

@@ -16,7 +16,7 @@
 import { fetchWpcLayer } from './wpcShared';
 
 const MAPSERVER_BASE =
-  'https://mapservices.weather.noaa.gov/vector/rest/services/outlooks/natl_fcst_wx_chart/MapServer';
+  '/api/nws/wpc-fronts';
 
 // Map day -> MapServer layer ID (Fronts sublayers)
 export const FRONTS_LAYER_ID_MAP = {

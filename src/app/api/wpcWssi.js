@@ -16,7 +16,7 @@
 import { fetchWpcLayer } from './wpcShared';
 
 const MAPSERVER_BASE =
-  'https://mapservices.weather.noaa.gov/vector/rest/services/outlooks/wpc_wssi/MapServer';
+  '/api/nws/wpc-wssi';
 
 // Map day -> MapServer layer ID (Overall Impact sublayers)
 export const WSSI_LAYER_ID_MAP = {

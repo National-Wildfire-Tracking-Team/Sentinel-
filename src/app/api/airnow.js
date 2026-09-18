@@ -25,8 +25,7 @@ import { MOCK_AQI_STATIONS } from '../data/mockData';
 export async function fetchAQIStations(bounds = {}) {
   // AirNow ArcGIS FeatureServer – public endpoint, no API key required
   const arcgisUrl =
-    'https://services.arcgis.com/cJ9YHowT8TU7DUyn/arcgis/rest/services' +
-    '/AirNowLatestContoursCombined/FeatureServer/0/query?' +
+    '/api/airnow/contours/0/query?' +
     new URLSearchParams({
       where: '1=1',
       outFields: '*',
@@ -86,8 +85,7 @@ function normalizeAQIStations(features) {
 // ─── AirNow Monitor Data (individual sensor readings) ─────────────────────────
 
 const AIRNOW_MONITOR_URL =
-  'https://services.arcgis.com/cJ9YHowT8TU7DUyn/arcgis/rest/services' +
-  '/Air_Now_Monitor_Data_Public/FeatureServer/0/query';
+  '/api/airnow/monitors/0/query';
 
 /**
  * Fetch AirNow monitor point data (individual sensor stations with PM2.5,

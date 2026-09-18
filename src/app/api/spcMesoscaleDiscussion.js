@@ -13,7 +13,7 @@ import { fetchWithCache } from '../utils/dataCache';
 
 /** Exclude NOAA placeholder polygon shown when no MD is active (name "NoArea"). */
 const MD_URL =
-  'https://mapservices.weather.noaa.gov/vector/rest/services/outlooks/spc_mesoscale_discussion/MapServer/0/query?' +
+  '/api/nws/spc-md/0/query?' +
   new URLSearchParams({
     where: "name <> 'NoArea'",
     outFields: '*',

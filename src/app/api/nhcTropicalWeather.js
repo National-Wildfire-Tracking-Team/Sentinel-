@@ -20,7 +20,7 @@
 import { fetchWithCache } from '../utils/dataCache';
 
 const BASE =
-  'https://mapservices.weather.noaa.gov/tropical/rest/services/tropical/NHC_tropical_weather/MapServer';
+  '/api/nws/nhc-tropical';
 
 const STORM_SLOTS = [
   'AT1', 'AT2', 'AT3', 'AT4', 'AT5',

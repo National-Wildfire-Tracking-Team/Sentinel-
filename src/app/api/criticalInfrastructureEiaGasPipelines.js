@@ -4,8 +4,7 @@
  */
 
 const FEATURE_LAYER_URL =
-  'https://services2.arcgis.com/FiaPA4ga0iQKduv3/arcgis/rest/services' +
-  '/Natural_Gas_Interstate_and_Intrastate_Pipelines_1/FeatureServer/0/query';
+  '/api/arcgis/eia-gas/0/query';
 
 const OUT_FIELDS = ['FID', 'TYPEPIPE', 'Operator', 'Status', 'Shape_Leng', 'Shape__Length'].join(',');
 

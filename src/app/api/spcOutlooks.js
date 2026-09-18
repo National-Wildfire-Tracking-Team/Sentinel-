@@ -12,7 +12,7 @@
 import { fetchWithCache } from '../utils/dataCache';
 
 const MAPSERVER_BASE =
-  'https://mapservices.weather.noaa.gov/vector/rest/services/outlooks/SPC_wx_outlks/MapServer';
+  '/api/nws/spc-outlooks';
 
 // Map (day, type) → MapServer layer ID
 export const LAYER_ID_MAP = {

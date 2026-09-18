@@ -159,7 +159,10 @@ describe('enrichAlertsWithGeometry', () => {
     const result = await enrichAlertsWithGeometry(alerts);
 
     expect(fetch).toHaveBeenCalledTimes(1);
-    expect(fetch.mock.calls[0][0]).toBe('https://api.weather.gov/zones/fire/GAZ125');
+    // Zone lookups go through the edge proxy now, but the point of this
+    // assertion is unchanged: the catalog ('fire') must come from the alert's
+    // own affectedZones URL rather than being guessed from the UGC code.
+    expect(fetch.mock.calls[0][0]).toBe('/api/wx/zones/fire/GAZ125');
     expect(result[0].geometry).toEqual(zoneGeometry);
   });
 
