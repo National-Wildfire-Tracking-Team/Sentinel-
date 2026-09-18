@@ -65,6 +65,34 @@
   function = "noaa-proxy"
   path = "/api/noaa/*"
 
+# Layer-data proxies, grouped by upstream provider. These put the non-live
+# map layers behind the CDN instead of having every browser hit the upstream
+# ArcGIS/NOAA services directly — see netlify/edge-functions/_shared/edgeProxy.js
+# for the cache tiers and the freshness guarantees they carry.
+[[edge_functions]]
+  function = "nws-mapservices-proxy"
+  path = "/api/nws/*"
+
+[[edge_functions]]
+  function = "arcgis-proxy"
+  path = "/api/arcgis/*"
+
+[[edge_functions]]
+  function = "weather-gov-proxy"
+  path = "/api/wx/*"
+
+[[edge_functions]]
+  function = "airnow-edge-proxy"
+  path = "/api/airnow/*"
+
+[[edge_functions]]
+  function = "nesdis-proxy"
+  path = "/api/nesdis/*"
+
+[[edge_functions]]
+  function = "nationalmap-proxy"
+  path = "/api/natmap/*"
+
 # Backward-compat for old bookmarks/links to the tracker's old path.
 # The tracker now lives at the root of app.nationalwildfiretrackingteam.org
 # instead of "/sentinel" on the main domain — routing between the marketing

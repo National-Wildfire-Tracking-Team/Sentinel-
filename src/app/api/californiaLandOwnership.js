@@ -8,8 +8,7 @@
 const PROXY_URL = import.meta.env.VITE_CALIFORNIA_LAND_OWNERSHIP_PROXY_URL || null;
 
 const FEATURE_LAYER_URL =
-  'https://jujyio9tsa7ehvfz.svcs1.arcgis.com/jUJYIo9tSA7EHvfZ/arcgis/rest/services' +
-  '/Public_Land_Ownership_view/FeatureServer/0/query';
+  '/api/arcgis/ca-land-ownership/0/query';
 
 const OUT_FIELDS = ['Own_Level', 'Own_Agency', 'Own_Group'].join(',');
 

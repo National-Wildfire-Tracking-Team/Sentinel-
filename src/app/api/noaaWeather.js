@@ -13,7 +13,33 @@
 
 import { getCached, setCached } from '../utils/dataCache';
 
-const NOAA_BASE = 'https://api.weather.gov';
+// Alerts and zone geometry go through the Netlify edge proxy
+// (netlify/edge-functions/weather-gov-proxy.js) rather than straight to
+// api.weather.gov, so responses are served from the CDN instead of every
+// visitor paying the upstream round-trip. Active alerts sit in the proxy's
+// shortest cache tier.
+const NOAA_BASE = '/api/wx';
+
+// The NWS API's `pagination.next` is an absolute api.weather.gov URL. Left
+// as-is, page 1 would come from the proxy and every page after it would go
+// direct to the upstream — uncached, and inconsistent with page 1. Rewriting
+// it back onto NOAA_BASE keeps the whole walk on one path.
+function toProxiedUrl(nextUrl) {
+  if (!nextUrl) return null;
+  try {
+    const { pathname, search } = new URL(nextUrl, 'https://api.weather.gov');
+    return `${NOAA_BASE}${pathname}${search}`;
+  } catch {
+    return null;
+  }
+}
+
+// In-memory TTL for active alerts. This is deliberately aligned with the
+// edge proxy's life-safety cache tier (45s) rather than left at the 5 minutes
+// it used to be: the two caches are additive, so a 5-minute in-tab copy would
+// hide four minutes of edge refreshes and a new Red Flag Warning could sit
+// unseen in an open tab long after the CDN already had it.
+const LIFE_SAFETY_CACHE_MS = 45 * 1000;
 
 export const FIRE_WEATHER_ALERT_TYPES = new Set([
   'red flag warning',
@@ -231,12 +257,12 @@ export async function fetchNWSAlerts() {
       if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
       const data = await res.json();
       for (const f of (data.features || [])) allFeatures.push(f);
-      url = data.pagination?.next ?? null;
+      url = toProxiedUrl(data.pagination?.next);
     }
 
     if (!allFeatures.length) throw new Error('No active alerts');
     const normalized = normalizeAlerts(allFeatures);
-    setCached(cacheKey, normalized, 5 * 60 * 1000);
+    setCached(cacheKey, normalized, LIFE_SAFETY_CACHE_MS);
     return normalized;
   } catch (err) {
     console.warn('[NOAA] NWS fetch failed:', err.message);
@@ -288,7 +314,7 @@ export async function fetchAlertsByPoint(lat, lng) {
     if (!res.ok) throw new Error(`NOAA API error: ${res.status}`);
     const data = await res.json();
     for (const f of (data.features || [])) allFeatures.push(f);
-    url = data.pagination?.next ?? null;
+    url = toProxiedUrl(data.pagination?.next);
   }
 
   if (!allFeatures.length) return [];

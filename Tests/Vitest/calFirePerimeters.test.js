@@ -101,7 +101,7 @@ describe('fetchCalFireHistoricalPerimeters', () => {
   it('tries egis.fire.ca.gov first, then falls back to the ArcGIS Online mirror', async () => {
     vi.useFakeTimers();
     fetchWithCache.mockImplementation(async (url) => {
-      if (url.includes('egis.fire.ca.gov')) throw new Error('CORS blocked');
+      if (url.includes('/api/arcgis/frap-egis')) throw new Error('CORS blocked');
       return {
         type: 'FeatureCollection',
         features: [{ properties: { FIRE_NAME: 'Mirror Fire', YEAR_: 2019, GIS_ACRES: 500 } }],
@@ -116,17 +116,17 @@ describe('fetchCalFireHistoricalPerimeters', () => {
     expect(result.features).toHaveLength(1);
     expect(result.features[0].properties.FireName).toBe('Mirror Fire');
     expect(fetchWithCache).toHaveBeenCalledWith(
-      expect.stringContaining('egis.fire.ca.gov'), expect.anything(), expect.anything(), expect.anything()
+      expect.stringContaining('/api/arcgis/frap-egis'), expect.anything(), expect.anything(), expect.anything()
     );
     expect(fetchWithCache).toHaveBeenCalledWith(
-      expect.stringContaining('services1.arcgis.com'), expect.anything(), expect.anything(), expect.anything()
+      expect.stringContaining('/api/arcgis/frap-mirror'), expect.anything(), expect.anything(), expect.anything()
     );
   });
 
   it('falls back to data.ca.gov when both ArcGIS sources fail, resolving the resource via CKAN package_show', async () => {
     vi.useFakeTimers();
     fetchWithCache.mockImplementation(async (url) => {
-      if (url.includes('egis.fire.ca.gov') || url.includes('services1.arcgis.com')) {
+      if (url.includes('/api/arcgis/frap-egis') || url.includes('/api/arcgis/frap-mirror')) {
         throw new Error('ArcGIS unavailable');
       }
       if (url.includes('data.ca.gov/api/3/action/package_show')) {

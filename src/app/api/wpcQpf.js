@@ -18,7 +18,7 @@
 import { fetchWpcLayer } from './wpcShared';
 
 const MAPSERVER_BASE =
-  'https://mapservices.weather.noaa.gov/vector/rest/services/precip/wpc_qpf/MapServer';
+  '/api/nws/wpc-qpf';
 
 // Map day -> MapServer layer ID (24-hour QPF sublayers)
 export const QPF_LAYER_ID_MAP = {

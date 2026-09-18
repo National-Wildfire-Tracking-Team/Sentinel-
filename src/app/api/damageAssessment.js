@@ -11,7 +11,7 @@
 import { getCached, setCached, invalidateCache } from '../utils/dataCache';
 
 export const DAMAGE_VIEWER_MAPSERVER_BASE =
-  'https://services.dat.noaa.gov/arcgis/rest/services/nws_damageassessmenttoolkit/DamageViewer/MapServer';
+  '/api/nws/dat';
 
 const DAT_LAYER_POINTS = 0;
 const DAT_LAYER_LINES = 1;

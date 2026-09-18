@@ -17,7 +17,7 @@
 import { fetchWithCache } from '../utils/dataCache';
 
 const MAPSERVER_BASE =
-  'https://mapservices.weather.noaa.gov/vector/rest/services/fire_weather/SPC_firewx/MapServer';
+  '/api/nws/spc-firewx';
 
 // Map (day, type) → MapServer layer ID
 // Layer structure from MapServer:

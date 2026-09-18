@@ -4,7 +4,7 @@
  */
 
 const FEATURE_LAYER_URL =
-  'https://services2.arcgis.com/FiaPA4ga0iQKduv3/arcgis/rest/services/US_Electric_Power_Transmission_Lines/FeatureServer/0/query';
+  '/api/arcgis/cmra-transmission/0/query';
 
 const OUT_FIELDS = [
   'OBJECTID',

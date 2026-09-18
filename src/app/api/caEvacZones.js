@@ -13,10 +13,14 @@
 import { fetchWithCache } from '../utils/dataCache';
 
 const CAEVAC_BASE =
-  'https://services.arcgis.com/BLN4oKB0N1YSgvY8/arcgis/rest/services' +
-  '/CA_EVACUATIONS_CalOESHosted_view/FeatureServer/0/query';
+  '/api/arcgis/ca-evac/0/query';
 
 const EMPTY_GEOJSON = { type: 'FeatureCollection', features: [] };
+
+// Matches the edge proxy's life-safety cache tier (45s). The in-tab cache and
+// the CDN cache stack, so holding this for the previous 5 minutes would mean
+// an evacuation order the edge already has staying invisible in an open tab.
+const LIFE_SAFETY_CACHE_MS = 45 * 1000;
 
 /**
  * Build an ArcGIS-compatible TIMESTAMP literal for use in WHERE clauses.
@@ -47,7 +51,7 @@ export async function fetchCAEvacZones() {
   const cacheKey = `caevac:zones:${cutoff.getTime()}`;
 
   try {
-    const data = await fetchWithCache(url, cacheKey, {}, 5 * 60 * 1000);
+    const data = await fetchWithCache(url, cacheKey, {}, LIFE_SAFETY_CACHE_MS);
 
     // ArcGIS REST error response: {"error":{"code":400,"message":"..."}}
     if (data?.error) {

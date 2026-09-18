@@ -7,7 +7,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 
 const BASE_URL =
-  'https://mapservices.weather.noaa.gov/vector/rest/services/outlooks/cpc_drought_outlk/FeatureServer/1/query';
+  '/api/nws/cpc-drought/1/query';
 
 const REFRESH_MS = 60 * 60 * 1000; // 1 hour
 

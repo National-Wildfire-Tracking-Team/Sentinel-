@@ -12,7 +12,7 @@ import { getCached, setCached, invalidateCache } from '../utils/dataCache';
 const NWS_LSR_MAPSERVER_24H_LAYER = 0;
 
 export const NWS_LSR_MAPSERVER_BASE =
-  'https://mapservices.weather.noaa.gov/vector/rest/services/obs/nws_local_storm_reports/MapServer';
+  '/api/nws/lsr';
 
 const STORM_REPORTS_MAX_AGE_HOURS = 24;
 const NWS_LSR_CHUNK = 2000;
