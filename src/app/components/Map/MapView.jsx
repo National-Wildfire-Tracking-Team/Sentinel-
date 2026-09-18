@@ -56,6 +56,7 @@ import WpcFrontsLayer from './layers/WpcFrontsLayer';
 import FireWeatherOutlookSelector from './FireWeatherOutlookSelector';
 import CriticalInfrastructureLayer from './layers/CriticalInfrastructureLayer';
 import NationalMapCollegesLayer from './layers/NationalMapCollegesLayer';
+import CaliforniaLandOwnershipLayer from './layers/CaliforniaLandOwnershipLayer';
 import NHCTropicalWeatherLayer from './layers/NHCTropicalWeatherLayer';
 import WaterGaugesLayer from './layers/WaterGaugesLayer';
 import NexradSitesLayer from './layers/NexradSitesLayer';
@@ -1156,6 +1157,16 @@ function getHoverContent(feature) {
       );
       break;
     }
+    case 'california-land-ownership-fill': {
+      content = (
+        <>
+          <div className="font-semibold text-emerald-400">{p.Own_Level}</div>
+          <div className="text-white text-xs mt-0.5 font-medium line-clamp-2">{p.Own_Agency}</div>
+          <div className="text-sentinel-300 text-[10px] mt-1">CAL FIRE FRAP · Land Ownership</div>
+        </>
+      );
+      break;
+    }
     default:
       return null;
   }
@@ -1259,6 +1270,8 @@ function HoverTooltip({ features, lngLat }) {
  * @param {boolean}     [props.criticalInfrastructureVisible]
  * @param {object|null} props.nationalMapCollegesGeoJSON
  * @param {boolean}     [props.nationalMapCollegesVisible]
+ * @param {object|null} props.landOwnershipGeoJSON
+ * @param {boolean}     [props.landOwnershipVisible]
  * @param {object|null} props.nhcForecastPointsGeoJSON
  * @param {object|null} props.nhcForecastTrackGeoJSON
  * @param {object|null} props.nhcConeGeoJSON
@@ -1313,6 +1326,8 @@ export default function MapView({
   criticalInfrastructureVisible = false,
   nationalMapCollegesGeoJSON,
   nationalMapCollegesVisible = false,
+  landOwnershipGeoJSON,
+  landOwnershipVisible = false,
   nhcForecastPointsGeoJSON,
   nhcForecastTrackGeoJSON,
   nhcConeGeoJSON,
@@ -1558,6 +1573,9 @@ export default function MapView({
     if (nationalMapCollegesVisible && nationalMapCollegesGeoJSON?.features?.length) {
       ids.push('national-map-colleges-circle');
     }
+    if (landOwnershipVisible && landOwnershipGeoJSON?.features?.length) {
+      ids.push('california-land-ownership-fill');
+    }
     if ((isWildfireTab || isAllHazardTab) && layers.fireWeatherOutlooks && fireWeatherOutlooksGeoJSON) ids.push('fire-weather-outlook-fill');
     if (isWeatherTab || isAllHazardTab) {
       if (nhcDisturbanceAreasGeoJSON?.features?.length) ids.push('nhc-disturbance-fill');
@@ -1593,6 +1611,7 @@ export default function MapView({
       wpcEroGeoJSON, wpcWssiGeoJSON, wpcQpfGeoJSON, wpcFrontsGeoJSON,
       criticalInfrastructureVisible, criticalInfrastructureTransGeoJSON, criticalInfrastructureGasGeoJSON,
       nationalMapCollegesVisible, nationalMapCollegesGeoJSON,
+      landOwnershipVisible, landOwnershipGeoJSON,
       layers.waterGauges, waterGaugesGeoJSON,
       layers.radarNexrad, nexradSitesGeoJSON,
       layers.wildfireCameras, californiaCamerasGeoJSON,
@@ -1948,6 +1967,11 @@ export default function MapView({
         <NationalMapCollegesLayer
           geoJSON={nationalMapCollegesGeoJSON}
           visible={nationalMapCollegesVisible}
+        />
+
+        <CaliforniaLandOwnershipLayer
+          geoJSON={landOwnershipGeoJSON}
+          visible={landOwnershipVisible}
         />
 
         {/* RAWS weather stations – visible on both wildfire and weather tabs */}
