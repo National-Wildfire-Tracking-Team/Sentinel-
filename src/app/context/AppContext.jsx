@@ -46,6 +46,8 @@ const initialState = {
     criticalInfrastructure: false,
     /** USGS National Map — colleges/universities (structures layer 56); Pro */
     schoolsUniversities: false,
+    /** CAL FIRE FRAP — California Land Ownership polygons; Pro, ~4mi zoom gate */
+    landOwnership: false,
     /** NOAA NWPS water gauges */
     waterGauges: false,
     /** NWS Damage Assessment Toolkit — post-storm survey points/tracks/polygons */

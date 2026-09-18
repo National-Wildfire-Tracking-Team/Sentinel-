@@ -43,6 +43,7 @@ import { useWpcFronts } from '../hooks/useWpcFronts';
 import { useNhcTropicalWeather } from '../hooks/useNhcTropicalWeather';
 import { useCriticalInfrastructure } from '../hooks/useCriticalInfrastructure';
 import { useNationalMapColleges } from '../hooks/useNationalMapColleges';
+import { useCaliforniaLandOwnership, isWithinLandOwnershipRange } from '../hooks/useCaliforniaLandOwnership';
 import { usePlan } from '../../shared/hooks/usePlan';
 import { useWaterGauges } from '../hooks/useWaterGauges';
 import { useNexradSites } from '../hooks/useNexradSites';
@@ -104,6 +105,7 @@ const WILDFIRE_LAYER_PRESET = {
   stormReports: false,
   criticalInfrastructure: false,
   schoolsUniversities: false,
+  landOwnership: false,
 };
 
 const ALL_HAZARD_LAYER_PRESET = {
@@ -124,6 +126,7 @@ const ALL_HAZARD_LAYER_PRESET = {
   stormReports: false,
   criticalInfrastructure: false,
   schoolsUniversities: false,
+  landOwnership: false,
 };
 
 // Weather tab: auto-enable NWS alerts (includes SPC MDs on map) and
@@ -148,6 +151,7 @@ const WEATHER_LAYER_PRESET = {
   airNowMonitors: false,
   ndgdSmokeForecast: false,
   schoolsUniversities: false,
+  landOwnership: false,
 };
 
 const THREE_DAYS_MS = 3 * 24 * 60 * 60 * 1000;
@@ -293,6 +297,12 @@ export default function LiveTrackerPage() {
       setLayer('schoolsUniversities', false);
     }
   }, [criticalInfraEntitled, layers.schoolsUniversities, setLayer]);
+
+  useEffect(() => {
+    if (!criticalInfraEntitled && layers.landOwnership) {
+      setLayer('landOwnership', false);
+    }
+  }, [criticalInfraEntitled, layers.landOwnership, setLayer]);
 
   // Wildfire, weather, and all-hazard tabs all default to satellite view.
   useEffect(() => {
@@ -572,6 +582,16 @@ export default function LiveTrackerPage() {
     geoJSON: nationalMapCollegesGeoJSON,
     refresh: refreshNationalMapColleges,
   } = useNationalMapColleges(schoolsLayerEnabled, viewport);
+
+  // Land ownership – Pro-only, and only fetched once zoomed in close (see
+  // isWithinLandOwnershipRange)
+  const landOwnershipEnabled = Boolean(
+    layers.landOwnership && criticalInfraEntitled && isWithinLandOwnershipRange(viewport)
+  );
+  const {
+    geoJSON: landOwnershipGeoJSON,
+    refresh: refreshLandOwnership,
+  } = useCaliforniaLandOwnership(landOwnershipEnabled, viewport);
 
   // SPC Fire Weather Outlooks – day/type selector state
   const [fireWxOutlookType, setFireWxOutlookType] = useState('winds_low_humidity');
@@ -1160,6 +1180,7 @@ export default function LiveTrackerPage() {
     if (layers.ndgdSmokeForecast && (activeMapTab === MAP_TABS.wildfire || activeMapTab === MAP_TABS.allhazard)) refreshNdgdSmokeForecast();
     if (criticalInfraEnabled) refreshCriticalInfrastructure();
     if (schoolsLayerEnabled) refreshNationalMapColleges();
+    if (landOwnershipEnabled) refreshLandOwnership();
     if (layers.fireWeatherOutlooks) {
       refreshFireWeatherOutlooks();
     }
@@ -1177,6 +1198,7 @@ export default function LiveTrackerPage() {
     refreshAQI, refreshRAWS, refreshAirNowMonitors, refreshDroughtOutlook, refreshNdgdSmokeForecast, refreshFireWeatherOutlooks,
     refreshCriticalInfrastructure,
     refreshNationalMapColleges,
+    refreshLandOwnership,
     refreshNhcTropicalWeather,
     refreshWpcEro, refreshWpcWssi, refreshWpcQpf, refreshWpcFronts,
     layers.wpcEro, layers.wpcWssi, layers.wpcQpf, layers.wpcFronts,
@@ -1185,6 +1207,7 @@ export default function LiveTrackerPage() {
     nhcTropicalWeatherEnabled,
     criticalInfraEnabled,
     schoolsLayerEnabled,
+    landOwnershipEnabled,
   ]);
 
   // Measures the bottom bar's own rendered size so the Composite Radar
@@ -1354,6 +1377,8 @@ export default function LiveTrackerPage() {
             criticalInfrastructureVisible={criticalInfraEnabled}
             nationalMapCollegesGeoJSON={nationalMapCollegesGeoJSON}
             nationalMapCollegesVisible={schoolsLayerEnabled}
+            landOwnershipGeoJSON={landOwnershipGeoJSON}
+            landOwnershipVisible={landOwnershipEnabled}
             nhcForecastPointsGeoJSON={nhcForecastPointsGeoJSON}
             nhcForecastTrackGeoJSON={nhcForecastTrackGeoJSON}
             nhcConeGeoJSON={nhcConeGeoJSON}
