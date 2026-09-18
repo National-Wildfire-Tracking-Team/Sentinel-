@@ -7,7 +7,7 @@
 import { useState, memo, useMemo, useEffect } from 'react';
 import { getMainOrigin } from '../../../shared/utils/getAppOrigin';
 import {
-  Layers, Flame, MapPin, Wind, CloudRain, CloudLightning, Eye, ChevronDown, ChevronRight, Radar, AlertTriangle, Ruler, Hexagon, Satellite, Thermometer, Activity, Droplets, Zap, Lock, GraduationCap, History, TrendingUp, Crosshair, Camera, Snowflake,
+  Layers, Flame, MapPin, Wind, CloudRain, CloudLightning, Eye, ChevronDown, ChevronRight, Radar, AlertTriangle, Ruler, Hexagon, Satellite, Thermometer, Activity, Droplets, Zap, Lock, GraduationCap, History, TrendingUp, Crosshair, Camera, Snowflake, Landmark,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 
@@ -370,6 +370,14 @@ const LayerControl = memo(function LayerControl({
       sublabel: 'USGS National Map · colleges & universities',
       icon: GraduationCap,
       color: '#a78bfa',
+      locked: !infrastructureLayersEntitled,
+    },
+    {
+      key: 'landOwnership',
+      label: 'Land Ownership',
+      sublabel: 'CAL FIRE FRAP · zoom in to load',
+      icon: Landmark,
+      color: '#16a34a',
       locked: !infrastructureLayersEntitled,
     },
   ], [infrastructureLayersEntitled]);

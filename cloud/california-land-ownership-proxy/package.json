@@ -1,0 +1,13 @@
+{
+  "name": "california-land-ownership-proxy",
+  "version": "1.0.0",
+  "description": "Bbox-filtered, simplified, cached proxy for CAL FIRE FRAP's California Land Ownership FeatureServer, deployed as a Google Cloud Run service",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "scripts": {
+    "start": "node index.mjs"
+  }
+}
