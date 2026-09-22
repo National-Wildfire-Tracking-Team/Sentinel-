@@ -65,6 +65,7 @@ import MapView from '../components/Map/MapView';
 import MapBottomBar from '../components/BottomBar/MapBottomBar';
 import MapCornerButtons from '../components/MapControls/MapCornerButtons';
 import FutureFeaturesPanel from '../components/MapControls/FutureFeaturesPanel';
+import AccountButton from '../components/MapControls/AccountButton';
 import AccountPanel from '../components/AccountPanel/AccountPanel';
 import Legend from '../components/Legend/Legend';
 // Lazy-loaded: each only ever mounts once the user has actually selected the
@@ -1446,7 +1447,7 @@ export default function LiveTrackerPage() {
           />
 
           <FutureFeaturesPanel mapType={mapType} onMapTypeChange={setMapType} />
-
+          <AccountButton />
           <AccountPanel />
 
           <MapBottomBar

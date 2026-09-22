@@ -1,8 +1,7 @@
 /**
  * AccountPanel.jsx
  * Account center popover — sign in/out, zip codes, account settings.
- * Opened from the top-left corner button column (replaces the old
- * top-right Header avatar/dropdown).
+ * Opened from the top-right AccountButton on the map.
  */
 
 import { useEffect, useRef, useState, memo } from 'react';
@@ -49,7 +48,7 @@ const AccountPanel = memo(function AccountPanel() {
     <>
       <div
         ref={panelRef}
-        className="absolute top-4 left-20 z-50 w-52 rounded-xl border border-sentinel-600 bg-sentinel-800 shadow-2xl overflow-hidden animate-fade-in"
+        className="absolute top-[68px] right-4  z-50 w-52 rounded-xl border border-sentinel-600 bg-sentinel-800 shadow-2xl overflow-hidden animate-fade-in"
       >
         <div className="flex items-center justify-between px-3 py-2.5 border-b border-sentinel-700">
           <span className="text-xs font-semibold text-white">Account</span>
