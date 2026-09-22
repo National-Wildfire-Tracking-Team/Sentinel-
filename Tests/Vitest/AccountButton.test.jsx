@@ -9,6 +9,9 @@ import MapCornerButtons from '../../src/app/components/MapControls/MapCornerButt
 
 vi.mock('../../src/app/context/AppContext', () => ({ useApp: vi.fn() }));
 vi.mock('../../src/shared/context/AuthContext', () => ({ useAuth: vi.fn() }));
+vi.mock('../../src/app/context/AppStatusContext', () => ({
+  useAppStatus: vi.fn(() => ({ userLocation: null, setUserLocation: vi.fn() })),
+}));
 vi.mock('../../src/app/context/ViewportContext', () => ({
   useViewport: vi.fn(() => ({ viewport: {}, setViewport: vi.fn() })),
 }));
@@ -33,8 +36,6 @@ function mockApp(overrides = {}) {
     layerPanelOpen: false,
     locationGranted: false,
     grantLocation: vi.fn(),
-    setUserLocation: vi.fn(),
-    userLocation: null,
     ...overrides,
   });
 }

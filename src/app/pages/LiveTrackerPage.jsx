@@ -1447,7 +1447,8 @@ export default function LiveTrackerPage() {
           />
 
           <FutureFeaturesPanel mapType={mapType} onMapTypeChange={setMapType} />
-          <AccountButton />
+          {/* Hidden while the full-height water gauge panel is open, whose close button sits in the same corner. */}
+          {!selectedGauge && <AccountButton />}
           <AccountPanel />
 
           <MapBottomBar

@@ -1520,7 +1520,7 @@ const FireDetailPanel = memo(function FireDetailPanel() {
       />
 
       {/* Panel */}
-      <div className="absolute right-4 top-4 bottom-4 z-30 w-72 sm:w-80
+      <div className="absolute right-4 top-[68px] bottom-4 z-30 w-72 sm:w-80
                       bg-sentinel-900 border border-sentinel-700
                       rounded-2xl shadow-2xl overflow-hidden flex flex-col
                       animate-slide-in-right">
