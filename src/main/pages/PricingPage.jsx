@@ -12,11 +12,11 @@ import Seo from '../../shared/components/Seo';
 import {
   Flame, Check, X, ChevronRight, AlertCircle, Lock,
   Radio, Camera, MapPin, Bell, BellRing,
-  Layers, Shield, Droplets, Landmark, TreePine, Clock, Ruler, MessageSquare,
+  Layers, Droplets, Landmark, TreePine, Clock, Ruler, MessageSquare,
   Satellite, Plane, History, Radar,
   Globe, Factory, Mountain, TrendingUp, Target, BarChart3,
   Download, FileText, LayoutDashboard, Code2, ClipboardList,
-  Building2, ShieldAlert, CloudFog, Sparkles, Zap,
+  Building2, ShieldAlert, CloudFog, Sparkles,
 } from 'lucide-react';
 import { useAuth } from '../../shared/context/AuthContext';
 import { usePlan } from '../../shared/hooks/usePlan';
@@ -168,15 +168,17 @@ export default function PricingPage() {
         path="/pricing"
       />
 
+      {/* ── Hero + plan cards, over a shared ember glow ── */}
+      <div className="relative overflow-hidden">
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_75%_80%_at_50%_45%,_rgba(255,90,0,0.20),_transparent_75%)]"
+        />
+
       {/* ── Hero ── */}
-      <section className="max-w-4xl mx-auto px-4 sm:px-6 pt-20 pb-14 text-center">
-        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full
-                        bg-fire-600/10 border border-fire-600/20 text-fire-400 text-xs font-semibold mb-6">
-          <Flame size={13} />
-          Sentinel Plans
-        </div>
+      <section className="relative max-w-4xl mx-auto px-4 sm:px-6 pt-20 pb-14 text-center">
         <h1 className="text-4xl sm:text-5xl font-extrabold text-white tracking-tight mb-4">
-          The right intelligence<br className="hidden sm:block" /> for every situation
+          The Right Information<br className="hidden sm:block" /> for Every Situation
         </h1>
         <p className="text-sentinel-300 text-lg max-w-xl mx-auto">
           Core situational awareness is free — forever. Upgrade to Plus or Pro for
@@ -201,7 +203,7 @@ export default function PricingPage() {
       </section>
 
       {/* ── Plan cards (informational — checkout happens in the pricing table below) ── */}
-      <section className="max-w-6xl mx-auto px-4 sm:px-6 pb-16">
+      <section className="relative max-w-6xl mx-auto px-4 sm:px-6 pb-16">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-stretch">
 
           {/* ── Free card ── */}
@@ -301,6 +303,7 @@ export default function PricingPage() {
           </div>
         </div>
       </section>
+      </div>
 
       {/* ── Checkout widget ── */}
       <section id="subscribe" className="max-w-3xl mx-auto px-4 sm:px-6 pb-20 scroll-mt-10">
@@ -384,37 +387,6 @@ export default function PricingPage() {
         </div>
       </section>
 
-      {/* ── Value props ── */}
-      <section className="max-w-3xl mx-auto px-4 sm:px-6 pb-20">
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
-          {[
-            {
-              icon: <Shield size={22} className="text-fire-400" />,
-              title: 'Infrastructure Awareness',
-              desc: 'Know which power lines, pipelines, and roads are in the fire\'s path before the news does.',
-            },
-            {
-              icon: <Bell size={22} className="text-amber-400" />,
-              title: 'Personal Alerts',
-              desc: 'Plus and Pro alerts are delivered with finer granularity and higher priority for your saved locations.',
-            },
-            {
-              icon: <Layers size={22} className="text-blue-400" />,
-              title: 'Expanding Layer Library',
-              desc: 'Every new data layer — government land, WUI, TFRs — ships automatically to eligible subscribers.',
-            },
-          ].map((item, i) => (
-            <div key={i} className="rounded-xl bg-sentinel-900 border border-sentinel-700 p-5">
-              <div className="w-10 h-10 rounded-xl bg-sentinel-800 flex items-center justify-center mb-4">
-                {item.icon}
-              </div>
-              <h3 className="font-semibold text-white mb-1">{item.title}</h3>
-              <p className="text-sentinel-400 text-sm leading-relaxed">{item.desc}</p>
-            </div>
-          ))}
-        </div>
-      </section>
-
       {/* ── FAQ ── */}
       <section className="max-w-2xl mx-auto px-4 sm:px-6 pb-24">
         <h2 className="text-2xl font-bold text-white text-center mb-8">Frequently asked questions</h2>
@@ -439,36 +411,6 @@ export default function PricingPage() {
               )}
             </div>
           ))}
-        </div>
-      </section>
-
-      {/* ── Bottom CTA ── */}
-      <section className="max-w-3xl mx-auto px-4 sm:px-6 pb-24 text-center">
-        <div className="rounded-2xl bg-gradient-to-br from-fire-900/40 to-sentinel-900
-                        border border-fire-700/30 p-10">
-          <Flame size={36} className="text-fire-500 mx-auto mb-4" />
-          <h2 className="text-2xl font-bold text-white mb-3">Stay ahead of the fire</h2>
-          <p className="text-sentinel-300 mb-6 max-w-md mx-auto">
-            Open the live Sentinel tracker for free, or upgrade for fire behavior modeling,
-            infrastructure intelligence, and priority alerts.
-          </p>
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-            <a
-              href={getAppOrigin()}
-              className="px-6 py-3 rounded-xl text-sm font-semibold bg-sentinel-700 border
-                         border-sentinel-600 text-white hover:bg-sentinel-600 transition-colors"
-            >
-              Open Sentinel — Free
-            </a>
-            <a
-              href="#subscribe"
-              className="px-6 py-3 rounded-xl text-sm font-semibold bg-fire-600 hover:bg-fire-500
-                         text-white transition-colors inline-flex items-center gap-1.5"
-            >
-              <Zap size={14} />
-              View Plans
-            </a>
-          </div>
         </div>
       </section>
 
