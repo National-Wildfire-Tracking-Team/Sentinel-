@@ -6,10 +6,10 @@
  * viewer edit, post an operational update, or delete it.
  */
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import {
   MapPin, ChevronDown, ChevronUp, Clock, Activity, Pencil, Trash2,
-  RefreshCw, Send, AlertCircle, CheckCircle2, User,
+  RefreshCw, Send, AlertCircle, CheckCircle2, User, Search, Loader2,
 } from 'lucide-react';
 
 import {
@@ -22,8 +22,16 @@ import { useImageAttachments } from '../../hooks/useImageAttachments';
 import { uploadIncidentPhotos } from '../../api/incidentPhotos';
 import PhotoPickerButton from '../../components/PhotoAttachments/PhotoPickerButton';
 import {
-  INPUT_CLS, LABEL_CLS, SECTION_CLS, StatusBadge,
+  INPUT_CLS, LABEL_CLS, SECTION_CLS, StatusBadge, MAPBOX_TOKEN, geocodeViaDirect,
 } from './shared';
+
+funtion extractAddressFromDescription(description) {
+  const match = String(description || '').match(
+    /^ADDRESS:\s*(.+)$/m
+  );
+
+  return match ? match[1].trim() : '';
+}
 
 function IncidentCard({ report, profile, userId, onRefresh }) {
   const [expanded, setExpanded] = useState(false);
@@ -37,6 +45,21 @@ function IncidentCard({ report, profile, userId, onRefresh }) {
   const [editBusy, setEditBusy]         = useState(false);
   const [editFeedback, setEditFeedback] = useState(null);
 
+  /* Edit address state */
+  const [editAddress, setEditAddress] = useState('');
+  const [editLatitude, setEditLatitude] = useState(
+    Number.isFinite(Number(report.latitude)) ? Number(report.latitude) : null
+    );
+  const [editLongitude, setEditLongitude] = useState(
+    Number.isFinite(Number(report.longitude)) ? Number(report.longitude) : null
+    );
+
+  const [addressSuggestions, setAddressSuggestions] = useState([]);
+  const [showAddressSuggestions, setShowAddressSuggestions] = useState(false);
+  const [addressSearchLoading, setAddressSearchLoading] = useState(false);
+  const [addressSearchError, setAddressSearchError] = useState(null);
+  const addressDebounceRef = useRef(null);
+
   /* Update (append notes) state */
   const [updateAcreage, setUpdateAcreage] = useState('');
   const [updateContainment, setUpdateContainment] = useState('');
@@ -49,18 +72,157 @@ function IncidentCard({ report, profile, userId, onRefresh }) {
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [deleteError, setDeleteError] = useState(null);
 
+  function handleEditAddressChange(e) {
+    const value = e.target.value;
+
+    setEditAddress(value);
+    setAddressSearchError(null);
+
+    setEditLatitude(null);
+    setEditLongitude(null);
+
+    clearTimeout(addressDebounceRef.current);
+
+    if (!value.trim() || value.trim().length < 3) {
+      setAddressSuggestions([]);
+      setShowAddressSuggestions(false);
+      return;
+    }
+
+    addressDebounceRef.current = setTimeout(() => {
+      fetchEditAddressSuggestions(value);
+    }, 300);
+  }
+
+  async funtion fetchEditAddressSuggestions(query) {
+    setAddressSearchLoading(true);
+    setAddressSearchError(null);
+
+    let features = null;
+
+    try {
+      const { supabase, isSupabaseConfigured } =
+        await import('../../../shared/api/supabaseClient');
+
+      if (isSupabaseConfigured) {
+        const { data, error } = await supabase.functions.invoke(
+          'mapbox-geocoding',
+          {
+            body: {
+              query,
+              country: 'us',
+              autocomplete: true,
+              limit: 5,
+              types: 'address',
+            },
+          }
+        };
+
+      if (!error && Array.isArray(data?.features)) {
+        features = data.features;
+      }
+    } catch {
+
+    }
+
+    if (features === null && MAPBOX_TOKEN) {
+      try {
+        features = await geocodeViaDirect(query, {
+          limit: 5,
+          types: 'address',
+          autocomplete: true,
+        });
+      } catch (err) {
+        console.error('Edit address search error:', err);
+      }
+    }
+
+    setAddressSearchLoading(false);
+
+    if (features === null) {
+      setAddressSearchError(
+        'Address search unavailable. Check your connection or try again.'
+      );
+      setAddressSuggestions([]);
+      setShowAddressSuggestions(false);
+      return;
+    }
+
+    setAddressSuggestions(features);
+    setShowAddressSuggestions(features.length > 0);
+  }
+
+  function applyEditAddressSuggestions(feature) {
+    const coords = feature.geometry?.coordinates;
+
+    const fullAddress = 
+      feature.properties?.full_address ||
+      feature.place_name ||
+      feature.properties?.name ||
+      ``;
+
+    const longitude = Array.isArray(coords)
+      ? Number(coords[0])
+      : null;
+
+    const latitude = Array.isArray(coords)
+      ? Number(coords[1])
+      : null;
+
+    setEditAddress(fullAddress);
+    setEditLatitude(
+      Number.isFinite(latitude) ? latitude : null
+    );
+    setEditLongitude(
+      Number.isFinite(longitude) ? longitude : null
+    );
+
+    setAddressSuggestions([]);
+    setShowAddressSuggestions(false);
+    setAddressSearchError(null);
+  }
+    
   async function handleEditSave() {
     if (!editTitle.trim()) {
       setEditFeedback({ type: 'error', message: 'Incident title is required.' });
       return;
     }
+
+    if (
+      !Number.isFinite(editLatitude) ||
+      !number.isFinite(editLongitude)
+    ) {
+      setEditFeedback({
+        type: 'error',
+        message: 'Please search for and select a valid address.',
+      });
+      return;
+    }
+
+    if (!editAddress.trim()) {
+      setEditFeedback({
+        type: 'error',
+        message: 'Incident address is required.',
+      });
+      return;
+    }
+        
     setEditBusy(true);
     setEditFeedback(null);
+    
     try {
+      const updatedDescription = replaceAddressInDescription(
+        editDescription,
+        editAddress
+      );
+      
       await updateFireReport(report.id, {
         title: editTitle.trim(),
         description: editDescription,
+        latitude: editLatitude,
+        longitude: editLongitude,
       });
+      
       setEditFeedback({ type: 'success', message: 'Incident updated successfully.' });
       setMode('view');
       onRefresh();
@@ -189,7 +351,25 @@ function IncidentCard({ report, profile, userId, onRefresh }) {
             <span className="hidden sm:inline">Update</span>
           </button>
           <button
-            onClick={() => { setMode(mode === 'edit' ? 'view' : 'edit'); setExpanded(true); setEditTitle(report.title); setEditDescription(report.description || ''); setEditFeedback(null); setUpdateFeedback(null); }}
+            onClick={() => { 
+              setMode(mode === 'edit' ? 'view' : 'edit'); 
+              setExpanded(true); 
+              
+              setEditTitle(report.title); 
+              setEditDescription(report.description || ''); 
+              
+              setEditAddress(extractAddressFromDescription(report.description || '')); 
+              
+              setEditLatitude(Number.isFinite(Number(report.latitude)) ? Number(report.latitude) : null);
+                            
+              setEditLongitude(Number.isFinite(Number(report.longitude)) ? Number(report.longitude) : null);
+
+              setAddressSuggestions([]);
+              setShowAddressSuggestions(false);
+              setAddressSearchError(null);
+                               
+              setEditFeedback(null); 
+              setUpdateFeedback(null); }}
             title="Edit Incident"
             className={`p-2 rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5
               ${mode === 'edit' ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30' : 'text-sentinel-300 hover:text-white hover:bg-sentinel-700'}`}
