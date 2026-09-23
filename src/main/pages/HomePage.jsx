@@ -1,15 +1,14 @@
 import { Link } from 'react-router-dom';
 import Seo from '../../shared/components/Seo';
+import ParallaxHero from '../components/ParallaxHero';
+import homeHero from '../assets/home-hero.jpg';
 import {
   Satellite,
   Radio,
   ShieldAlert,
   MapPin,
-  Users,
   ArrowRight,
-  Eye,
   CloudLightning,
-  BarChart3,
 } from 'lucide-react';
 
 const capabilities = [
@@ -32,22 +31,10 @@ const capabilities = [
       'We track Red Flag Warnings, Fire Weather Watches, and other critical NOAA/NWS alerts that indicate elevated wildfire risk.',
   },
   {
-    icon: Eye,
-    title: 'Air Quality Intelligence',
-    description:
-      'Real-time air quality index monitoring across the country helps communities understand smoke impacts and take protective action during wildfire events.',
-  },
-  {
     icon: Radio,
     title: 'Incident Reporting',
     description:
       'We compile and distribute incident reports from NIFC and InciWeb, giving the public and first responders a consolidated view of active wildfire situations.',
-  },
-  {
-    icon: BarChart3,
-    title: 'Data Analysis & Trends',
-    description:
-      'Our analysts study fire behavior, drought conditions, and seasonal patterns to help predict where the next critical wildfire situations may emerge.',
   },
 ];
 
@@ -67,21 +54,12 @@ export default function HomePage() {
         path="/"
       />
       {/* ── Hero Section ── */}
-      <section className="relative overflow-hidden">
-        {/* Background gradient */}
-        <div className="absolute inset-0 bg-gradient-to-br from-sentinel-900 via-sentinel-800 to-sentinel-900" />
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_rgba(255,90,0,0.12),_transparent_60%)]" />
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_left,_rgba(255,116,16,0.08),_transparent_50%)]" />
-
+      {/* The photo is pre-cropped so the helicopter sits at its vertical centre,
+          which keeps it centred in the bar at every viewport — see focal in
+          ParallaxHero for why background-position alone can't guarantee that. */}
+      <ParallaxHero image={homeHero} focal="50%">
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 pb-24 sm:pt-28 sm:pb-32">
           <div className="max-w-3xl">
-            <div className="flex items-center gap-2 mb-6">
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-fire-600/15 border border-fire-600/30 text-fire-400 text-xs font-semibold uppercase tracking-wider">
-                <span className="w-1.5 h-1.5 rounded-full bg-fire-500 animate-pulse" />
-                Active Monitoring
-              </span>
-            </div>
-
             <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-white leading-tight tracking-tight">
               Protecting Communities{' '}
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-fire-500 to-fire-300">
@@ -106,7 +84,7 @@ export default function HomePage() {
             </div>
           </div>
         </div>
-      </section>
+      </ParallaxHero>
 
       {/* ── Stats Bar ── */}
       <section className="bg-sentinel-800 border-y border-sentinel-700">
@@ -133,13 +111,13 @@ export default function HomePage() {
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 auto-rows-fr max-w-4xl mx-auto">
             {capabilities.map((cap) => {
               const Icon = cap.icon;
               return (
                 <div
                   key={cap.title}
-                  className="group p-6 rounded-2xl bg-sentinel-800/60 border border-sentinel-700 hover:border-fire-600/40 transition-all duration-300 hover:shadow-lg hover:shadow-fire-600/5"
+                  className="group flex flex-col h-full p-6 rounded-2xl bg-sentinel-800/60 border border-sentinel-700 hover:border-fire-600/40 transition-all duration-300 hover:shadow-lg hover:shadow-fire-600/5"
                 >
                   <div className="w-12 h-12 rounded-xl bg-fire-600/10 border border-fire-600/20 flex items-center justify-center mb-4 group-hover:bg-fire-600/20 transition-colors">
                     <Icon size={22} className="text-fire-400" />
@@ -175,13 +153,6 @@ export default function HomePage() {
                 </p>
               </div>
               <div className="flex flex-col sm:flex-row gap-4">
-                <Link
-                  to="/about"
-                  className="inline-flex items-center gap-2 px-6 py-3 min-h-[48px] rounded-xl bg-sentinel-700 text-white font-semibold hover:bg-sentinel-600 transition-colors border border-sentinel-600"
-                >
-                  <Users size={18} />
-                  Meet the Team
-                </Link>
                 <Link
                   to="/volunteer"
                   className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-fire-600 text-white font-semibold hover:bg-fire-500 transition-colors shadow-lg shadow-fire-600/25"

@@ -25,12 +25,21 @@ import {
   INPUT_CLS, LABEL_CLS, SECTION_CLS, StatusBadge, MAPBOX_TOKEN, geocodeViaDirect,
 } from './shared';
 
-funtion extractAddressFromDescription(description) {
-  const match = String(description || '').match(
-    /^ADDRESS:\s*(.+)$/m
-  );
+const ADDRESS_LINE = /^ADDRESS:\s*(.+)$/m;
+
+function extractAddressFromDescription(description) {
+  const match = String(description || '').match(ADDRESS_LINE);
 
   return match ? match[1].trim() : '';
+}
+
+function replaceAddressInDescription(description, address) {
+  const text = String(description || '');
+  const line = `ADDRESS: ${String(address || '').trim()}`;
+
+  return ADDRESS_LINE.test(text)
+    ? text.replace(ADDRESS_LINE, () => line)
+    : [line, text].filter(Boolean).join('\n');
 }
 
 function IncidentCard({ report, profile, userId, onRefresh }) {
@@ -94,7 +103,7 @@ function IncidentCard({ report, profile, userId, onRefresh }) {
     }, 300);
   }
 
-  async funtion fetchEditAddressSuggestions(query) {
+  async function fetchEditAddressSuggestions(query) {
     setAddressSearchLoading(true);
     setAddressSearchError(null);
 
@@ -116,13 +125,14 @@ function IncidentCard({ report, profile, userId, onRefresh }) {
               types: 'address',
             },
           }
-        };
+        );
 
-      if (!error && Array.isArray(data?.features)) {
-        features = data.features;
+        if (!error && Array.isArray(data?.features)) {
+          features = data.features;
+        }
       }
     } catch {
-
+      // Edge function unavailable — fall through to the direct Mapbox call.
     }
 
     if (features === null && MAPBOX_TOKEN) {
@@ -190,7 +200,7 @@ function IncidentCard({ report, profile, userId, onRefresh }) {
 
     if (
       !Number.isFinite(editLatitude) ||
-      !number.isFinite(editLongitude)
+      !Number.isFinite(editLongitude)
     ) {
       setEditFeedback({
         type: 'error',
