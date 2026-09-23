@@ -1,5 +1,6 @@
-import { Link } from 'react-router-dom';
 import Seo from '../../shared/components/Seo';
+import ParallaxHero from '../components/ParallaxHero';
+import aboutHero from '../assets/about-hero.jpg';
 import { getAppOrigin } from '../../shared/utils/getAppOrigin';
 import {
   Flame,
@@ -13,8 +14,6 @@ import {
   Award,
   Clock,
   Database,
-  RefreshCw,
-  AlertTriangle,
 } from 'lucide-react';
 
 const dataSources = [
@@ -92,14 +91,19 @@ export default function AboutPage() {
         path="/about"
       />
       {/* ── Hero ── */}
-      <section className="relative overflow-hidden bg-sentinel-900">
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_rgba(255,90,0,0.08),_transparent_60%)]" />
+      {/* The firefighter sits low in this photo, so the parallax runs shallower
+          here — a deeper crop would carry him past the bottom edge at rest.
+          The scrim is lighter too: the shot is already a night exposure. */}
+      <ParallaxHero
+        image={aboutHero}
+        focal="50%"
+        focalX="32%"
+        overhang={0.28}
+        drift={0.22}
+        overlayClassName="bg-gradient-to-b from-sentinel-900/75 via-sentinel-900/45 to-sentinel-900/75"
+      >
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-16 pb-20 sm:pt-20 sm:pb-24">
           <div className="text-center max-w-3xl mx-auto">
-            <div className="inline-flex items-center gap-2 mb-6 px-3 py-1 rounded-full bg-fire-600/15 border border-fire-600/30 text-fire-400 text-xs font-semibold uppercase tracking-wider">
-              <Users size={14} />
-              About Our Team
-            </div>
             <h1 className="text-4xl sm:text-5xl font-bold text-white leading-tight tracking-tight">
               Volunteers United by{' '}
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-fire-500 to-fire-300">
@@ -114,7 +118,7 @@ export default function AboutPage() {
             </p>
           </div>
         </div>
-      </section>
+      </ParallaxHero>
 
       {/* ── Our Story ── */}
       <section className="bg-sentinel-800 py-20">
@@ -240,31 +244,6 @@ export default function AboutPage() {
             ))}
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="p-6 rounded-2xl bg-sentinel-900 border border-sentinel-700 flex gap-4">
-              <RefreshCw size={20} className="text-fire-400 flex-shrink-0 mt-1" />
-              <div>
-                <h3 className="text-white font-semibold mb-1">Update Frequency</h3>
-                <p className="text-sentinel-300 text-sm leading-relaxed">
-                  Satellite hotspots and weather alerts refresh continuously throughout the day.
-                  Incident perimeters and containment figures update as fast as source agencies
-                  publish them, which is typically once or twice daily during active incidents.
-                </p>
-              </div>
-            </div>
-            <div className="p-6 rounded-2xl bg-sentinel-900 border border-sentinel-700 flex gap-4">
-              <AlertTriangle size={20} className="text-fire-400 flex-shrink-0 mt-1" />
-              <div>
-                <h3 className="text-white font-semibold mb-1">Limitations</h3>
-                <p className="text-sentinel-300 text-sm leading-relaxed">
-                  Sentinel is not a government agency or an official emergency service, and
-                  information shown may be delayed, incomplete, or occasionally inaccurate. Always
-                  confirm evacuation orders and emergency instructions with official local sources.
-                </p>
-              </div>
-            </div>
-          </div>
-
           <div className="mt-10 text-center">
             <a
               href={`${getAppOrigin()}/`}
@@ -277,28 +256,6 @@ export default function AboutPage() {
         </div>
       </section>
 
-      {/* ── CTA ── */}
-      <section className="bg-sentinel-900 py-16">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center rounded-3xl bg-gradient-to-br from-fire-600/15 via-sentinel-800 to-sentinel-900 border border-fire-600/20 p-10 sm:p-14">
-            <h2 className="text-2xl sm:text-3xl font-bold text-white mb-4">
-              Ready to Make a Difference?
-            </h2>
-            <p className="text-sentinel-200 max-w-xl mx-auto mb-8">
-              We're always looking for dedicated volunteers who share our passion for
-              public safety and wildfire awareness. Join our team and help protect
-              communities across the nation.
-            </p>
-            <Link
-              to="/volunteer"
-              className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-fire-600 text-white font-semibold hover:bg-fire-500 transition-colors shadow-lg shadow-fire-600/25"
-            >
-              Apply to Volunteer
-              <ArrowRight size={18} />
-            </Link>
-          </div>
-        </div>
-      </section>
     </div>
   );
 }

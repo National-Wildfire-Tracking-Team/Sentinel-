@@ -1,13 +1,11 @@
 import Seo from '../../shared/components/Seo';
+import ParallaxHero from '../components/ParallaxHero';
+import volunteerHero from '../assets/volunteer-hero.jpg';
 import {
   Flame,
-  Database,
-  Cloud,
   MessageSquare,
   Map,
-  Users,
   Code2,
-  Plus,
   ArrowRight,
 } from 'lucide-react';
 
@@ -21,21 +19,6 @@ const roles = [
     description:
       'Volunteer Desk Reporters help gather, verify, and synthesize information related to active wildfires and weather events. This includes monitoring multiple sources such as scanner traffic, fire cameras, official agency updates, user-submitted intel, and automated detections within NWTT.',
     badge: 'Core Team',
-  },
-  {
-    icon: Database,
-    title: 'Data Engineer',
-    description:
-      'Build and maintain data pipelines that ingest information from NASA FIRMS, NIFC, NWS, and other authoritative sources to power our tracking platform.',
-    badge: 'Technical',
-    link: 'https://docs.google.com/forms/d/e/1FAIpQLSfbjW4BisLzInH3eEbDPzDH10pVHGx_ubbVPQGlf5wzRbqaLw/viewform?usp=header',
-  },
-  {
-    icon: Cloud,
-    title: 'Weather Analyst',
-    description:
-      'Track fire weather conditions including Red Flag Warnings, wind events, and drought patterns that influence wildfire behavior and spread.',
-    badge: 'Specialist',
   },
   {
     icon: MessageSquare,
@@ -53,26 +36,12 @@ const roles = [
     badge: 'Technical',
   },
   {
-    icon: Users,
-    title: 'Community Liaison',
-    description:
-      'Connect with local emergency management agencies, fire departments, and community groups to ensure our intelligence reaches those on the ground.',
-    badge: 'Field',
-  },
-  {
     icon: Code2,
     title: 'Web Developer',
     description:
       'Help build and improve the tools and interfaces that volunteers and the public rely on for real-time wildfire tracking.',
     badge: 'Technical',
     link: 'https://docs.google.com/forms/d/e/1FAIpQLSfbjW4BisLzInH3eEbDPzDH10pVHGx_ubbVPQGlf5wzRbqaLw/viewform?usp=header',
-  },
-  {
-    icon: Plus,
-    title: 'Other',
-    description:
-      'Have a unique skill set that could help our mission? We welcome all backgrounds. Tell us what you bring to the team.',
-    badge: 'Open',
   },
 ];
 
@@ -85,9 +54,9 @@ export default function VolunteerPage() {
         path="/volunteer"
       />
       {/* ── Hero ── */}
-      <section className="relative bg-sentinel-900 overflow-hidden">
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_rgba(255,90,0,0.08),_transparent_50%)]" />
-        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-16 pb-12 sm:pt-20 sm:pb-16">
+      {/* focal holds the burning ridgeline in the middle of the bar. */}
+      <ParallaxHero image={volunteerHero} focal="70%">
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 pb-16 sm:pt-24 sm:pb-20">
           <div className="text-center max-w-2xl mx-auto">
             <h1 className="text-4xl sm:text-5xl font-bold text-white leading-tight tracking-tight">
               Volunteer With Us
@@ -99,20 +68,24 @@ export default function VolunteerPage() {
             </p>
           </div>
         </div>
-      </section>
+      </ParallaxHero>
 
       {/* ── Role Boxes ── */}
-      <section className="bg-sentinel-800 py-16 sm:py-20">
+      <section className="relative overflow-hidden bg-sentinel-800 py-16 sm:py-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-12">
-            <h2 className="text-2xl sm:text-3xl font-bold text-white">Choose Your Role</h2>
-            <p className="mt-4 text-sentinel-300 text-lg max-w-2xl mx-auto">
+          <div className="relative text-center mb-12">
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[32rem] max-w-[90vw] h-36 rounded-full bg-fire-600/25 blur-3xl"
+            />
+            <h2 className="relative text-2xl sm:text-3xl font-bold text-white">Find Your Role</h2>
+            <p className="relative mt-4 text-sentinel-300 text-lg max-w-2xl mx-auto">
               Click any role to open our application form. No matter your
               background, there's a place for you on our team.
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 auto-rows-fr max-w-4xl mx-auto">
             {roles.map((role) => {
               const Icon = role.icon;
               return (
@@ -121,7 +94,7 @@ export default function VolunteerPage() {
                   href={role.link || GOOGLE_FORM_URL}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="group p-6 rounded-2xl bg-sentinel-900 border border-sentinel-700 hover:border-fire-600/50 transition-all cursor-pointer hover:bg-sentinel-900/80"
+                  className="group flex flex-col h-full p-6 rounded-2xl bg-sentinel-900 border border-sentinel-700 hover:border-fire-600/50 transition-all cursor-pointer hover:bg-sentinel-900/80"
                 >
                   <div className="flex items-start justify-between mb-4">
                     <div className="w-11 h-11 rounded-xl bg-fire-600/10 border border-fire-600/20 flex items-center justify-center group-hover:bg-fire-600/20 transition-colors">
@@ -132,7 +105,7 @@ export default function VolunteerPage() {
                       className="text-sentinel-500 group-hover:text-fire-400 group-hover:translate-x-0.5 transition-all mt-1"
                     />
                   </div>
-                  <span className="inline-block px-2.5 py-0.5 rounded-md bg-fire-600/10 text-fire-400 text-xs font-semibold mb-3">
+                  <span className="self-start px-2.5 py-0.5 rounded-md bg-fire-600/10 text-fire-400 text-xs font-semibold mb-3">
                     {role.badge}
                   </span>
                   <h3 className="text-lg font-semibold text-white mb-2">{role.title}</h3>

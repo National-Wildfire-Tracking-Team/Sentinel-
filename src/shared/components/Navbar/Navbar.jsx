@@ -1,13 +1,12 @@
 import { useRef, useState, useEffect } from 'react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
-import { Flame, Menu, X, Heart, Settings, LogOut } from 'lucide-react';
+import { Flame, Menu, X, Heart, Settings, LogOut, User } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { getAppOrigin } from '../../utils/getAppOrigin';
 
 const navLinks = [
   { to: '/', label: 'Home' },
   { to: '/about', label: 'About' },
-  { to: '/disaster-response', label: 'Disaster Response' },
   { to: '/volunteer', label: 'Volunteer' },
   { to: '/pricing', label: 'Pricing' },
 ];
@@ -86,17 +85,22 @@ export default function Navbar() {
               Donate
             </a>
             <a
-              href={`${getAppOrigin()}/login`}
-              className="ml-2 px-4 py-2 rounded-lg text-sm font-semibold text-sentinel-200 hover:text-white hover:bg-sentinel-700/60 transition-colors"
-            >
-              Login
-            </a>
-            <a
               href={`${getAppOrigin()}/`}
               className="ml-2 px-4 py-2 rounded-lg text-sm font-semibold bg-fire-600 text-white hover:bg-fire-500 transition-colors"
             >
               Sentinel<sup className="ml-0.5 text-[0.6em] font-bold tracking-wider align-super">BETA</sup>
             </a>
+
+            {!isAuthenticated && (
+              <a
+                href={`${getAppOrigin()}/login`}
+                aria-label="Login"
+                title="Login"
+                className="ml-2 flex items-center justify-center w-9 h-9 rounded-full border border-sentinel-600 bg-sentinel-800 text-sentinel-200 hover:bg-sentinel-700 hover:text-white transition-colors"
+              >
+                <User size={18} />
+              </a>
+            )}
 
             {/* User menu (logged-in only) */}
             {isAuthenticated && (
