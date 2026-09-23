@@ -10,6 +10,7 @@ import { fetchAlertsByPoint } from '../../api/noaaWeather';
 import { useViewport } from '../../context/ViewportContext';
 import { supabase, isSupabaseConfigured } from '../../../shared/api/supabaseClient';
 import { acquireSlot } from '../../utils/mapboxRateLimiter';
+import { trackSentinelUse } from '../../../shared/utils/analytics';
 
 const SEVERITY_STYLES = {
   Extreme:  'border-red-600/60 bg-red-950/50 text-red-200',
@@ -131,6 +132,7 @@ export default function AddressAlertSearch() {
 
       // Fly map to the searched location
       setViewport({ longitude: lng, latitude: lat, zoom: 8 });
+      trackSentinelUse('map_search');
     } catch (err) {
       setError(err.message);
     } finally {
