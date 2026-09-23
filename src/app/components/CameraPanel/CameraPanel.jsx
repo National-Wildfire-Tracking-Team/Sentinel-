@@ -181,7 +181,7 @@ const CameraPanel = memo(function CameraPanel({ camera, onClose }) {
   return (
     <div
       ref={panelRef}
-      className={`absolute z-30 bg-sentinel-900/95 backdrop-blur-sm border border-sentinel-700 rounded-xl shadow-2xl shadow-black/60 overflow-hidden animate-fade-in flex flex-col ${position ? '' : 'top-4 right-4'}`}
+      className={`absolute z-30 bg-sentinel-900/95 backdrop-blur-sm border border-sentinel-700 rounded-xl shadow-2xl shadow-black/60 overflow-hidden animate-fade-in flex flex-col ${position ? '' : 'top-[68px] right-4'}`}
       style={{
         ...(position ? { top: position.top, left: position.left } : {}),
         width: size ? size.width : DEFAULT_WIDTH,

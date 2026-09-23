@@ -1,15 +1,15 @@
 /**
  * MapCornerButtons.jsx
- * Four stacked circular buttons in the top-left corner of the map:
- * future-features panel, incident sidebar, account center, and locate-me.
+ * Three stacked circular buttons in the top-left corner of the map:
+ * future-features panel, incident sidebar, and locate-me.
+ * (The account button lives top-right — see AccountButton.jsx.)
  */
 
 import { memo, useCallback, useEffect, useState } from 'react';
-import { Menu, LocateFixed, User } from 'lucide-react';
+import { Menu, LocateFixed } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { useAppStatus } from '../../context/AppStatusContext';
 import { useViewport } from '../../context/ViewportContext';
-import { useAuth } from '../../../shared/context/AuthContext';
 
 const GEOLOCATION_ERROR_MESSAGES = {
   1: 'Location permission denied. Enable location access for this site in your browser settings.',
@@ -39,15 +39,11 @@ const MapCornerButtons = memo(function MapCornerButtons() {
   const {
     sidebarOpen, toggleSidebar,
     futurePanelOpen, toggleFuturePanel,
-    accountPanelOpen, toggleAccountPanel,
     layerPanelOpen,
     locationGranted, grantLocation,
   } = useApp();
   const { setUserLocation, userLocation } = useAppStatus();
   const { setViewport } = useViewport();
-  const { isAuthenticated, user } = useAuth();
-
-  const userInitial = user?.email ? user.email[0].toUpperCase() : '?';
 
   const [locationError, setLocationError] = useState(null);
 
@@ -128,16 +124,6 @@ const MapCornerButtons = memo(function MapCornerButtons() {
       <CornerButton active={sidebarOpen} onClick={toggleSidebar} ariaLabel="Open incident sidebar">
         <span className="text-lg font-black leading-none">!</span>
       </CornerButton>
-
-      <div data-account-trigger>
-        <CornerButton active={accountPanelOpen} onClick={toggleAccountPanel} ariaLabel="Open account center">
-          {isAuthenticated ? (
-            <span className="text-xs font-bold leading-none">{userInitial}</span>
-          ) : (
-            <User size={18} />
-          )}
-        </CornerButton>
-      </div>
 
       <div className="relative">
         <CornerButton active={locationGranted} onClick={handleLocateMe} ariaLabel="Center map on my location">

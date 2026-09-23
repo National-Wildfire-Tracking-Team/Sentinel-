@@ -4,7 +4,7 @@
  * fire perimeter, AQI station, or NOAA weather alert.
  */
 
-import { memo, useState } from 'react';
+import { memo, useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import {
   X, Flame, MapPin, Users, Home, Calendar, Thermometer,
@@ -23,6 +23,11 @@ import { frpToLabel, containmentToColor, getAQICategory } from '../../utils/colo
 import { nwsAlertColor } from '../../utils/nwsColors';
 import IncidentTimeline from '../IncidentTimeline/IncidentTimeline';
 import { HAZARD_CATEGORY_COLORS } from '../Map/layers/HazardEventsLayer';
+import { trackSentinelUse } from '../../../shared/utils/analytics';
+
+// Fire-related detail types that represent a user opening a tracked wildfire
+// incident (as opposed to AQI stations, weather alerts, evac zones, etc).
+const INCIDENT_OPEN_TYPES = ['incident', 'hotspot', 'perimeter'];
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -1430,6 +1435,14 @@ const FireDetailPanel = memo(function FireDetailPanel() {
   const [shareStatus, setShareStatus] = useState('');
   const isShareableFireType = ['hotspot', 'perimeter', 'incident', 'user-report', 'weather-alert'].includes(selectedFire?.type);
 
+  // Fires once per incident open (map click, sidebar card, or popup select
+  // all funnel through selectedFire), not on every render or on close.
+  useEffect(() => {
+    if (INCIDENT_OPEN_TYPES.includes(selectedFire?.type)) {
+      trackSentinelUse('incident_open', { incident_type: selectedFire.type });
+    }
+  }, [selectedFire]);
+
   const buildShareText = (fire) => {
     if (fire.type === 'weather-alert') {
       const title = fire.eventType || fire.type || 'Weather alert';
@@ -1520,7 +1533,7 @@ const FireDetailPanel = memo(function FireDetailPanel() {
       />
 
       {/* Panel */}
-      <div className="absolute right-4 top-4 bottom-4 z-30 w-72 sm:w-80
+      <div className="absolute right-4 top-[68px] bottom-4 z-30 w-72 sm:w-80
                       bg-sentinel-900 border border-sentinel-700
                       rounded-2xl shadow-2xl overflow-hidden flex flex-col
                       animate-slide-in-right">

@@ -10,6 +10,7 @@ import {
   Layers, Flame, MapPin, Wind, CloudRain, CloudLightning, Eye, ChevronDown, ChevronRight, Radar, AlertTriangle, Ruler, Hexagon, Satellite, Thermometer, Activity, Droplets, Zap, Lock, GraduationCap, History, TrendingUp, Crosshair, Camera, Snowflake, Landmark,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
+import { trackSentinelUse } from '../../../shared/utils/analytics';
 
 /** Layer row definitions — grouped under tab-specific sections below */
 const LAYER_DEFS = {
@@ -153,7 +154,10 @@ const TAB_SECTIONS = {
 function LayerToggle({ layerKey, label, sublabel, icon: Icon, color, locked, onToggle }) {
   const { layers, toggleLayer } = useApp();
   const active = layers[layerKey];
-  const handleClick = onToggle || (() => toggleLayer(layerKey));
+  const handleClick = onToggle || (() => {
+    if (!active) trackSentinelUse('layer_toggle', { layer: layerKey });
+    toggleLayer(layerKey);
+  });
 
   if (locked) {
     return (
