@@ -23,6 +23,7 @@ export default {
         },
         sentinel: {
           900: '#0a0c0e',
+          850: '#0d1013', // marketing section backdrop — sits close to 900 so alternating bands read as one surface
           800: '#111418',
           700: '#1a1f26',
           600: '#222830',

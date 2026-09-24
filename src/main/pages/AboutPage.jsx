@@ -13,7 +13,6 @@ import {
   ArrowRight,
   Award,
   Clock,
-  Database,
 } from 'lucide-react';
 
 const dataSources = [
@@ -100,7 +99,7 @@ export default function AboutPage() {
         focalX="32%"
         overhang={0.28}
         drift={0.22}
-        overlayClassName="bg-gradient-to-b from-sentinel-900/75 via-sentinel-900/45 to-sentinel-900/75"
+        overlayClassName="bg-gradient-to-b from-sentinel-900/75 via-sentinel-900/45 to-sentinel-900/40"
       >
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-16 pb-20 sm:pt-20 sm:pb-24">
           <div className="text-center max-w-3xl mx-auto">
@@ -110,7 +109,7 @@ export default function AboutPage() {
                 One Mission
               </span>
             </h1>
-            <p className="mt-6 text-lg text-sentinel-200 leading-relaxed">
+            <p className="mt-6 text-lg text-white leading-relaxed">
               The National Wildfire Tracking Team is an all-volunteer organization
               dedicated to providing the public with real-time wildfire intelligence.
               We believe that access to accurate, timely fire information should be
@@ -121,7 +120,7 @@ export default function AboutPage() {
       </ParallaxHero>
 
       {/* ── Our Story ── */}
-      <section className="bg-sentinel-800 py-20">
+      <section className="bg-sentinel-850 py-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
             <div>
@@ -130,10 +129,13 @@ export default function AboutPage() {
                 <span className="text-fire-400 font-semibold text-sm uppercase tracking-wider">Our Story</span>
               </div>
               <h2 className="text-3xl font-bold text-white mb-6">
-                Born From a Need to Inform and Protect
+                Born From a Need to{' '}
+                <span className="text-transparent bg-clip-text bg-gradient-to-r from-fire-500 to-fire-300">
+                  Inform and Protect
+                </span>
               </h2>
               <div className="space-y-4 text-sentinel-200 leading-relaxed">
-                The National Wildfire Tracking Team (NWTT) is a nonpartisan, nonprofit organization dedicated to providing real-time, verified public-safety information on wildfires, severe weather, and other natural disasters. Our mission is to deliver accurate situational awareness so communities can respond safely during emergencies.
+                The National Wildfire Tracking Team (NWTT) is a nonpartisan, nonprofit organization dedicated to providing real-time, verified public safety information on wildfires, severe weather, and other natural disasters. Our mission is to deliver accurate situational awareness so communities and first responders can respond safely during emergencies.
 
               </div>
             </div>
@@ -150,7 +152,7 @@ export default function AboutPage() {
                     <p className="text-sentinel-300 text-sm leading-relaxed">
                       To provide free, real-time wildfire tracking and intelligence to
                       every community in the United States, empowering people to make
-                      informed decisions during wildfire events.
+                      informed decisions during all events.
                     </p>
                   </div>
                 </div>
@@ -161,7 +163,7 @@ export default function AboutPage() {
                   <div>
                     <h3 className="text-white font-semibold mb-1">Our Vision</h3>
                     <p className="text-sentinel-300 text-sm leading-relaxed">
-                      A nation where no community is caught off guard by wildfire, where
+                      A nation where no community is caught off guard by disasters, where
                       real-time intelligence is universally accessible, and where
                       technology bridges the gap between detection and public awareness.
                     </p>
@@ -175,7 +177,7 @@ export default function AboutPage() {
                     <h3 className="text-white font-semibold mb-1">Our Commitment</h3>
                     <p className="text-sentinel-300 text-sm leading-relaxed">
                       We are committed to accuracy, speed, and public service. Every data
-                      point we share is verified, every alert is timely, and every tool
+                      point we share is verified, every alert is timely, and every lifesaving tool
                       we build is freely available.
                     </p>
                   </div>
@@ -190,7 +192,12 @@ export default function AboutPage() {
       <section className="bg-sentinel-900 py-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
-            <h2 className="text-3xl sm:text-4xl font-bold text-white">Our Values</h2>
+            <h2 className="text-3xl sm:text-4xl font-bold text-white">
+              Our{' '}
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-fire-500 to-fire-300">
+                Values
+              </span>
+            </h2>
             <p className="mt-4 text-sentinel-300 text-lg max-w-2xl mx-auto">
               These principles guide everything we do, from how we verify data to how
               we serve communities in crisis.
@@ -218,14 +225,16 @@ export default function AboutPage() {
       </section>
 
       {/* ── Data Sources & Methodology ── */}
-      <section id="data-methodology" className="bg-sentinel-800 py-20">
+      <section id="data-methodology" className="bg-sentinel-850 py-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
-            <div className="flex items-center justify-center gap-2 mb-4">
-              <Database size={18} className="text-fire-400" />
-              <span className="text-fire-400 font-semibold text-sm uppercase tracking-wider">Data & Methodology</span>
-            </div>
-            <h2 className="text-3xl sm:text-4xl font-bold text-white">Where Our Data Comes From</h2>
+            <h2 className="text-3xl sm:text-4xl font-bold text-white">
+              Where Our{' '}
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-fire-500 to-fire-300">
+                Data
+              </span>{' '}
+              Comes From
+            </h2>
             <p className="mt-4 text-sentinel-300 text-lg max-w-2xl mx-auto">
               Sentinel does not generate its own fire detections. We aggregate, cross-reference, and
               display data published by public agencies, then layer in our own verification.
