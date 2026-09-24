@@ -30,7 +30,7 @@ export default function ParallaxHero({
   focal = '50%',
   focalX = 'center',
   className = '',
-  overlayClassName = 'bg-gradient-to-b from-sentinel-900/70 via-sentinel-900/50 to-sentinel-900/80',
+  overlayClassName = 'bg-gradient-to-b from-sentinel-900/70 via-sentinel-900/50 to-sentinel-900/40',
   // Shallower depth pulls the crop back towards the bar, which matters when the
   // subject sits near an edge of the photo and would otherwise drift out of view.
   overhang = OVERHANG,
@@ -81,7 +81,13 @@ export default function ParallaxHero({
   }, [drift]);
 
   return (
-    <section ref={barRef} className={`relative overflow-hidden bg-sentinel-900 ${className}`}>
+    // -mt-16/pt-16 slide the photo up under the sticky Navbar, which goes
+    // transparent while it sits over a hero (see HERO_ROUTES there).
+    <section
+      ref={barRef}
+      data-parallax-hero
+      className={`relative -mt-16 pt-16 overflow-hidden bg-sentinel-900 ${className}`}
+    >
       <div
         ref={imageRef}
         aria-hidden="true"

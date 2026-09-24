@@ -77,7 +77,7 @@ export default function DisasterResponsePage() {
       </section>
 
       {/* ── All-Hazard Coverage ── */}
-      <section className="bg-sentinel-800 py-20">
+      <section className="bg-sentinel-850 py-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
             <h2 className="text-2xl sm:text-3xl font-bold text-white">All-Hazard Response Coverage</h2>
@@ -132,7 +132,7 @@ export default function DisasterResponsePage() {
       </section>
 
       {/* ── Explore More ── */}
-      <section className="bg-sentinel-800 py-20">
+      <section className="bg-sentinel-850 py-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
             <h2 className="text-2xl sm:text-3xl font-bold text-white">Explore the Full Response Lifecycle</h2>

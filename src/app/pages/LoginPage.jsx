@@ -1,7 +1,7 @@
 /**
  * LoginPage.jsx
  * Member login with email/password via Supabase Auth.
- * Left panel: Sentinel branding. Right panel: Member Login form.
+ * A single centred Member Login form.
  * This page is for regular users (role: 'public'). Reporters use /reporter-login.
  */
 
@@ -13,6 +13,7 @@ import {
 
 import { useAuth } from '../../shared/context/AuthContext';
 import { supabase } from '../../shared/api/supabaseClient';
+import { getMainOrigin } from '../../shared/utils/getAppOrigin';
 
 /** Fetch the profile role for a user id immediately after sign-in. */
 async function fetchRole(userId) {
@@ -42,6 +43,7 @@ export default function LoginPage() {
   const [resetSent,   setResetSent]   = useState(false);
 
   const redirectTo = location.state?.from || '/';
+  const fromHome   = new URLSearchParams(location.search).get('from') === 'home';
 
   /* ── Sign-in ── */
   async function handleSignIn(e) {
@@ -118,62 +120,8 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen flex">
 
-      {/* ══════════════════ LEFT PANEL — Branding ══════════════════ */}
-      <div className="hidden lg:flex lg:w-1/2 relative flex-col items-center justify-center overflow-hidden">
-
-        {/* Background layers */}
-        <div className="absolute inset-0 bg-gradient-to-br from-[#07090c] via-[#0c1520] to-[#071020]" />
-        <div
-          className="absolute inset-0 opacity-[0.04]"
-          style={{
-            backgroundImage:
-              'linear-gradient(rgba(255,255,255,.15) 1px, transparent 1px),' +
-              'linear-gradient(90deg, rgba(255,255,255,.15) 1px, transparent 1px)',
-            backgroundSize: '48px 48px',
-          }}
-        />
-        <div className="absolute bottom-0 left-0 right-0 h-64 bg-gradient-to-t from-orange-900/25 to-transparent" />
-
-        {/* Content */}
-        <div className="relative z-10 text-center px-12 max-w-lg">
-          {/* Icon badge */}
-          <div className="flex items-center justify-center mb-8">
-            <div className="w-20 h-20 rounded-2xl border border-fire-500/30 bg-fire-600/10
-                            flex items-center justify-center shadow-lg shadow-fire-900/30">
-              <Flame size={44} className="text-fire-400" />
-            </div>
-          </div>
-
-          <h1 className="text-5xl font-black text-white tracking-tight mb-2">Sentinel</h1>
-          <p className="text-fire-400 font-semibold text-lg mb-6 tracking-wide uppercase text-sm">
-            National Wildfire Tracking Team
-          </p>
-          <p className="text-sentinel-200/70 leading-relaxed text-sm">
-            Access the real-time wildfire intelligence platform with live tracking,
-            alerts, and incident data powered by the NWTT network.
-          </p>
-
-          {/* Stats row */}
-          <div className="mt-14 grid grid-cols-3 gap-3">
-            {[
-              { value: '24/7',  label: 'Monitoring'  },
-              { value: 'Live',  label: 'Tracking'    },
-              { value: 'Rapid', label: 'Response'    },
-            ].map(({ value, label }) => (
-              <div
-                key={label}
-                className="py-4 rounded-xl bg-white/5 border border-white/10 backdrop-blur-sm"
-              >
-                <div className="text-xl font-bold text-white">{value}</div>
-                <div className="text-xs text-sentinel-300 mt-1">{label}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* ══════════════════ RIGHT PANEL — Login form ══════════════════ */}
-      <div className="w-full lg:w-1/2 flex items-center justify-center bg-sentinel-900 p-8">
+      {/* ══════════════════ Login form ══════════════════ */}
+      <div className="w-full flex items-center justify-center bg-sentinel-900 p-8">
         <div className="w-full max-w-md">
 
           {/* Mobile logo */}
@@ -187,7 +135,7 @@ export default function LoginPage() {
             <>
               <h2 className="text-3xl font-bold text-white mb-1">Member Login</h2>
               <p className="text-sentinel-400 text-sm mb-8">
-                Sign in to access the live wildfire tracker
+                Sign in to save locations or access paid account
               </p>
 
               {!isSupabaseConfigured && (
@@ -353,9 +301,17 @@ export default function LoginPage() {
           </p>
 
           <div className="mt-4 text-center">
-            <Link to="/" className="text-xs text-sentinel-500 hover:text-sentinel-300 transition-colors">
-              ← Back to Sentinel
-            </Link>
+            {/* Marketing-site login links add ?from=home; send those visitors back to
+                the home page (on the bare domain), everyone else back to the tracker. */}
+            {fromHome ? (
+              <a href={`${getMainOrigin()}/`} className="text-xs text-sentinel-500 hover:text-sentinel-300 transition-colors">
+                ← Back Home
+              </a>
+            ) : (
+              <Link to="/" className="text-xs text-sentinel-500 hover:text-sentinel-300 transition-colors">
+                ← Back to Sentinel
+              </Link>
+            )}
           </div>
 
         </div>

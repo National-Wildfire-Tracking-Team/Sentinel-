@@ -29,7 +29,7 @@ test.describe('LoginPage – Rendering', () => {
 
   test('displays the subtitle text', async ({ page }) => {
     await expect(
-      page.getByText('Sign in to access the live wildfire tracker'),
+      page.getByText('Sign in to save locations or access paid account'),
     ).toBeVisible();
   });
 
@@ -538,6 +538,13 @@ test.describe('LoginPage – Navigation', () => {
     const link = page.getByRole('link', { name: /back to sentinel/i });
     await link.click();
     await expect(page).toHaveURL('http://app.localhost:3000/');
+  });
+
+  test('shows Back Home instead when arriving from the marketing site', async ({ page }) => {
+    await page.goto(`${LOGIN_URL}?from=home`);
+    await expect(page.getByRole('link', { name: /back to sentinel/i })).toHaveCount(0);
+    await page.getByRole('link', { name: /back home/i }).click();
+    await expect(page).toHaveURL('http://localhost:3000/');
   });
 });
 

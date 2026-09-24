@@ -1,5 +1,5 @@
 import { useRef, useState, useEffect } from 'react';
-import { Link, NavLink, useNavigate } from 'react-router-dom';
+import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { Flame, Menu, X, Heart, Settings, LogOut, User } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { getAppOrigin } from '../../utils/getAppOrigin';
@@ -11,12 +11,51 @@ const navLinks = [
   { to: '/pricing', label: 'Pricing' },
 ];
 
+// Pages that open with a ParallaxHero. The bar is transparent over the photo
+// and turns back to the solid bar once the photo has scrolled out from under it.
+const HERO_ROUTES = new Set(['/', '/about', '/volunteer']);
+const NAV_HEIGHT = 64;
+
+function useOverHero(enabled) {
+  const [overHero, setOverHero] = useState(enabled);
+
+  useEffect(() => {
+    if (!enabled) {
+      setOverHero(false);
+      return;
+    }
+    let raf = 0;
+    const update = () => {
+      raf = 0;
+      const hero = document.querySelector('[data-parallax-hero]');
+      // The route chunk may not have mounted yet; treat that as still at the top.
+      setOverHero(hero ? hero.getBoundingClientRect().bottom > NAV_HEIGHT : window.scrollY < NAV_HEIGHT);
+    };
+    const schedule = () => {
+      if (!raf) raf = requestAnimationFrame(update);
+    };
+    update();
+    window.addEventListener('scroll', schedule, { passive: true });
+    window.addEventListener('resize', schedule);
+    return () => {
+      window.removeEventListener('scroll', schedule);
+      window.removeEventListener('resize', schedule);
+      if (raf) cancelAnimationFrame(raf);
+    };
+  }, [enabled]);
+
+  return overHero;
+}
+
 export default function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const { isAuthenticated, user, signOut } = useAuth();
   const navigate = useNavigate();
   const userMenuRef = useRef(null);
+  const { pathname } = useLocation();
+  const overHero = useOverHero(HERO_ROUTES.has(pathname));
+  const clear = overHero && !mobileOpen;
 
   useEffect(() => {
     if (!userMenuOpen) return;
@@ -38,7 +77,13 @@ export default function Navbar() {
   const userInitial = user?.email ? user.email[0].toUpperCase() : '?';
 
   return (
-    <nav className="sticky top-0 z-50 bg-sentinel-900/95 backdrop-blur-md border-b border-sentinel-700">
+    <nav
+      className={`sticky top-0 z-50 border-b transition-colors duration-300 ${
+        clear
+          ? 'bg-transparent border-transparent'
+          : 'bg-sentinel-900/95 backdrop-blur-md border-sentinel-700'
+      }`}
+    >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
@@ -51,7 +96,7 @@ export default function Navbar() {
               <span className="font-bold text-white text-lg tracking-tight">
                 NWTT
               </span>
-              <span className="text-[10px] text-sentinel-400 font-medium tracking-wide uppercase">
+              <span className={`text-[10px] font-medium tracking-wide uppercase ${clear ? 'text-sentinel-200' : 'text-sentinel-400'}`}>
                 National Wildfire Tracking Team
               </span>
             </div>
@@ -93,10 +138,12 @@ export default function Navbar() {
 
             {!isAuthenticated && (
               <a
-                href={`${getAppOrigin()}/login`}
+                href={`${getAppOrigin()}/login?from=home`}
                 aria-label="Login"
                 title="Login"
-                className="ml-2 flex items-center justify-center w-9 h-9 rounded-full border border-sentinel-600 bg-sentinel-800 text-sentinel-200 hover:bg-sentinel-700 hover:text-white transition-colors"
+                className={`ml-2 flex items-center justify-center w-9 h-9 rounded-full border text-sentinel-200 hover:bg-sentinel-700 hover:text-white transition-colors ${
+                  clear ? 'border-white/25 bg-white/10' : 'border-sentinel-600 bg-sentinel-800'
+                }`}
               >
                 <User size={18} />
               </a>
@@ -186,7 +233,7 @@ export default function Navbar() {
               Donate
             </a>
             <a
-              href={`${getAppOrigin()}/login`}
+              href={`${getAppOrigin()}/login?from=home`}
               onClick={() => setMobileOpen(false)}
               className="block px-4 py-2.5 rounded-lg text-sm font-medium text-sentinel-200 hover:text-white hover:bg-sentinel-700/60 transition-colors"
             >

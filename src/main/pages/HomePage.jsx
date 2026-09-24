@@ -5,7 +5,6 @@ import homeHero from '../assets/home-hero.jpg';
 import {
   Satellite,
   Radio,
-  ShieldAlert,
   MapPin,
   ArrowRight,
   CloudLightning,
@@ -39,9 +38,8 @@ const capabilities = [
 ];
 
 const stats = [
-  { value: '24/7', label: 'Monitoring' },
   { value: '50', label: 'States Covered' },
-  { value: '1000+', label: 'Fires Tracked Yearly' },
+  { value: '24/7', label: 'Monitoring' },
   { value: '100%', label: 'Volunteer Powered' },
 ];
 
@@ -61,13 +59,13 @@ export default function HomePage() {
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 pb-24 sm:pt-28 sm:pb-32">
           <div className="max-w-3xl">
             <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-white leading-tight tracking-tight">
-              Protecting Communities{' '}
+              Protecting Communities Through{' '}
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-fire-500 to-fire-300">
-                Through all hazard Intelligence
+                All-Hazard Intelligence
               </span>
             </h1>
 
-            <p className="mt-6 text-lg sm:text-xl text-sentinel-200 leading-relaxed max-w-2xl">
+            <p className="mt-6 text-lg sm:text-xl text-white leading-relaxed max-w-2xl">
               The National Wildfire Tracking Team provides real-time wildfire monitoring,
               satellite detection, and weather intelligence to keep communities informed
               and safe across the United States.
@@ -87,9 +85,9 @@ export default function HomePage() {
       </ParallaxHero>
 
       {/* ── Stats Bar ── */}
-      <section className="bg-sentinel-800 border-y border-sentinel-700">
+      <section className="bg-sentinel-850 border-b border-sentinel-700/60">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 sm:gap-3">
             {stats.map((stat) => (
               <div key={stat.label} className="text-center">
                 <div className="text-3xl md:text-5xl lg:text-6xl font-bold text-fire-400">{stat.value}</div>
@@ -104,7 +102,12 @@ export default function HomePage() {
       <section className="bg-sentinel-900 py-20 sm:py-24">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-5xl lg:text-6xl font-bold text-white">What We Do</h2>
+            <h2 className="text-3xl sm:text-4xl font-bold text-white">
+              What We{' '}
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-fire-500 to-fire-300">
+                Do
+              </span>
+            </h2>
             <p className="mt-4 text-sentinel-300 text-lg max-w-2xl mx-auto">
               Our team operates around the clock to detect, track, and report wildfire
               activity using cutting-edge technology and open-source intelligence.
@@ -132,14 +135,13 @@ export default function HomePage() {
       </section>
 
       {/* ── Mission CTA ── */}
-      <section className="bg-sentinel-800 py-20">
+      <section className="bg-sentinel-850 py-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="relative rounded-3xl overflow-hidden bg-gradient-to-br from-fire-600/20 via-sentinel-800 to-sentinel-900 border border-fire-600/20 p-10 sm:p-14">
             <div className="absolute top-0 right-0 w-72 h-72 bg-fire-600/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
             <div className="relative flex flex-col md:flex-row items-center gap-8">
               <div className="flex-1">
-                <div className="flex items-center gap-2 mb-4">
-                  <ShieldAlert size={20} className="text-fire-400" />
+                <div className="mb-4">
                   <span className="text-fire-400 font-semibold text-sm uppercase tracking-wider">Our Mission</span>
                 </div>
                 <h2 className="text-2xl sm:text-3xl font-bold text-white mb-4">
