@@ -84,7 +84,7 @@ export default function PreparednessPage() {
       </section>
 
       {/* ── CTA ── */}
-      <section className="bg-sentinel-800 py-16">
+      <section className="bg-sentinel-850 py-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center rounded-3xl bg-gradient-to-br from-fire-600/15 via-sentinel-900 to-sentinel-900 border border-fire-600/20 p-10 sm:p-14">
             <h2 className="text-2xl sm:text-3xl font-bold text-white mb-4">

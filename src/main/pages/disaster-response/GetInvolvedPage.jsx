@@ -120,7 +120,7 @@ export default function GetInvolvedPage() {
       </section>
 
       {/* ── Why Volunteer ── */}
-      <section className="bg-sentinel-800 py-20">
+      <section className="bg-sentinel-850 py-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
             <h2 className="text-2xl sm:text-3xl font-bold text-white">Why Volunteer with NWTT?</h2>
@@ -165,7 +165,7 @@ export default function GetInvolvedPage() {
                 Create Your Account
               </a>
               <a
-                href={`${getAppOrigin()}/login`}
+                href={`${getAppOrigin()}/login?from=home`}
                 className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-sentinel-700 text-white font-semibold hover:bg-sentinel-600 transition-colors border border-sentinel-600"
               >
                 <KeyRound size={18} />

@@ -17,14 +17,14 @@ const roles = [
     icon: Flame,
     title: 'Reporter',
     description:
-      'Volunteer Desk Reporters help gather, verify, and synthesize information related to active wildfires and weather events. This includes monitoring multiple sources such as scanner traffic, fire cameras, official agency updates, user-submitted intel, and automated detections within NWTT.',
+      'Monitor scanner traffic, fire cameras, agency updates, and Sentinel\'s automated detections to confirm what\'s happening on active incidents, then publish clear, timely updates the public can act on.',
     badge: 'Core Team',
   },
   {
     icon: MessageSquare,
     title: 'Communications / Social Media',
     description:
-      'Translate complex fire data into clear, actionable updates for the public, media, and partner agencies during wildfire events.',
+      'Turn verified incident updates into clear posts, alerts, and graphics for our social channels, and help grow NWTT\'s reach with the public, media, and partner organizations.',
     badge: 'Outreach',
         link: 'https://docs.google.com/forms/d/e/1FAIpQLSf0_7xTXrIA5T8eTLL5tYVjoH7ppqeIw8K302RE5uXpICW2sg/viewform?usp=header',
   },
@@ -32,14 +32,14 @@ const roles = [
     icon: Map,
     title: 'GIS & Mapping Specialist',
     description:
-      'Create and maintain interactive maps, perimeter overlays, and geospatial visualizations that make wildfire data accessible and understandable.',
+      'Build and maintain the map layers behind Sentinel, from fire perimeters to evacuation zones and hazard overlays, and turn raw geospatial data into maps anyone can read.',
     badge: 'Technical',
   },
   {
     icon: Code2,
     title: 'Web Developer',
     description:
-      'Help build and improve the tools and interfaces that volunteers and the public rely on for real-time wildfire tracking.',
+      'Help build new features and improve Sentinel, the wildfire tracking platform our volunteers and the public rely on, keeping it fast, reliable, and easy to use.',
     badge: 'Technical',
     link: 'https://docs.google.com/forms/d/e/1FAIpQLSfbjW4BisLzInH3eEbDPzDH10pVHGx_ubbVPQGlf5wzRbqaLw/viewform?usp=header',
   },
@@ -59,9 +59,12 @@ export default function VolunteerPage() {
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 pb-16 sm:pt-24 sm:pb-20">
           <div className="text-center max-w-2xl mx-auto">
             <h1 className="text-4xl sm:text-5xl font-bold text-white leading-tight tracking-tight">
-              Volunteer With Us
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-fire-500 to-fire-300">
+                Volunteer
+              </span>{' '}
+              With Us
             </h1>
-            <p className="mt-6 text-lg text-sentinel-200 leading-relaxed">
+            <p className="mt-6 text-lg text-white leading-relaxed">
               Join a dedicated team of volunteers working to protect communities
               through real-time wildfire intelligence. Select a role below to
               apply via our volunteer application form.
@@ -71,18 +74,16 @@ export default function VolunteerPage() {
       </ParallaxHero>
 
       {/* ── Role Boxes ── */}
-      <section className="relative overflow-hidden bg-sentinel-800 py-16 sm:py-20">
+      <section className="relative overflow-hidden bg-sentinel-850 py-16 sm:py-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="relative text-center mb-12">
-            <div
-              aria-hidden="true"
-              className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[32rem] max-w-[90vw] h-36 rounded-full bg-fire-600/25 blur-3xl"
-            />
-            <h2 className="relative text-2xl sm:text-3xl font-bold text-white">Find Your Role</h2>
-            <p className="relative mt-4 text-sentinel-300 text-lg max-w-2xl mx-auto">
-              Click any role to open our application form. No matter your
-              background, there's a place for you on our team.
-            </p>
+          {/* Same fire gradient the hero headlines use, so the section reads as a headline. */}
+          <div className="text-center mb-12">
+            <h2 className="text-3xl md:text-4xl font-bold text-white tracking-tight">
+              Find{' '}
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-fire-500 to-fire-300">
+                Your Role
+              </span>
+            </h2>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 auto-rows-fr max-w-4xl mx-auto">

@@ -178,7 +178,11 @@ export default function PricingPage() {
       {/* ── Hero ── */}
       <section className="relative max-w-4xl mx-auto px-4 sm:px-6 pt-20 pb-14 text-center">
         <h1 className="text-4xl sm:text-5xl font-extrabold text-white tracking-tight mb-4">
-          The Right Information<br className="hidden sm:block" /> for Every Situation
+          The Right{' '}
+          <span className="text-transparent bg-clip-text bg-gradient-to-r from-fire-500 to-fire-300">
+            Information
+          </span>
+          <br className="hidden sm:block" /> for Every Situation
         </h1>
         <p className="text-sentinel-300 text-lg max-w-xl mx-auto">
           Core situational awareness is free — forever. Upgrade to Plus or Pro for
@@ -307,10 +311,7 @@ export default function PricingPage() {
 
       {/* ── Checkout widget ── */}
       <section id="subscribe" className="max-w-3xl mx-auto px-4 sm:px-6 pb-20 scroll-mt-10">
-        <h2 className="text-2xl font-bold text-white text-center mb-2">Choose your plan</h2>
-        <p className="text-sentinel-400 text-sm text-center mb-8">
-          Secure checkout powered by Stripe. Cancel anytime.
-        </p>
+        <h2 className="text-2xl font-bold text-white text-center mb-8">Choose your plan</h2>
 
         {alreadyPaid ? (
           <div className="rounded-2xl border border-sentinel-700 bg-sentinel-900/80 p-8 text-center">
@@ -339,7 +340,7 @@ export default function PricingPage() {
             <Lock className="text-sentinel-400 mx-auto mb-3" size={24} />
             <p className="text-white font-semibold mb-1">Sign in to subscribe</p>
             <p className="text-sentinel-400 text-sm mb-5">
-              Create a free account first so your subscription is linked to it.
+              Create an account to link to your subscription or log in.
             </p>
             <a
               href={`${getAppOrigin()}/register`}
