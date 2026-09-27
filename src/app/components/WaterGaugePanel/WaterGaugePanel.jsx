@@ -5,7 +5,7 @@
  * and a flood-impacts section – matching the NOAA/Watch Duty gauge UI.
  */
 
-import { memo, useState, useMemo } from 'react';
+import { memo, useState, useMemo, useRef } from 'react';
 import { X, Droplets, ExternalLink } from 'lucide-react';
 import { useWaterGaugeDetail } from '../../hooks/useWaterGaugeDetail';
 import { FLOOD_CATEGORY_META, floodCategoryLabel } from '../../api/noaaWaterGauge';
@@ -20,18 +20,28 @@ const STAGE_COLORS = Object.fromEntries(
 
 // ─── SVG Chart ────────────────────────────────────────────────────────────────
 
-const CHART_H      = 160;
-const PAD_LEFT     = 40;
+const CHART_H      = 210;
+const PAD_LEFT     = 46;
 const PAD_RIGHT    = 12;
-const PAD_TOP      = 12;
-const PAD_BOTTOM   = 30;
+const PAD_TOP      = 28;
+const PAD_BOTTOM   = 26;
 
 function formatChartDate(ms) {
   const d = new Date(ms);
   return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }
 
+function formatTooltipDateTime(ms) {
+  const d = new Date(ms);
+  const date = d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  const time = d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+  return `${date} at ${time}`;
+}
+
 function WaterLevelChart({ observed, forecast, thresholds, currentStage }) {
+  const containerRef = useRef(null);
+  const [hover, setHover] = useState(null);
+
   const allPoints = useMemo(() => {
     const obs = (observed ?? []).map((p) => ({ ...p, type: 'obs' }));
     const fct = (forecast ?? []).map((p) => ({ ...p, type: 'fct' }));
@@ -65,6 +75,7 @@ function WaterLevelChart({ observed, forecast, thresholds, currentStage }) {
 
   const toX = (ms) => PAD_LEFT + ((ms - minTime) / (maxTime - minTime || 1)) * chartW;
   const toY = (stage) => PAD_TOP + chartH - ((stage - minStage) / (maxStage - minStage || 1)) * chartH;
+  const toTime = (x) => minTime + ((x - PAD_LEFT) / (chartW || 1)) * (maxTime - minTime);
 
   // Build path strings
   const obsPoints  = allPoints.filter((p) => p.type === 'obs');
@@ -98,137 +109,213 @@ function WaterLevelChart({ observed, forecast, thresholds, currentStage }) {
     yTicks.push(parseFloat(v.toFixed(1)));
   }
 
-  // Current stage marker
+  // "Now" position + the latest-reading marker (last observed point, or the
+  // closest point to now when a gauge has no observed series at all).
   const nowMs = Date.now();
-  const currentX = allPoints.reduce((closest, p) => {
-    return Math.abs(p.time - nowMs) < Math.abs(closest.time - nowMs) ? p : closest;
-  }, allPoints[0]);
+  const nowInRange = nowMs >= minTime && nowMs <= maxTime;
+  const nowClamped = Math.min(Math.max(nowMs, minTime), maxTime);
+  const latestPoint = obsPoints.length
+    ? obsPoints[obsPoints.length - 1]
+    : allPoints.reduce((closest, p) => (
+        Math.abs(p.time - nowMs) < Math.abs(closest.time - nowMs) ? p : closest
+      ), allPoints[0]);
+
+  const handlePointerMove = (e) => {
+    if (!containerRef.current) return;
+    const rect = containerRef.current.getBoundingClientRect();
+    if (!rect.width) return;
+    const relX = e.clientX - rect.left;
+    const svgX = (relX / rect.width) * width;
+    const t = toTime(svgX);
+    const nearest = allPoints.reduce((closest, p) => (
+      Math.abs(p.time - t) < Math.abs(closest.time - t) ? p : closest
+    ), allPoints[0]);
+    setHover({ ...nearest, pxPercent: (relX / rect.width) * 100 });
+  };
+
+  const handlePointerLeave = () => setHover(null);
 
   return (
-    <svg
-      viewBox={`0 0 ${width} ${CHART_H}`}
-      width="100%"
-      style={{ display: 'block', overflow: 'visible' }}
-      aria-label="Water level chart"
-    >
-      <defs>
-        <linearGradient id="obsGrad" x1="0" x2="0" y1="0" y2="1">
-          <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.35" />
-          <stop offset="100%" stopColor="#3b82f6" stopOpacity="0.05" />
-        </linearGradient>
-        <clipPath id="chartClip">
-          <rect x={PAD_LEFT} y={PAD_TOP} width={chartW} height={chartH} />
-        </clipPath>
-      </defs>
+    <div ref={containerRef} className="relative" onMouseMove={handlePointerMove} onMouseLeave={handlePointerLeave}>
+      <svg
+        viewBox={`0 0 ${width} ${CHART_H}`}
+        width="100%"
+        style={{ display: 'block', overflow: 'visible' }}
+        aria-label="Water level chart"
+      >
+        <defs>
+          <linearGradient id="obsGrad" x1="0" x2="0" y1="0" y2="1">
+            <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.35" />
+            <stop offset="100%" stopColor="#3b82f6" stopOpacity="0.05" />
+          </linearGradient>
+          <clipPath id="chartClip">
+            <rect x={PAD_LEFT} y={PAD_TOP} width={chartW} height={chartH} />
+          </clipPath>
+        </defs>
 
-      {/* Grid lines */}
-      {yTicks.map((v) => (
-        <line
-          key={v}
-          x1={PAD_LEFT} y1={toY(v).toFixed(1)}
-          x2={PAD_LEFT + chartW} y2={toY(v).toFixed(1)}
-          stroke="#334155" strokeWidth="0.5"
+        {/* Past (observed-window) shading, up to "now" */}
+        <rect
+          x={PAD_LEFT} y={PAD_TOP}
+          width={Math.max(0, toX(nowClamped) - PAD_LEFT).toFixed(1)} height={chartH}
+          fill="rgba(59,130,246,0.07)"
         />
-      ))}
 
-      {/* Flood threshold lines */}
-      {Object.entries(thresholds).map(([key, val]) => {
-        if (val == null || val < minStage || val > maxStage) return null;
-        const y = toY(val).toFixed(1);
-        const color = STAGE_COLORS[key];
-        const label = key.charAt(0).toUpperCase() + key.slice(1);
-        return (
-          <g key={key}>
-            <line
-              x1={PAD_LEFT} y1={y}
-              x2={PAD_LEFT + chartW} y2={y}
-              stroke={color} strokeWidth="1.5" strokeDasharray="0"
-            />
-            <text
-              x={PAD_LEFT + 2} y={Number(y) - 3}
-              fontSize="8" fill={color} fontWeight="700"
-              style={{ textTransform: 'uppercase', letterSpacing: '0.05em' }}
-            >
-              {label.toUpperCase()} {val} FT
-            </text>
-          </g>
-        );
-      })}
-
-      {/* Fill area */}
-      {fillPath && (
-        <path d={fillPath} fill="url(#obsGrad)" clipPath="url(#chartClip)" />
-      )}
-
-      {/* Observed line */}
-      {obsPath && (
-        <path d={obsPath} fill="none" stroke="#3b82f6" strokeWidth="2" clipPath="url(#chartClip)" />
-      )}
-
-      {/* Forecast line (dashed) */}
-      {fctPath && (
-        <path
-          d={fctPath} fill="none" stroke="#3b82f6"
-          strokeWidth="2" strokeDasharray="5,3"
-          clipPath="url(#chartClip)"
-        />
-      )}
-
-      {/* Current stage dot */}
-      {currentStage != null && (
-        <circle
-          cx={toX(currentX.time).toFixed(1)}
-          cy={toY(currentStage).toFixed(1)}
-          r="4"
-          fill="#3b82f6"
-          stroke="#fff"
-          strokeWidth="1.5"
-          clipPath="url(#chartClip)"
-        />
-      )}
-
-      {/* Y-axis labels */}
-      {yTicks.map((v) => (
-        <text
-          key={v}
-          x={PAD_LEFT - 4} y={Number(toY(v).toFixed(1)) + 3}
-          textAnchor="end"
-          fontSize="9" fill="#94a3b8"
-        >
-          {v}
-        </text>
-      ))}
-
-      {/* X-axis labels */}
-      {xTicks.map((p) => (
-        <text
-          key={p.time}
-          x={toX(p.time).toFixed(1)} y={CHART_H - 4}
-          textAnchor="middle"
-          fontSize="9" fill="#94a3b8"
-        >
-          {formatChartDate(p.time)}
-        </text>
-      ))}
-
-      {/* Today shade */}
-      {(() => {
-        const startOfDay = new Date();
-        startOfDay.setHours(0, 0, 0, 0);
-        const endOfDay = new Date(startOfDay);
-        endOfDay.setDate(endOfDay.getDate() + 1);
-        if (startOfDay.getTime() < minTime || endOfDay.getTime() > maxTime) return null;
-        const x1 = toX(startOfDay.getTime());
-        const x2 = toX(endOfDay.getTime());
-        return (
-          <rect
-            x={x1.toFixed(1)} y={PAD_TOP}
-            width={(x2 - x1).toFixed(1)} height={chartH}
-            fill="rgba(255,255,255,0.04)"
+        {/* Vertical day gridlines */}
+        {xTicks.map((p) => (
+          <line
+            key={`vg-${p.time}`}
+            x1={toX(p.time).toFixed(1)} y1={PAD_TOP}
+            x2={toX(p.time).toFixed(1)} y2={PAD_TOP + chartH}
+            stroke="#334155" strokeWidth="0.5"
           />
-        );
-      })()}
-    </svg>
+        ))}
+
+        {/* Horizontal gridlines */}
+        {yTicks.map((v) => (
+          <line
+            key={v}
+            x1={PAD_LEFT} y1={toY(v).toFixed(1)}
+            x2={PAD_LEFT + chartW} y2={toY(v).toFixed(1)}
+            stroke="#334155" strokeWidth="0.5"
+          />
+        ))}
+
+        {/* Fill area */}
+        {fillPath && (
+          <path d={fillPath} fill="url(#obsGrad)" clipPath="url(#chartClip)" />
+        )}
+
+        {/* Observed line */}
+        {obsPath && (
+          <path d={obsPath} fill="none" stroke="#3b82f6" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" clipPath="url(#chartClip)" />
+        )}
+
+        {/* Forecast line (dashed) */}
+        {fctPath && (
+          <path
+            d={fctPath} fill="none" stroke="#3b82f6"
+            strokeWidth="3" strokeDasharray="6,4" strokeLinecap="round"
+            clipPath="url(#chartClip)"
+          />
+        )}
+
+        {/* Flood threshold lines + badge labels (drawn on top of the plotted line) */}
+        {Object.entries(thresholds).map(([key, val]) => {
+          if (val == null || val < minStage || val > maxStage) return null;
+          const y = toY(val);
+          const color = STAGE_COLORS[key];
+          const label = `${key.charAt(0).toUpperCase() + key.slice(1)} ${val} ft`.toUpperCase();
+          const pillW = label.length * 5.3 + 14;
+          const pillH = 14;
+          return (
+            <g key={key}>
+              <line
+                x1={PAD_LEFT} y1={y.toFixed(1)}
+                x2={PAD_LEFT + chartW} y2={y.toFixed(1)}
+                stroke={color} strokeWidth="1.5"
+              />
+              <rect
+                x="2" y={(y - pillH / 2).toFixed(1)}
+                width={pillW.toFixed(1)} height={pillH} rx="3"
+                fill={color}
+              />
+              <text
+                x={(2 + pillW / 2).toFixed(1)} y={(y + 3).toFixed(1)}
+                textAnchor="middle"
+                fontSize="8.5" fill="#fff" fontWeight="700"
+                style={{ letterSpacing: '0.03em' }}
+              >
+                {label}
+              </text>
+            </g>
+          );
+        })}
+
+        {/* "Now" indicator line */}
+        {nowInRange && (
+          <line
+            x1={toX(nowMs).toFixed(1)} y1={PAD_TOP}
+            x2={toX(nowMs).toFixed(1)} y2={PAD_TOP + chartH}
+            stroke="#e2e8f0" strokeWidth="1.5" strokeDasharray="4,3" opacity="0.7"
+          />
+        )}
+
+        {/* Latest-reading marker */}
+        {latestPoint && (
+          <circle
+            cx={toX(latestPoint.time).toFixed(1)}
+            cy={toY(latestPoint.stage).toFixed(1)}
+            r="6"
+            fill="#3b82f6"
+            stroke="#fff"
+            strokeWidth="2"
+            clipPath="url(#chartClip)"
+          />
+        )}
+
+        {/* Hover crosshair */}
+        {hover && (
+          <>
+            <line
+              x1={toX(hover.time).toFixed(1)} y1={PAD_TOP}
+              x2={toX(hover.time).toFixed(1)} y2={PAD_TOP + chartH}
+              stroke="#f8fafc" strokeWidth="1" strokeDasharray="3,3" opacity="0.9"
+            />
+            <circle
+              cx={toX(hover.time).toFixed(1)}
+              cy={toY(hover.stage).toFixed(1)}
+              r="4"
+              fill={hover.type === 'fct' ? '#0f172a' : '#3b82f6'}
+              stroke="#fff"
+              strokeWidth="1.5"
+            />
+          </>
+        )}
+
+        {/* Y-axis labels */}
+        {yTicks.map((v) => (
+          <text
+            key={v}
+            x={PAD_LEFT - 6} y={Number(toY(v).toFixed(1)) + 3}
+            textAnchor="end"
+            fontSize="9" fill="#94a3b8"
+          >
+            {v.toFixed(1)}
+          </text>
+        ))}
+
+        {/* X-axis labels */}
+        {xTicks.map((p) => (
+          <text
+            key={p.time}
+            x={toX(p.time).toFixed(1)} y={CHART_H - 4}
+            textAnchor="middle"
+            fontSize="9" fill="#94a3b8"
+          >
+            {formatChartDate(p.time)}
+          </text>
+        ))}
+      </svg>
+
+      {/* Hover tooltip */}
+      {hover && (
+        <div
+          className="pointer-events-none absolute z-10 bg-white text-sentinel-900 rounded-lg shadow-xl px-3 py-2 text-xs whitespace-nowrap"
+          style={{
+            left: `${Math.min(Math.max(hover.pxPercent, 14), 86)}%`,
+            top: '100%',
+            marginTop: '6px',
+            transform: 'translateX(-50%)',
+          }}
+        >
+          <div className="font-semibold">{formatTooltipDateTime(hover.time)}</div>
+          <div className="mt-0.5 text-sentinel-600">
+            {hover.type === 'fct' ? 'Forecast' : 'Observed'}:{' '}
+            <span className="font-bold text-sentinel-900">{hover.stage.toFixed(1)} ft</span>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -451,7 +538,7 @@ const WaterGaugePanel = memo(function WaterGaugePanel({ gauge, onClose }) {
 
             {/* Chart */}
             {!loading && series && (
-              <div className="bg-sentinel-800/50 rounded-xl p-3 mb-1 overflow-hidden">
+              <div className="bg-sentinel-800/50 rounded-xl p-3 mb-8">
                 <WaterLevelChart
                   observed={series.observed}
                   forecast={series.forecast}
