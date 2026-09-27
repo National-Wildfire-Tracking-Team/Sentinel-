@@ -490,7 +490,13 @@ export async function fetchGaugeDetail(lid) {
 
 // ─── Stage/flow time-series (chart) ─────────────────────────────────────────
 
-function parseSeriesPoints(payload) {
+// NWPS ignores any date-range query params and always returns its own fixed
+// default window (observed: ~30 days back; forecast: whatever horizon that
+// gauge's RFC issues), so the 1-week-back/1-week-forward view has to be
+// enforced client-side by trimming the parsed points.
+const WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
+
+function parseSeriesPoints(payload, { minTime, maxTime } = {}) {
   const arr = payload?.data ?? payload?.observed?.data ?? payload?.forecast?.data ??
     (Array.isArray(payload) ? payload : []);
   return arr
@@ -498,11 +504,13 @@ function parseSeriesPoints(payload) {
       time: new Date(pt.validTime ?? pt.time ?? pt.t).getTime(),
       stage: toNum(pt.primary ?? pt.stage),
     }))
-    .filter((p) => p.stage != null && Number.isFinite(p.time));
+    .filter((p) => p.stage != null && Number.isFinite(p.time))
+    .filter((p) => (minTime == null || p.time >= minTime) && (maxTime == null || p.time <= maxTime));
 }
 
 /**
- * Fetch observed + forecast stage time-series for a gauge.
+ * Fetch observed + forecast stage time-series for a gauge, trimmed to
+ * 1 week in the past through 1 week in the future.
  * Uses the dedicated /observed and /forecast sub-endpoints (a missing one is
  * treated as an empty series rather than failing the whole request).
  * Returns { observed: [{time, stage}], forecast: [{time, stage}] }.
@@ -513,12 +521,15 @@ export async function fetchGaugeStageFlow(lid) {
   const cached = getCached(cacheKey);
   if (cached) return cached;
 
+  const now = Date.now();
+  const bounds = { minTime: now - WINDOW_MS, maxTime: now + WINDOW_MS };
+
   const base = `${BASE}/gauges/${encodeURIComponent(lid)}/stageflow`;
   const load = async (path) => {
     try {
       const res = await fetchWithTimeout(`${base}/${path}`, { headers: HEADERS });
       if (!res.ok) return [];
-      return parseSeriesPoints(await res.json());
+      return parseSeriesPoints(await res.json(), bounds);
     } catch {
       return [];
     }
