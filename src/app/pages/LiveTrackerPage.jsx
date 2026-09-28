@@ -26,6 +26,7 @@ import { useNwsLsrMapServer } from '../hooks/useNwsLsrMapServer';
 import { useDamageAssessment } from '../hooks/useDamageAssessment';
 import { useSpcOutlooks } from '../hooks/useSpcOutlooks';
 import { useSpcMesoscaleDiscussion } from '../hooks/useSpcMesoscaleDiscussion';
+import { useWpcMesoscaleDiscussion } from '../hooks/useWpcMesoscaleDiscussion';
 import { useFireReports, reportsToGeoJSON } from '../hooks/useFireReports';
 import { useHazardEvents, hazardEventsToGeoJSON } from '../hooks/useHazardEvents';
 import { useCombinedEvacZones } from '../hooks/useCombinedEvacZones';
@@ -628,6 +629,11 @@ export default function LiveTrackerPage() {
     refresh: refreshWpcFronts,
   } = useWpcFronts(weatherDataEnabled && layers.wpcFronts, wpcOutlookDay.fronts);
 
+  const {
+    geoJSON: wpcMpdGeoJSON,
+    refresh: refreshWpcMpd,
+  } = useWpcMesoscaleDiscussion(weatherDataEnabled && layers.wpcMpd);
+
   // Permanent layer (not user-toggleable) — fetches whenever the weather/all-hazard tab is active.
   const nhcTropicalWeatherEnabled = weatherDataEnabled;
   const {
@@ -1192,6 +1198,7 @@ export default function LiveTrackerPage() {
     if (weatherDataEnabled && layers.wpcWssi) refreshWpcWssi();
     if (weatherDataEnabled && layers.wpcQpf) refreshWpcQpf();
     if (weatherDataEnabled && layers.wpcFronts) refreshWpcFronts();
+    if (weatherDataEnabled && layers.wpcMpd) refreshWpcMpd();
   }, [
     refreshHotspots, refreshNgfs, refreshPerimeters, refreshAlerts, refreshIncidents, refreshCalFireIncidents, refreshStormReports,
     refreshDamageAssessment,
@@ -1201,8 +1208,8 @@ export default function LiveTrackerPage() {
     refreshNationalMapColleges,
     refreshLandOwnership,
     refreshNhcTropicalWeather,
-    refreshWpcEro, refreshWpcWssi, refreshWpcQpf, refreshWpcFronts,
-    layers.wpcEro, layers.wpcWssi, layers.wpcQpf, layers.wpcFronts,
+    refreshWpcEro, refreshWpcWssi, refreshWpcQpf, refreshWpcFronts, refreshWpcMpd,
+    layers.wpcEro, layers.wpcWssi, layers.wpcQpf, layers.wpcFronts, layers.wpcMpd,
     activeMapTab, weatherDataEnabled, damageAssessmentEnabled, layers.aqi, rawsEnabled, layers.airNowMonitors, layers.droughtOutlook, layers.ndgdSmokeForecast,
     layers.fireWeatherOutlooks, layers.stormReports,
     nhcTropicalWeatherEnabled,
@@ -1429,6 +1436,7 @@ export default function LiveTrackerPage() {
             wpcWssiGeoJSON={wpcWssiGeoJSON}
             wpcQpfGeoJSON={wpcQpfGeoJSON}
             wpcFrontsGeoJSON={wpcFrontsGeoJSON}
+            wpcMpdGeoJSON={wpcMpdGeoJSON}
           />
 
           <MapCornerButtons />

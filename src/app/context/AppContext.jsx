@@ -62,6 +62,8 @@ const initialState = {
     wpcQpf: false,
     /** WPC surface-analysis fronts (Day 1-3) */
     wpcFronts: false,
+    /** WPC Mesoscale Precipitation Discussions — heavy rain/flash flood potential */
+    wpcMpd: false,
   },
   // Currently selected 7-day fire risk forecast (1-7)
   fireRiskDay: 1,

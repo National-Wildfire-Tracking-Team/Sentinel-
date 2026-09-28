@@ -401,6 +401,15 @@ const Legend = memo(function Legend({
               </Section>
             )}
 
+            {layers.wpcMpd && (
+              <Section title="WPC Mesoscale Discussions">
+                <ColorRow color="#00b300" label="MPD polygon (dashed)" />
+                <div className="text-sentinel-400 text-[10px] pt-1 mt-1 border-t border-sentinel-700">
+                  Heavy rain / flash flood potential — click for full discussion
+                </div>
+              </Section>
+            )}
+
             <Section title="Event Reports">
               <ColorRow color={HAZARD_CATEGORY_COLORS.wildfire} label="Wildfire" />
               <ColorRow color={HAZARD_CATEGORY_COLORS.flooding} label="Flooding" />
