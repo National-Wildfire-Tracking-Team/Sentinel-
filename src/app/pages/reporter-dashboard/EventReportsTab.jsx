@@ -1,19 +1,19 @@
 /**
  * EventReportsTab.jsx
- * Lets a reporter submit and manage hazard events (wildfire, flooding,
- * hazmat, other). Ownership stays scoped to the submitting reporter —
+ * Lets a reporter submit and manage hazard events (wildfire, hazmat,
+ * hazard, flooding). Ownership stays scoped to the submitting reporter —
  * collaborative cross-reporter editing wasn't part of this feature's scope.
  */
 
 import { useState, useRef } from 'react';
 import {
-  Flame, Waves, Biohazard, HelpCircle, MapPin, ChevronDown, CheckCheck,
+  Flame, Waves, Biohazard, AlertTriangle, MapPin, ChevronDown, CheckCheck,
   Trash2, RefreshCw, AlertCircle, CheckCircle2, Send,
 } from 'lucide-react';
 
 import { supabase, isSupabaseConfigured } from '../../../shared/api/supabaseClient';
 import { acquireSlot } from '../../utils/mapboxRateLimiter';
-import { submitHazardEvent, updateHazardEvent, deleteHazardEvent } from '../../hooks/useHazardEvents';
+import { submitHazardEvent, updateHazardEvent, deleteHazardEvent, normalizeHazardCategory } from '../../hooks/useHazardEvents';
 import { HAZARD_CATEGORY_COLORS } from '../../components/Map/layers/HazardEventsLayer';
 import {
   INPUT_CLS, LABEL_CLS, SECTION_CLS, SectionHeader, EVENT_SEVERITY_OPTIONS,
@@ -22,9 +22,9 @@ import {
 
 const EVENT_CATEGORY_META = {
   wildfire: { label: 'Wildfire', icon: Flame },
-  flooding: { label: 'Flooding', icon: Waves },
   hazmat:   { label: 'Hazmat',   icon: Biohazard },
-  other:    { label: 'Other',    icon: HelpCircle },
+  hazard:   { label: 'Hazard',   icon: AlertTriangle },
+  flooding: { label: 'Flooding', icon: Waves },
 };
 
 function HazardEventCard({ event, onRefresh }) {
@@ -32,9 +32,9 @@ function HazardEventCard({ event, onRefresh }) {
   const [feedback, setFeedback] = useState(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
-  const meta = EVENT_CATEGORY_META[event.category] || EVENT_CATEGORY_META.other;
+  const meta = EVENT_CATEGORY_META[normalizeHazardCategory(event.category)] || EVENT_CATEGORY_META.hazard;
   const Icon = meta.icon;
-  const color = HAZARD_CATEGORY_COLORS[event.category] || HAZARD_CATEGORY_COLORS.other;
+  const color = HAZARD_CATEGORY_COLORS[normalizeHazardCategory(event.category)] || HAZARD_CATEGORY_COLORS.hazard;
 
   async function handleToggleStatus() {
     setBusy(true);

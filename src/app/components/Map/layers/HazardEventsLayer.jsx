@@ -1,7 +1,7 @@
 /**
  * HazardEventsLayer.jsx
  * Renders community-submitted hazard event pins on the map — wildfire,
- * flooding, hazmat, and other. Each category gets its own pin gradient +
+ * hazmat, hazard, and flooding. Each category gets its own pin gradient +
  * glyph, registered as a Mapbox image and driven by a single symbol layer
  * keyed off `category`.
  */
@@ -14,14 +14,28 @@ const EMPTY_GEOJSON = { type: 'FeatureCollection', features: [] };
 /** Solid swatch per category — used by the Legend, not the map pins themselves. */
 export const HAZARD_CATEGORY_COLORS = {
   wildfire: '#ff4500',
-  flooding: '#1e73e0',
   hazmat:   '#7c3aed',
-  other:    '#6b7280',
+  hazard:   '#eab308',
+  flooding: '#1e73e0',
+};
+
+/** Display order + labels for the four incident types (map legend, popups). */
+export const HAZARD_CATEGORY_LABELS = {
+  wildfire: 'Wildfire',
+  hazmat:   'Hazmat',
+  hazard:   'Hazard',
+  flooding: 'Flooding',
 };
 
 // Teardrop pin outline shared by every category — only the fill gradient
 // and inner glyph change.
 const PIN_PATH = 'M32 3C18 3 7 14 7 27c0 19 25 34 25 34s25-15 25-34C57 14 46 3 32 3z';
+
+// Wraps a 24×24 lucide-style stroke icon so it sits centered in the pin head
+// (circle at 32,27), matching the icons used in the reporter dashboard.
+function lucideGlyph(paths, color = '#fff') {
+  return `<g transform="translate(18 13) scale(1.1667)" fill="none" stroke="${color}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">${paths}</g>`;
+}
 
 const ICON_DEFS = {
   wildfire: {
@@ -29,24 +43,39 @@ const ICON_DEFS = {
     gradient: ['#ffb020', '#ff4500'],
     glyph: `<path d="M32 14c2 5-1 7-3 10-2 3-1 6 1 6 2 0 3-2 2-4 4 2 6 6 6 10 0 6-5 11-11 11s-11-5-11-11c0-4 2-7 4-10 1 2 2 3 3 2 1-1 0-3-1-5-1-4 1-7 6-9z" fill="#fff7ec"/>`,
   },
-  flooding: {
-    id: 'sentinel-hazard-flooding',
-    gradient: ['#69c3ff', '#1e73e0'],
-    glyph: `<path d="M13 23c3-3 6-3 9 0s6 3 9 0 6-3 9 0 6 3 9 0" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round"/>
-            <path d="M13 32c3-3 6-3 9 0s6 3 9 0 6-3 9 0 6 3 9 0" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" opacity="0.7"/>`,
-  },
+  // Biohazard trefoil
   hazmat: {
     id: 'sentinel-hazard-hazmat',
     gradient: ['#c8a2ff', '#7c3aed'],
-    glyph: `<path d="M32 13 46 35H18z" fill="none" stroke="#fff" stroke-width="3" stroke-linejoin="round"/>
-            <rect x="30.4" y="22" width="3.2" height="7.5" rx="1.4" fill="#fff"/>
-            <rect x="30.4" y="31.3" width="3.2" height="3.2" rx="1.4" fill="#fff"/>`,
+    glyph: lucideGlyph(`
+      <circle cx="12" cy="11.9" r="2"/>
+      <path d="M6.7 3.4c-.9 2.5 0 5.2 2.2 6.7C6.5 9 3.7 9.6 2 11.6"/>
+      <path d="m8.9 10.1 1.4.8"/>
+      <path d="M17.3 3.4c.9 2.5 0 5.2-2.2 6.7 2.4-1.2 5.2-.6 6.9 1.5"/>
+      <path d="m15.1 10.1-1.4.8"/>
+      <path d="M16.7 20.8c-2.6-.4-4.6-2.6-4.7-5.3-.2 2.6-2.1 4.8-4.7 5.2"/>
+      <path d="M12 13.9v1.6"/>
+      <path d="M13.5 5.4c-1-.2-2-.2-3 0"/>
+      <path d="M17 16.4c.7-.7 1.2-1.6 1.5-2.5"/>
+      <path d="M5.5 13.9c.3.9.8 1.8 1.5 2.5"/>`),
   },
-  other: {
-    id: 'sentinel-hazard-other',
-    gradient: ['#c7cbd1', '#6b7280'],
-    glyph: `<circle cx="32" cy="19" r="2.6" fill="#fff"/>
-            <rect x="29.6" y="24" width="4.8" height="12" rx="2.2" fill="#fff"/>`,
+  // Warning triangle with exclamation — dark glyph for contrast on yellow
+  hazard: {
+    id: 'sentinel-hazard-hazard',
+    gradient: ['#fde047', '#ca8a04'],
+    glyph: lucideGlyph(`
+      <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/>
+      <path d="M12 9v4"/>
+      <path d="M12 17h.01"/>`, '#1c1400'),
+  },
+  // Stacked water waves
+  flooding: {
+    id: 'sentinel-hazard-flooding',
+    gradient: ['#69c3ff', '#1e73e0'],
+    glyph: lucideGlyph(`
+      <path d="M2 6c.6.5 1.2 1 2.5 1C7 7 7 5 9.5 5c2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/>
+      <path d="M2 12c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/>
+      <path d="M2 18c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/>`),
   },
 };
 
@@ -64,12 +93,21 @@ function buildSvg({ gradient, glyph }, gradId) {
   </svg>`;
 }
 
+function svgDataUrl(key) {
+  return `data:image/svg+xml;base64,${btoa(buildSvg(ICON_DEFS[key], `grad-${key}`))}`;
+}
+
+/** Data URL of a category's map pin, so the Legend shows the exact same icon. */
+export function hazardPinDataUrl(category) {
+  return ICON_DEFS[category] ? svgDataUrl(category) : svgDataUrl('hazard');
+}
+
 const CATEGORY_ICON = [
   'match', ['get', 'category'],
   'wildfire', ICON_DEFS.wildfire.id,
-  'flooding', ICON_DEFS.flooding.id,
   'hazmat',   ICON_DEFS.hazmat.id,
-  ICON_DEFS.other.id,
+  'flooding', ICON_DEFS.flooding.id,
+  ICON_DEFS.hazard.id,
 ];
 
 const HazardEventsLayer = memo(function HazardEventsLayer({ geoJSON, visible }) {
@@ -100,7 +138,7 @@ const HazardEventsLayer = memo(function HazardEventsLayer({ geoJSON, visible }) 
           pending -= 1;
           if (pending <= 0) setIconsReady(true);
         };
-        img.src = `data:image/svg+xml;base64,${btoa(buildSvg(def, `grad-${key}`))}`;
+        img.src = svgDataUrl(key);
       });
     }
 

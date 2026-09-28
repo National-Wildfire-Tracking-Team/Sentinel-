@@ -735,7 +735,7 @@ export default function LiveTrackerPage() {
     [reporterReports]
   );
 
-  // Community-submitted hazard events – wildfire, flooding, hazmat, other.
+  // Community-submitted hazard events – wildfire, hazmat, hazard, flooding.
   // Tertiary tier: a supplemental overlay, not needed for first paint.
   const { events: activeHazardEvents } = useHazardEvents('active', tertiaryReady);
   const hazardEventsGeoJSON = useMemo(

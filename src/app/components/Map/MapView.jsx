@@ -64,7 +64,7 @@ import NexradSitesLayer from './layers/NexradSitesLayer';
 import CaliforniaCamerasLayer from './layers/CaliforniaCamerasLayer';
 import NexradScanLayer from './layers/NexradScanLayer';
 import CalFirePerimetersLayer from './layers/CalFirePerimetersLayer';
-import HazardEventsLayer from './layers/HazardEventsLayer';
+import HazardEventsLayer, { HAZARD_CATEGORY_LABELS } from './layers/HazardEventsLayer';
 import DamageAssessmentLayer from './layers/DamageAssessmentLayer';
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN || '';
@@ -612,12 +612,11 @@ function getHoverContent(feature) {
       );
       break;
     case 'hazard-events-circle': {
-      const categoryLabels = { wildfire: 'Wildfire', flooding: 'Flooding', hazmat: 'Hazmat', other: 'Other' };
       content = (
         <>
           <div className="font-semibold text-purple-300">{p.title}</div>
           <div className="text-sentinel-200 text-xs mt-0.5">
-            {categoryLabels[p.category] || 'Event'} · {p.severity}
+            {HAZARD_CATEGORY_LABELS[p.category] || 'Event'} · {p.severity}
           </div>
           {p.created_at && (
             <div className="text-sentinel-300 text-xs">
