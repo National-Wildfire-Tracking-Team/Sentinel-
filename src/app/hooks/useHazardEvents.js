@@ -1,14 +1,19 @@
 /**
  * useHazardEvents.js
  * Hooks for reading and subscribing to community-submitted hazard events
- * (wildfire, flooding, hazmat, other) stored in Supabase. Uses realtime
+ * (wildfire, hazmat, hazard, flooding) stored in Supabase. Uses realtime
  * subscriptions so new/updated events appear on the map instantly.
  */
 
 import { useCallback, useEffect, useState } from 'react';
 import { supabase, isSupabaseConfigured } from '../../shared/api/supabaseClient';
 
-export const HAZARD_CATEGORIES = ['wildfire', 'flooding', 'hazmat', 'other'];
+export const HAZARD_CATEGORIES = ['wildfire', 'hazmat', 'hazard', 'flooding'];
+
+/** Map legacy categories (pre-'hazard' rename) onto the current set. */
+export function normalizeHazardCategory(category) {
+  return category === 'other' ? 'hazard' : category;
+}
 
 /**
  * Subscribes to hazard events matching a given status filter.
@@ -112,7 +117,7 @@ export function hazardEventsToGeoJSON(events) {
         },
         properties: {
           id:          e.id,
-          category:    e.category,
+          category:    normalizeHazardCategory(e.category),
           title:       e.title,
           description: e.description,
           severity:    e.severity,

@@ -36,7 +36,7 @@ const TAB_META = {
   manage:    { title: 'Manage Incidents', subtitle: 'Any reporter can edit, post an update to, or delete any incident below — changes are shared across the team.' },
   external:  { title: 'External Incidents', subtitle: 'Post reporter updates to active IRWIN / WFIGS and CAL FIRE incidents from other sources.' },
   evaczones: { title: 'Evacuation Zones', subtitle: 'Draw and publish evacuation zone polygons directly on the live map.' },
-  events:    { title: 'Event Reports', subtitle: 'Report a wildfire, flooding, hazmat, or other hazard event as a map pin.' },
+  events:    { title: 'Event Reports', subtitle: 'Report a wildfire, hazmat, hazard, or flooding incident as a map pin.' },
 };
 
 export default function ReporterDashboardPage() {
