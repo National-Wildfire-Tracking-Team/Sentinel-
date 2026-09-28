@@ -9,6 +9,7 @@ import { ThemeProvider } from './context/ThemeContext';
 import { PreferencesProvider } from './context/PreferencesContext';
 import { AppProvider } from './context/AppContext';
 import { AppStatusProvider } from './context/AppStatusContext';
+import { HomeSetupProvider } from './context/HomeSetupContext';
 import { ViewportProvider } from './context/ViewportContext';
 import PreventPinchZoom from '../shared/components/PreventPinchZoom';
 import AppRouter from './router';
@@ -19,10 +20,12 @@ export default function AppTree() {
       <PreferencesProvider>
         <AppProvider>
           <AppStatusProvider>
-            <ViewportProvider>
-              <PreventPinchZoom />
-              <AppRouter />
-            </ViewportProvider>
+            <HomeSetupProvider>
+              <ViewportProvider>
+                <PreventPinchZoom />
+                <AppRouter />
+              </ViewportProvider>
+            </HomeSetupProvider>
           </AppStatusProvider>
         </AppProvider>
       </PreferencesProvider>
