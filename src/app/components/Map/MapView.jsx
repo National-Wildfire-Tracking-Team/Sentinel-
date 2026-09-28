@@ -6,7 +6,7 @@
  */
 
 import { useRef, useCallback, useMemo, useState, useEffect } from 'react';
-import Map, { ScaleControl, Popup, Marker, Source } from 'react-map-gl';
+import Map, { ScaleControl, Popup, Marker, Source, Layer } from 'react-map-gl';
 import { Navigation } from 'lucide-react';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import MapZoomControl from './MapZoomControl';
@@ -1309,6 +1309,7 @@ function HoverTooltip({ features, lngLat }) {
  * @param {Function}    [props.onFireWxOutlookTypeChange]
  * @param {Function}    [props.onFireWxActiveDayChange]
  * @param {Array}       [props.savedLocations]
+ * @param {Object|null} [props.nearbyRadiusGeoJSON] Near-me radius circle (Home Setup radius around live GPS)
  * @param {'wildfire'|'weather'} [props.activeMapTab]
  */
 export default function MapView({
@@ -1365,6 +1366,7 @@ export default function MapView({
   onFireWxOutlookTypeChange,
   onFireWxActiveDayChange,
   savedLocations = [],
+  nearbyRadiusGeoJSON = null,
   measureActive = false,
   measureMode = 'distance',
   onMeasureClose,
@@ -2146,6 +2148,22 @@ export default function MapView({
               <div className="h-2 w-2 rounded-full bg-amber-300" />
             </div>
           </Marker>
+        )}
+
+        {/* Near-me radius — the Home Setup radius around the live location */}
+        {nearbyRadiusGeoJSON && (
+          <Source id="nearby-radius" type="geojson" data={nearbyRadiusGeoJSON}>
+            <Layer
+              id="nearby-radius-fill"
+              type="fill"
+              paint={{ 'fill-color': '#3b82f6', 'fill-opacity': 0.06 }}
+            />
+            <Layer
+              id="nearby-radius-line"
+              type="line"
+              paint={{ 'line-color': '#60a5fa', 'line-width': 2, 'line-dasharray': [2, 2] }}
+            />
+          </Source>
         )}
 
         {/* User live location marker */}
