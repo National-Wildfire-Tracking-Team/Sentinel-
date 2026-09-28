@@ -29,6 +29,7 @@ const LAYER_DEFS = {
   wpcWssi:   { label: 'Winter Storm Severity',      sublabel: 'WPC Day 1-3 overall impact',        icon: Snowflake,  color: '#93c5fd' },
   wpcQpf:    { label: 'Precipitation Forecast',     sublabel: 'WPC Day 1-3 QPF (24hr)',            icon: Droplets,   color: '#0ea5e9' },
   wpcFronts: { label: 'Surface Analysis Fronts',    sublabel: 'WPC Day 1-3 fronts & troughs',       icon: Wind,       color: '#a78bfa' },
+  wpcMpd:    { label: 'WPC Mesoscale Discussions',  sublabel: 'Heavy rain / flash flood potential', icon: CloudRain,  color: '#00b300' },
   rawsStations:      { label: 'RAWS Stations',       sublabel: 'Fire weather stations',       icon: Thermometer,  color: '#f97316' },
   airNowMonitors:    { label: 'Air Quality Monitors', sublabel: 'EPA AirNow sensor network',  icon: Activity,     color: '#38bdf8' },
   weatherAlerts:     { label: 'NWS & mesoscale',     sublabel: 'NWS active alerts + SPC MDs', icon: Wind,         color: '#ef4444' },
@@ -67,7 +68,7 @@ const TAB_SECTIONS = {
       title: 'Weather hazards',
       groups: [
         {
-          layers: ['weatherAlerts', 'stormReports', 'damageAssessment', 'radarComposite', 'radarNexrad', 'waterGauges', 'spcWeatherOutlooks', 'fireWeatherOutlooks', 'fireRiskOutlook', 'wpcEro', 'wpcWssi', 'wpcQpf', 'wpcFronts'],
+          layers: ['weatherAlerts', 'stormReports', 'damageAssessment', 'radarComposite', 'radarNexrad', 'waterGauges', 'spcWeatherOutlooks', 'fireWeatherOutlooks', 'fireRiskOutlook', 'wpcEro', 'wpcWssi', 'wpcQpf', 'wpcFronts', 'wpcMpd'],
         },
       ],
     },
@@ -144,7 +145,7 @@ const TAB_SECTIONS = {
       title: 'Outlooks',
       groups: [
         {
-          layers: ['spcWeatherOutlooks', 'wpcEro', 'wpcWssi', 'wpcQpf', 'wpcFronts'],
+          layers: ['spcWeatherOutlooks', 'wpcEro', 'wpcWssi', 'wpcQpf', 'wpcFronts', 'wpcMpd'],
         },
       ],
     },
