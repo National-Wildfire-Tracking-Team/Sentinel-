@@ -105,6 +105,7 @@ const A = {
   SELECT_RADAR_SITE:  'SELECT_RADAR_SITE',
   SELECT_CAMERA:      'SELECT_CAMERA',
   TOGGLE_SIDEBAR:     'TOGGLE_SIDEBAR',
+  OPEN_SIDEBAR:       'OPEN_SIDEBAR',
   TOGGLE_LAYER_PANEL: 'TOGGLE_LAYER_PANEL',
   CLOSE_LAYER_PANEL:  'CLOSE_LAYER_PANEL',
   TOGGLE_FUTURE_PANEL: 'TOGGLE_FUTURE_PANEL',
@@ -162,6 +163,8 @@ function reducer(state, action) {
       const next = !state.sidebarOpen;
       return { ...state, sidebarOpen: next, futurePanelOpen: next ? false : state.futurePanelOpen, accountPanelOpen: next ? false : state.accountPanelOpen };
     }
+    case A.OPEN_SIDEBAR:
+      return { ...state, sidebarOpen: true, futurePanelOpen: false, accountPanelOpen: false };
     case A.TOGGLE_LAYER_PANEL:
       return { ...state, layerPanelOpen: !state.layerPanelOpen };
     case A.CLOSE_LAYER_PANEL:
@@ -201,6 +204,7 @@ export function AppProvider({ children }) {
   const selectRadarSite  = useCallback((site) => dispatch({ type: A.SELECT_RADAR_SITE, site }), []);
   const selectCamera     = useCallback((camera) => dispatch({ type: A.SELECT_CAMERA, camera }), []);
   const toggleSidebar    = useCallback(() => dispatch({ type: A.TOGGLE_SIDEBAR }), []);
+  const openSidebar      = useCallback(() => dispatch({ type: A.OPEN_SIDEBAR }), []);
   const toggleLayerPanel = useCallback(() => dispatch({ type: A.TOGGLE_LAYER_PANEL }), []);
   const closeLayerPanel  = useCallback(() => dispatch({ type: A.CLOSE_LAYER_PANEL }), []);
   const toggleFuturePanel = useCallback(() => dispatch({ type: A.TOGGLE_FUTURE_PANEL }), []);
@@ -225,6 +229,7 @@ export function AppProvider({ children }) {
     selectRadarSite,
     selectCamera,
     toggleSidebar,
+    openSidebar,
     toggleLayerPanel,
     closeLayerPanel,
     toggleFuturePanel,
@@ -244,6 +249,7 @@ export function AppProvider({ children }) {
     selectRadarSite,
     selectCamera,
     toggleSidebar,
+    openSidebar,
     toggleLayerPanel,
     closeLayerPanel,
     toggleFuturePanel,

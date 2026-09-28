@@ -11,6 +11,9 @@ import IncidentFeed from './IncidentFeed';
 import WeatherAlertsFeed from './WeatherAlertsFeed';
 import TropicalWeatherFeed from './TropicalWeatherFeed';
 import AddressAlertSearch from './AddressAlertSearch';
+import HomeNearbyStrip from './HomeNearbyStrip';
+import HomeSetupPanel from './HomeSetupPanel';
+import { useHomeSetup } from '../../context/HomeSetupContext';
 
 function StatPill({ icon: Icon, label, value, color = 'text-white', onClick, className = '' }) {
   const base = `flex flex-col items-center gap-0.5 px-3 py-2 bg-sentinel-800 rounded-lg border border-sentinel-700 min-w-[70px] ${className}`;
@@ -31,6 +34,8 @@ function StatPill({ icon: Icon, label, value, color = 'text-white', onClick, cla
   return <div className={base}>{inner}</div>;
 }
 
+const NO_OUTLOOKS = { spcOutlooks: [], wpcOutlooks: [], loading: false };
+
 const Sidebar = memo(function Sidebar({
   incidents,
   loading,
@@ -44,9 +49,14 @@ const Sidebar = memo(function Sidebar({
   onWeatherAlertsRefresh,
   nhcInvests = [],
   nhcCyclones = [],
+  // Near-me mode: alerts already filtered to the user's radius (null = off)
+  nearbyAlerts = null,
+  nearbyOutlooks = NO_OUTLOOKS,
 }) {
   const { sidebarOpen } = useApp();
-  const { alerts } = useAppStatus();
+  const { alerts: allAlerts } = useAppStatus();
+  const { homeSetupOpen } = useHomeSetup();
+  const alerts = nearbyAlerts ?? allAlerts;
   const [allHazardFeedTab, setAllHazardFeedTab] = useState('fires');
   const [weatherFeedTab, setWeatherFeedTab] = useState('alerts');
   const isWeatherTab = activeMapTab === 'weather';
@@ -135,6 +145,10 @@ const Sidebar = memo(function Sidebar({
           </div>
         </div>
 
+        {/* Home Setup / near-me radius status */}
+        {!homeSetupOpen && <HomeNearbyStrip nearbyOutlooks={nearbyOutlooks} />}
+
+        {homeSetupOpen ? <HomeSetupPanel /> : (<>
         {/* Address alert search – weather and all-hazard tabs */}
         {(isWeatherTab || isAllHazardTab) && <AddressAlertSearch />}
 
@@ -248,6 +262,7 @@ const Sidebar = memo(function Sidebar({
             <IncidentFeed incidents={incidents} loading={loading} error={error} />
           )}
         </div>
+        </>)}
       </aside>
     </>
   );

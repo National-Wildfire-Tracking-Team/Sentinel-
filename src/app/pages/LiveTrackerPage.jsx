@@ -9,6 +9,7 @@ import { useApp } from '../context/AppContext';
 import { useAppStatus } from '../context/AppStatusContext';
 import { useViewport } from '../context/ViewportContext';
 import { usePreferences } from '../context/PreferencesContext';
+import { useHomeSetup } from '../context/HomeSetupContext';
 import { nwsAlertCategory } from '../utils/nwsColors';
 import { FIRE_WEATHER_ALERT_TYPES } from '../api/noaaWeather';
 import { useSavedLocations } from '../hooks/useSavedLocations';
@@ -54,6 +55,8 @@ import { useNexradComposite } from '../hooks/useNexradComposite';
 import { useStormMotionVectors } from '../hooks/useStormMotionVectors';
 import { useCaliforniaCameras } from '../hooks/useCaliforniaCameras';
 import { useCalFirePerimeters } from '../hooks/useCalFirePerimeters';
+import { useNearbyOutlooks } from '../hooks/useNearbyOutlooks';
+import { filterByRadius, filterFeatureCollectionByRadius, circlePolygon } from '../utils/radiusFilter';
 import { polygonCentroid } from '../utils/geoUtils';
 import { incidentsToGeoJSON } from '../api/inciweb';
 import { mergeIrwinAndCalFireIncidents } from '../utils/mergeIncidents';
@@ -245,7 +248,8 @@ const RAWS_MIN_ZOOM = 9;
 
 export default function LiveTrackerPage() {
   const { layers, setLayer, feedFilter, selectedGauge, selectGauge, selectedFire, selectFire, selectedRadarSite, selectRadarSite, selectedCamera, selectCamera, wpcOutlookDay } = useApp();
-  const { setRefreshed, setLoading, alerts } = useAppStatus();
+  const { setRefreshed, setLoading, alerts, userLocation } = useAppStatus();
+  const { home, nearbyActive } = useHomeSetup();
   const { viewport, setViewport, flyToFire } = useViewport();
   const { prefs } = usePreferences();
   const { hasProInfrastructureAccess, hasFireBehaviorModelingAccess } = usePlan();
@@ -1154,6 +1158,52 @@ export default function LiveTrackerPage() {
     selectedFireId
   );
 
+  // ── Near-me mode ("Go to My Current Location" + completed Home Setup) ──
+  // The Home Setup radius, centered on the user's live GPS position, becomes
+  // the only geographic boundary for the incident feed/markers and NWS
+  // alerts, and is checked against the current SPC/WPC outlooks. The center
+  // is rounded to ~100 m so every small GPS jitter doesn't re-filter (and
+  // re-upload to the map) thousands of features.
+  const nearbyLat = nearbyActive && userLocation ? Math.round(userLocation.latitude * 1000) / 1000 : null;
+  const nearbyLng = nearbyActive && userLocation ? Math.round(userLocation.longitude * 1000) / 1000 : null;
+  const nearbyRadius = nearbyLat != null ? home.radiusMiles : null;
+  const nearbyOn = nearbyRadius != null;
+  const nearbyOutlooks = useNearbyOutlooks(nearbyOn);
+
+  const nearbyResult = useMemo(() => {
+    if (!nearbyOn) return null;
+    return filterByRadius({
+      userLatitude: nearbyLat,
+      userLongitude: nearbyLng,
+      selectedRadius: nearbyRadius,
+      incidents: mergedIncidents,
+      nwsAlerts: alerts,
+      spcOutlooks: nearbyOutlooks.spcOutlooks,
+      wpcOutlooks: nearbyOutlooks.wpcOutlooks,
+    });
+  }, [nearbyOn, nearbyLat, nearbyLng, nearbyRadius, mergedIncidents, alerts,
+    nearbyOutlooks.spcOutlooks, nearbyOutlooks.wpcOutlooks]);
+
+  const sidebarNearbyOutlooks = useMemo(() => ({
+    spcOutlooks: nearbyResult?.spcOutlooks ?? [],
+    wpcOutlooks: nearbyResult?.wpcOutlooks ?? [],
+    loading: nearbyOutlooks.loading,
+  }), [nearbyResult, nearbyOutlooks.loading]);
+
+  const nearbyMapGeoJSON = useMemo(() => {
+    const clip = (fc) => (nearbyOn ? filterFeatureCollectionByRadius(fc, nearbyLat, nearbyLng, nearbyRadius) : fc);
+    return {
+      perimeters: clip(filteredPerimetersGeoJSON),
+      incidents: clip(deduplicatedIncidentsGeoJSON),
+      incidentDots: clip(finalIncidentDotsGeoJSON),
+      alerts: clip(filteredAlertsGeoJSON),
+      radius: nearbyOn
+        ? { type: 'FeatureCollection', features: [{ type: 'Feature', properties: {}, geometry: circlePolygon(nearbyLat, nearbyLng, nearbyRadius) }] }
+        : null,
+    };
+  }, [nearbyOn, nearbyLat, nearbyLng, nearbyRadius, filteredPerimetersGeoJSON,
+    deduplicatedIncidentsGeoJSON, finalIncidentDotsGeoJSON, filteredAlertsGeoJSON]);
+
   // ── Global loading state ──
   const anyLoading = hotspotsLoading || ngfsLoading || perimetersLoading || incidentsLoading || calFireLoading;
   useEffect(() => { setLoading(anyLoading); }, [anyLoading, setLoading]);
@@ -1353,12 +1403,13 @@ export default function LiveTrackerPage() {
             mapType={mapType}
             hotspotsGeoJSON={hotspotsGeoJSON}
             ngfsGeoJSON={ngfsGeoJSON}
-            perimetersGeoJSON={filteredPerimetersGeoJSON}
-            incidentsGeoJSON={deduplicatedIncidentsGeoJSON}
-            incidentDotsGeoJSON={finalIncidentDotsGeoJSON}
+            perimetersGeoJSON={nearbyMapGeoJSON.perimeters}
+            incidentsGeoJSON={nearbyMapGeoJSON.incidents}
+            incidentDotsGeoJSON={nearbyMapGeoJSON.incidentDots}
+            nearbyRadiusGeoJSON={nearbyMapGeoJSON.radius}
             fireBehaviorModelingGeoJSON={fireBehaviorModelingGeoJSON}
             aqiGeoJSON={aqiGeoJSON}
-            alertsGeoJSON={filteredAlertsGeoJSON}
+            alertsGeoJSON={nearbyMapGeoJSON.alerts}
             stormMotionVectorsGeoJSON={stormMotionVectorsGeoJSON}
             stormMotionVectorsVisible={Boolean(prefs.stormMotionVectors)}
             stormReportsGeoJSON={stormReportsGeoJSON}
@@ -1442,7 +1493,9 @@ export default function LiveTrackerPage() {
           <MapCornerButtons />
 
           <Sidebar
-            incidents={mergedIncidents}
+            incidents={nearbyResult ? nearbyResult.incidents : mergedIncidents}
+            nearbyAlerts={nearbyResult ? nearbyResult.nwsAlerts : null}
+            nearbyOutlooks={sidebarNearbyOutlooks}
             loading={incidentsLoading}
             error={incidentsError}
             activeMapTab={activeMapTab}
