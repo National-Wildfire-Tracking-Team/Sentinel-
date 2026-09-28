@@ -21,7 +21,7 @@ const DEBOUNCE_MS = 450;
 // visible-radius cull — a soft relevance gate has no need for pixel-precise
 // map bounds.
 const ASSUMED_VIEWPORT_PX = 1600;
-export const MAX_DISTANCE_MILES = 4;
+export const MAX_DISTANCE_MILES = 5;
 
 function metersPerPixel(lat, zoom) {
   return (156543.03392 * Math.cos((lat * Math.PI) / 180)) / 2 ** zoom;

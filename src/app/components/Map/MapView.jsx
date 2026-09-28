@@ -53,6 +53,7 @@ import WpcEroLayer from './layers/WpcEroLayer';
 import WpcWssiLayer from './layers/WpcWssiLayer';
 import WpcQpfLayer from './layers/WpcQpfLayer';
 import WpcFrontsLayer from './layers/WpcFrontsLayer';
+import WpcMesoscaleDiscussionLayer from './layers/WpcMesoscaleDiscussionLayer';
 import FireWeatherOutlookSelector from './FireWeatherOutlookSelector';
 import CriticalInfrastructureLayer from './layers/CriticalInfrastructureLayer';
 import NationalMapCollegesLayer from './layers/NationalMapCollegesLayer';
@@ -390,7 +391,7 @@ const OUTLOOK_LAYER_IDS = new Set(['spc-outlook-fill', 'drought-outlook-fill', '
 
 // Warning and mesoscale-discussion hover boxes share one fixed width so they
 // line up cleanly when stacked together above the cursor.
-const HOVER_MATCHED_WIDTH_LAYER_IDS = new Set(['weather-alerts-fill', 'spc-md-fill']);
+const HOVER_MATCHED_WIDTH_LAYER_IDS = new Set(['weather-alerts-fill', 'spc-md-fill', 'wpc-mpd-fill']);
 
 // Caltrans only reports a camera's facing as a cardinal direction (no
 // numeric bearing in the source data) — map it to degrees so the hover
@@ -536,6 +537,27 @@ function getHoverContent(feature) {
             <div className="text-sentinel-200 text-xs mt-0.5">{tillStr}</div>
           )}
           <div className="text-sentinel-300 text-xs mt-0.5">SPC Mesoscale Discussion</div>
+          {p.url && (
+            <div className="text-sky-400 text-xs mt-1">Click for full discussion ↗</div>
+          )}
+        </>
+      );
+      break;
+    }
+    case 'wpc-mpd-fill': {
+      const tillStr = p.activeTill ? `Active till ${p.activeTill}` : null;
+      content = (
+        <>
+          <div className="font-semibold text-green-400">
+            {p.mpdNumber != null ? `MPD ${p.mpdNumber}` : 'Mesoscale Discussion'}
+          </div>
+          {p.concerning && (
+            <div className="text-sentinel-200 text-xs mt-0.5">{p.concerning}</div>
+          )}
+          {tillStr && (
+            <div className="text-sentinel-200 text-xs mt-0.5">{tillStr}</div>
+          )}
+          <div className="text-sentinel-300 text-xs mt-0.5">WPC Mesoscale Discussion</div>
           {p.url && (
             <div className="text-sky-400 text-xs mt-1">Click for full discussion ↗</div>
           )}
@@ -1184,7 +1206,7 @@ function getHoverContent(feature) {
 // higher than) mesoscale-discussion boxes when a warning polygon is hovered
 // inside an MD polygon. Lower number = higher in the stack. Everything else
 // keeps its natural (topmost-feature-first) order via the stable sort below.
-const HOVER_STACK_PRIORITY = { 'weather-alerts-fill': 0, 'spc-md-fill': 2 };
+const HOVER_STACK_PRIORITY = { 'weather-alerts-fill': 0, 'spc-md-fill': 2, 'wpc-mpd-fill': 2 };
 const HOVER_STACK_DEFAULT_PRIORITY = 1;
 
 // Renders one independent box per hovered map feature, stacked above the
@@ -1370,6 +1392,7 @@ export default function MapView({
   wpcWssiGeoJSON,
   wpcQpfGeoJSON,
   wpcFrontsGeoJSON,
+  wpcMpdGeoJSON,
   onMapLoad,
   mapBottomBarWidth,
   mapBottomBarHeight,
@@ -1596,6 +1619,7 @@ export default function MapView({
     if ((isWeatherTab || isAllHazardTab) && layers.wpcFronts && wpcFrontsGeoJSON?.features?.length) {
       ids.push('wpc-fronts-solid', 'wpc-fronts-dashed', 'wpc-fronts-stationary-line');
     }
+    if ((isWeatherTab || isAllHazardTab) && layers.wpcMpd && wpcMpdGeoJSON?.features?.length) ids.push('wpc-mpd-fill');
     return ids;
   }, [measureActive, isWildfireTab, isWeatherTab, isAllHazardTab, layers.fireHotspots, layers.firePerimeters, layers.incidentLocations, layers.aqi,
       layers.weatherAlerts, layers.spcWeatherOutlooks, layers.stormReports, layers.evacZones, spcMdGeoJSON,
@@ -1607,8 +1631,8 @@ export default function MapView({
       damageAssessmentPointsGeoJSON, damageAssessmentLinesGeoJSON, damageAssessmentPolygonsGeoJSON,
       rawsGeoJSON, airNowMonitorsGeoJSON, droughtOutlookGeoJSON, ndgdSmokeFilteredGeoJSON, fireWeatherOutlooksGeoJSON,
       nhcForecastPointsGeoJSON, nhcPastPointsGeoJSON, nhcDisturbanceAreasGeoJSON, nhcDisturbancePointsGeoJSON, nhcWatchWarningGeoJSON,
-      layers.wpcEro, layers.wpcWssi, layers.wpcQpf, layers.wpcFronts,
-      wpcEroGeoJSON, wpcWssiGeoJSON, wpcQpfGeoJSON, wpcFrontsGeoJSON,
+      layers.wpcEro, layers.wpcWssi, layers.wpcQpf, layers.wpcFronts, layers.wpcMpd,
+      wpcEroGeoJSON, wpcWssiGeoJSON, wpcQpfGeoJSON, wpcFrontsGeoJSON, wpcMpdGeoJSON,
       criticalInfrastructureVisible, criticalInfrastructureTransGeoJSON, criticalInfrastructureGasGeoJSON,
       nationalMapCollegesVisible, nationalMapCollegesGeoJSON,
       landOwnershipVisible, landOwnershipGeoJSON,
@@ -1670,6 +1694,14 @@ export default function MapView({
 
     if (feature.layer.id === 'spc-md-fill') {
       // Open the SPC MD page in a new tab when the user clicks a polygon
+      if (p.url) {
+        window.open(p.url, '_blank', 'noopener,noreferrer');
+      }
+      return;
+    }
+
+    if (feature.layer.id === 'wpc-mpd-fill') {
+      // Open the WPC MPD page in a new tab when the user clicks a polygon
       if (p.url) {
         window.open(p.url, '_blank', 'noopener,noreferrer');
       }
@@ -2027,6 +2059,12 @@ export default function MapView({
         <WpcFrontsLayer
           geoJSON={wpcFrontsGeoJSON}
           visible={(isWeatherTab || isAllHazardTab) && layers.wpcFronts}
+        />
+
+        {/* WPC Mesoscale Precipitation Discussions — heavy rain/flash flood potential */}
+        <WpcMesoscaleDiscussionLayer
+          geoJSON={wpcMpdGeoJSON}
+          visible={(isWeatherTab || isAllHazardTab) && layers.wpcMpd}
         />
 
         {/* NHC hurricane tracks, cone, watch/warnings, and tropical weather outlook —
