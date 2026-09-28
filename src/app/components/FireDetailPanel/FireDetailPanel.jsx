@@ -10,7 +10,7 @@ import {
   X, Flame, MapPin, Users, Home, Calendar, Thermometer,
   AlertTriangle, Wind, ExternalLink, TrendingUp, ShieldAlert,
   Clock, Info, Share2, Zap, Fuel,
-  GraduationCap, FileText, Copy, Waves, Navigation, Biohazard, HelpCircle,
+  GraduationCap, FileText, Copy, Waves, Navigation, Biohazard,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { useAppStatus } from '../../context/AppStatusContext';
@@ -23,6 +23,7 @@ import { frpToLabel, containmentToColor, getAQICategory } from '../../utils/colo
 import { nwsAlertColor } from '../../utils/nwsColors';
 import IncidentTimeline from '../IncidentTimeline/IncidentTimeline';
 import { HAZARD_CATEGORY_COLORS } from '../Map/layers/HazardEventsLayer';
+import { normalizeHazardCategory } from '../../hooks/useHazardEvents';
 import { trackSentinelUse } from '../../../shared/utils/analytics';
 
 // Fire-related detail types that represent a user opening a tracked wildfire
@@ -1168,9 +1169,9 @@ function NationalMapCollegeDetail({ fire }) {
 
 const HAZARD_CATEGORY_META = {
   wildfire: { label: 'Wildfire', icon: Flame },
-  flooding: { label: 'Flooding', icon: Waves },
   hazmat:   { label: 'Hazmat',   icon: Biohazard },
-  other:    { label: 'Other',    icon: HelpCircle },
+  hazard:   { label: 'Hazard',   icon: AlertTriangle },
+  flooding: { label: 'Flooding', icon: Waves },
 };
 
 const SEVERITY_COLOR = {
@@ -1181,9 +1182,9 @@ const SEVERITY_COLOR = {
 };
 
 function HazardEventDetail({ fire }) {
-  const meta = HAZARD_CATEGORY_META[fire.category] || HAZARD_CATEGORY_META.other;
+  const meta = HAZARD_CATEGORY_META[normalizeHazardCategory(fire.category)] || HAZARD_CATEGORY_META.hazard;
   const Icon = meta.icon;
-  const color = HAZARD_CATEGORY_COLORS[fire.category] || HAZARD_CATEGORY_COLORS.other;
+  const color = HAZARD_CATEGORY_COLORS[normalizeHazardCategory(fire.category)] || HAZARD_CATEGORY_COLORS.hazard;
   const severityColor = SEVERITY_COLOR[fire.severity] || SEVERITY_COLOR.moderate;
 
   return (

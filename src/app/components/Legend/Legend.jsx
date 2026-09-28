@@ -8,7 +8,7 @@ import { useState, memo } from 'react';
 import { Info, ChevronDown, ChevronUp } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { AQI_CATEGORIES } from '../../utils/colorUtils';
-import { HAZARD_CATEGORY_COLORS } from '../Map/layers/HazardEventsLayer';
+import { HAZARD_CATEGORY_LABELS, hazardPinDataUrl } from '../Map/layers/HazardEventsLayer';
 import { NEXRAD_STATUS } from '../../api/nexradSites';
 import { VELOCITY_SCALE as LIVE_VELOCITY_SCALE, REFLECTIVITY_SCALE } from '../../utils/radarRaster';
 
@@ -96,6 +96,15 @@ function ColorRow({ color, label }) {
   return (
     <div className="flex items-center gap-2">
       <span className="w-3 h-3 rounded-sm shrink-0" style={{ backgroundColor: color }} />
+      <span className="text-sentinel-100 text-[11px]">{label}</span>
+    </div>
+  );
+}
+
+function IconRow({ src, label }) {
+  return (
+    <div className="flex items-center gap-2">
+      <img src={src} alt="" className="w-4 h-4 shrink-0" />
       <span className="text-sentinel-100 text-[11px]">{label}</span>
     </div>
   );
@@ -192,7 +201,7 @@ const Legend = memo(function Legend({
 
   if (!legendOpen) return null;
 
-  // Hazard event report dots are a permanent (non-toggleable) layer, so the
+  // Incident report pins are a permanent (non-toggleable) layer, so the
   // legend is always reachable even if every toggleable layer is off.
 
   const spcScale = SPC_SCALES[spcOutlookType] || SPC_SCALES.categorical;
@@ -410,11 +419,10 @@ const Legend = memo(function Legend({
               </Section>
             )}
 
-            <Section title="Event Reports">
-              <ColorRow color={HAZARD_CATEGORY_COLORS.wildfire} label="Wildfire" />
-              <ColorRow color={HAZARD_CATEGORY_COLORS.flooding} label="Flooding" />
-              <ColorRow color={HAZARD_CATEGORY_COLORS.hazmat} label="Hazmat" />
-              <ColorRow color={HAZARD_CATEGORY_COLORS.other} label="Other" />
+            <Section title="Incident Reports">
+              {Object.entries(HAZARD_CATEGORY_LABELS).map(([key, label]) => (
+                <IconRow key={key} src={hazardPinDataUrl(key)} label={label} />
+              ))}
             </Section>
           </div>
         )}
