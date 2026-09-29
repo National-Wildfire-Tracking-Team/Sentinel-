@@ -47,7 +47,7 @@ const MapBottomBar = memo(forwardRef(function MapBottomBar({
       <button
         type="button"
         onClick={() => onTabChange?.('allhazard')}
-        className={`inline-flex items-center gap-1.5 px-3 py-2 text-sm font-bold rounded-xl transition-all duration-200 ${
+        className={`inline-flex items-center gap-1.5 px-3 py-2 whitespace-nowrap text-sm font-bold rounded-xl transition-all duration-200 ${
           isAllHazardTab
             ? 'bg-gradient-to-r from-fire-600 via-red-600 to-sky-700 text-white shadow-lg shadow-red-900/30'
             : 'text-sentinel-600 dark:text-sentinel-200 hover:text-sentinel-900 dark:hover:text-white hover:bg-sentinel-100 dark:hover:bg-sentinel-700'
@@ -61,7 +61,7 @@ const MapBottomBar = memo(forwardRef(function MapBottomBar({
       <button
         type="button"
         onClick={() => onTabChange?.('wildfire')}
-        className={`inline-flex items-center gap-1.5 px-3 py-2 text-sm font-semibold rounded-xl transition-colors ${
+        className={`inline-flex items-center gap-1.5 px-3 py-2 whitespace-nowrap text-sm font-semibold rounded-xl transition-colors ${
           activeMapTab === 'wildfire'
             ? 'bg-fire-600 text-white'
             : 'text-sentinel-600 dark:text-sentinel-200 hover:text-sentinel-900 dark:hover:text-white hover:bg-sentinel-100 dark:hover:bg-sentinel-700'
@@ -75,7 +75,7 @@ const MapBottomBar = memo(forwardRef(function MapBottomBar({
       <button
         type="button"
         onClick={() => onTabChange?.('weather')}
-        className={`inline-flex items-center gap-1.5 px-3 py-2 text-sm font-semibold rounded-xl transition-colors ${
+        className={`inline-flex items-center gap-1.5 px-3 py-2 whitespace-nowrap text-sm font-semibold rounded-xl transition-colors ${
           activeMapTab === 'weather'
             ? 'bg-sky-600 text-white'
             : 'text-sentinel-600 dark:text-sentinel-200 hover:text-sentinel-900 dark:hover:text-white hover:bg-sentinel-100 dark:hover:bg-sentinel-700'

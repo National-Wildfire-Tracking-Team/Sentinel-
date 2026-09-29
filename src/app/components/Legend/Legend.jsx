@@ -196,7 +196,7 @@ const Legend = memo(function Legend({
   radarScanActive = false,
   radarScanProduct = null,
 }) {
-  const { layers, legendOpen } = useApp();
+  const { layers, legendOpen, layerPanelOpen } = useApp();
   const [collapsed, setCollapsed] = useState(true);
 
   if (!legendOpen) return null;
@@ -206,8 +206,15 @@ const Legend = memo(function Legend({
 
   const spcScale = SPC_SCALES[spcOutlookType] || SPC_SCALES.categorical;
 
+  // Below lg the centered bottom bar is wide enough to reach under this
+  // corner, so the legend stacks above it instead of beside it, and steps out
+  // of the way of the Layers popover (which spans the same space) while open.
   return (
-    <div className="absolute bottom-20 sm:bottom-10 left-4 z-20 animate-fade-in">
+    <div
+      className={`absolute bottom-20 lg:bottom-10 left-4 [@media(max-height:500px)]:left-[4.5rem] z-20 animate-fade-in transition-opacity ${
+        layerPanelOpen ? 'max-lg:opacity-0 max-lg:pointer-events-none' : ''
+      }`}
+    >
       <div className="bg-sentinel-900/95 backdrop-blur-sm border border-sentinel-700 rounded-2xl shadow-2xl overflow-hidden w-48">
         {/* Header */}
         <button
@@ -223,7 +230,7 @@ const Legend = memo(function Legend({
         </button>
 
         {!collapsed && (
-          <div className="p-3 space-y-3 max-h-72 overflow-y-auto">
+          <div className="p-3 space-y-3 max-h-72 supports-[height:100dvh]:max-h-[min(18rem,calc(100dvh-14rem))] overflow-y-auto">
 
             {layers.incidentLocations && (
               <Section title="Fire Containment">

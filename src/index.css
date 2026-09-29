@@ -75,6 +75,14 @@
   box-shadow: 0 8px 24px rgba(0,0,0,0.4);
 }
 
+/* On phones the bottom-left scale sits under the centered bottom bar; the
+   custom scale above the zoom cluster (MapZoomControl) still shows it. */
+@media (max-width: 639px) {
+  .mapboxgl-ctrl-bottom-left .mapboxgl-ctrl-scale {
+    display: none;
+  }
+}
+
 /* ─── Mapbox popup override ─────────────────────────────────────────────────*/
 /* We render custom popup content in Tailwind – just reset the container */
 .sentinel-popup .mapboxgl-popup-content {

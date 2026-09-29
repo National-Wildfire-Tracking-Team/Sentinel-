@@ -365,22 +365,22 @@ export default function PricingPage() {
       <section className="max-w-3xl mx-auto px-4 sm:px-6 pb-20">
         <h2 className="text-2xl font-bold text-white text-center mb-8">Plan comparison</h2>
         <div className="overflow-x-auto rounded-xl border border-sentinel-700">
-          <table className="w-full text-sm">
+          <table className="w-full text-xs sm:text-sm">
             <thead>
               <tr className="border-b border-sentinel-700 bg-sentinel-900">
-                <th className="text-left px-5 py-4 text-sentinel-300 font-semibold">Feature</th>
-                <th className="px-4 py-4 text-center font-semibold text-white">Free</th>
-                <th className="px-4 py-4 text-center font-semibold text-amber-300">Plus</th>
-                <th className="px-4 py-4 text-center font-semibold text-fire-300">Pro</th>
+                <th className="text-left px-3 sm:px-5 py-4 text-sentinel-300 font-semibold">Feature</th>
+                <th className="px-2 sm:px-4 py-4 text-center font-semibold text-white">Free</th>
+                <th className="px-2 sm:px-4 py-4 text-center font-semibold text-amber-300">Plus</th>
+                <th className="px-2 sm:px-4 py-4 text-center font-semibold text-fire-300">Pro</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-sentinel-800">
               {COMPARISON_ROWS.map((row, i) => (
                 <tr key={i} className="hover:bg-sentinel-800/40 transition-colors">
-                  <td className="px-5 py-3 text-sentinel-200">{row.label}</td>
-                  <td className="px-4 py-3 text-center"><CellValue val={row.free} freeCol /></td>
-                  <td className="px-4 py-3 text-center"><CellValue val={row.plus} /></td>
-                  <td className="px-4 py-3 text-center"><CellValue val={row.pro} /></td>
+                  <td className="px-3 sm:px-5 py-3 text-sentinel-200">{row.label}</td>
+                  <td className="px-2 sm:px-4 py-3 text-center"><CellValue val={row.free} freeCol /></td>
+                  <td className="px-2 sm:px-4 py-3 text-center"><CellValue val={row.plus} /></td>
+                  <td className="px-2 sm:px-4 py-3 text-center"><CellValue val={row.pro} /></td>
                 </tr>
               ))}
             </tbody>

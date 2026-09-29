@@ -58,8 +58,8 @@ export default function LoginModal({ onClose, onLoginSuccess }) {
   };
 
   return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/80 backdrop-blur-sm">
-      <div className="relative w-full max-w-md mx-4">
+    <div className="fixed inset-0 z-[200] flex justify-center overflow-y-auto py-6 bg-black/80 backdrop-blur-sm">
+      <div className="relative w-full max-w-md mx-4 my-auto">
         {/* Close button */}
         <button
           onClick={onClose}
