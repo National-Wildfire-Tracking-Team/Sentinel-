@@ -170,10 +170,12 @@ const FutureFeaturesPanel = memo(function FutureFeaturesPanel({ mapType = 'satel
         border-r border-sentinel-200 dark:border-sentinel-700
         transition-transform duration-300 ease-in-out
         w-full sm:w-80
+        sm:max-[1199px]:bottom-[var(--map-bottom-stack,0px)] sm:max-[1199px]:border-b sm:max-[1199px]:rounded-br-2xl
         ${futurePanelOpen ? 'translate-x-0' : '-translate-x-full'}
       `}
     >
-      <div className="flex-1 overflow-y-auto py-2">
+      {/* Left-padded on phones to clear the floating corner-button column, which only shifts out of the way at sm+ */}
+      <div className="flex-1 overflow-y-auto py-2 pl-16 sm:pl-0">
         <MenuRow icon={Home} label="Home" href={getMainOrigin()} sameTab onClick={closePanel} />
         <MenuRow
           icon={isSatellite ? Satellite : MapIcon}
