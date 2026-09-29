@@ -1233,6 +1233,12 @@ function HazardEventDetail({ fire }) {
           </span>
         </div>
       )}
+
+      <IncidentTimeline
+        incidentId={fire.id}
+        dataSource="NWTT reporter"
+        sourceVariant="community"
+      />
     </>
   );
 }
@@ -1434,7 +1440,7 @@ const FireDetailPanel = memo(function FireDetailPanel() {
   const { selectedFire, clearSelected } = useApp();
   const { alerts } = useAppStatus();
   const [shareStatus, setShareStatus] = useState('');
-  const isShareableFireType = ['hotspot', 'perimeter', 'incident', 'user-report', 'weather-alert'].includes(selectedFire?.type);
+  const isShareableFireType = ['hotspot', 'perimeter', 'incident', 'user-report', 'weather-alert', 'hazard-event'].includes(selectedFire?.type);
 
   // Fires once per incident open (map click, sidebar card, or popup select
   // all funnel through selectedFire), not on every render or on close.
@@ -1478,11 +1484,10 @@ const FireDetailPanel = memo(function FireDetailPanel() {
 
     const shareText = buildShareText(selectedFire);
     const shareUrl = buildShareUrl(selectedFire);
-    const payload = {
-      title: selectedFire.type === 'weather-alert' ? 'NWTT Weather Alert' : 'Sentinel Fire Tracker',
-      text: selectedFire.type === 'weather-alert' ? shareText : `Track this fire on Sentinel: ${shareText}`,
-      url: shareUrl,
-    };
+    const payload =
+      selectedFire.type === 'weather-alert' ? { title: 'NWTT Weather Alert', text: shareText, url: shareUrl } :
+      selectedFire.type === 'hazard-event'  ? { title: 'Sentinel Event Report', text: `Track this event on Sentinel: ${shareText}`, url: shareUrl } :
+      { title: 'Sentinel Fire Tracker', text: `Track this fire on Sentinel: ${shareText}`, url: shareUrl };
 
     // Use the Web Share API only when the browser supports it AND can handle
     // this specific payload. canShare() is a prerequisite check that prevents
@@ -1565,8 +1570,8 @@ const FireDetailPanel = memo(function FireDetailPanel() {
               <button
                 onClick={handleShare}
                 className="p-1 text-sentinel-400 hover:text-white hover:bg-sentinel-700 rounded transition-colors"
-                aria-label="Share fire details"
-                title="Share fire"
+                aria-label={selectedFire.type === 'hazard-event' ? 'Share event details' : 'Share fire details'}
+                title={selectedFire.type === 'hazard-event' ? 'Share event' : 'Share fire'}
               >
                 <Share2 size={14} />
               </button>

@@ -29,7 +29,7 @@ import { useSpcOutlooks } from '../hooks/useSpcOutlooks';
 import { useSpcMesoscaleDiscussion } from '../hooks/useSpcMesoscaleDiscussion';
 import { useWpcMesoscaleDiscussion } from '../hooks/useWpcMesoscaleDiscussion';
 import { useFireReports, reportsToGeoJSON } from '../hooks/useFireReports';
-import { useHazardEvents, hazardEventsToGeoJSON } from '../hooks/useHazardEvents';
+import { useHazardEvents, hazardEventsToGeoJSON, normalizeHazardCategory } from '../hooks/useHazardEvents';
 import { useCombinedEvacZones } from '../hooks/useCombinedEvacZones';
 import { useReporterEvacZones, reporterEvacZonesToGeoJSON } from '../hooks/useReporterEvacZones';
 import { useRAWSData } from '../hooks/useRAWSData';
@@ -916,7 +916,7 @@ export default function LiveTrackerPage() {
   // them: IRWIN/reporter-merged incidents (covers most fires, including
   // perimeter-backed ones, since they share the same UniqueFireIdentifier),
   // then raw hotspot detections, then raw perimeters, then approved user
-  // reports. Retries as data loads in (these collections start empty and
+  // reports, then active hazard event reports. Retries as data loads in (these collections start empty and
   // fill in asynchronously); gives up after a fixed timeout so a bad/expired
   // id doesn't retry forever.
   const sharedLinkResolvedRef = useRef(false);
@@ -1010,12 +1010,28 @@ export default function LiveTrackerPage() {
       selectFire({ type: 'user-report', ...reportMatch });
       flyToFire(reportMatch);
       sharedLinkResolvedRef.current = true;
+      return;
+    }
+
+    const hazardMatch = activeHazardEvents.find((e) => String(e.id) === incidentId);
+    if (hazardMatch) {
+      const record = {
+        ...hazardMatch,
+        type: 'hazard-event',
+        name: hazardMatch.title,
+        category: normalizeHazardCategory(hazardMatch.category),
+        lat: Number(hazardMatch.latitude),
+        lng: Number(hazardMatch.longitude),
+      };
+      selectFire(record);
+      flyToFire(record);
+      sharedLinkResolvedRef.current = true;
     }
     // Not found in anything loaded so far — leave unresolved and retry as
     // more data comes in, until the give-up timeout below fires.
   }, [
     mapReady, alerts, mergedIncidents, hotspotsGeoJSON, namedPerimetersGeoJSON, approvedReports,
-    selectFire, flyToFire, setViewport,
+    activeHazardEvents, selectFire, flyToFire, setViewport,
   ]);
 
   useEffect(() => {
