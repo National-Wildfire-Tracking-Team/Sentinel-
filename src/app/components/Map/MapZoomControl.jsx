@@ -4,7 +4,7 @@
  * zoom in, zoom out, orient north, and report a bug — one vertical rectangle.
  */
 
-import { memo } from 'react';
+import { memo, useState, useEffect } from 'react';
 import { Plus, Minus, Compass } from 'lucide-react';
 import { useViewport } from '../../context/ViewportContext';
 
