@@ -2,6 +2,7 @@ import { useRef, useState, useEffect } from 'react';
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { Flame, Menu, X, Heart, Settings, LogOut, User } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { useConfirmSignOut } from '../../hooks/useConfirmSignOut';
 import { getAppOrigin } from '../../utils/getAppOrigin';
 
 const navLinks = [
@@ -50,8 +51,9 @@ function useOverHero(enabled) {
 export default function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
-  const { isAuthenticated, user, signOut } = useAuth();
+  const { isAuthenticated, user } = useAuth();
   const navigate = useNavigate();
+  const { requestSignOut, signOutDialog } = useConfirmSignOut(() => navigate('/'));
   const userMenuRef = useRef(null);
   const { pathname } = useLocation();
   const overHero = useOverHero(HERO_ROUTES.has(pathname));
@@ -68,10 +70,9 @@ export default function Navbar() {
     return () => document.removeEventListener('mousedown', handler);
   }, [userMenuOpen]);
 
-  async function handleSignOut() {
+  function handleSignOut() {
     setUserMenuOpen(false);
-    await signOut();
-    navigate('/');
+    requestSignOut();
   }
 
   const userInitial = user?.email ? user.email[0].toUpperCase() : '?';
@@ -274,6 +275,8 @@ export default function Navbar() {
           </div>
         </div>
       )}
+
+      {signOutDialog}
     </nav>
   );
 }

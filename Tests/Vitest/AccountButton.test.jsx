@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { useApp } from '../../src/app/context/AppContext';
 import { useAuth } from '../../src/shared/context/AuthContext';
@@ -11,6 +11,15 @@ vi.mock('../../src/app/context/AppContext', () => ({ useApp: vi.fn() }));
 vi.mock('../../src/shared/context/AuthContext', () => ({ useAuth: vi.fn() }));
 vi.mock('../../src/app/context/AppStatusContext', () => ({
   useAppStatus: vi.fn(() => ({ userLocation: null, setUserLocation: vi.fn() })),
+}));
+vi.mock('../../src/app/context/HomeSetupContext', () => ({
+  useHomeSetup: vi.fn(() => ({
+    home: null,
+    isHomeSetupComplete: false,
+    homeSetupLoading: false,
+    activateNearby: vi.fn(),
+    openHomeSetup: vi.fn(),
+  })),
 }));
 vi.mock('../../src/app/context/ViewportContext', () => ({
   useViewport: vi.fn(() => ({ viewport: {}, setViewport: vi.fn() })),
@@ -113,13 +122,44 @@ describe('AccountPanel', () => {
     expect(screen.getByRole('link', { name: /Account Settings/ })).toHaveAttribute('href', '/account');
   });
 
-  it('signs out and closes the panel', () => {
+  it('asks for confirmation instead of signing out straight away', () => {
     mockApp({ accountPanelOpen: true });
     mockAuth(true);
     renderWithRouter(<AccountPanel />);
     fireEvent.click(screen.getByRole('button', { name: /Sign Out/ }));
+    expect(screen.getByRole('alertdialog', { name: 'Sign out?' })).toBeInTheDocument();
+    expect(signOut).not.toHaveBeenCalled();
+  });
+
+  it('stays signed in when the user answers No', () => {
+    mockApp({ accountPanelOpen: true });
+    mockAuth(true);
+    renderWithRouter(<AccountPanel />);
+    fireEvent.click(screen.getByRole('button', { name: /Sign Out/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'No, stay signed in' }));
+    expect(screen.queryByRole('alertdialog')).toBeNull();
+    expect(signOut).not.toHaveBeenCalled();
+    expect(toggleAccountPanel).not.toHaveBeenCalled();
+  });
+
+  it('signs out and closes the panel when the user answers Yes', async () => {
+    mockApp({ accountPanelOpen: true });
+    mockAuth(true);
+    renderWithRouter(<AccountPanel />);
+    fireEvent.click(screen.getByRole('button', { name: /Sign Out/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Yes, sign out' }));
+    await waitFor(() => expect(toggleAccountPanel).toHaveBeenCalledTimes(1));
     expect(signOut).toHaveBeenCalledTimes(1);
-    expect(toggleAccountPanel).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not close the panel when clicking inside the confirmation dialog', () => {
+    mockApp({ accountPanelOpen: true });
+    mockAuth(true);
+    renderWithRouter(<AccountPanel />);
+    fireEvent.click(screen.getByRole('button', { name: /Sign Out/ }));
+    fireEvent.mouseDown(screen.getByRole('alertdialog'));
+    expect(toggleAccountPanel).not.toHaveBeenCalled();
+    expect(screen.getByRole('alertdialog')).toBeInTheDocument();
   });
 
   it('is anchored top-right below the account button', () => {

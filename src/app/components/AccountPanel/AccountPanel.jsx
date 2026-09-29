@@ -11,10 +11,12 @@ import { useAuth } from '../../../shared/context/AuthContext';
 import { LogOut, MapPin, Settings, User, X } from 'lucide-react';
 import LoginModal from '../Auth/LoginModal';
 import MapAddressSearchPanel from '../Auth/MapAddressSearchPanel';
+import { useConfirmSignOut } from '../../../shared/hooks/useConfirmSignOut';
 
 const AccountPanel = memo(function AccountPanel() {
   const { accountPanelOpen, toggleAccountPanel } = useApp();
-  const { isAuthenticated, user, signOut } = useAuth();
+  const { isAuthenticated, user } = useAuth();
+  const { requestSignOut, signOutDialog, confirmOpen } = useConfirmSignOut(toggleAccountPanel);
 
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [showAddressSetup, setShowAddressSetup] = useState(false);
@@ -23,7 +25,7 @@ const AccountPanel = memo(function AccountPanel() {
   useEffect(() => {
     if (!accountPanelOpen) return;
     const handler = (e) => {
-      if (showLoginModal || showAddressSetup) return;
+      if (showLoginModal || showAddressSetup || confirmOpen) return;
       if (e.target.closest('[data-account-trigger]')) return;
       if (panelRef.current && !panelRef.current.contains(e.target)) {
         toggleAccountPanel();
@@ -31,7 +33,7 @@ const AccountPanel = memo(function AccountPanel() {
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
-  }, [accountPanelOpen, showLoginModal, showAddressSetup, toggleAccountPanel]);
+  }, [accountPanelOpen, showLoginModal, showAddressSetup, confirmOpen, toggleAccountPanel]);
 
   const handleLoginSuccess = () => {
     setShowLoginModal(false);
@@ -85,7 +87,7 @@ const AccountPanel = memo(function AccountPanel() {
                 Account Settings
               </Link>
               <button
-                onClick={() => { toggleAccountPanel(); signOut(); }}
+                onClick={requestSignOut}
                 className="w-full text-left px-3 py-2 text-sm text-sentinel-200 hover:bg-sentinel-700 hover:text-white transition-colors flex items-center gap-2"
               >
                 <LogOut size={13} />
@@ -118,6 +120,8 @@ const AccountPanel = memo(function AccountPanel() {
           onClose={handleAddressSetupReturn}
         />
       )}
+
+      {signOutDialog}
     </>
   );
 });
