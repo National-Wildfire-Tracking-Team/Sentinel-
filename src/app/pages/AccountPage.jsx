@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 
 import { useAuth } from '../../shared/context/AuthContext';
+import { useConfirmSignOut } from '../../shared/hooks/useConfirmSignOut';
 import { supabase } from '../../shared/api/supabaseClient';
 import { getMainOrigin } from '../../shared/utils/getAppOrigin';
 import { useSavedLocations } from '../hooks/useSavedLocations';
@@ -22,9 +23,10 @@ import { usePlan } from '../../shared/hooks/usePlan';
 import { NOTIFIABLE_ALERT_TYPES } from '../utils/nwsColors';
 
 export default function AccountPage() {
-  const { user, profile, isAuthenticated, loading, profileLoading, signOut } = useAuth();
+  const { user, profile, isAuthenticated, loading, profileLoading } = useAuth();
   const { planId, plan, subscription, isPaid, cancelAtPeriodEnd, currentPeriodEnd } = usePlan();
   const navigate = useNavigate();
+  const { requestSignOut, signOutDialog } = useConfirmSignOut(() => navigate('/'));
   const [searchParams] = useSearchParams();
   const { locations, updateLocation, overLimit, limit: locationLimit } = useSavedLocations();
   const { nwsAlertTypes, toggleAlertType, error: notifyPrefsError } = useNotificationPreferences();
@@ -72,11 +74,6 @@ export default function AccountPage() {
     } finally {
       setResetBusy(false);
     }
-  }
-
-  async function handleSignOut() {
-    await signOut();
-    navigate('/');
   }
 
   async function handleManageBilling() {
@@ -155,7 +152,7 @@ export default function AccountPage() {
             Back to Sentinel
           </button>
           <button
-            onClick={handleSignOut}
+            onClick={requestSignOut}
             className="flex items-center gap-1.5 text-xs text-sentinel-400 hover:text-white transition-colors"
           >
             <LogOut size={12} /> Sign out
@@ -491,12 +488,13 @@ export default function AccountPage() {
             Sign out of your account on this device.
           </p>
           <button
-            onClick={handleSignOut}
+            onClick={requestSignOut}
             className="px-4 py-2 rounded-lg text-sm font-semibold bg-red-950/40 border border-red-800/60
                        text-red-300 hover:bg-red-900/50 hover:text-red-200 transition-colors"
           >
             Sign Out
           </button>
+          {signOutDialog}
         </section>
 
       </div>

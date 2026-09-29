@@ -9,6 +9,11 @@ import { Info, ChevronDown, ChevronUp } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { AQI_CATEGORIES } from '../../utils/colorUtils';
 import { HAZARD_CATEGORY_LABELS, hazardPinDataUrl } from '../Map/layers/HazardEventsLayer';
+import {
+  CLUSTER_FILL_COLOR,
+  CLUSTER_ACTIVE_RING_COLOR,
+  CLUSTER_CONTAINED_RING_COLOR,
+} from '../Map/layers/IncidentLocationsLayer';
 import { NEXRAD_STATUS } from '../../api/nexradSites';
 import { VELOCITY_SCALE as LIVE_VELOCITY_SCALE, REFLECTIVITY_SCALE } from '../../utils/radarRaster';
 
@@ -96,6 +101,21 @@ function ColorRow({ color, label }) {
   return (
     <div className="flex items-center gap-2">
       <span className="w-3 h-3 rounded-sm shrink-0" style={{ backgroundColor: color }} />
+      <span className="text-sentinel-100 text-[11px]">{label}</span>
+    </div>
+  );
+}
+
+// A miniature of the map's incident cluster bubble (dark fill, colored ring, count).
+function ClusterRow({ ringColor, label }) {
+  return (
+    <div className="flex items-center gap-2">
+      <span
+        className="w-4 h-4 rounded-full shrink-0 flex items-center justify-center text-[8px] font-bold text-white"
+        style={{ backgroundColor: CLUSTER_FILL_COLOR, border: `2px solid ${ringColor}` }}
+      >
+        5
+      </span>
       <span className="text-sentinel-100 text-[11px]">{label}</span>
     </div>
   );
@@ -235,6 +255,11 @@ const Legend = memo(function Legend({
             {layers.incidentLocations && (
               <Section title="Fire Containment">
                 {CONTAINMENT_SCALE.map(row => <ColorRow key={row.label} {...row} />)}
+                <div className="pt-1 mt-1 border-t border-sentinel-700 space-y-1">
+                  <ClusterRow ringColor={CLUSTER_ACTIVE_RING_COLOR} label="Grouped fires · some active" />
+                  <ClusterRow ringColor={CLUSTER_CONTAINED_RING_COLOR} label="Grouped fires · all contained" />
+                  <div className="text-sentinel-400 text-[10px]">Number = fires in the group. Zoom in to see each one.</div>
+                </div>
               </Section>
             )}
 

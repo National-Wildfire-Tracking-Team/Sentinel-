@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 
 import { useAuth } from '../../../shared/context/AuthContext';
+import { useConfirmSignOut } from '../../../shared/hooks/useConfirmSignOut';
 import { getAppOrigin, getMainOrigin } from '../../../shared/utils/getAppOrigin';
 import { useFireReports } from '../../hooks/useFireReports';
 import { useReporterEvacZones } from '../../hooks/useReporterEvacZones';
@@ -40,8 +41,9 @@ const TAB_META = {
 };
 
 export default function ReporterDashboardPage() {
-  const { user, profile, loading, profileLoading, signOut } = useAuth();
+  const { user, profile, loading, profileLoading } = useAuth();
   const navigate = useNavigate();
+  const { requestSignOut, signOutDialog } = useConfirmSignOut(() => navigate('/login'));
 
   const [activeTab, setActiveTab] = useState('add');
 
@@ -151,12 +153,13 @@ export default function ReporterDashboardPage() {
             <span className="hidden sm:inline">Account</span>
           </a>
           <button
-            onClick={async () => { await signOut(); navigate('/login'); }}
+            onClick={requestSignOut}
             className="flex items-center gap-1.5 text-xs text-sentinel-300 hover:text-white transition-colors"
           >
             <LogOut size={13} />
             <span className="hidden sm:inline">Sign out</span>
           </button>
+          {signOutDialog}
         </div>
       </header>
 

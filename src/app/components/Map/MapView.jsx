@@ -629,6 +629,22 @@ function getHoverContent(feature) {
       );
       break;
     }
+    case 'incident-locations-cluster': {
+      const total = num(p.point_count);
+      const active = num(p.activeCount);
+      content = (
+        <>
+          <div className="font-semibold text-orange-400">
+            {total} incident{total === 1 ? '' : 's'}
+          </div>
+          <div className="text-sentinel-200 text-xs mt-0.5">
+            {active} active · {total - active} fully contained
+          </div>
+          <div className="text-sentinel-400 text-[10px] mt-1">Click to zoom in</div>
+        </>
+      );
+      break;
+    }
     case 'incident-locations-circle':
       content = (
         <>
@@ -1567,7 +1583,10 @@ export default function MapView({
       ids.push('fire-perimeters-fill');
       ids.push('fire-perimeter-centroids-circle');
     }
-    if ((isWildfireTab || isAllHazardTab) && layers.incidentLocations && incidentsGeoJSON)   ids.push('incident-locations-circle');
+    if ((isWildfireTab || isAllHazardTab) && layers.incidentLocations && incidentsGeoJSON) {
+      ids.push('incident-locations-cluster');
+      ids.push('incident-locations-circle');
+    }
     if ((isWildfireTab || isAllHazardTab) && layers.incidentLocations && userReportsGeoJSON)  ids.push('user-reports-circle');
     if (isAllHazardTab && layers.aqi && aqiGeoJSON)                                           ids.push('aqi-stations-circle');
     if ((isWildfireTab || isWeatherTab || isAllHazardTab) && layers.weatherAlerts && alertsGeoJSON) ids.push('weather-alerts-fill');
@@ -1677,6 +1696,17 @@ export default function MapView({
 
     if (feature.layer.id.startsWith('water-gauges-circle')) {
       selectGauge(feature.properties);
+      setFeaturePopup(null);
+      return;
+    }
+
+    if (feature.layer.id === 'incident-locations-cluster') {
+      // Zoom in just far enough for this cluster to split apart.
+      const [lng, lat] = feature.geometry.coordinates;
+      mapRef.current?.getSource('incident-locations')?.getClusterExpansionZoom(p.cluster_id, (err, zoom) => {
+        if (err) return;
+        mapRef.current?.easeTo({ center: [lng, lat], zoom, duration: 500 });
+      });
       setFeaturePopup(null);
       return;
     }
@@ -1808,11 +1838,14 @@ export default function MapView({
     if (precipRingActive && !probeLocked) setProbeMoving(true);
   }, [setViewport, precipRingActive, probeLocked]);
 
+  const [mapInstance, setMapInstance] = useState(null);
+
   const handleMoveEnd = useCallback(() => {
     setProbeMoving(false);
   }, []);
 
   const handleMapLoad = useCallback((e) => {
+    setMapInstance(e.target);
     try {
       const symbolLayer = e.target.getStyle()?.layers?.find(l => l.type === 'symbol');
       setRadarBeforeId(symbolLayer?.id ?? null);
@@ -2250,7 +2283,7 @@ export default function MapView({
         )}
       </Map>
 
-      <MapZoomControl mapRef={mapRef} />
+      <MapZoomControl mapRef={mapRef} map={mapInstance} />
 
       {/* Composite Radar timeline — history/playback control, independent of NEXRAD */}
       {nexradCompositeTimelineVisible && (
