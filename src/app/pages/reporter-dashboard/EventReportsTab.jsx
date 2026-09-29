@@ -8,13 +8,15 @@
 import { useState, useRef } from 'react';
 import {
   Flame, Waves, Biohazard, AlertTriangle, MapPin, ChevronDown, CheckCheck,
-  Trash2, RefreshCw, AlertCircle, CheckCircle2, Send,
+  Trash2, RefreshCw, AlertCircle, CheckCircle2, Send, Share2, MessageSquare,
 } from 'lucide-react';
 
 import { supabase, isSupabaseConfigured } from '../../../shared/api/supabaseClient';
 import { acquireSlot } from '../../utils/mapboxRateLimiter';
 import { submitHazardEvent, updateHazardEvent, deleteHazardEvent, normalizeHazardCategory } from '../../hooks/useHazardEvents';
 import { HAZARD_CATEGORY_COLORS } from '../../components/Map/layers/HazardEventsLayer';
+import IncidentTimeline from '../../components/IncidentTimeline/IncidentTimeline';
+import { shareOrCopy, hazardEventShareUrl } from '../../utils/shareLink';
 import {
   INPUT_CLS, LABEL_CLS, SECTION_CLS, SectionHeader, EVENT_SEVERITY_OPTIONS,
   MAPBOX_TOKEN, geocodeViaDirect,
@@ -31,6 +33,8 @@ function HazardEventCard({ event, onRefresh }) {
   const [busy, setBusy] = useState(false);
   const [feedback, setFeedback] = useState(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [showUpdates, setShowUpdates] = useState(false);
+  const [shareStatus, setShareStatus] = useState('');
 
   const meta = EVENT_CATEGORY_META[normalizeHazardCategory(event.category)] || EVENT_CATEGORY_META.hazard;
   const Icon = meta.icon;
@@ -47,6 +51,17 @@ function HazardEventCard({ event, onRefresh }) {
     } finally {
       setBusy(false);
     }
+  }
+
+  async function handleShare() {
+    const status = await shareOrCopy({
+      title: 'Sentinel Event Report',
+      text: `Track this event on Sentinel: ${event.title}`,
+      url: hazardEventShareUrl(event.id),
+    });
+    if (!status) return;
+    setShareStatus(status);
+    window.setTimeout(() => setShareStatus(''), 2500);
   }
 
   async function handleDelete() {
@@ -89,6 +104,30 @@ function HazardEventCard({ event, onRefresh }) {
         </div>
 
         <div className="flex items-center gap-1.5 shrink-0">
+          {shareStatus && <span className="text-[10px] text-sentinel-400">{shareStatus}</span>}
+          <button
+            type="button"
+            onClick={() => setShowUpdates((v) => !v)}
+            title={showUpdates ? 'Hide updates' : 'Post or view updates'}
+            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium border transition-colors
+              ${showUpdates
+                ? 'text-fire-400 border-fire-600/40 bg-fire-600/10'
+                : 'text-sentinel-300 border-sentinel-600 hover:text-white hover:border-sentinel-400'}`}
+          >
+            <MessageSquare size={12} />
+            <span className="hidden sm:inline">Updates</span>
+          </button>
+          {event.status === 'active' && (
+            <button
+              type="button"
+              onClick={handleShare}
+              title="Share event"
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium text-sentinel-300 border border-sentinel-600 hover:text-white hover:border-sentinel-400 transition-colors"
+            >
+              <Share2 size={12} />
+              <span className="hidden sm:inline">Share</span>
+            </button>
+          )}
           <button
             type="button"
             onClick={handleToggleStatus}
@@ -137,6 +176,17 @@ function HazardEventCard({ event, onRefresh }) {
         <div className="flex items-start gap-2 mt-2 p-2.5 rounded-lg text-xs border bg-red-950/40 border-red-800/60 text-red-300">
           <AlertCircle size={12} className="shrink-0 mt-0.5" />
           <span>{feedback.message}</span>
+        </div>
+      )}
+
+      {showUpdates && (
+        <div className="border-t border-sentinel-700 mt-3">
+          <IncidentTimeline
+            incidentId={event.id}
+            allowPost
+            dataSource="NWTT reporter"
+            sourceVariant="community"
+          />
         </div>
       )}
     </div>
