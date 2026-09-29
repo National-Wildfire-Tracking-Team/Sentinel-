@@ -1383,7 +1383,7 @@ export default function LiveTrackerPage() {
   const layerPanelRadarClearance = totalDockedHeight ? totalDockedHeight + 8 : 0;
 
   return (
-    <div className="h-screen w-screen flex flex-col bg-sentinel-900 text-white overflow-hidden select-none">
+    <div className="h-screen supports-[height:100dvh]:h-dvh w-screen flex flex-col bg-sentinel-900 text-white overflow-hidden select-none">
       <Seo
         title="Live Wildfire Map & Tracker | Sentinel by NWTT"
         description="Track active wildfires in real time with satellite hotspot detection, fire perimeters, containment status, red flag warnings, radar, and air quality — free, from the National Wildfire Tracking Team."
@@ -1396,7 +1396,12 @@ export default function LiveTrackerPage() {
       <AlertBanner dismissed={bannerDismissed} onDismiss={() => setBannerDismissed(true)} />
 
       {/* ── Main content area (map fills full width; all controls float over it) ── */}
-      <div className="flex-1 relative overflow-hidden">
+      {/* --map-bottom-stack: space taken by the bottom bar plus anything docked on
+          it, so the left drawers can end above it where they'd otherwise cover it. */}
+      <div
+        className="flex-1 relative overflow-hidden"
+        style={{ '--map-bottom-stack': `${mapBottomBarSize.height + totalDockedHeight + 24}px` }}
+      >
         <MapView
             onMapLoad={handleMapLoad}
             activeMapTab={activeMapTab}

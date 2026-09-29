@@ -200,7 +200,9 @@ export function MeasurementPanel({ mode, points, onClear, onClose }) {
   return (
     <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50 pointer-events-auto
                     bg-sentinel-900/95 border border-sentinel-600 rounded-xl shadow-2xl
-                    p-4 min-w-[280px] max-w-[340px] text-sm backdrop-blur-sm">
+                    p-4 min-w-[280px] max-w-[340px] text-sm backdrop-blur-sm
+                    max-sm:left-[4.25rem] max-sm:right-[4.25rem] max-sm:translate-x-0
+                    max-sm:min-w-0 max-sm:max-w-none max-sm:p-3">
 
       {/* Header */}
       <div className="flex items-center justify-between mb-3">

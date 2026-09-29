@@ -106,12 +106,12 @@ export default function MapAddressSearchPanel({ onClose, asPage = false }) {
     <div
       className={asPage
         ? 'w-full'
-        : 'fixed inset-0 z-[150] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4'}
+        : 'fixed inset-0 z-[150] flex justify-center overflow-y-auto bg-black/60 backdrop-blur-sm p-4'}
       onClick={(e) => {
         if (!asPage && canClose && e.target === e.currentTarget) onClose();
       }}
     >
-      <div className={`w-full max-w-lg rounded-2xl border border-sentinel-600 bg-sentinel-900 overflow-hidden animate-fade-in ${asPage ? '' : 'shadow-2xl'}`}>
+      <div className={`w-full max-w-lg my-auto rounded-2xl border border-sentinel-600 bg-sentinel-900 overflow-hidden animate-fade-in ${asPage ? '' : 'shadow-2xl'}`}>
 
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-sentinel-700">

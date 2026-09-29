@@ -83,6 +83,7 @@ const Sidebar = memo(function Sidebar({
           border-r border-sentinel-700
           transition-transform duration-300 ease-in-out
           w-full sm:w-80
+          sm:max-[1199px]:bottom-[var(--map-bottom-stack,0px)] sm:max-[1199px]:border-b sm:max-[1199px]:rounded-br-2xl
           ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
         `}
       >
@@ -120,7 +121,7 @@ const Sidebar = memo(function Sidebar({
         </div>
 
         {/* Summary stats strip — same mobile left-padding as the header, for the same reason */}
-        <div className={`pl-20 pr-3 sm:px-3 py-2 border-b shrink-0 ${isAllHazardTab ? 'border-red-900/50' : 'border-sentinel-700'}`}>
+        <div className={`pl-20 pr-16 sm:px-3 py-2 border-b shrink-0 ${isAllHazardTab ? 'border-red-900/50' : 'border-sentinel-700'}`}>
           <div className="flex justify-center gap-2 overflow-x-auto pb-1 scrollbar-none">
             {isAllHazardTab ? (
               <>

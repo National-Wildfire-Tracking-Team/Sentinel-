@@ -512,7 +512,13 @@ const LayerControl = memo(function LayerControl({
             </div>
           </div>
 
-          <div className="py-2 max-h-[min(60vh,28rem)] overflow-y-auto">
+          {/* Also capped to what's left between the header and the bottom bar
+              (plus any docked radar/outlook panels), so short landscape phone
+              screens don't push the panel's header up under the page header. */}
+          <div
+            className="py-2 max-h-[min(60vh,28rem)] overflow-y-auto"
+            style={{ maxHeight: `min(60vh, 28rem, calc(100dvh - 14rem - ${radarPanelClearance}px))` }}
+          >
             {sections.map((section) => {
               const sectionKey = section.id;
               const isSectionCollapsed = collapsed[sectionKey];

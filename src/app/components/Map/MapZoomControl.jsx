@@ -7,12 +7,14 @@
 import { memo, useState, useEffect } from 'react';
 import { Plus, Minus, Compass } from 'lucide-react';
 import { useViewport } from '../../context/ViewportContext';
+import { useApp } from '../../context/AppContext';
 
 const REPORT_BUG_URL =
   'https://docs.google.com/forms/d/e/1FAIpQLSej35yFro7KsQ349MzgQ6Lek4_M67qfoK59UFssX9CaTKf07Q/viewform?usp=header';
 
 const MapZoomControl = memo(function MapZoomControl({ mapRef }) {
   const { viewport, setViewport } = useViewport();
+  const { layerPanelOpen } = useApp();
 
   const [scale, setScale] = useState({
     distance: 5,
@@ -110,8 +112,15 @@ const MapZoomControl = memo(function MapZoomControl({ mapRef }) {
       ? `${Math.round(scale.distance).toLocaleString()} ft`
       : `${Number.isInteger(scale.distance) ? scale.distance : scale.distance.toFixed(1)} mi`;
 
+  // On phones the Layers popover spans the full width above the bottom bar and
+  // would half-cover this cluster, so fade it out while the popover is open
+  // (same treatment as the top-left corner buttons).
   return (
-    <div className="absolute bottom-4 right-4 z-20 flex flex-col items-end">
+    <div
+      className={`absolute bottom-4 right-4 z-20 flex flex-col items-end transition-opacity ${
+        layerPanelOpen ? 'max-sm:opacity-0 max-sm:pointer-events-none' : ''
+      }`}
+    >
 
       <div className="mb-2 rounded-md border border-sentinel-600 bg-sentinel-900/90 px-2 py-1.5 backdrop-blur-sm shadow-lg">
         <div className="w-24">
@@ -124,7 +133,7 @@ const MapZoomControl = memo(function MapZoomControl({ mapRef }) {
         </div>
       </div>
       
-    <div className="absolute bottom-4 right-4 z-20 flex flex-col w-9 rounded-lg overflow-hidden border border-sentinel-600 bg-sentinel-900/90 backdrop-blur-sm shadow-xl">
+    <div className="flex flex-col w-9 rounded-lg overflow-hidden border border-sentinel-600 bg-sentinel-900/90 backdrop-blur-sm shadow-xl">
       <button
         type="button"
         onClick={zoomIn}
