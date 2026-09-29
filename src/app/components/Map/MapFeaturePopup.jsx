@@ -25,7 +25,7 @@ const TYPE_LABELS = {
   incident: 'Fire incident',
   aqi: 'Air quality station',
   'weather-alert': 'Weather alert',
-  'user-report': 'Community report',
+  'user-report': 'Fire incident',
   'hazard-event': 'Event report',
   'evacuation-zone': 'Evacuation zone',
   'reporter-evacuation-zone': 'Reporter evacuation zone',

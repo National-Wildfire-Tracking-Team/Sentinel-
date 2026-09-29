@@ -1,7 +1,7 @@
 /**
  * UserReportsLayer.jsx
  * Renders community-submitted fire reports (Supabase) on the map.
- * Uses the same containment-based color scale as official incident dots.
+ * Styled identically to official incident dots (IncidentLocationsLayer).
  */
 
 import { memo } from 'react';
@@ -17,17 +17,15 @@ const DOT_GLOW_RADIUS = 14;
 
 const IS_FULLY_CONTAINED = ['>=', ['coalesce', ['get', 'contained'], 0], 100];
 
-const USER_REPORT_COLOR = [
+// Same scale as IncidentLocationsLayer. Reports with no containment reported
+// are treated as 0% (active), matching how the detail panel displays them.
+const CONTAINMENT_COLOR = [
   'case',
-  ['==', ['get', 'contained'], null],
-  '#9ca3af',
-  ['>=', ['get', 'contained'], 100],
+  IS_FULLY_CONTAINED,
   '#6b7280',
   [
-    'interpolate',
-    ['linear'],
-    ['get', 'contained'],
-    0, '#ef4444',
+    'interpolate', ['linear'], ['coalesce', ['get', 'contained'], 0],
+    0,  '#ef4444',
     25, '#f97316',
     50, '#eab308',
     75, '#84cc16',
@@ -47,7 +45,7 @@ const UserReportsLayer = memo(function UserReportsLayer({ geoJSON, visible }) {
         layout={{ visibility: vis }}
         paint={{
           'circle-radius': DOT_GLOW_RADIUS,
-          'circle-color': USER_REPORT_COLOR,
+          'circle-color': CONTAINMENT_COLOR,
           'circle-opacity': 0.12,
           'circle-stroke-width': 0,
         }}
@@ -60,7 +58,7 @@ const UserReportsLayer = memo(function UserReportsLayer({ geoJSON, visible }) {
         layout={{ visibility: vis }}
         paint={{
           'circle-radius': DOT_RADIUS,
-          'circle-color': USER_REPORT_COLOR,
+          'circle-color': CONTAINMENT_COLOR,
           'circle-opacity': 0.8,
           'circle-stroke-color': '#ffffff',
           'circle-stroke-width': 1.5,
