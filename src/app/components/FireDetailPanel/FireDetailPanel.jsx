@@ -601,10 +601,10 @@ function UserReportDetail({ fire }) {
       {/* Title block */}
       <div className="mb-4">
         <h3 className="font-bold text-white text-lg leading-tight">{fire.title}</h3>
+        <p className="text-sentinel-500 text-[11px] mt-0.5">Source: NWTT</p>
         {locationLine && (
           <p className="text-sentinel-300 text-xs mt-1 leading-relaxed">{locationLine}</p>
         )}
-        <p className="text-sentinel-400 text-[11px] mt-0.5">Community Report • NWTT</p>
       </div>
 
       {/* Acres | Containment stat row */}
@@ -718,10 +718,10 @@ function UserReportDetail({ fire }) {
               <span className="text-white font-semibold">{formatDateTime(fire.created_at)}</span>
             </div>
           )}
-          <div className="mt-4 p-3 bg-cyan-950/30 border border-cyan-900/50 rounded-lg">
-            <p className="text-xs text-cyan-200/80 leading-relaxed">
-              This report was submitted by a community reporter and approved by
-              NWTT moderators. Verify with official sources before taking action.
+          <div className="mt-4 p-3 bg-sentinel-800/50 border border-sentinel-700 rounded-lg">
+            <p className="text-xs text-sentinel-300 leading-relaxed">
+              This incident was submitted by an NWTT reporter. Verify with
+              official sources before taking action.
             </p>
           </div>
         </div>
@@ -1195,7 +1195,7 @@ function HazardEventDetail({ fire }) {
         </div>
         <div>
           <h3 className="font-bold text-white text-lg leading-tight">{fire.title}</h3>
-          <p className="text-sentinel-400 text-[11px] mt-1">{meta.label} · Community Report · NWTT</p>
+          <p className="text-sentinel-400 text-[11px] mt-1">{meta.label} · Incident · NWTT</p>
         </div>
       </div>
 
@@ -1545,7 +1545,7 @@ const FireDetailPanel = memo(function FireDetailPanel() {
              selectedFire.type === 'incident'        ? 'Incident Detail' :
              selectedFire.type === 'aqi'             ? 'Air Quality' :
              selectedFire.type === 'weather-alert'   ? 'Weather Alert' :
-             selectedFire.type === 'user-report'     ? 'Community Report' :
+             selectedFire.type === 'user-report'     ? 'Incident Detail' :
              selectedFire.type === 'evacuation-zone'          ? (selectedFire.source === 'ipaws' ? 'IPAWS alert' : 'Evacuation Zone') :
              selectedFire.type === 'reporter-evacuation-zone' ? 'Reporter Evac Zone' :
              selectedFire.type === 'transmission-line'        ? 'Critical Infrastructure' :

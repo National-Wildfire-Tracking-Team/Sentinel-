@@ -601,8 +601,10 @@ function getHoverContent(feature) {
     case 'user-reports-circle':
       content = (
         <>
-          <div className="font-semibold text-cyan-300">{p.title}</div>
-          <div className="text-sentinel-200 text-xs mt-0.5">Community report</div>
+          <div className="font-semibold text-orange-400">{p.title}</div>
+          <div className="text-sentinel-200 text-xs mt-0.5">
+            {p.contained != null ? `${formatContainment(num(p.contained))} contained` : 'Fire incident'}
+          </div>
           {p.created_at && (
             <div className="text-sentinel-300 text-xs">
               {new Date(p.created_at).toLocaleString()}
