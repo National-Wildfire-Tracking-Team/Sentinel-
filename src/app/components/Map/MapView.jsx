@@ -1808,11 +1808,14 @@ export default function MapView({
     if (precipRingActive && !probeLocked) setProbeMoving(true);
   }, [setViewport, precipRingActive, probeLocked]);
 
+  const [mapInstance, setMapInstance] = useState(null);
+
   const handleMoveEnd = useCallback(() => {
     setProbeMoving(false);
   }, []);
 
   const handleMapLoad = useCallback((e) => {
+    setMapInstance(e.target);
     try {
       const symbolLayer = e.target.getStyle()?.layers?.find(l => l.type === 'symbol');
       setRadarBeforeId(symbolLayer?.id ?? null);
@@ -2250,7 +2253,7 @@ export default function MapView({
         )}
       </Map>
 
-      <MapZoomControl mapRef={mapRef} />
+      <MapZoomControl mapRef={mapRef} map={mapInstance} />
 
       {/* Composite Radar timeline — history/playback control, independent of NEXRAD */}
       {nexradCompositeTimelineVisible && (

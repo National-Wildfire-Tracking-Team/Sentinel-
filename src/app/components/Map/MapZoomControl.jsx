@@ -4,7 +4,7 @@
  * zoom in, zoom out, orient north, and report a bug — one vertical rectangle.
  */
 
-import { memo, useState, useEffect } from 'react';
+import { memo, useRef, useEffect } from 'react';
 import { Plus, Minus, Compass } from 'lucide-react';
 import { useViewport } from '../../context/ViewportContext';
 import { useApp } from '../../context/AppContext';
@@ -12,15 +12,12 @@ import { useApp } from '../../context/AppContext';
 const REPORT_BUG_URL =
   'https://docs.google.com/forms/d/e/1FAIpQLSej35yFro7KsQ349MzgQ6Lek4_M67qfoK59UFssX9CaTKf07Q/viewform?usp=header';
 
-const MapZoomControl = memo(function MapZoomControl({ mapRef }) {
+const MapZoomControl = memo(function MapZoomControl({ mapRef, map }) {
   const { viewport, setViewport } = useViewport();
   const { layerPanelOpen } = useApp();
 
-  const [scale, setScale] = useState({
-    distance: 5,
-    unit: 'mi',
-  });
-  
+  const scaleHostRef = useRef(null);
+
   const zoomIn = () => mapRef.current?.zoomIn();
   const zoomOut = () => mapRef.current?.zoomOut();
   const orientNorth = () => {
@@ -33,84 +30,25 @@ const MapZoomControl = memo(function MapZoomControl({ mapRef }) {
     }
   };
 
+  // Mount Mapbox's native ScaleControl into our cluster so the bar resizes
+  // and relabels as the map zooms. Re-runs when the map remounts (style switch).
   useEffect(() => {
-    const map = mapRef.current;
+    const host = scaleHostRef.current;
+    if (!map || !host) return;
 
-    if (!map) return;
-
-    const updateScale = () => {
-      const center = map.getCenter();
-      const zoom = map.getZoom();
-
-      if (!center || zoom == null) return;
-
-      const earthCircumference = 40075016.686;
-      const metersPerPixel = 
-        (earthCircumference * Math.cos((center.lat * Math.PI) / 180)) /
-         Math.pow(2, zoom + 8);
-
-      const barWidth = 96;
-
-      const meters = metersPerPixel * barWidth;
-
-      const niceDistances = [
-        1,
-        2,
-        5,
-        10,
-        20,
-        50,
-        100,
-        200,
-        500,
-        1000,
-        2000,
-        5000,
-        10000,
-        20000,
-        50000,
-        100000,
-        200000,
-        500000,
-        1000000,
-      ];
-
-      const miles = meters / 1609.344;
-
-      const niceMiles = niceDistances
-      .map((value) => value / 1.609344)
-      .find((value) => value >= miles);
-
-      if(!niceMiles) return;
-
-      if (niceMiles < 1) {
-        setScale({
-          distance: Math.round(niceMiles * 5280),
-          unit: 'ft',
-        })
-      } else {
-        setScale({
-          distance: niceMiles,
-          unit: 'mi',
-        });
-      }
-    };
-
-    updateScale();
-
-    map.on('zoom', updateScale);
-    map.on('move', updateScale);
+    let control;
+    let cancelled = false;
+    import('mapbox-gl').then(({ default: mapboxgl }) => {
+      if (cancelled) return;
+      control = new mapboxgl.ScaleControl({ maxWidth: 100, unit: 'imperial' });
+      host.appendChild(control.onAdd(map));
+    });
 
     return () => {
-      map.off('zoom', updateScale);
-      map.off('move', updateScale);
+      cancelled = true;
+      control?.onRemove();
     };
-  }, [mapRef]);
-
-  const formattedDistance = 
-    scale.unit === 'ft'
-      ? `${Math.round(scale.distance).toLocaleString()} ft`
-      : `${Number.isInteger(scale.distance) ? scale.distance : scale.distance.toFixed(1)} mi`;
+  }, [map]);
 
   // On phones the Layers popover spans the full width above the bottom bar and
   // would half-cover this cluster, so fade it out while the popover is open
@@ -122,17 +60,8 @@ const MapZoomControl = memo(function MapZoomControl({ mapRef }) {
       }`}
     >
 
-      <div className="mb-2 rounded-md border border-sentinel-600 bg-sentinel-900/90 px-2 py-1.5 backdrop-blur-sm shadow-lg">
-        <div className="w-24">
-          <div className="h-0 border-t-2 border-white" />
+      <div ref={scaleHostRef} className="mb-2 flex justify-end" />
 
-          <div className="mt-0.5 flex justify-between text-[9px] leading-none text-white">
-            <span>0</span>
-            <span>{formattedDistance}</span>
-          </div>
-        </div>
-      </div>
-      
     <div className="flex flex-col w-9 rounded-lg overflow-hidden border border-sentinel-600 bg-sentinel-900/90 backdrop-blur-sm shadow-xl">
       <button
         type="button"
