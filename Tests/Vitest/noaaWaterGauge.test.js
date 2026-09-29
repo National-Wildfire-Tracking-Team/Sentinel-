@@ -401,7 +401,17 @@ describe('fetchGaugeDetail', () => {
 });
 
 describe('fetchGaugeStageFlow', () => {
-  afterEach(() => vi.unstubAllGlobals());
+  // fetchGaugeStageFlow keeps only points within a week of "now", so pin the
+  // clock to the fixtures' dates — otherwise these tests start failing once
+  // real time moves past them. Only Date is faked; timeouts still run.
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-07-20T12:00:00Z'));
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+  });
 
   it('fetches the observed and forecast sub-endpoints and parses data[]', async () => {
     const fetchMock = vi.fn((url) => {
