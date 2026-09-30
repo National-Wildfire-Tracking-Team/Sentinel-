@@ -10,6 +10,8 @@
  */
 
 import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { TIERS } from '../../netlify/edge-functions/_shared/edgeProxy.js';
 import { ROUTES as NWS_ROUTES } from '../../netlify/edge-functions/nws-mapservices-proxy.js';
 import { ROUTES as ARCGIS_ROUTES } from '../../netlify/edge-functions/arcgis-proxy.js';
@@ -89,5 +91,46 @@ describe('proxy route tables', () => {
       const keys = Object.keys(routes);
       expect(new Set(keys).size, `${proxy} has duplicate route keys`).toBe(keys.length);
     }
+  });
+});
+
+describe('netlify.toml edge cache declarations', () => {
+  const root = process.cwd();
+  const toml = readFileSync(resolve(root, 'netlify.toml'), 'utf8');
+
+  // Minimal [[edge_functions]] block parser — enough for flat key = "value"
+  // lines, which is all these blocks contain.
+  const blocks = toml
+    .split(/^\[\[edge_functions\]\]\s*$/m)
+    .slice(1)
+    .map((chunk) => {
+      const body = chunk.split(/^\[/m)[0];
+      return Object.fromEntries(
+        [...body.matchAll(/^\s*(\w+)\s*=\s*"([^"]*)"/gm)].map((m) => [m[1], m[2]]),
+      );
+    });
+
+  const usesCreateProxy = (fn) =>
+    readFileSync(resolve(root, `netlify/edge-functions/${fn}.js`), 'utf8').includes('createProxy(');
+
+  it('declares cache = "manual" on every createProxy function', () => {
+    // Without it Netlify ignores Netlify-CDN-Cache-Control on edge function
+    // responses, so every request runs the function and hits the upstream.
+    const proxies = blocks.filter((b) => usesCreateProxy(b.function));
+    expect(proxies.map((b) => b.function).sort()).toEqual([
+      'airnow-edge-proxy', 'arcgis-proxy', 'nationalmap-proxy',
+      'nesdis-proxy', 'nws-mapservices-proxy', 'weather-gov-proxy',
+    ]);
+    for (const b of proxies) expect(b.cache, `${b.function} must opt into caching`).toBe('manual');
+  });
+
+  it('leaves edge functions outside createProxy untouched', () => {
+    for (const b of blocks.filter((x) => !usesCreateProxy(x.function))) {
+      expect(b.cache, `${b.function} is not a createProxy function`).toBeUndefined();
+    }
+  });
+
+  it('caps life-safety staleness at ~90 seconds', () => {
+    expect(TIERS.lifeSafety.sMaxAge + TIERS.lifeSafety.swr).toBeLessThanOrEqual(90);
   });
 });
