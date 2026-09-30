@@ -15,6 +15,7 @@ import {
   CLUSTER_CONTAINED_RING_COLOR,
 } from '../Map/layers/IncidentLocationsLayer';
 import { NEXRAD_STATUS } from '../../api/nexradSites';
+import { FLOOD_ATTRIBUTION, FLOOD_CATEGORIES } from '../../utils/floodHazard';
 import { VELOCITY_SCALE as LIVE_VELOCITY_SCALE, REFLECTIVITY_SCALE } from '../../utils/radarRaster';
 
 const CONTAINMENT_SCALE = [
@@ -204,6 +205,11 @@ const NDGD_SMOKE_SCALE = [
   { color: '#ab5213', label: '63–158 µg/m³' },
   { color: '#690000', label: '158–1000 µg/m³' },
 ];
+
+// 'other' is a catch-all fallback color, not a FEMA class worth a legend row.
+const FLOOD_HAZARD_SCALE = Object.entries(FLOOD_CATEGORIES)
+  .filter(([key]) => key !== 'other')
+  .map(([, meta]) => ({ color: meta.color, label: meta.label }));
 
 const LIVE_VELOCITY_LEGEND_SCALE = LIVE_VELOCITY_SCALE.map(({ min, color }) => ({
   color,
@@ -439,6 +445,16 @@ const Legend = memo(function Legend({
             {layers.wpcFronts && (
               <Section title="WPC Surface Analysis Fronts">
                 {WPC_FRONTS_SCALE.map(row => <ColorRow key={row.label} {...row} />)}
+              </Section>
+            )}
+
+            {layers.floodHazard && (
+              <Section title="FEMA Flood Hazard">
+                {FLOOD_HAZARD_SCALE.map(row => <ColorRow key={row.label} {...row} />)}
+                <div className="text-sentinel-400 text-[10px] pt-1 mt-1 border-t border-sentinel-700 leading-snug">
+                  Zoomed out: shaded areas have digital FEMA flood maps. Unshaded areas have no digital map (paper FIRM or unmapped).
+                </div>
+                <div className="text-sentinel-500 text-[9px] leading-snug">{FLOOD_ATTRIBUTION}</div>
               </Section>
             )}
 
