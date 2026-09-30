@@ -21,7 +21,12 @@
  * that is fresh.  Under normal traffic that means data refreshes continuously
  * and no user ever waits on the upstream.
  *
- * Worst-case staleness is `s-maxage` plus a single stale response — see TIERS.
+ * Worst-case staleness is `s-maxage` plus a single stale response, and never
+ * more than `s-maxage + stale-while-revalidate` — see TIERS.
+ *
+ * This only takes effect because each createProxy function is declared with
+ * `cache = "manual"` in netlify.toml. Without that, Netlify never caches an
+ * edge function response and these headers are ignored.
  *
  * The browser deliberately gets `max-age=0, must-revalidate`: it always asks,
  * and the edge answers from cache in tens of milliseconds.  That costs one
@@ -54,13 +59,15 @@ const UPSTREAM_HEADERS = {
  *
  *   lifeSafety – evacuation zones, NWS active alerts.  Deliberately the
  *                tightest window we can hold while still getting a useful
- *                hit rate; these change the decisions people make.
+ *                hit rate; these change the decisions people make.  45s
+ *                fresh + 45s stale-while-revalidate caps the oldest response
+ *                any POP can serve at ~90s.
  *   active     – observation feeds that move through the day.
  *   outlook    – forecast products issued a few times a day.
  *   static     – historical/reference geometry that changes yearly at most.
  */
 export const TIERS = {
-  lifeSafety: { sMaxAge: 45, swr: 90 },
+  lifeSafety: { sMaxAge: 45, swr: 45 },
   active: { sMaxAge: 180, swr: 600 },
   outlook: { sMaxAge: 600, swr: 1800 },
   static: { sMaxAge: 86400, swr: 604800 },

@@ -18,6 +18,7 @@ import {
   enrichAlertsWithGeometry,
 } from "../api/noaaWeather";
 import { fetchFemaAlerts } from "../api/fema";
+import { fetchMapServerSupplement } from "../api/nwsMapServerAlerts";
 
 const REFRESH_MS = 60 * 1000;
 
@@ -80,57 +81,6 @@ function ugcKeyVariants(code) {
     if (noZero !== number) variants.push(`${state}${type}${noZero}`);
   }
   return variants;
-}
-
-/* =========================
-   MAPSERVER
-========================= */
-const MAPSERVER_BASE =
-  "/api/nws/wwa";
-
-const MAPSERVER_LAYERS = [0, 1];
-
-async function fetchNOAAMapServerAlerts() {
-  const all = [];
-
-  await Promise.all(
-    MAPSERVER_LAYERS.map(async (id) => {
-      const url =
-        `${MAPSERVER_BASE}/${id}/query` +
-        `?where=1%3D1&outFields=prod_type,sig,cap_id,issuance,expiration` +
-        `&outSR=4326&f=geojson`;
-
-      const data = await fetchJSON(url);
-      if (data?.features) all.push(...data.features);
-    })
-  );
-
-  return all.map((f) => ({
-    id: f.properties.cap_id || null,
-    type: f.properties.prod_type || null,
-    severity: sigToSeverity(f.properties.sig),
-    urgency: sigToUrgency(f.properties.sig),
-    geometry: f.geometry,
-    geocode: null,
-    source: "NWS",
-  }));
-}
-
-/* =========================
-   SEVERITY MAP
-========================= */
-function sigToSeverity(sig) {
-  if (sig === "W") return "Extreme";
-  if (sig === "A") return "Severe";
-  if (sig === "Y") return "Moderate";
-  if (sig === "S") return "Minor";
-  return "Unknown";
-}
-
-function sigToUrgency(sig) {
-  if (sig === "W") return "Immediate";
-  if (sig === "A") return "Expected";
-  return "Unknown";
 }
 
 /* =========================
@@ -408,10 +358,16 @@ export function useWeatherAlerts(enabled = true) {
     let mapserver = [];
     let fema = [];
     try {
-      [mapserver, fema] = await Promise.all([
-        fetchNOAAMapServerAlerts(),
+      // Only alerts api.weather.gov doesn't already have are worth MapServer
+      // geometry — see api/nwsMapServerAlerts.js for the ID-first lookup.
+      const loadedIds = new Set(mergedRef.current.map((a) => a.id));
+      let supplement;
+      [supplement, fema] = await Promise.all([
+        fetchMapServerSupplement(loadedIds),
         fetchFemaAlerts(),
       ]);
+      mapserver = supplement.alerts;
+      console.log("[WeatherAlerts] MapServer supplement:", supplement.stats);
     } catch (err) {
       console.warn("[WeatherAlerts] Supplemental fetch error:", err?.message || err);
     }

@@ -69,29 +69,41 @@
 # map layers behind the CDN instead of having every browser hit the upstream
 # ArcGIS/NOAA services directly — see netlify/edge-functions/_shared/edgeProxy.js
 # for the cache tiers and the freshness guarantees they carry.
+#
+# `cache = "manual"` is what makes Netlify honour the Netlify-CDN-Cache-Control
+# headers edgeProxy.js sets. Without it, edge function responses are never
+# cached: every request runs the function and hits the upstream, whatever the
+# headers say. Only the createProxy-based functions below get it; the proxies
+# above aren't built on edgeProxy.js and are deliberately left as they were.
 [[edge_functions]]
   function = "nws-mapservices-proxy"
   path = "/api/nws/*"
+  cache = "manual"
 
 [[edge_functions]]
   function = "arcgis-proxy"
   path = "/api/arcgis/*"
+  cache = "manual"
 
 [[edge_functions]]
   function = "weather-gov-proxy"
   path = "/api/wx/*"
+  cache = "manual"
 
 [[edge_functions]]
   function = "airnow-edge-proxy"
   path = "/api/airnow/*"
+  cache = "manual"
 
 [[edge_functions]]
   function = "nesdis-proxy"
   path = "/api/nesdis/*"
+  cache = "manual"
 
 [[edge_functions]]
   function = "nationalmap-proxy"
   path = "/api/natmap/*"
+  cache = "manual"
 
 # Backward-compat for old bookmarks/links to the tracker's old path.
 # The tracker now lives at the root of app.nationalwildfiretrackingteam.org

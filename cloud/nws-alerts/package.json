@@ -1,0 +1,13 @@
+{
+  "name": "nws-alerts",
+  "version": "1.0.0",
+  "description": "Shared, short-lived cache of normalized active NWS alerts (api.weather.gov + WWA MapServer supplement) for Sentinel, deployed as a Google Cloud Run service",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "scripts": {
+    "start": "node index.mjs"
+  }
+}
