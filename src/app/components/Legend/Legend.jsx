@@ -299,7 +299,7 @@ const Legend = memo(function Legend({
             )}
 
             {layers.weatherAlerts && (
-              <Section title="NWS &amp; SPC">
+              <Section title="NWS &amp; Mesoscale">
                 <ColorRow color="#ED368D" label="Red Flag Warning" />
                 <ColorRow color="#F8DCB1" label="Fire Weather Watch" />
                 <ColorRow color="#E43831" label="Tornado Warning" />
@@ -311,6 +311,8 @@ const Legend = memo(function Legend({
                 <div className="pt-1 mt-1 border-t border-sentinel-700" />
                 <div className="text-sentinel-300 text-[10px] mb-1">SPC mesoscale: red outline</div>
                 <ColorRow color="#e3000f" label="MD polygon (dashed)" />
+                <div className="text-sentinel-300 text-[10px] mt-1 mb-1">WPC mesoscale: green outline</div>
+                <ColorRow color="#00b300" label="MPD polygon (dashed) · heavy rain" />
               </Section>
             )}
 
@@ -455,15 +457,6 @@ const Legend = memo(function Legend({
                   Zoomed out: shaded areas have digital FEMA flood maps. Unshaded areas have no digital map (paper FIRM or unmapped).
                 </div>
                 <div className="text-sentinel-500 text-[9px] leading-snug">{FLOOD_ATTRIBUTION}</div>
-              </Section>
-            )}
-
-            {layers.wpcMpd && (
-              <Section title="WPC Mesoscale Discussions">
-                <ColorRow color="#00b300" label="MPD polygon (dashed)" />
-                <div className="text-sentinel-400 text-[10px] pt-1 mt-1 border-t border-sentinel-700">
-                  Heavy rain / flash flood potential — click for full discussion
-                </div>
               </Section>
             )}
 

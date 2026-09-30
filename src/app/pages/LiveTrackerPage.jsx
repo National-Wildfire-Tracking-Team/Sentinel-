@@ -656,7 +656,7 @@ export default function LiveTrackerPage() {
   const {
     geoJSON: wpcMpdGeoJSON,
     refresh: refreshWpcMpd,
-  } = useWpcMesoscaleDiscussion(weatherDataEnabled && layers.wpcMpd);
+  } = useWpcMesoscaleDiscussion(weatherDataEnabled && layers.weatherAlerts);
 
   // Permanent layer (not user-toggleable) — fetches whenever the weather/all-hazard tab is active.
   const nhcTropicalWeatherEnabled = weatherDataEnabled;
@@ -1285,7 +1285,7 @@ export default function LiveTrackerPage() {
     if (weatherDataEnabled && layers.wpcWssi) refreshWpcWssi();
     if (weatherDataEnabled && layers.wpcQpf) refreshWpcQpf();
     if (weatherDataEnabled && layers.wpcFronts) refreshWpcFronts();
-    if (weatherDataEnabled && layers.wpcMpd) refreshWpcMpd();
+    if (weatherDataEnabled && layers.weatherAlerts) refreshWpcMpd();
   }, [
     refreshHotspots, refreshNgfs, refreshPerimeters, refreshAlerts, refreshIncidents, refreshCalFireIncidents, refreshStormReports,
     refreshDamageAssessment,
@@ -1297,7 +1297,7 @@ export default function LiveTrackerPage() {
     refreshFloodHazards,
     refreshNhcTropicalWeather,
     refreshWpcEro, refreshWpcWssi, refreshWpcQpf, refreshWpcFronts, refreshWpcMpd,
-    layers.wpcEro, layers.wpcWssi, layers.wpcQpf, layers.wpcFronts, layers.wpcMpd,
+    layers.wpcEro, layers.wpcWssi, layers.wpcQpf, layers.wpcFronts, layers.weatherAlerts,
     activeMapTab, weatherDataEnabled, damageAssessmentEnabled, layers.aqi, rawsEnabled, layers.airNowMonitors, layers.droughtOutlook, layers.ndgdSmokeForecast,
     layers.fireWeatherOutlooks, layers.stormReports,
     nhcTropicalWeatherEnabled,
