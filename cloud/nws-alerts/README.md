@@ -17,9 +17,10 @@ Today every open Sentinel tab builds this itself every 60 seconds, in
 service does the same work once per instance per 45 seconds, and every tab
 reads the result.
 
-> **Status: not wired into the frontend.** The Netlify path stays the
-> production source until this service has been deployed and checked side by
-> side (step 4). Nothing in `src/` reads this service yet.
+> **Status: opt-in.** `src/app/api/nwsAlertsService.js` uses this service
+> only when `VITE_NWS_ALERTS_SERVICE_URL` is set. When it's unset, or the
+> service fails, returns `stale: true` or returns an unexpected schema,
+> `useWeatherAlerts` keeps the original Netlify path.
 
 - **Upstream:** `https://api.weather.gov/alerts/active` (primary, all pages)
   and `https://mapservices.weather.noaa.gov/eventdriven/rest/services/WWA/watch_warn_adv/MapServer`
@@ -207,14 +208,22 @@ Then compare with the live app over a few refresh cycles:
   them on a severe-weather day, when alert counts and pagination are at
   their highest.
 
-### 5. Wiring up the client (future, separate change)
+### 5. Wire up the client
 
-This follows the same opt-in pattern as `VITE_FIRE_MERGE_SERVICE_URL`. Add
-`VITE_NWS_ALERTS_SERVICE_URL`. When it's set, `useWeatherAlerts` reads
-`alerts` and `supplemental` from `/v1/alerts` in place of `fetchNWSAlerts()`
-and `fetchMapServerSupplement()`. When it's unset, or the service returns
-an error, the hook keeps the current Netlify path. Unsetting the variable is
-the rollback.
+Set the `VITE_NWS_ALERTS_SERVICE_URL` repository secret to the service URL.
+It is passed to the production build in `.github/workflows/deploy.yml`.
+When it's set, `useWeatherAlerts` reads `alerts` and `supplemental` from
+`/v1/alerts` in place of `fetchNWSAlerts()` and
+`fetchMapServerSupplement()`. Zone geometry enrichment, FEMA merging and the
+60 s refresh are unchanged.
+
+To roll back, unset the secret and redeploy. Any single failed request
+already falls back to the Netlify path by itself.
+
+Only the origins in `ALLOWED_ORIGINS` can call the service from a browser.
+A deploy preview or branch build that sets the variable needs its origin
+added there, or CORS blocks the request and that build quietly uses the
+Netlify path.
 
 ## Local development
 

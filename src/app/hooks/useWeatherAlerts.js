@@ -19,6 +19,7 @@ import {
 } from "../api/noaaWeather";
 import { fetchFemaAlerts } from "../api/fema";
 import { fetchMapServerSupplement } from "../api/nwsMapServerAlerts";
+import { fetchAlertsFromService } from "../api/nwsAlertsService";
 
 const REFRESH_MS = 60 * 1000;
 
@@ -275,8 +276,19 @@ export function useWeatherAlerts(enabled = true) {
     let partialNws = false;
 
     let nws = [];
+    // When the nws-alerts Cloud Run service is configured it supplies both
+    // the primary alerts and the MapServer supplement in one shared
+    // snapshot; null means unconfigured or unusable, so fall through to the
+    // original per-tab Netlify path.
+    let serviceSupplemental = null;
     try {
-      nws = await fetchNWSAlerts();
+      const fromService = await fetchAlertsFromService();
+      if (fromService) {
+        nws = fromService.alerts;
+        serviceSupplemental = fromService.supplemental;
+      } else {
+        nws = await fetchNWSAlerts();
+      }
       if (nws.length === 0) {
         nwsError = true;
       }
@@ -363,7 +375,9 @@ export function useWeatherAlerts(enabled = true) {
       const loadedIds = new Set(mergedRef.current.map((a) => a.id));
       let supplement;
       [supplement, fema] = await Promise.all([
-        fetchMapServerSupplement(loadedIds),
+        serviceSupplemental
+          ? { alerts: serviceSupplemental, stats: { mode: "service" } }
+          : fetchMapServerSupplement(loadedIds),
         fetchFemaAlerts(),
       ]);
       mapserver = supplement.alerts;
