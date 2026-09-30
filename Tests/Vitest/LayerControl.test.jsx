@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import LayerControl from '../../src/app/components/LayerControl/LayerControl';
+import { useApp } from '../../src/app/context/AppContext';
 
 vi.mock('../../src/app/context/AppContext', () => ({
   useApp: vi.fn(() => ({
@@ -108,5 +109,32 @@ describe('LayerControl — Infrastructure & Modeling group', () => {
   it('does not show the dBZ probe on the wildfire tab', () => {
     renderPanel({ activeMapTab: 'wildfire' });
     expect(screen.queryByRole('button', { name: 'Toggle dBZ radar probe' })).not.toBeInTheDocument();
+  });
+});
+
+describe('LayerControl — Flood Hazard', () => {
+  it.each(['weather', 'allhazard'])(
+    'offers the Flood Hazard toggle on the %s tab, off by default',
+    (tab) => {
+      renderPanel({ activeMapTab: tab });
+      const toggle = screen.getByRole('button', { name: 'Toggle Flood Hazard' });
+      expect(toggle.getAttribute('aria-pressed')).not.toBe('true');
+      expect(screen.getByText(/FEMA National Flood Hazard Layer/)).toBeInTheDocument();
+    },
+  );
+
+  it('does not offer the Flood Hazard toggle on the wildfire tab', () => {
+    renderPanel({ activeMapTab: 'wildfire' });
+    expect(screen.queryByRole('button', { name: 'Toggle Flood Hazard' })).not.toBeInTheDocument();
+  });
+
+  it('toggles the floodHazard layer key', () => {
+    const toggleLayer = vi.fn();
+    const base = useApp();
+    useApp.mockReturnValue({ ...base, toggleLayer });
+    renderPanel({ activeMapTab: 'weather' });
+    fireEvent.click(screen.getByRole('button', { name: 'Toggle Flood Hazard' }));
+    expect(toggleLayer).toHaveBeenCalledWith('floodHazard');
+    useApp.mockReset();
   });
 });

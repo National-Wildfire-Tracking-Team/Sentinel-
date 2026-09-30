@@ -39,6 +39,15 @@ jobs:
           VITE_FIREBASE_STORAGE_BUCKET: ${{ secrets.VITE_FIREBASE_STORAGE_BUCKET }}
           VITE_FIREBASE_APP_ID: ${{ secrets.VITE_FIREBASE_APP_ID }}
           VITE_NEXRAD_HEARTBEAT_URL: ${{ secrets.VITE_NEXRAD_HEARTBEAT_URL }}
+          # FEMA Flood Hazard layer proxy — see cloud/fema-nfhl-proxy/README.md.
+          VITE_FEMA_NFHL_PROXY_URL: ${{ secrets.VITE_FEMA_NFHL_PROXY_URL }}
+          # Cloud Run data proxies for the Land Ownership layer and the CAL FIRE
+          # FRAP historical-perimeter fallback. Each client falls back to its
+          # original direct fetch when its URL is unset — see
+          # cloud/california-land-ownership-proxy/README.md and
+          # cloud/calfire-frap-proxy/README.md.
+          VITE_CALIFORNIA_LAND_OWNERSHIP_PROXY_URL: ${{ secrets.VITE_CALIFORNIA_LAND_OWNERSHIP_PROXY_URL }}
+          VITE_CALFIRE_FRAP_PROXY_URL: ${{ secrets.VITE_CALFIRE_FRAP_PROXY_URL }}
       # Snapshot the marketing pages as static HTML for crawlers (see
       # scripts/prerender.mjs). Deliberately run here rather than as part of
       # `npm run build` itself, so netlify.toml's own build command (used

@@ -25,6 +25,7 @@ import IncidentTimeline from '../IncidentTimeline/IncidentTimeline';
 import { HAZARD_CATEGORY_COLORS } from '../Map/layers/HazardEventsLayer';
 import { normalizeHazardCategory } from '../../hooks/useHazardEvents';
 import { trackSentinelUse } from '../../../shared/utils/analytics';
+import { FLOOD_ATTRIBUTION, floodCategoryMeta, floodZoneDescription, floodZoneRows } from '../../utils/floodHazard';
 
 // Fire-related detail types that represent a user opening a tracked wildfire
 // incident (as opposed to AQI stations, weather alerts, evac zones, etc).
@@ -1165,6 +1166,77 @@ function NationalMapCollegeDetail({ fire }) {
   );
 }
 
+// ─── FEMA Flood Hazard Detail ─────────────────────────────────────────────────
+
+function FloodHazardDetail({ fire }) {
+  const meta = fire.category ? floodCategoryMeta(fire.category) : null;
+  const zoneDescription = floodZoneDescription(fire.zone);
+  const rows = floodZoneRows(fire);
+  const hasCoords = Number.isFinite(fire.lat) && Number.isFinite(fire.lng);
+
+  return (
+    <>
+      <div className="mb-4 flex items-start gap-2">
+        <div
+          className="mt-0.5 p-1.5 rounded-lg border"
+          style={{ backgroundColor: `${meta?.color ?? '#71717a'}26`, borderColor: `${meta?.color ?? '#71717a'}66` }}
+        >
+          <Waves size={16} style={{ color: meta?.color ?? '#a1a1aa' }} />
+        </div>
+        <div>
+          <h3 className="font-bold text-white text-lg leading-tight">{fire.name}</h3>
+          {fire.zone && (
+            <p className="text-sm text-sky-300 font-semibold mt-1">Flood Zone {fire.zone}</p>
+          )}
+        </div>
+      </div>
+
+      {meta?.description && (
+        <p className="text-xs text-sentinel-300 leading-relaxed mb-2">{meta.description}</p>
+      )}
+      {zoneDescription && (
+        <p className="text-xs text-sentinel-400 leading-relaxed mb-4">
+          <span className="text-sentinel-200 font-medium">Zone {fire.zone}:</span> {zoneDescription}
+        </p>
+      )}
+      {!fire.category && (
+        <p className="text-xs text-sentinel-300 leading-relaxed mb-4">
+          {fire.unmapped
+            ? 'This community is unmapped on FEMA\'s Flood Insurance Rate Maps — flood hazard has not been determined here.'
+            : 'No 1% or 0.2% annual chance flood hazard is mapped at this point. This is usually an area of minimal flood hazard (Zone X), but flooding can still occur outside mapped zones.'}
+        </p>
+      )}
+
+      {rows.length > 0 && (
+        <div className="rounded-xl border border-sentinel-700 bg-sentinel-800/40 px-3 py-1 mb-4">
+          {rows.map(({ label, value }) => (
+            <div key={label} className="flex justify-between gap-3 py-1.5 border-b border-sentinel-700/80 last:border-b-0 text-xs">
+              <span className="text-sentinel-400 shrink-0">{label}</span>
+              <span className="text-sentinel-100 text-right font-medium">{value}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {hasCoords && (
+        <a
+          href={`https://msc.fema.gov/portal/search?AddressQuery=${fire.lat.toFixed(6)}%2C${fire.lng.toFixed(6)}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-1.5 text-xs text-sky-400 hover:text-sky-300 transition-colors mb-3"
+        >
+          <ExternalLink size={12} />
+          View the official FIRM on FEMA&apos;s Flood Map Service Center
+        </a>
+      )}
+
+      <p className="text-[10px] text-sentinel-500 leading-snug">
+        {FLOOD_ATTRIBUTION}. For reference only — use the official FIRM for insurance or regulatory determinations.
+      </p>
+    </>
+  );
+}
+
 // ─── Hazard Event Detail ──────────────────────────────────────────────────────
 
 const HAZARD_CATEGORY_META = {
@@ -1556,6 +1628,7 @@ const FireDetailPanel = memo(function FireDetailPanel() {
              selectedFire.type === 'transmission-line'        ? 'Critical Infrastructure' :
              selectedFire.type === 'gas-pipeline'            ? 'Critical Infrastructure' :
              selectedFire.type === 'national-map-college'    ? 'School / University' :
+             selectedFire.type === 'flood-hazard'            ? 'Flood Hazard' :
              selectedFire.type === 'hazard-event'            ? 'Event Report' :
              selectedFire.type === 'nhc-invest'              ? 'NHC Invest' :
              selectedFire.type === 'nhc-storm'               ? 'NHC Tropical Cyclone' :
@@ -1599,6 +1672,7 @@ const FireDetailPanel = memo(function FireDetailPanel() {
           {selectedFire.type === 'transmission-line'       && <TransmissionLineDetail fire={selectedFire} />}
           {selectedFire.type === 'gas-pipeline'            && <GasPipelineDetail     fire={selectedFire} />}
           {selectedFire.type === 'national-map-college'    && <NationalMapCollegeDetail fire={selectedFire} />}
+          {selectedFire.type === 'flood-hazard'            && <FloodHazardDetail       fire={selectedFire} />}
           {selectedFire.type === 'hazard-event'            && <HazardEventDetail       fire={selectedFire} />}
           {selectedFire.type === 'nhc-invest'              && <NhcInvestDetail        fire={selectedFire} />}
           {selectedFire.type === 'nhc-storm'                && <NhcStormDetail         fire={selectedFire} />}
@@ -1606,7 +1680,7 @@ const FireDetailPanel = memo(function FireDetailPanel() {
           {![
             'hotspot', 'perimeter', 'incident', 'aqi', 'weather-alert', 'user-report',
             'evacuation-zone', 'reporter-evacuation-zone', 'transmission-line',
-            'gas-pipeline', 'national-map-college', 'hazard-event', 'nhc-invest', 'nhc-storm', 'nhc-watch-warning',
+            'gas-pipeline', 'national-map-college', 'flood-hazard', 'hazard-event', 'nhc-invest', 'nhc-storm', 'nhc-watch-warning',
           ].includes(selectedFire.type) && (
             <div className="flex flex-col items-center justify-center py-10 text-center gap-3">
               <Info size={24} className="text-sentinel-600" />
