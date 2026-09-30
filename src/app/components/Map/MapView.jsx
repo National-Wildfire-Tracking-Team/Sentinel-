@@ -1696,7 +1696,7 @@ export default function MapView({
     if ((isWeatherTab || isAllHazardTab) && layers.wpcFronts && wpcFrontsGeoJSON?.features?.length) {
       ids.push('wpc-fronts-solid', 'wpc-fronts-dashed', 'wpc-fronts-stationary-line');
     }
-    if ((isWeatherTab || isAllHazardTab) && layers.wpcMpd && wpcMpdGeoJSON?.features?.length) ids.push('wpc-mpd-fill');
+    if ((isWeatherTab || isAllHazardTab) && layers.weatherAlerts && wpcMpdGeoJSON?.features?.length) ids.push('wpc-mpd-fill');
     return ids;
   }, [measureActive, isWildfireTab, isWeatherTab, isAllHazardTab, layers.fireHotspots, layers.firePerimeters, layers.incidentLocations, layers.aqi,
       layers.weatherAlerts, layers.spcWeatherOutlooks, layers.stormReports, layers.evacZones, spcMdGeoJSON,
@@ -1708,7 +1708,7 @@ export default function MapView({
       damageAssessmentPointsGeoJSON, damageAssessmentLinesGeoJSON, damageAssessmentPolygonsGeoJSON,
       rawsGeoJSON, airNowMonitorsGeoJSON, droughtOutlookGeoJSON, ndgdSmokeFilteredGeoJSON, fireWeatherOutlooksGeoJSON,
       nhcForecastPointsGeoJSON, nhcPastPointsGeoJSON, nhcDisturbanceAreasGeoJSON, nhcDisturbancePointsGeoJSON, nhcWatchWarningGeoJSON,
-      layers.wpcEro, layers.wpcWssi, layers.wpcQpf, layers.wpcFronts, layers.wpcMpd,
+      layers.wpcEro, layers.wpcWssi, layers.wpcQpf, layers.wpcFronts,
       wpcEroGeoJSON, wpcWssiGeoJSON, wpcQpfGeoJSON, wpcFrontsGeoJSON, wpcMpdGeoJSON,
       criticalInfrastructureVisible, criticalInfrastructureTransGeoJSON, criticalInfrastructureGasGeoJSON,
       nationalMapCollegesVisible, nationalMapCollegesGeoJSON,
@@ -2168,10 +2168,11 @@ export default function MapView({
           visible={(isWeatherTab || isAllHazardTab) && layers.wpcFronts}
         />
 
-        {/* WPC Mesoscale Precipitation Discussions — heavy rain/flash flood potential */}
+        {/* WPC Mesoscale Precipitation Discussions — part of the weatherAlerts
+            ("NWS & mesoscale") layer alongside SPC MDs; hidden on the wildfire tab */}
         <WpcMesoscaleDiscussionLayer
           geoJSON={wpcMpdGeoJSON}
-          visible={(isWeatherTab || isAllHazardTab) && layers.wpcMpd}
+          visible={(isWeatherTab || isAllHazardTab) && layers.weatherAlerts}
         />
 
         {/* NHC hurricane tracks, cone, watch/warnings, and tropical weather outlook —

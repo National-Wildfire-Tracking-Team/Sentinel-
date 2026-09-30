@@ -48,6 +48,10 @@ jobs:
           # cloud/calfire-frap-proxy/README.md.
           VITE_CALIFORNIA_LAND_OWNERSHIP_PROXY_URL: ${{ secrets.VITE_CALIFORNIA_LAND_OWNERSHIP_PROXY_URL }}
           VITE_CALFIRE_FRAP_PROXY_URL: ${{ secrets.VITE_CALFIRE_FRAP_PROXY_URL }}
+          # Server-side active-fire perimeter merge — see
+          # cloud/fire-perimeters-merge/README.md. Unset the secret to fall
+          # back to the original per-client fetch+merge, no code change needed.
+          VITE_FIRE_MERGE_SERVICE_URL: ${{ secrets.VITE_FIRE_MERGE_SERVICE_URL }}
       # Snapshot the marketing pages as static HTML for crawlers (see
       # scripts/prerender.mjs). Deliberately run here rather than as part of
       # `npm run build` itself, so netlify.toml's own build command (used
