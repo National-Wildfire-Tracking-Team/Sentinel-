@@ -88,6 +88,24 @@ export async function geocodeViaDirect(query, { limit = 5, types = '', autocompl
   }));
 }
 
+/* Reverse geocode a point to the nearest address (Mapbox v5). Returns the
+ * full place name, or '' when nothing is found. Requires VITE_MAPBOX_TOKEN. */
+export async function reverseGeocodeViaDirect(latitude, longitude) {
+  if (!MAPBOX_TOKEN) throw new Error('Mapbox token not configured');
+  const params = new URLSearchParams({
+    access_token: MAPBOX_TOKEN,
+    // v5 rejects `limit` alongside multiple types; results come back
+    // most-specific first, so the first feature is the closest address.
+    types: 'address,poi,place',
+  });
+  const resp = await fetch(
+    `https://api.mapbox.com/geocoding/v5/mapbox.places/${longitude},${latitude}.json?${params}`
+  );
+  if (!resp.ok) throw new Error(`Reverse geocoding failed (${resp.status})`);
+  const json = await resp.json();
+  return json?.features?.[0]?.place_name || '';
+}
+
 export function buildV5Context(contextArr) {
   const ctx = {};
   for (const item of contextArr) {

@@ -9,7 +9,7 @@
 import { useState, useRef } from 'react';
 import {
   MapPin, ChevronDown, ChevronUp, Clock, Activity, Pencil, Trash2,
-  RefreshCw, Send, AlertCircle, CheckCircle2, User, Search, Loader2,
+  RefreshCw, Send, AlertCircle, CheckCircle2, User, Search, Loader2, RotateCcw,
 } from 'lucide-react';
 
 import {
@@ -20,26 +20,60 @@ import {
 import { insertReporterUpdate } from '../../hooks/useIncidentUpdates';
 import { useImageAttachments } from '../../hooks/useImageAttachments';
 import { uploadIncidentPhotos } from '../../api/incidentPhotos';
+import { acquireSlot } from '../../utils/mapboxRateLimiter';
 import PhotoPickerButton from '../../components/PhotoAttachments/PhotoPickerButton';
+import IncidentLocationPicker from '../../components/Map/IncidentLocationPicker';
 import {
   INPUT_CLS, LABEL_CLS, SECTION_CLS, StatusBadge, MAPBOX_TOKEN, geocodeViaDirect,
+  reverseGeocodeViaDirect,
 } from './shared';
+import {
+  extractAddressFromDescription, stripAddressFromDescription, replaceAddressInDescription,
+  isValidCoordinate, formatCoordinates, hasLocationChanged,
+} from './incidentLocation';
 
-const ADDRESS_LINE = /^ADDRESS:\s*(.+)$/m;
+/* Address search via the edge function, falling back to direct Mapbox.
+ * Returns an array of features, or null when both are unavailable. */
+async function searchAddresses(query, { limit = 5, autocomplete = true } = {}) {
+  try {
+    const { supabase, isSupabaseConfigured } =
+      await import('../../../shared/api/supabaseClient');
 
-function extractAddressFromDescription(description) {
-  const match = String(description || '').match(ADDRESS_LINE);
+    if (isSupabaseConfigured) {
+      await acquireSlot();
+      const { data, error } = await supabase.functions.invoke('mapbox-geocoding', {
+        body: { query, country: 'us', autocomplete, limit, types: 'address' },
+      });
+      if (!error && Array.isArray(data?.features)) return data.features;
+    }
+  } catch {
+    // Edge function unavailable — fall through to the direct Mapbox call.
+  }
 
-  return match ? match[1].trim() : '';
+  if (MAPBOX_TOKEN) {
+    try {
+      await acquireSlot();
+      return await geocodeViaDirect(query, { limit, types: 'address', autocomplete });
+    } catch (err) {
+      console.error('Edit address search error:', err);
+    }
+  }
+  return null;
 }
 
-function replaceAddressInDescription(description, address) {
-  const text = String(description || '');
-  const line = `ADDRESS: ${String(address || '').trim()}`;
+function featureToLocation(feature) {
+  const coords = feature?.geometry?.coordinates;
+  return {
+    address: feature?.properties?.full_address || feature?.place_name || feature?.properties?.name || '',
+    longitude: Array.isArray(coords) ? Number(coords[0]) : null,
+    latitude: Array.isArray(coords) ? Number(coords[1]) : null,
+  };
+}
 
-  return ADDRESS_LINE.test(text)
-    ? text.replace(ADDRESS_LINE, () => line)
-    : [line, text].filter(Boolean).join('\n');
+function toCoordinate(value) {
+  return value === null || value === undefined || value === '' || !Number.isFinite(Number(value))
+    ? null
+    : Number(value);
 }
 
 function IncidentCard({ report, profile, userId, onRefresh }) {
@@ -54,14 +88,16 @@ function IncidentCard({ report, profile, userId, onRefresh }) {
   const [editBusy, setEditBusy]         = useState(false);
   const [editFeedback, setEditFeedback] = useState(null);
 
-  /* Edit address state */
+  /* Edit location state. `locatedAddress` is the address text that matches
+   * the current coordinates; when the field no longer matches it the typed
+   * address hasn't been placed on the map yet. */
   const [editAddress, setEditAddress] = useState('');
-  const [editLatitude, setEditLatitude] = useState(
-    Number.isFinite(Number(report.latitude)) ? Number(report.latitude) : null
-    );
-  const [editLongitude, setEditLongitude] = useState(
-    Number.isFinite(Number(report.longitude)) ? Number(report.longitude) : null
-    );
+  const [locatedAddress, setLocatedAddress] = useState('');
+  const [editLatitude, setEditLatitude] = useState(toCoordinate(report.latitude));
+  const [editLongitude, setEditLongitude] = useState(toCoordinate(report.longitude));
+  const [pinMoved, setPinMoved] = useState(false);
+  const [reverseLookupBusy, setReverseLookupBusy] = useState(false);
+  const reverseLookupId = useRef(0);
 
   const [addressSuggestions, setAddressSuggestions] = useState([]);
   const [showAddressSuggestions, setShowAddressSuggestions] = useState(false);
@@ -81,18 +117,44 @@ function IncidentCard({ report, profile, userId, onRefresh }) {
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [deleteError, setDeleteError] = useState(null);
 
+  const originalLocation = {
+    latitude: toCoordinate(report.latitude),
+    longitude: toCoordinate(report.longitude),
+  };
+  const addressUnplaced = editAddress.trim() !== '' && editAddress.trim() !== locatedAddress.trim();
+
+  function startEdit() {
+    const address = extractAddressFromDescription(report.description || '');
+
+    setEditTitle(report.title);
+    setEditDescription(stripAddressFromDescription(report.description || ''));
+    resetLocation(address);
+    setEditFeedback(null);
+    setUpdateFeedback(null);
+  }
+
+  function resetLocation(address = extractAddressFromDescription(report.description || '')) {
+    reverseLookupId.current += 1;
+    clearTimeout(addressDebounceRef.current);
+    setEditAddress(address);
+    setLocatedAddress(address);
+    setEditLatitude(originalLocation.latitude);
+    setEditLongitude(originalLocation.longitude);
+    setPinMoved(false);
+    setReverseLookupBusy(false);
+    setAddressSuggestions([]);
+    setShowAddressSuggestions(false);
+    setAddressSearchError(null);
+  }
+
   function handleEditAddressChange(e) {
     const value = e.target.value;
 
     setEditAddress(value);
     setAddressSearchError(null);
-
-    setEditLatitude(null);
-    setEditLongitude(null);
-
     clearTimeout(addressDebounceRef.current);
 
-    if (!value.trim() || value.trim().length < 3) {
+    if (value.trim().length < 3) {
       setAddressSuggestions([]);
       setShowAddressSuggestions(false);
       return;
@@ -107,52 +169,12 @@ function IncidentCard({ report, profile, userId, onRefresh }) {
     setAddressSearchLoading(true);
     setAddressSearchError(null);
 
-    let features = null;
-
-    try {
-      const { supabase, isSupabaseConfigured } =
-        await import('../../../shared/api/supabaseClient');
-
-      if (isSupabaseConfigured) {
-        const { data, error } = await supabase.functions.invoke(
-          'mapbox-geocoding',
-          {
-            body: {
-              query,
-              country: 'us',
-              autocomplete: true,
-              limit: 5,
-              types: 'address',
-            },
-          }
-        );
-
-        if (!error && Array.isArray(data?.features)) {
-          features = data.features;
-        }
-      }
-    } catch {
-      // Edge function unavailable — fall through to the direct Mapbox call.
-    }
-
-    if (features === null && MAPBOX_TOKEN) {
-      try {
-        features = await geocodeViaDirect(query, {
-          limit: 5,
-          types: 'address',
-          autocomplete: true,
-        });
-      } catch (err) {
-        console.error('Edit address search error:', err);
-      }
-    }
+    const features = await searchAddresses(query);
 
     setAddressSearchLoading(false);
 
     if (features === null) {
-      setAddressSearchError(
-        'Address search unavailable. Check your connection or try again.'
-      );
+      setAddressSearchError('Address search unavailable. Check your connection or try again.');
       setAddressSuggestions([]);
       setShowAddressSuggestions(false);
       return;
@@ -162,77 +184,126 @@ function IncidentCard({ report, profile, userId, onRefresh }) {
     setShowAddressSuggestions(features.length > 0);
   }
 
-  function applyEditAddressSuggestions(feature) {
-    const coords = feature.geometry?.coordinates;
+  function applyEditAddressSuggestion(feature) {
+    const { address, latitude, longitude } = featureToLocation(feature);
 
-    const fullAddress = 
-      feature.properties?.full_address ||
-      feature.place_name ||
-      feature.properties?.name ||
-      ``;
-
-    const longitude = Array.isArray(coords)
-      ? Number(coords[0])
-      : null;
-
-    const latitude = Array.isArray(coords)
-      ? Number(coords[1])
-      : null;
-
-    setEditAddress(fullAddress);
-    setEditLatitude(
-      Number.isFinite(latitude) ? latitude : null
-    );
-    setEditLongitude(
-      Number.isFinite(longitude) ? longitude : null
-    );
+    reverseLookupId.current += 1;
+    setReverseLookupBusy(false);
+    setEditAddress(address);
+    setLocatedAddress(address);
+    if (isValidCoordinate(latitude, longitude)) {
+      setEditLatitude(latitude);
+      setEditLongitude(longitude);
+    }
 
     setAddressSuggestions([]);
     setShowAddressSuggestions(false);
     setAddressSearchError(null);
   }
-    
+
+  /* Pin dragged or map clicked: move the incident there and look up the
+   * nearest address to fill the address field. */
+  async function handlePinMove({ latitude, longitude }) {
+    const lookupId = ++reverseLookupId.current;
+
+    setEditLatitude(latitude);
+    setEditLongitude(longitude);
+    setPinMoved(true);
+    setShowAddressSuggestions(false);
+    setAddressSearchError(null);
+
+    if (!MAPBOX_TOKEN) return;
+
+    setReverseLookupBusy(true);
+    try {
+      await acquireSlot();
+      const address = await reverseGeocodeViaDirect(latitude, longitude);
+      if (lookupId !== reverseLookupId.current) return;
+      if (address) {
+        setEditAddress(address);
+        setLocatedAddress(address);
+      } else {
+        setAddressSearchError('No address found at this spot. Type a description of the location, or leave the address as is.');
+      }
+    } catch (err) {
+      if (lookupId !== reverseLookupId.current) return;
+      console.error('Reverse geocoding error:', err);
+      setAddressSearchError('Could not look up the address for this spot. You can type it in manually.');
+    } finally {
+      if (lookupId === reverseLookupId.current) setReverseLookupBusy(false);
+    }
+  }
+
   async function handleEditSave() {
     if (!editTitle.trim()) {
       setEditFeedback({ type: 'error', message: 'Incident title is required.' });
       return;
     }
 
-    if (
-      !Number.isFinite(editLatitude) ||
-      !Number.isFinite(editLongitude)
-    ) {
-      setEditFeedback({
-        type: 'error',
-        message: 'Please search for and select a valid address.',
-      });
-      return;
-    }
+    const address = editAddress.trim();
+    let latitude = editLatitude;
+    let longitude = editLongitude;
 
-    if (!editAddress.trim()) {
-      setEditFeedback({
-        type: 'error',
-        message: 'Incident address is required.',
-      });
-      return;
-    }
-        
     setEditBusy(true);
     setEditFeedback(null);
-    
+
     try {
-      const updatedDescription = replaceAddressInDescription(
-        editDescription,
-        editAddress
-      );
-      
+      // A typed address that was never picked from the list or matched to
+      // the pin: geocode it, unless the reporter has placed the pin by hand
+      // (then the pin wins and the text is kept as the address label).
+      if (addressUnplaced && !pinMoved) {
+        const features = await searchAddresses(address, { limit: 1, autocomplete: false });
+        const match = features?.[0] ? featureToLocation(features[0]) : null;
+        if (!match || !isValidCoordinate(match.latitude, match.longitude)) {
+          setEditFeedback({
+            type: 'error',
+            message: 'Could not find that address. Pick a suggestion from the list, or drop the pin on the map.',
+          });
+          return;
+        }
+        latitude = match.latitude;
+        longitude = match.longitude;
+        setEditLatitude(latitude);
+        setEditLongitude(longitude);
+        setLocatedAddress(address);
+      }
+
+      if (!isValidCoordinate(latitude, longitude)) {
+        setEditFeedback({
+          type: 'error',
+          message: 'Set the incident location: search for an address or click the map.',
+        });
+        return;
+      }
+
+      const description = address
+        ? replaceAddressInDescription(editDescription, address)
+        : editDescription;
+
       await updateFireReport(report.id, {
         title: editTitle.trim(),
-        description: editDescription,
-        latitude: editLatitude,
-        longitude: editLongitude,
+        description,
+        latitude,
+        longitude,
       });
-      
+
+      if (hasLocationChanged(originalLocation, { latitude, longitude })) {
+        const where = address
+          ? `${address} (${formatCoordinates(latitude, longitude)})`
+          : formatCoordinates(latitude, longitude);
+        try {
+          await insertReporterUpdate({
+            incidentId: report.id,
+            content: `Incident location updated to ${where}.`,
+            sourceName: profile?.email?.split('@')[0] || 'Reporter',
+            userId,
+          });
+        } catch (err) {
+          // The move itself saved; a missing timeline entry shouldn't fail it.
+          console.warn('Failed to log location change:', err);
+        }
+      }
+
       setEditFeedback({ type: 'success', message: 'Incident updated successfully.' });
       setMode('view');
       onRefresh();
@@ -361,25 +432,11 @@ function IncidentCard({ report, profile, userId, onRefresh }) {
             <span className="hidden sm:inline">Update</span>
           </button>
           <button
-            onClick={() => { 
-              setMode(mode === 'edit' ? 'view' : 'edit'); 
-              setExpanded(true); 
-              
-              setEditTitle(report.title); 
-              setEditDescription(report.description || ''); 
-              
-              setEditAddress(extractAddressFromDescription(report.description || '')); 
-              
-              setEditLatitude(Number.isFinite(Number(report.latitude)) ? Number(report.latitude) : null);
-                            
-              setEditLongitude(Number.isFinite(Number(report.longitude)) ? Number(report.longitude) : null);
-
-              setAddressSuggestions([]);
-              setShowAddressSuggestions(false);
-              setAddressSearchError(null);
-                               
-              setEditFeedback(null); 
-              setUpdateFeedback(null); }}
+            onClick={() => {
+              setMode(mode === 'edit' ? 'view' : 'edit');
+              setExpanded(true);
+              startEdit();
+            }}
             title="Edit Incident"
             className={`p-2 rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5
               ${mode === 'edit' ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30' : 'text-sentinel-300 hover:text-white hover:bg-sentinel-700'}`}
@@ -441,6 +498,81 @@ function IncidentCard({ report, profile, userId, onRefresh }) {
                   className={INPUT_CLS}
                 />
               </div>
+
+              {/* Location — address search or drag the pin */}
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className={LABEL_CLS.replace('mb-1.5', 'mb-0')}>Location</label>
+                  {hasLocationChanged(originalLocation, { latitude: editLatitude, longitude: editLongitude }) && (
+                    <button
+                      type="button"
+                      onClick={() => resetLocation()}
+                      className="flex items-center gap-1 text-xs text-sentinel-400 hover:text-white transition-colors"
+                    >
+                      <RotateCcw size={11} /> Reset location
+                    </button>
+                  )}
+                </div>
+                <div className="relative mb-3">
+                  <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-sentinel-500 pointer-events-none" />
+                  <input
+                    type="text"
+                    value={editAddress}
+                    onChange={handleEditAddressChange}
+                    onFocus={() => addressSuggestions.length > 0 && setShowAddressSuggestions(true)}
+                    onBlur={() => setShowAddressSuggestions(false)}
+                    onKeyDown={(e) => { if (e.key === 'Escape') setShowAddressSuggestions(false); }}
+                    placeholder="Search for an address…"
+                    autoComplete="off"
+                    className={INPUT_CLS + ' pl-9 pr-9'}
+                  />
+                  {(addressSearchLoading || reverseLookupBusy) && (
+                    <Loader2 size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-sentinel-400 animate-spin" />
+                  )}
+                  {showAddressSuggestions && addressSuggestions.length > 0 && (
+                    <ul className="absolute z-20 left-0 right-0 mt-1 max-h-60 overflow-auto rounded-lg bg-sentinel-800 border border-sentinel-600 shadow-xl">
+                      {addressSuggestions.map((feature, i) => (
+                        <li key={feature.id || feature.properties?.mapbox_id || i}>
+                          <button
+                            type="button"
+                            // mousedown fires before the input's blur closes the list
+                            onMouseDown={(e) => { e.preventDefault(); applyEditAddressSuggestion(feature); }}
+                            className="w-full text-left px-3 py-2 text-sm text-sentinel-200 hover:bg-sentinel-700 hover:text-white flex items-start gap-2"
+                          >
+                            <MapPin size={13} className="shrink-0 mt-0.5 text-fire-500" />
+                            <span>{featureToLocation(feature).address}</span>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+
+                <IncidentLocationPicker
+                  latitude={editLatitude}
+                  longitude={editLongitude}
+                  onChange={handlePinMove}
+                />
+
+                <div className="mt-2 space-y-1 text-xs">
+                  {isValidCoordinate(editLatitude, editLongitude) && (
+                    <div className="flex items-center gap-1 text-sentinel-400">
+                      <MapPin size={11} /> {formatCoordinates(editLatitude, editLongitude)}
+                    </div>
+                  )}
+                  {addressSearchError && (
+                    <div className="text-yellow-400">{addressSearchError}</div>
+                  )}
+                  {addressUnplaced && !addressSearchLoading && !reverseLookupBusy && (
+                    <div className="text-sentinel-400">
+                      {pinMoved
+                        ? 'This address will be saved as a label only. The pin stays where you placed it.'
+                        : 'Pick a suggestion to move the pin. If you don’t, the address will be looked up when you save.'}
+                    </div>
+                  )}
+                </div>
+              </div>
+
               <div>
                 <label className={LABEL_CLS}>Description / Notes</label>
                 <textarea
