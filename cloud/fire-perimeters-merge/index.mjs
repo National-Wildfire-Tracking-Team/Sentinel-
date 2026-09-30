@@ -25,6 +25,7 @@
  */
 
 import { createServer } from 'node:http';
+import { gzip } from 'node:zlib';
 
 const PORT = process.env.PORT || 8080;
 const RAW_CACHE_TTL_MS = 3 * 60 * 1000; // fresher than the client's old 5-min poll
@@ -46,9 +47,31 @@ const CORS_HEADERS = {
   'Access-Control-Allow-Headers': 'Content-Type',
 };
 
+// The merged payload is ~80 MB of GeoJSON, sent to every tab every 5 min, and
+// it compresses ~5×. Compression is async so a large body doesn't block the
+// event loop for other requests, and falls back to the uncompressed body if
+// zlib ever fails. Clients that don't send Accept-Encoding: gzip get exactly
+// what they got before.
+const GZIP_MIN_BYTES = 1024;
+
 function jsonResponse(res, body, status = 200, extraHeaders = {}) {
-  res.writeHead(status, { ...CORS_HEADERS, 'Content-Type': 'application/json', ...extraHeaders });
-  res.end(JSON.stringify(body));
+  const json = JSON.stringify(body);
+  const headers = { ...CORS_HEADERS, 'Content-Type': 'application/json', Vary: 'Accept-Encoding', ...extraHeaders };
+  const acceptsGzip = /\bgzip\b/.test(res.req?.headers['accept-encoding'] || '');
+  if (!acceptsGzip || json.length < GZIP_MIN_BYTES) {
+    res.writeHead(status, headers);
+    res.end(json);
+    return;
+  }
+  gzip(json, (err, compressed) => {
+    if (err) {
+      res.writeHead(status, headers);
+      res.end(json);
+      return;
+    }
+    res.writeHead(status, { ...headers, 'Content-Encoding': 'gzip' });
+    res.end(compressed);
+  });
 }
 
 async function withRetry(fn, { attempts = 3, baseDelayMs = 1000, tag = '' } = {}) {
