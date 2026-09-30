@@ -41,7 +41,7 @@ happen once per browser tab.
 | `fire-perimeters-merge` | service | 4-source fetch + merge in each tab | `VITE_FIRE_MERGE_SERVICE_URL` | in `deploy.yml` |
 | `california-land-ownership-proxy` | service | direct ArcGIS | `VITE_CALIFORNIA_LAND_OWNERSHIP_PROXY_URL` | in `deploy.yml`, optional |
 | `calfire-frap-proxy` | service | direct ArcGIS | `VITE_CALFIRE_FRAP_PROXY_URL` | in `deploy.yml`, optional |
-| **`nws-alerts`** | service | api.weather.gov + WWA MapServer in each tab, every 60 s | *(future)* `VITE_NWS_ALERTS_SERVICE_URL` | **none yet: built and tested, not deployed** |
+| `nws-alerts` | service | api.weather.gov + WWA MapServer in each tab, every 60 s | `VITE_NWS_ALERTS_SERVICE_URL` | in `deploy.yml`, opt-in |
 
 ## Conventions every service follows
 
@@ -95,14 +95,14 @@ These are taken from the existing services. New ones should match them.
 
 ## Migration roadmap
 
-0. **Compress `fire-perimeters-merge` (highest-impact quick win).** It
-   serves ~80 MB uncompressed to every Wildfire-tab browser every 5
-   minutes. Copying `fema-nfhl-proxy`'s gzip `send()` helper cuts that
-   about 5× with no behavior change.
-1. **NWS alerts — `cloud/nws-alerts` (this phase).** Built and unit
-   tested; not yet deployed. Next steps: deploy, verify side by side (see its
-   README), then add `VITE_NWS_ALERTS_SERVICE_URL` to `useWeatherAlerts`
-   with the Netlify path as the fallback.
+0. **Compress `fire-perimeters-merge`: done.** Responses are gzipped, taking
+   the production query from ~80 MB to ~15.8 MB with an unchanged payload.
+   Next: cache the compressed body per refresh instead of re-compressing
+   on every request.
+1. **NWS alerts — `cloud/nws-alerts`.** Deployed and verified side by
+   side against the app's own pipeline. The client uses it when
+   `VITE_NWS_ALERTS_SERVICE_URL` is set, with the Netlify path as the
+   fallback.
 2. **NWS zone, county and CWA reference geometry (next NWS step).**
    `useWeatherAlerts` downloads the nationwide public, fire-weather and
    marine zone, county and CWA catalogs on every page load (~60 MB+
@@ -131,7 +131,7 @@ Sorted by estimated bandwidth impact (size × frequency × always-on).
 
 | # | Source → current route | Size (raw / gz) | Frequency | Cache today | Proposed home |
 |---|---|---|---|---|---|
-| 1 | NIFC WFIGS + FIRIS + IRWIN + CAL FIRE → `fire-perimeters-merge` `/merged` | **80.4 MB, served uncompressed** | every 5 min, always on (Wildfire tab) | Cloud Run 3 min; `max-age=60` | Already on GCP. **Add gzip first** (~5× smaller), then simplify and publish as a scheduler-refreshed GCS object; vector tiles later |
+| 1 | NIFC WFIGS + FIRIS + IRWIN + CAL FIRE → `fire-perimeters-merge` `/merged` | **80.4 MB raw; now gzipped to 15.8 MB** | every 5 min, always on (Wildfire tab) | Cloud Run 3 min; `max-age=60` | Already on GCP. Gzip done; next, simplify and publish as a scheduler-refreshed GCS object; vector tiles later |
 | 2 | NWS WWA MapServer L1 → `/api/nws/wwa` | 13.7 MB / 4.66 MB | every 60 s, always on | lifeSafety tier | **Fixed this phase** (ID-first: ~22 KB raw per poll); then `nws-alerts` |
 | 3 | NWS fire-weather zones → `/api/noaa/firewxzones` | 59.5 MB / 22.4 MB | every page load, always on | browser 24 h | GCS, pre-simplified and UGC-keyed; resolved server-side by `nws-alerts` |
 | 4 | NWS CWA → `/api/noaa/cwa` | 54.2 MB / 20.7 MB | every page load, always on | browser 24 h | same as #3 |
