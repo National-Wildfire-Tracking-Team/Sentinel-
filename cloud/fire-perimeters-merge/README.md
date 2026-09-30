@@ -48,9 +48,13 @@ gcloud run deploy fire-perimeters-merge \
   --min-instances 0 \
   --max-instances 10 \
   --concurrency 40 \
-  --memory 512Mi \
+  --memory 1Gi \
   --timeout 30s
 ```
+
+`1Gi` is needed: at `512Mi` the first request after a cold start OOMs
+("JavaScript heap out of memory") while holding all four raw source
+payloads plus the merge, and Cloud Run returns 503.
 
 `--allow-unauthenticated` is intentional: same public, non-sensitive
 government incident data the client would otherwise fetch directly.
