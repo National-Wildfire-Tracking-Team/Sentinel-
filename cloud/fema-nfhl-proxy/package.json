@@ -1,0 +1,13 @@
+{
+  "name": "fema-nfhl-proxy",
+  "version": "1.0.0",
+  "description": "Viewport-tiled, cached proxy for FEMA's National Flood Hazard Layer (NFHL) ArcGIS service, deployed as a Google Cloud Run service",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "scripts": {
+    "start": "node index.mjs"
+  }
+}

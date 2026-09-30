@@ -58,6 +58,8 @@ import FireWeatherOutlookSelector from './FireWeatherOutlookSelector';
 import CriticalInfrastructureLayer from './layers/CriticalInfrastructureLayer';
 import NationalMapCollegesLayer from './layers/NationalMapCollegesLayer';
 import CaliforniaLandOwnershipLayer from './layers/CaliforniaLandOwnershipLayer';
+import FloodHazardLayer, { FLOOD_ZONES_FILL_ID, FLOOD_PANELS_FILL_ID } from './layers/FloodHazardLayer';
+import { floodCategoryMeta } from '../../utils/floodHazard';
 import NHCTropicalWeatherLayer from './layers/NHCTropicalWeatherLayer';
 import WaterGaugesLayer from './layers/WaterGaugesLayer';
 import NexradSitesLayer from './layers/NexradSitesLayer';
@@ -74,6 +76,39 @@ const HAS_MAPBOX_TOKEN = Boolean(MAPBOX_TOKEN.trim());
 const num = (val) => Number(val);
 
 /**
+ * FEMA flood-zone record for FireDetailPanel. The FIRM panel under the click
+ * (a separate, transparent layer) supplies panel number and effective date;
+ * `zoneProps` is null when the click hit a panel but no shaded flood zone.
+ */
+function buildFloodHazardRecord(zoneProps, lngLat, panelProps) {
+  const zone = zoneProps || {};
+  const panel = panelProps || {};
+  const category = zoneProps ? zone.category : null;
+  return {
+    type: 'flood-hazard',
+    id: zoneProps ? `zone-${zone.id}` : `panel-${panel.id ?? `${lngLat.lng},${lngLat.lat}`}`,
+    name: zoneProps ? floodCategoryMeta(category).label : 'No shaded flood hazard mapped here',
+    lat: lngLat.lat,
+    lng: lngLat.lng,
+    category,
+    zone: zone.zone ?? null,
+    subtype: zone.subtype ?? null,
+    sfha: Boolean(zone.sfha),
+    bfe: zone.bfe ?? null,
+    depth: zone.depth ?? null,
+    lengthUnit: zone.lengthUnit ?? null,
+    velocity: zone.velocity ?? null,
+    velocityUnit: zone.velocityUnit ?? null,
+    verticalDatum: zone.verticalDatum ?? null,
+    dfirmId: zone.dfirmId ?? panel.dfirmId ?? null,
+    panel: panel.panel ?? null,
+    panelType: panel.panelType ?? null,
+    effectiveDate: panel.effectiveDate ?? null,
+    unmapped: Boolean(panel.unmapped),
+  };
+}
+
+/**
  * Turns one clicked Mapbox feature into the "fire" record shape selectFire
  * expects, keyed off the layer it came from. Pulled out of handleClick so a
  * click can build a record for every feature at the point (not just the
@@ -82,10 +117,13 @@ const num = (val) => Number(val);
  * gauges, radar sites, cameras) or that aren't selectable (SPC MD, which
  * opens a link instead) — those stay handled directly in handleClick.
  */
-function buildFeatureRecord(feature, lngLat, alerts) {
+function buildFeatureRecord(feature, lngLat, alerts, { floodPanel = null } = {}) {
   const p = feature.properties;
 
   switch (feature.layer.id) {
+    case FLOOD_ZONES_FILL_ID:
+      return buildFloodHazardRecord(p, lngLat, floodPanel);
+
     case 'cmra-transmission-lines':
       return {
         type: 'transmission-line',
@@ -1196,6 +1234,17 @@ function getHoverContent(feature) {
       );
       break;
     }
+    case FLOOD_ZONES_FILL_ID: {
+      const meta = floodCategoryMeta(p.category);
+      content = (
+        <>
+          <div className="font-semibold text-sky-300">{meta.label}</div>
+          {p.zone && <div className="text-white text-xs mt-0.5 font-medium">Flood Zone {p.zone}</div>}
+          <div className="text-sentinel-300 text-[10px] mt-1">FEMA NFHL · click for details</div>
+        </>
+      );
+      break;
+    }
     case 'california-land-ownership-fill': {
       content = (
         <>
@@ -1311,6 +1360,8 @@ function HoverTooltip({ features, lngLat }) {
  * @param {boolean}     [props.nationalMapCollegesVisible]
  * @param {object|null} props.landOwnershipGeoJSON
  * @param {boolean}     [props.landOwnershipVisible]
+ * @param {object|null} props.floodHazardData - { zones, panels, availability } from useFloodHazards
+ * @param {boolean}     [props.floodHazardVisible]
  * @param {object|null} props.nhcForecastPointsGeoJSON
  * @param {object|null} props.nhcForecastTrackGeoJSON
  * @param {object|null} props.nhcConeGeoJSON
@@ -1368,6 +1419,8 @@ export default function MapView({
   nationalMapCollegesVisible = false,
   landOwnershipGeoJSON,
   landOwnershipVisible = false,
+  floodHazardData,
+  floodHazardVisible = false,
   nhcForecastPointsGeoJSON,
   nhcForecastTrackGeoJSON,
   nhcConeGeoJSON,
@@ -1621,6 +1674,8 @@ export default function MapView({
     if (landOwnershipVisible && landOwnershipGeoJSON?.features?.length) {
       ids.push('california-land-ownership-fill');
     }
+    if (floodHazardVisible && floodHazardData?.zones?.features?.length) ids.push(FLOOD_ZONES_FILL_ID);
+    if (floodHazardVisible && floodHazardData?.panels?.features?.length) ids.push(FLOOD_PANELS_FILL_ID);
     if ((isWildfireTab || isAllHazardTab) && layers.fireWeatherOutlooks && fireWeatherOutlooksGeoJSON) ids.push('fire-weather-outlook-fill');
     if (isWeatherTab || isAllHazardTab) {
       if (nhcDisturbanceAreasGeoJSON?.features?.length) ids.push('nhc-disturbance-fill');
@@ -1658,6 +1713,7 @@ export default function MapView({
       criticalInfrastructureVisible, criticalInfrastructureTransGeoJSON, criticalInfrastructureGasGeoJSON,
       nationalMapCollegesVisible, nationalMapCollegesGeoJSON,
       landOwnershipVisible, landOwnershipGeoJSON,
+      floodHazardVisible, floodHazardData,
       layers.waterGauges, waterGaugesGeoJSON,
       layers.radarNexrad, nexradSitesGeoJSON,
       layers.wildfireCameras, californiaCamerasGeoJSON,
@@ -1746,13 +1802,20 @@ export default function MapView({
     // fire perimeter — all surface, deduped by layer + id.
     const seen = new Set();
     const records = [];
+    const floodPanelFeature = features.find((f) => f.layer.id === FLOOD_PANELS_FILL_ID);
+    const floodPanel = floodPanelFeature?.properties ?? null;
     for (const f of features) {
-      const record = buildFeatureRecord(f, evt.lngLat, alerts);
+      const record = buildFeatureRecord(f, evt.lngLat, alerts, { floodPanel });
       if (!record) continue;
       const key = `${f.layer.id}:${record.id}`;
       if (seen.has(key)) continue;
       seen.add(key);
       records.push({ record, feature: f });
+    }
+    // Clicked inside a FIRM panel but on nothing else: still worth telling
+    // the user there's no shaded FEMA flood hazard here, with panel details.
+    if (records.length === 0 && floodPanelFeature) {
+      records.push({ record: buildFloodHazardRecord(null, evt.lngLat, floodPanel), feature: floodPanelFeature });
     }
 
     if (records.length === 0) {
@@ -1798,7 +1861,11 @@ export default function MapView({
       setHoverFeatures(deduped);
       setHoverLngLat(evt.lngLat);
       if (mapRef.current) {
-        mapRef.current.getCanvas().style.cursor = 'pointer';
+        // FIRM panels blanket the whole view at flood-detail zoom; they're
+        // clickable for panel info but shouldn't turn the cursor into a
+        // pointer everywhere on their own.
+        const onlyFloodPanels = deduped.every((f) => f.layer.id === FLOOD_PANELS_FILL_ID);
+        mapRef.current.getCanvas().style.cursor = onlyFloodPanels ? '' : 'pointer';
       }
     } else {
       setHoverFeatures(null);
@@ -1944,6 +2011,10 @@ export default function MapView({
           fire16Visible={(isWildfireTab || isAllHazardTab) && layers.goesFire16}
           fire18Visible={(isWildfireTab || isAllHazardTab) && layers.goesFire18}
         />
+
+        {/* FEMA flood hazard zones — contextual, so it sits directly above base
+            imagery and below alerts, perimeters, incidents, and evac zones */}
+        <FloodHazardLayer data={floodHazardData} visible={floodHazardVisible} />
 
         {/* NEXRAD radar reflectivity — every site's own sweep, composited */}
         <RadarLayer

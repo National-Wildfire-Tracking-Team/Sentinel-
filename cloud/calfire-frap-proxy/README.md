@@ -47,9 +47,13 @@ gcloud run deploy calfire-frap-proxy \
   --min-instances 0 \
   --max-instances 5 \
   --concurrency 40 \
-  --memory 512Mi \
-  --timeout 30s
+  --memory 2Gi \
+  --timeout 120s
 ```
+
+`2Gi` / `120s` are needed: the whole statewide CKAN GeoJSON is parsed in
+memory (it OOMs at 512Mi — ~640MiB used), and a cold start's first request
+downloads it before answering (~17s).
 
 `--allow-unauthenticated` is intentional: this serves the same public,
 non-sensitive government dataset the client would otherwise fetch directly

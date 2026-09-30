@@ -46,6 +46,7 @@ import { useNhcTropicalWeather } from '../hooks/useNhcTropicalWeather';
 import { useCriticalInfrastructure } from '../hooks/useCriticalInfrastructure';
 import { useNationalMapColleges } from '../hooks/useNationalMapColleges';
 import { useCaliforniaLandOwnership, isWithinLandOwnershipRange } from '../hooks/useCaliforniaLandOwnership';
+import { useFloodHazards } from '../hooks/useFloodHazards';
 import { usePlan } from '../../shared/hooks/usePlan';
 import { useWaterGauges } from '../hooks/useWaterGauges';
 import { useNexradSites } from '../hooks/useNexradSites';
@@ -72,6 +73,7 @@ import FutureFeaturesPanel from '../components/MapControls/FutureFeaturesPanel';
 import AccountButton from '../components/MapControls/AccountButton';
 import AccountPanel from '../components/AccountPanel/AccountPanel';
 import Legend from '../components/Legend/Legend';
+import FloodHazardStatus from '../components/MapControls/FloodHazardStatus';
 // Lazy-loaded: each only ever mounts once the user has actually selected the
 // corresponding fire/gauge/radar site/camera, so their code shouldn't ship in
 // the initial bundle for sessions that never open one.
@@ -111,6 +113,7 @@ const WILDFIRE_LAYER_PRESET = {
   criticalInfrastructure: false,
   schoolsUniversities: false,
   landOwnership: false,
+  floodHazard: false,
 };
 
 const ALL_HAZARD_LAYER_PRESET = {
@@ -132,6 +135,7 @@ const ALL_HAZARD_LAYER_PRESET = {
   criticalInfrastructure: false,
   schoolsUniversities: false,
   landOwnership: false,
+  floodHazard: false,
 };
 
 // Weather tab: auto-enable NWS alerts (includes SPC MDs on map) and
@@ -157,6 +161,7 @@ const WEATHER_LAYER_PRESET = {
   ndgdSmokeForecast: false,
   schoolsUniversities: false,
   landOwnership: false,
+  floodHazard: false,
 };
 
 const THREE_DAYS_MS = 3 * 24 * 60 * 60 * 1000;
@@ -598,6 +603,21 @@ export default function LiveTrackerPage() {
     geoJSON: landOwnershipGeoJSON,
     refresh: refreshLandOwnership,
   } = useCaliforniaLandOwnership(landOwnershipEnabled, viewport);
+
+  // FEMA flood hazard zones – viewport-driven, through cloud/fema-nfhl-proxy.
+  // Weather and all-hazard tabs only; not plan-gated.
+  const floodHazardEnabled = Boolean(
+    layers.floodHazard
+    && (activeMapTab === MAP_TABS.weather || activeMapTab === MAP_TABS.allhazard)
+  );
+  const {
+    data: floodHazardData,
+    loading: floodHazardLoading,
+    error: floodHazardError,
+    belowMinZoom: floodHazardBelowMinZoom,
+    retry: retryFloodHazards,
+    refresh: refreshFloodHazards,
+  } = useFloodHazards(floodHazardEnabled, viewport);
 
   // SPC Fire Weather Outlooks – day/type selector state
   const [fireWxOutlookType, setFireWxOutlookType] = useState('winds_low_humidity');
@@ -1254,6 +1274,7 @@ export default function LiveTrackerPage() {
     if (criticalInfraEnabled) refreshCriticalInfrastructure();
     if (schoolsLayerEnabled) refreshNationalMapColleges();
     if (landOwnershipEnabled) refreshLandOwnership();
+    if (floodHazardEnabled) refreshFloodHazards();
     if (layers.fireWeatherOutlooks) {
       refreshFireWeatherOutlooks();
     }
@@ -1273,6 +1294,7 @@ export default function LiveTrackerPage() {
     refreshCriticalInfrastructure,
     refreshNationalMapColleges,
     refreshLandOwnership,
+    refreshFloodHazards,
     refreshNhcTropicalWeather,
     refreshWpcEro, refreshWpcWssi, refreshWpcQpf, refreshWpcFronts, refreshWpcMpd,
     layers.wpcEro, layers.wpcWssi, layers.wpcQpf, layers.wpcFronts, layers.wpcMpd,
@@ -1282,6 +1304,7 @@ export default function LiveTrackerPage() {
     criticalInfraEnabled,
     schoolsLayerEnabled,
     landOwnershipEnabled,
+    floodHazardEnabled,
   ]);
 
   // Measures the bottom bar's own rendered size so the Composite Radar
@@ -1459,6 +1482,8 @@ export default function LiveTrackerPage() {
             nationalMapCollegesVisible={schoolsLayerEnabled}
             landOwnershipGeoJSON={landOwnershipGeoJSON}
             landOwnershipVisible={landOwnershipEnabled}
+            floodHazardData={floodHazardData}
+            floodHazardVisible={floodHazardEnabled}
             nhcForecastPointsGeoJSON={nhcForecastPointsGeoJSON}
             nhcForecastTrackGeoJSON={nhcForecastTrackGeoJSON}
             nhcConeGeoJSON={nhcConeGeoJSON}
@@ -1512,6 +1537,16 @@ export default function LiveTrackerPage() {
           />
 
           <MapCornerButtons />
+
+          {floodHazardEnabled && (
+            <FloodHazardStatus
+              loading={floodHazardLoading}
+              error={floodHazardError}
+              belowMinZoom={floodHazardBelowMinZoom}
+              data={floodHazardData}
+              onRetry={retryFloodHazards}
+            />
+          )}
 
           <Sidebar
             incidents={nearbyResult ? nearbyResult.incidents : mergedIncidents}

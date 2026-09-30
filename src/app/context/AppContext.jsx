@@ -50,6 +50,8 @@ const initialState = {
     landOwnership: false,
     /** NOAA NWPS water gauges */
     waterGauges: false,
+    /** FEMA National Flood Hazard Layer (NFHL) — flood zones, via cloud/fema-nfhl-proxy */
+    floodHazard: false,
     /** NWS Damage Assessment Toolkit — post-storm survey points/tracks/polygons */
     damageAssessment: false,
     /** Rothermel-based spread projection rings for the selected fire */

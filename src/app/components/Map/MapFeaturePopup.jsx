@@ -32,6 +32,7 @@ const TYPE_LABELS = {
   'transmission-line': 'Transmission line',
   'gas-pipeline': 'Gas pipeline',
   'national-map-college': 'School / university',
+  'flood-hazard': 'FEMA flood hazard',
 };
 
 function getTitle(item) {
