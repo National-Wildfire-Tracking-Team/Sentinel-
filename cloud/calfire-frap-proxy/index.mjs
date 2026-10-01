@@ -23,6 +23,7 @@
  */
 
 import { createServer } from 'node:http';
+import { gzip } from 'node:zlib';
 
 const DATA_CA_GOV_PACKAGE_URL =
   'https://data.ca.gov/api/3/action/package_show?id=california-fire-perimeters-all';
@@ -36,9 +37,32 @@ const CORS_HEADERS = {
   'Access-Control-Allow-Headers': 'Content-Type',
 };
 
+// The default query (the last ten years, any size) is ~107 MB of GeoJSON
+// and gzips to ~36 MB. That matters most on AWS Lambda, which streams
+// anything past 6 MB at 2 MB/s. Same approach as fire-perimeters-merge:
+// async so a large body doesn't block the event loop, falling back to the
+// uncompressed body if zlib fails, and unchanged for clients that don't
+// send Accept-Encoding: gzip.
+const GZIP_MIN_BYTES = 1024;
+
 function jsonResponse(res, body, status = 200, extraHeaders = {}) {
-  res.writeHead(status, { ...CORS_HEADERS, 'Content-Type': 'application/json', ...extraHeaders });
-  res.end(JSON.stringify(body));
+  const json = JSON.stringify(body);
+  const headers = { ...CORS_HEADERS, 'Content-Type': 'application/json', Vary: 'Accept-Encoding', ...extraHeaders };
+  const acceptsGzip = /\bgzip\b/.test(res.req?.headers['accept-encoding'] || '');
+  if (!acceptsGzip || json.length < GZIP_MIN_BYTES) {
+    res.writeHead(status, headers);
+    res.end(json);
+    return;
+  }
+  gzip(json, (err, compressed) => {
+    if (err) {
+      res.writeHead(status, headers);
+      res.end(json);
+      return;
+    }
+    res.writeHead(status, { ...headers, 'Content-Encoding': 'gzip' });
+    res.end(compressed);
+  });
 }
 
 /** @type {{ data: object, fetchedAt: number } | null} */

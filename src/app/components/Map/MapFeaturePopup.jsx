@@ -9,10 +9,10 @@
  * the popup be dragged aside to see the map underneath).
  */
 
-import { memo, useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { memo, useState, useEffect, useRef, useCallback } from 'react';
 import { Popup } from 'react-map-gl';
-import { Grip, ChevronRight, X, Radar } from 'lucide-react';
-import { getGeometryCenter, nearestPointFeatures } from '../../utils/mapGeometry';
+import { Grip, ChevronRight, X } from 'lucide-react';
+import { getGeometryCenter } from '../../utils/mapGeometry';
 import { nwsAlertColor } from '../../utils/nwsColors';
 import SpotlightMaskLayer from './layers/SpotlightMaskLayer';
 
@@ -200,7 +200,7 @@ function SingleCarousel({ items, onSelect }) {
   );
 }
 
-function PopupFooter({ dragEnabled, dragHandlers, radarSites, onSelectRadarSite, onClose }) {
+function PopupFooter({ dragEnabled, dragHandlers, onClose }) {
   return (
     <div className="flex items-center gap-2 px-3 py-2">
       {dragEnabled && (
@@ -214,22 +214,6 @@ function PopupFooter({ dragEnabled, dragHandlers, radarSites, onSelectRadarSite,
         >
           <Grip size={16} />
         </button>
-      )}
-      {radarSites.length > 0 && (
-        <div className="flex items-center gap-1.5">
-          {radarSites.map((site) => (
-            <button
-              key={site.id}
-              type="button"
-              onClick={() => onSelectRadarSite(site)}
-              title={site.name}
-              className="flex items-center gap-1 pl-1.5 pr-2.5 py-1 rounded-full bg-white/10 hover:bg-white/20 text-white text-xs font-semibold transition-colors"
-            >
-              <Radar size={13} />
-              {site.id}
-            </button>
-          ))}
-        </div>
       )}
       <div className="flex-1" />
       <button
@@ -245,7 +229,7 @@ function PopupFooter({ dragEnabled, dragHandlers, radarSites, onSelectRadarSite,
 }
 
 const MapFeaturePopup = memo(function MapFeaturePopup({
-  items, mouseLngLat, anchorFeature, prefs, nexradSitesGeoJSON, onSelect, onSelectRadarSite, onClose,
+  items, mouseLngLat, anchorFeature, prefs, onSelect, onClose,
 }) {
   const { offset, onPointerDown, onPointerMove, onPointerUp } = useDragOffset(items);
 
@@ -253,24 +237,7 @@ const MapFeaturePopup = memo(function MapFeaturePopup({
     ? (getGeometryCenter(anchorFeature?.geometry) ?? [mouseLngLat.lng, mouseLngLat.lat])
     : [mouseLngLat.lng, mouseLngLat.lat];
 
-  const radarSites = useMemo(() => {
-    if (!nexradSitesGeoJSON) return [];
-    return nearestPointFeatures(anchor, nexradSitesGeoJSON, 2).map((f) => ({
-      id: f.properties.id,
-      name: f.properties.name,
-      lat: f.geometry.coordinates[1],
-      lng: f.geometry.coordinates[0],
-      properties: f.properties,
-    }));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [nexradSitesGeoJSON, anchor[0], anchor[1]]);
-
   if (!items?.length) return null;
-
-  const handleSelectRadarSite = (site) => {
-    onSelectRadarSite({ ...site.properties, lat: site.lat, lng: site.lng });
-    onClose();
-  };
 
   return (
     <>
@@ -306,8 +273,6 @@ const MapFeaturePopup = memo(function MapFeaturePopup({
           <PopupFooter
             dragEnabled={prefs.popupDragHandle}
             dragHandlers={{ onPointerDown, onPointerMove, onPointerUp }}
-            radarSites={radarSites}
-            onSelectRadarSite={handleSelectRadarSite}
             onClose={onClose}
           />
         </div>

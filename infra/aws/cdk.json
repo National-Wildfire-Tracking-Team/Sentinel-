@@ -1,0 +1,15 @@
+{
+  "app": "node bin/sentinel.mjs",
+  "watch": {
+    "include": [
+      "bin/**",
+      "lib/**"
+    ]
+  },
+  "context": {
+    "@aws-cdk/aws-lambda:recognizeLayerVersion": true,
+    "@aws-cdk/core:target-partitions": [
+      "aws"
+    ]
+  }
+}

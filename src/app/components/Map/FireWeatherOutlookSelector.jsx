@@ -5,9 +5,8 @@
  *   - Day pill selector (Day 1 – Day 8)
  *
  * Docked flush above MapBottomBar and matched to its width — mirrors
- * SPCOutlookSelector.jsx / RadarTimeline.jsx / RadarSitePanel.jsx so every
- * bottom-bar control grows out of the same bar instead of floating
- * independently.
+ * SPCOutlookSelector.jsx so every bottom-bar control grows out of the same
+ * bar instead of floating independently.
  */
 
 import { memo, forwardRef } from 'react';

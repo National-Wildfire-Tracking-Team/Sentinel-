@@ -16,3 +16,6 @@ test-results/
 .specify/
 specs/
 AGENTS.md
+
+# Firebase CLI debug output
+firebase-debug.log

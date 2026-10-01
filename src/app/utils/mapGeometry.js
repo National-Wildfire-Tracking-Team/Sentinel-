@@ -39,30 +39,6 @@ export function getGeometryCenter(geometry) {
   }
 }
 
-/**
- * The `count` closest Point features in a GeoJSON FeatureCollection to
- * [lng, lat], nearest first. Used to surface nearby NEXRAD radar sites on
- * the map popup. Distance is a simple equirectangular approximation
- * (longitude scaled by cos(latitude)) — plenty accurate for ranking nearby
- * stations, not meant for precise distance display.
- */
-export function nearestPointFeatures([lng, lat], geojson, count = 2) {
-  if (!geojson?.features?.length) return [];
-  const cosLat = Math.cos((lat * Math.PI) / 180);
-  return geojson.features
-    .map((feature) => {
-      const coords = feature.geometry?.type === 'Point' ? feature.geometry.coordinates : null;
-      if (!coords) return null;
-      const dx = (coords[0] - lng) * cosLat;
-      const dy = coords[1] - lat;
-      return { feature, distSq: dx * dx + dy * dy };
-    })
-    .filter(Boolean)
-    .sort((a, b) => a.distSq - b.distSq)
-    .slice(0, count)
-    .map((r) => r.feature);
-}
-
 const WORLD_RING = [
   [-179.9, -85], [179.9, -85], [179.9, 85], [-179.9, 85], [-179.9, -85],
 ];

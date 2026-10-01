@@ -5,10 +5,9 @@
  *   - Exclusive day pill selector (Day 1 / Day 2 / Day 3)
  *   - Loading spinner + valid-time label
  *
- * Docked flush above MapBottomBar (or, if a Composite Radar / NEXRAD panel is
- * also open, flush above that stack instead) and matched to its width —
- * mirrors RadarTimeline.jsx / RadarSitePanel.jsx so every bottom-bar control
- * grows out of the same bar instead of floating independently.
+ * Docked flush above MapBottomBar and matched to its width, so every
+ * bottom-bar control grows out of the same bar instead of floating
+ * independently.
  */
 
 import { memo, forwardRef } from 'react';
