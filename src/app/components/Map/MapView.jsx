@@ -1342,7 +1342,9 @@ function HoverTooltip({ features, lngLat }) {
  * @param {Function}    [props.onFireWxActiveDayChange]
  * @param {Array}       [props.savedLocations]
  * @param {Object|null} [props.nearbyRadiusGeoJSON] Near-me radius circle (Home Setup radius around live GPS)
- * @param {'wildfire'|'weather'} [props.activeMapTab]
+ * @param {'wildfire'|'weather'|'allhazard'|'models'} [props.activeMapTab]
+ * @param {Function}    [props.onModelPick]  Models tab: a map click picks the forecast point ({lat, lon})
+ * @param {Function}    [props.modelOverlay] Models tab: ({ mapStyle, mapboxAccessToken }) => children rendered inside the map
  */
 export default function MapView({
   activeMapTab = 'wildfire',
@@ -1417,6 +1419,8 @@ export default function MapView({
   mapBottomBarHeight,
   spcOutlookPanelRef,
   fireWxOutlookPanelRef,
+  onModelPick,
+  modelOverlay = null,
 }) {
   const { layers, selectedFire, selectFire, selectGauge, selectCamera, sidebarOpen, locationGranted, layerPanelOpen, closeLayerPanel } = useApp();
   const { alerts, userLocation, setUserLocation } = useAppStatus();
@@ -1646,6 +1650,12 @@ export default function MapView({
       return;
     }
 
+    // Models tab: a click picks the point to forecast (operational layers are off there).
+    if (onModelPick) {
+      onModelPick({ lat: evt.lngLat.lat, lon: evt.lngLat.lng });
+      return;
+    }
+
     const features = evt.features;
     if (!features?.length) {
       selectFire(null);
@@ -1736,7 +1746,7 @@ export default function MapView({
       mouseLngLat: evt.lngLat,
       anchorFeature: records[0].feature,
     });
-  }, [measureActive, alerts, selectFire, selectGauge, selectCamera, layerPanelOpen, closeLayerPanel]);
+  }, [measureActive, alerts, selectFire, selectGauge, selectCamera, layerPanelOpen, closeLayerPanel, onModelPick]);
 
   // Handle mouse move – update hover tooltip OR measurement preview
   const handleMouseMove = useCallback((evt) => {
@@ -1868,9 +1878,12 @@ export default function MapView({
         attributionControl={false}
         maxTileCacheSize={30}
         fadeDuration={150}
-        projection="globe"
-        fog={GLOBE_FOG}
-        terrain={HAS_MAPBOX_TOKEN ? { source: TERRAIN_SOURCE_ID, exaggeration: 1.5 } : undefined}
+        // Models tab: flat Mercator, no terrain — model fields are Web Mercator
+        // images and wind particles assume a flat, linear screen. Everything
+        // else keeps the globe.
+        projection={activeMapTab === 'models' ? 'mercator' : 'globe'}
+        fog={activeMapTab === 'models' ? null : GLOBE_FOG}
+        terrain={HAS_MAPBOX_TOKEN && activeMapTab !== 'models' ? { source: TERRAIN_SOURCE_ID, exaggeration: 1.5 } : null}
       >
         {/* 3D terrain elevation (hillshaded relief when the map is pitched) */}
         {HAS_MAPBOX_TOKEN && (
@@ -2206,6 +2219,9 @@ export default function MapView({
             onClose={() => setFeaturePopup(null)}
           />
         )}
+        {typeof modelOverlay === 'function'
+          ? modelOverlay({ mapStyle: MAP_STYLES[mapType] ?? MAP_STYLES.satellite, mapboxAccessToken: HAS_MAPBOX_TOKEN ? MAPBOX_TOKEN : undefined })
+          : modelOverlay}
       </Map>
 
       <MapZoomControl mapRef={mapRef} map={mapInstance} />

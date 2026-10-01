@@ -64,6 +64,14 @@ import AlertBanner from '../components/AlertBanner/AlertBanner';
 import Sidebar from '../components/Sidebar/Sidebar';
 import MapView from '../components/Map/MapView';
 import MapBottomBar from '../components/BottomBar/MapBottomBar';
+import WeatherModelsPanel from '../components/WeatherModels/WeatherModelsPanel';
+import WeatherModelsMapLayer from '../components/WeatherModels/WeatherModelsMapLayer';
+import ModelFieldTimeline from '../components/WeatherModels/ModelFieldTimeline';
+import ModelFieldLegend from '../components/WeatherModels/ModelFieldLegend';
+import ModelFieldControls from '../components/WeatherModels/ModelFieldControls';
+import { ROOT_VARS as MODEL_COLOR_VARS } from '../components/WeatherModels/modelTheme';
+import { WeatherModelsProvider } from '../context/WeatherModelsContext';
+import { parseModelsQuery } from '../utils/weatherModelsLink';
 import MapCornerButtons from '../components/MapControls/MapCornerButtons';
 import FutureFeaturesPanel from '../components/MapControls/FutureFeaturesPanel';
 import AccountButton from '../components/MapControls/AccountButton';
@@ -85,6 +93,7 @@ const MAP_TABS = {
   weather:    'weather',
   allhazard:  'allhazard',
   locations:  'locations',
+  models:     'models',
 };
 
 const WILDFIRE_LAYER_PRESET = {
@@ -154,6 +163,11 @@ const WEATHER_LAYER_PRESET = {
   landOwnership: false,
   floodHazard: false,
 };
+
+// Models tab: HRRR/GFS model output only. Every operational layer (alerts,
+// incidents, observations) is off so model data is never blended with them;
+// any of them can still be switched on from the layer panel.
+const MODELS_LAYER_PRESET = Object.fromEntries(Object.keys(WILDFIRE_LAYER_PRESET).map((k) => [k, false]));
 
 const THREE_DAYS_MS = 3 * 24 * 60 * 60 * 1000;
 
@@ -243,7 +257,7 @@ function filterActiveFiresGeoJSON(geoJSON, { containedKey }) {
 const RAWS_MIN_ZOOM = 9;
 
 export default function LiveTrackerPage() {
-  const { layers, setLayer, feedFilter, selectedGauge, selectGauge, selectedFire, selectFire, selectedCamera, selectCamera, wpcOutlookDay } = useApp();
+  const { layers, setLayer, feedFilter, selectedGauge, selectGauge, selectedFire, selectFire, selectedCamera, selectCamera, wpcOutlookDay, closeLayerPanel } = useApp();
   const { setRefreshed, setLoading, alerts, userLocation } = useAppStatus();
   const { home, nearbyActive } = useHomeSetup();
   const { viewport, setViewport, flyToFire } = useViewport();
@@ -251,7 +265,10 @@ export default function LiveTrackerPage() {
   const { hasProInfrastructureAccess, hasFireBehaviorModelingAccess } = usePlan();
   const criticalInfraEntitled = hasProInfrastructureAccess;
   const { locations: savedLocations } = useSavedLocations();
-  const [activeMapTab, setActiveMapTab] = useState(MAP_TABS.wildfire);
+  // A Models link (?tab=models&lat=…, e.g. from an incident or /weather-models) opens on that tab.
+  const [activeMapTab, setActiveMapTab] = useState(
+    () => (parseModelsQuery(window.location.search) ? MAP_TABS.models : MAP_TABS.wildfire),
+  );
   const [mapType, setMapType] = useState('satellite');
   const [weatherAlertFilter, setWeatherAlertFilter] = useState('all');
   const [bannerDismissed, setBannerDismissed] = useState(false);
@@ -310,6 +327,21 @@ export default function LiveTrackerPage() {
     setActiveMapTab(newTab);
   }, [activeMapTab, layers]);
 
+  // Models tab hooks: a map click sets the forecast point, and an incident's
+  // "Open in Models" switches here (closing the detail panel over the map).
+  const modelsApiRef = useRef(null);
+  const handleModelPick = useCallback((pt) => modelsApiRef.current?.pick(pt), []);
+  const handleOpenModels = useCallback(() => {
+    selectFire(null);
+    handleTabChange(MAP_TABS.models);
+  }, [selectFire, handleTabChange]);
+
+  // The Models tab is map-first: entering it closes the layer panel so the
+  // field is visible. The sidebar (point forecast) opens from a clicked point.
+  useEffect(() => {
+    if (activeMapTab === MAP_TABS.models) closeLayerPanel();
+  }, [activeMapTab, closeLayerPanel]);
+
   // Apply layer presets only when switching between wildfire/weather/allhazard tabs.
   // The locations tab keeps whatever layers were already active.
   useEffect(() => {
@@ -318,6 +350,7 @@ export default function LiveTrackerPage() {
       [MAP_TABS.wildfire]:  WILDFIRE_LAYER_PRESET,
       [MAP_TABS.weather]:   WEATHER_LAYER_PRESET,
       [MAP_TABS.allhazard]: ALL_HAZARD_LAYER_PRESET,
+      [MAP_TABS.models]:    MODELS_LAYER_PRESET,
     };
     const preset = presets[activeMapTab];
     if (!preset) return;
@@ -363,7 +396,7 @@ export default function LiveTrackerPage() {
   }, [mapReady]);
 
   // ── Data feeds ──
-  const wildfireDataEnabled = activeMapTab !== MAP_TABS.weather && mapReady;
+  const wildfireDataEnabled = activeMapTab !== MAP_TABS.weather && activeMapTab !== MAP_TABS.models && mapReady;
   const weatherDataEnabled = (activeMapTab === MAP_TABS.weather || activeMapTab === MAP_TABS.allhazard) && mapReady;
 
   const {
@@ -1319,8 +1352,9 @@ export default function LiveTrackerPage() {
       {/* ── Main content area (map fills full width; all controls float over it) ── */}
       {/* --map-bottom-stack: space taken by the bottom bar plus anything docked on
           it, so the left drawers can end above it where they'd otherwise cover it. */}
+      <WeatherModelsProvider active={activeMapTab === MAP_TABS.models} onOpen={handleOpenModels} apiRef={modelsApiRef}>
       <div
-        className="flex-1 relative overflow-hidden"
+        className={`flex-1 relative overflow-hidden ${MODEL_COLOR_VARS}`}
         style={{ '--map-bottom-stack': `${mapBottomBarSize.height + totalDockedHeight + 24}px` }}
       >
         <MapView
@@ -1397,6 +1431,8 @@ export default function LiveTrackerPage() {
             wpcQpfGeoJSON={wpcQpfGeoJSON}
             wpcFrontsGeoJSON={wpcFrontsGeoJSON}
             wpcMpdGeoJSON={wpcMpdGeoJSON}
+            onModelPick={activeMapTab === MAP_TABS.models ? handleModelPick : undefined}
+            modelOverlay={activeMapTab === MAP_TABS.models ? (p) => <WeatherModelsMapLayer {...p} /> : null}
           />
 
           <MapCornerButtons />
@@ -1424,6 +1460,7 @@ export default function LiveTrackerPage() {
             weatherAlertFilter={weatherAlertFilter}
             onWeatherAlertFilterChange={setWeatherAlertFilter}
             onWeatherAlertsRefresh={refreshAlerts}
+            modelsPanel={<WeatherModelsPanel />}
           />
 
           <FutureFeaturesPanel mapType={mapType} onMapTypeChange={setMapType} />
@@ -1444,11 +1481,22 @@ export default function LiveTrackerPage() {
             dockedPanelClearance={layerPanelDockClearance}
           />
 
-          <Legend
-            spcOutlookType={spcOutlookType}
-            spcActiveDay={spcActiveDay}
-            fireWxOutlookType={fireWxOutlookType}
-          />
+          {activeMapTab === MAP_TABS.models && (
+            <>
+              <ModelFieldLegend />
+              <ModelFieldControls />
+              <ModelFieldTimeline bottomOffset={mapBottomBarSize.height + 24} />
+            </>
+          )}
+
+          {/* The legend explains operational layers, which the Models tab turns off. */}
+          {activeMapTab !== MAP_TABS.models && (
+            <Legend
+              spcOutlookType={spcOutlookType}
+              spcActiveDay={spcActiveDay}
+              fireWxOutlookType={fireWxOutlookType}
+            />
+          )}
           <Suspense fallback={null}>
             {selectedFire && <FireDetailPanel />}
             {selectedGauge && (
@@ -1465,6 +1513,7 @@ export default function LiveTrackerPage() {
             )}
           </Suspense>
       </div>
+      </WeatherModelsProvider>
 
     </div>
   );

@@ -25,7 +25,7 @@
  *   $0.045/GB) to reach those same upstreams.
  */
 
-import { Duration, RemovalPolicy, Stack, Tags, CfnOutput } from 'aws-cdk-lib';
+import { Annotations, Duration, Fn, RemovalPolicy, Stack, Tags, CfnOutput } from 'aws-cdk-lib';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as logs from 'aws-cdk-lib/aws-logs';
 import * as iam from 'aws-cdk-lib/aws-iam';
@@ -39,9 +39,38 @@ import * as budgets from 'aws-cdk-lib/aws-budgets';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { SERVICES, LWA_LAYER_ACCOUNT, LWA_LAYER_NAME, LWA_LAYER_VERSION } from './services.mjs';
+import * as s3 from 'aws-cdk-lib/aws-s3';
+import { WEATHER_MODELS, fieldsBucketName } from './weather-models-stack.mjs';
 
 const CLOUD_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../cloud');
 const LOG_RETENTION = logs.RetentionDays.TWO_WEEKS;
+
+/**
+ * A Lambda Function URL in another region, signed by CloudFront OAC.
+ * origins.FunctionUrlOrigin can't be used across regions: it adds the
+ * invoke permission to the distribution's stack, and CloudFormation can't
+ * create a permission on a function in a different region. Here the
+ * permission lives with the function (WeatherModelsStack) and this origin
+ * only wires the domain and the OAC.
+ */
+class CrossRegionFunctionUrlOrigin extends origins.HttpOrigin {
+  constructor(functionUrl, originAccessControl, props) {
+    super(Fn.select(2, Fn.split('/', functionUrl)), {
+      ...props,
+      protocolPolicy: cloudfront.OriginProtocolPolicy.HTTPS_ONLY,
+      originSslProtocols: [cloudfront.OriginSslPolicy.TLS_V1_2],
+    });
+    this.originAccessControl = originAccessControl;
+  }
+
+  bind(scope, options) {
+    const config = super.bind(scope, options);
+    return {
+      ...config,
+      originProperty: { ...config.originProperty, originAccessControlId: this.originAccessControl.originAccessControlId },
+    };
+  }
+}
 
 export class DataServicesStack extends Stack {
   /**
@@ -49,11 +78,12 @@ export class DataServicesStack extends Stack {
    * @param {string} id
    * @param {import('aws-cdk-lib').StackProps & {
    *   allowedOrigins: string, nwsUserAgent: string, alarmEmail?: string, monthlyBudgetUsd?: number,
+   *   weatherModelsFunctionUrl?: string,
    * }} props
    */
   constructor(scope, id, props) {
     super(scope, id, props);
-    const { allowedOrigins, nwsUserAgent, alarmEmail, monthlyBudgetUsd } = props;
+    const { allowedOrigins, nwsUserAgent, alarmEmail, monthlyBudgetUsd, weatherModelsFunctionUrl } = props;
 
     Tags.of(this).add('project', 'sentinel');
     Tags.of(this).add('component', 'data-services');
@@ -131,6 +161,52 @@ export class DataServicesStack extends Stack {
       this.#alarms(svc, fn, alarmAction);
     }
 
+    // Sentinel Weather Models (WeatherModelsStack, us-west-2). Same cache
+    // policy: its responses carry their own s-maxage, and errors no-store.
+    if (weatherModelsFunctionUrl) {
+      // Map fields first: CloudFront matches behaviors in order, and
+      // /weather-models/fields/* is more specific than /weather-models/*.
+      // The bucket (in us-west-2) grants this distribution read access in
+      // its own policy; CDK can't edit an imported bucket's policy from here.
+      const fieldsBucket = s3.Bucket.fromBucketAttributes(this, 'WeatherModelFieldsBucket', {
+        bucketName: fieldsBucketName(this.account),
+        region: WEATHER_MODELS.region,
+      });
+      behaviors[`${WEATHER_MODELS.fieldsPathPrefix}/*`] = {
+        origin: origins.S3BucketOrigin.withOriginAccessControl(fieldsBucket, {
+          originAccessControl: new cloudfront.S3OriginAccessControl(this, 'WeatherModelFieldsOac', {
+            originAccessControlName: 'sentinel-weather-model-fields',
+          }),
+        }),
+        viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+        allowedMethods: cloudfront.AllowedMethods.ALLOW_GET_HEAD_OPTIONS,
+        cachedMethods: cloudfront.CachedMethods.CACHE_GET_HEAD,
+        // Frames are immutable (max-age 1 y); the manifest says max-age 60.
+        cachePolicy: cloudfront.CachePolicy.CACHING_OPTIMIZED,
+        // Mapbox loads images with fetch(), so they need CORS headers.
+        responseHeadersPolicy: cloudfront.ResponseHeadersPolicy.CORS_ALLOW_ALL_ORIGINS,
+        compress: true,
+      };
+
+      // Expected: the read grant lives in WeatherModelsStack's bucket policy.
+      Annotations.of(this).acknowledgeWarning('@aws-cdk/aws-cloudfront-origins:updateImportedBucketPolicyOac');
+
+      const oac = new cloudfront.FunctionUrlOriginAccessControl(this, 'WeatherModelsOac', {
+        originAccessControlName: 'sentinel-weather-models',
+      });
+      behaviors[`${WEATHER_MODELS.pathPrefix}/*`] = {
+        origin: new CrossRegionFunctionUrlOrigin(weatherModelsFunctionUrl, oac, {
+          readTimeout: Duration.seconds(WEATHER_MODELS.timeoutSeconds),
+        }),
+        viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+        allowedMethods: cloudfront.AllowedMethods.ALLOW_GET_HEAD_OPTIONS,
+        cachedMethods: cloudfront.CachedMethods.CACHE_GET_HEAD,
+        cachePolicy,
+        originRequestPolicy: cloudfront.OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER,
+        compress: true,
+      };
+    }
+
     const distribution = new cloudfront.Distribution(this, 'Distribution', {
       comment: 'Sentinel data services (replaces the *.run.app endpoints)',
       priceClass: cloudfront.PriceClass.PRICE_CLASS_100, // US/Canada/Europe edges — Sentinel's audience is US
@@ -177,7 +253,7 @@ export class DataServicesStack extends Stack {
       treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
     }).addAlarmAction(alarmAction);
 
-    this.#dashboard(distribution);
+    this.#dashboard(distribution, Boolean(weatherModelsFunctionUrl));
 
     if (monthlyBudgetUsd > 0) {
       new budgets.CfnBudget(this, 'MonthlyBudget', {
@@ -205,6 +281,16 @@ export class DataServicesStack extends Stack {
         value: `https://${distribution.distributionDomainName}${svc.pathPrefix}`,
       });
     }
+    if (weatherModelsFunctionUrl) {
+      new CfnOutput(this, 'WeatherModelsBaseUrl', {
+        description: `Value for ${WEATHER_MODELS.frontendEnvVar}`,
+        value: `https://${distribution.distributionDomainName}${WEATHER_MODELS.pathPrefix}`,
+      });
+    }
+    new CfnOutput(this, 'DistributionId', {
+      description: 'Pass as sentinel:distributionId to scope the weather-models invoke permission to this distribution',
+      value: distribution.distributionId,
+    });
   }
 
   #serviceFunction(svc, { adapterLayer, allowedOrigins, nwsUserAgent }) {
@@ -283,7 +369,7 @@ export class DataServicesStack extends Stack {
     }).addAlarmAction(alarmAction);
   }
 
-  #dashboard(distribution) {
+  #dashboard(distribution, weatherModels) {
     const dash = new cloudwatch.Dashboard(this, 'Dashboard', { dashboardName: 'sentinel-data-services' });
     const fns = Object.values(this.functions);
     dash.addWidgets(
@@ -295,6 +381,34 @@ export class DataServicesStack extends Stack {
         left: [new cloudwatch.Metric({ namespace: 'AWS/CloudFront', metricName: 'Requests', dimensionsMap: { DistributionId: distribution.distributionId, Region: 'Global' }, statistic: 'Sum', region: 'us-east-1' })],
         right: [new cloudwatch.Metric({ namespace: 'AWS/CloudFront', metricName: '5xxErrorRate', dimensionsMap: { DistributionId: distribution.distributionId, Region: 'Global' }, statistic: 'Average', region: 'us-east-1' })],
         width: 12,
+      }),
+    );
+    if (!weatherModels) return;
+    // Weather Models runs in us-west-2; dashboards can graph any region.
+    const wm = (metricName, statistic = 'Sum') => new cloudwatch.Metric({
+      namespace: WEATHER_MODELS.metricsNamespace,
+      metricName,
+      dimensionsMap: { Service: WEATHER_MODELS.dir },
+      statistic,
+      period: Duration.minutes(5),
+      region: WEATHER_MODELS.region,
+    });
+    dash.addWidgets(
+      new cloudwatch.GraphWidget({
+        title: 'Weather Models: requests by model (uncached at the edge)',
+        left: ['weather_requests', 'hrrr_requests', 'gfs_requests'].map((m) => wm(m)),
+        width: 8,
+      }),
+      new cloudwatch.GraphWidget({
+        title: 'Weather Models: point cache / dataset latency (ms, p95)',
+        left: ['cache_hits', 'cache_misses'].map((m) => wm(m)),
+        right: [wm('model_data_latency', 'p95')],
+        width: 8,
+      }),
+      new cloudwatch.GraphWidget({
+        title: 'Weather Models: dataset errors / stale data',
+        left: ['dataset_errors', 'stale_data_events'].map((m) => wm(m)),
+        width: 8,
       }),
     );
   }
