@@ -7,10 +7,12 @@
 import { useState, memo, useMemo, useEffect } from 'react';
 import { getMainOrigin } from '../../../shared/utils/getAppOrigin';
 import {
-  Layers, Flame, MapPin, Wind, CloudRain, CloudLightning, Eye, ChevronDown, ChevronRight, AlertTriangle, Ruler, Hexagon, Satellite, Thermometer, Activity, Droplets, Zap, Lock, GraduationCap, History, TrendingUp, Camera, Snowflake, Landmark, Waves,
+  Layers, Flame, MapPin, Wind, CloudRain, CloudLightning, Eye, AlertTriangle, Ruler, Hexagon, Satellite, Thermometer, Activity, Droplets, Zap, Lock, GraduationCap, History, TrendingUp, Camera, Snowflake, Landmark, Waves,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { trackSentinelUse } from '../../../shared/utils/analytics';
+import LayerPanelSection from './LayerPanelSection';
+import ModelLayerPanel from '../WeatherModels/ModelLayerPanel';
 
 /** Layer row definitions — grouped under tab-specific sections below */
 const LAYER_DEFS = {
@@ -410,7 +412,9 @@ const LayerControl = memo(function LayerControl({
 
   const toggleGroup = (key) => setCollapsed((c) => ({ ...c, [key]: !c[key] }));
 
+  const isModelsTab = activeMapTab === 'models';
   const tabAccent =
+    isModelsTab                  ? 'from-indigo-600/40 to-black'        :
     activeMapTab === 'weather'   ? 'from-sky-600/40 to-black'           :
     activeMapTab === 'allhazard' ? 'from-red-700/40 via-fire-700/20 to-black' :
                                    'from-fire-600/35 to-black';
@@ -445,7 +449,7 @@ const LayerControl = memo(function LayerControl({
             <div className="flex items-center justify-between gap-2">
               <div className="min-w-0">
                 <span className="text-[11px] font-bold text-white uppercase tracking-wider">
-                  Map layers
+                  {isModelsTab ? 'Model layers' : 'Map layers'}
                 </span>
               </div>
 
@@ -493,101 +497,89 @@ const LayerControl = memo(function LayerControl({
             className="py-2 max-h-[min(60vh,28rem)] overflow-y-auto"
             style={{ maxHeight: `min(60vh, 28rem, calc(100dvh - 14rem - ${dockedPanelClearance}px))` }}
           >
-            {sections.map((section) => {
+            {/* The Models tab's model / variable / overlay choices live in this same
+                pop-up, so switching tabs never changes how layers are picked. */}
+            {isModelsTab ? (
+              <ModelLayerPanel collapsed={collapsed} onToggleSection={toggleGroup} />
+            ) : sections.map((section) => {
               const sectionKey = section.id;
               const isSectionCollapsed = collapsed[sectionKey];
 
               return (
-                <div key={sectionKey} className="mb-1 last:mb-0 px-2">
-                  <button
-                    type="button"
-                    onClick={() => toggleGroup(sectionKey)}
-                    className="w-full flex items-start gap-2 px-1.5 py-2 rounded-lg hover:bg-white/5 transition-colors text-left"
-                  >
-                    {isSectionCollapsed ? (
-                      <ChevronRight size={14} className="shrink-0 text-sentinel-400 mt-0.5" />
-                    ) : (
-                      <ChevronDown size={14} className="shrink-0 text-sentinel-400 mt-0.5" />
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <div className="text-xs font-semibold text-white leading-tight">{section.title}</div>
-                      {section.subtitle && (
-                        <div className="text-[10px] text-sentinel-300 mt-0.5 leading-snug">{section.subtitle}</div>
-                      )}
-                    </div>
-                  </button>
-
-                  {!isSectionCollapsed && (
-                    <div className="pl-1 pb-2 space-y-3">
-                      {section.groups.map((group, groupIndex) => (
-                        <div key={`${sectionKey}-${group.label || groupIndex}`}>
-                          {group.label && (
-                            <div className="px-2 pb-1.5 text-[10px] font-semibold uppercase tracking-wider text-sentinel-400">
-                              {group.label}
-                            </div>
-                          )}
-                          <div className="rounded-lg bg-sentinel-900 border border-sentinel-700 divide-y divide-sentinel-700 overflow-hidden">
-                            {group.layers.map((layerRef) => {
-                              // A group entry may be a plain layer key, or an object
-                              // overriding the label/sublabel for this tab's context
-                              // (e.g. the wildfire tab renaming "NWS & mesoscale" to
-                              // "Red Flag Warnings" for the same weatherAlerts layer).
-                              const layerKey = typeof layerRef === 'string' ? layerRef : layerRef.key;
-
-                              if (section.infraLayers) {
-                                const layer = section.infraLayers.find((l) => l.key === layerKey);
-                                if (!layer) return null;
-                                return (
-                                  <LayerToggle
-                                    key={layer.key}
-                                    layerKey={layer.key}
-                                    label={layer.label}
-                                    sublabel={layer.sublabel}
-                                    icon={layer.icon}
-                                    color={layer.color}
-                                    locked={layer.locked}
-                                  />
-                                );
-                              }
-                              const def = LAYER_DEFS[layerKey];
-                              if (!def) return null;
-                              const label = (typeof layerRef === 'object' && layerRef.label) || def.label;
-                              const sublabel = (typeof layerRef === 'object' && layerRef.sublabel) || def.sublabel;
-                              return (
-                                <div key={layerKey}>
-                                  <LayerToggle
-                                    key={layerKey}
-                                    layerKey={layerKey}
-                                    label={label}
-                                    sublabel={sublabel}
-                                    icon={def.icon}
-                                    color={def.color}
-                                  />
-
-                                  {layerKey === 'fireRiskOutlook' && (
-                                    <FireRiskDaySelector />
-                                  )}
-                                  {layerKey === 'wpcEro' && (
-                                    <WpcDaySelector layerKey="wpcEro" product="ero" subtitle="WPC Excessive Rainfall Outlook" accentColor="#38bdf8" />
-                                  )}
-                                  {layerKey === 'wpcWssi' && (
-                                    <WpcDaySelector layerKey="wpcWssi" product="wssi" subtitle="WPC Winter Storm Severity Index" accentColor="#93c5fd" />
-                                  )}
-                                  {layerKey === 'wpcQpf' && (
-                                    <WpcDaySelector layerKey="wpcQpf" product="qpf" subtitle="WPC Precipitation Forecast" accentColor="#0ea5e9" />
-                                  )}
-                                  {layerKey === 'wpcFronts' && (
-                                    <WpcDaySelector layerKey="wpcFronts" product="fronts" subtitle="WPC Surface Analysis Fronts" accentColor="#a78bfa" />
-                                  )}
-                                </div>
-                              );
-                            })}
-                          </div>
+                <LayerPanelSection
+                  key={sectionKey}
+                  title={section.title}
+                  subtitle={section.subtitle}
+                  collapsed={isSectionCollapsed}
+                  onToggle={() => toggleGroup(sectionKey)}
+                >
+                  {section.groups.map((group, groupIndex) => (
+                    <div key={`${sectionKey}-${group.label || groupIndex}`}>
+                      {group.label && (
+                        <div className="px-2 pb-1.5 text-[10px] font-semibold uppercase tracking-wider text-sentinel-400">
+                          {group.label}
                         </div>
-                      ))}
+                      )}
+                      <div className="rounded-lg bg-sentinel-900 border border-sentinel-700 divide-y divide-sentinel-700 overflow-hidden">
+                        {group.layers.map((layerRef) => {
+                          // A group entry may be a plain layer key, or an object
+                          // overriding the label/sublabel for this tab's context
+                          // (e.g. the wildfire tab renaming "NWS & mesoscale" to
+                          // "Red Flag Warnings" for the same weatherAlerts layer).
+                          const layerKey = typeof layerRef === 'string' ? layerRef : layerRef.key;
+
+                          if (section.infraLayers) {
+                            const layer = section.infraLayers.find((l) => l.key === layerKey);
+                            if (!layer) return null;
+                            return (
+                              <LayerToggle
+                                key={layer.key}
+                                layerKey={layer.key}
+                                label={layer.label}
+                                sublabel={layer.sublabel}
+                                icon={layer.icon}
+                                color={layer.color}
+                                locked={layer.locked}
+                              />
+                            );
+                          }
+                          const def = LAYER_DEFS[layerKey];
+                          if (!def) return null;
+                          const label = (typeof layerRef === 'object' && layerRef.label) || def.label;
+                          const sublabel = (typeof layerRef === 'object' && layerRef.sublabel) || def.sublabel;
+                          return (
+                            <div key={layerKey}>
+                              <LayerToggle
+                                key={layerKey}
+                                layerKey={layerKey}
+                                label={label}
+                                sublabel={sublabel}
+                                icon={def.icon}
+                                color={def.color}
+                              />
+
+                              {layerKey === 'fireRiskOutlook' && (
+                                <FireRiskDaySelector />
+                              )}
+                              {layerKey === 'wpcEro' && (
+                                <WpcDaySelector layerKey="wpcEro" product="ero" subtitle="WPC Excessive Rainfall Outlook" accentColor="#38bdf8" />
+                              )}
+                              {layerKey === 'wpcWssi' && (
+                                <WpcDaySelector layerKey="wpcWssi" product="wssi" subtitle="WPC Winter Storm Severity Index" accentColor="#93c5fd" />
+                              )}
+                              {layerKey === 'wpcQpf' && (
+                                <WpcDaySelector layerKey="wpcQpf" product="qpf" subtitle="WPC Precipitation Forecast" accentColor="#0ea5e9" />
+                              )}
+                              {layerKey === 'wpcFronts' && (
+                                <WpcDaySelector layerKey="wpcFronts" product="fronts" subtitle="WPC Surface Analysis Fronts" accentColor="#a78bfa" />
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
-                  )}
-                </div>
+                  ))}
+                </LayerPanelSection>
               );
             })}
           </div>

@@ -3,23 +3,52 @@
  * Steps the Models map through forecast valid times, and plays them as an
  * animation. Every step swaps the field frame (and wind) on the map; the
  * next frames are pre-fetched by the map layer, so playback doesn't stall.
- * Shown above the live map's bottom bar.
+ *
+ * Docked flush above MapBottomBar and matched to its width, the same way
+ * the SPC outlook selector docks on the Weather tab, so the scrubber and
+ * the bar's layer pop-up read as one control area. The model chip opens
+ * that pop-up, where the model and variable are chosen.
  */
 
-import { useEffect } from 'react';
-import { Pause, Play } from 'lucide-react';
+import { forwardRef, useEffect } from 'react';
+import { ChevronUp, GitCompare, Pause, Play } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { useWeatherModelsContext } from '../../context/WeatherModelsContext';
 import { hourAt } from '../../api/modelFields';
-import { localTime, nowIndex, zulu } from './modelTheme';
+import { MODEL_STYLE, localTime, nowIndex, zulu } from './modelTheme';
 
 const JUMPS = [1, 3, 6, 12, 24, 48, 72, 120, 168, 240, 384];
 const FRAME_MS = 650;
 
-export default function ModelFieldTimeline({ bottomOffset = 80 }) {
+const MODEL_LABEL = { hrrr: 'HRRR', gfs: 'GFS', compare: 'Compare' };
+
+/** Current model + variable; opens the bar's layer pop-up to change them. */
+function ModelChip({ mode, variableLabel }) {
+  const { layerPanelOpen, toggleLayerPanel } = useApp();
+  const swatch = MODEL_STYLE[mode];
+  return (
+    <button
+      type="button"
+      onClick={toggleLayerPanel}
+      aria-pressed={layerPanelOpen}
+      aria-label={`Change model or variable (${MODEL_LABEL[mode] ?? mode}, ${variableLabel ?? 'no variable'})`}
+      className={`flex min-w-0 items-center gap-1.5 rounded-lg border px-2 py-1 text-xs font-semibold transition-colors
+        focus-visible:outline focus-visible:outline-2 focus-visible:outline-sky-500 ${
+        layerPanelOpen ? 'border-sentinel-500 bg-sentinel-700 text-white' : 'border-sentinel-600 text-sentinel-100 hover:bg-sentinel-700 hover:text-white'}`}
+    >
+      {swatch
+        ? <span aria-hidden className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: swatch.hexDark }} />
+        : <GitCompare size={12} className="shrink-0 text-indigo-300" aria-hidden />}
+      <span className="shrink-0">{MODEL_LABEL[mode] ?? mode}</span>
+      {variableLabel && <span className="truncate font-medium text-sentinel-300">· {variableLabel}</span>}
+      <ChevronUp size={13} className={`shrink-0 text-sentinel-400 transition-transform ${layerPanelOpen ? '' : 'rotate-180'}`} aria-hidden />
+    </button>
+  );
+}
+
+const ModelFieldTimeline = forwardRef(function ModelFieldTimeline({ bottomBarWidth, bottomBarHeight }, ref) {
   const wm = useWeatherModelsContext();
-  const { sidebarOpen } = useApp();
-  const { timeline = [], validTime, setValidTime, playing, setPlaying, manifest, mode } = wm ?? {};
+  const { timeline = [], validTime, setValidTime, playing, setPlaying, manifest, mode, variables = [], variable } = wm ?? {};
 
   useEffect(() => {
     if (!playing || timeline.length < 2) return undefined;
@@ -31,16 +60,34 @@ export default function ModelFieldTimeline({ bottomOffset = 80 }) {
   }, [playing, timeline, validTime, setValidTime]);
 
   if (!wm) return null;
-  // Phones: leave the right edge for the map's zoom/compass buttons. Wider: centred on the visible map.
-  const position = `absolute z-20 left-3 right-[3.75rem] sm:right-auto sm:left-1/2 sm:-translate-x-1/2 sm:w-[min(46rem,calc(100vw-10rem))] ${
-    sidebarOpen ? 'sm:left-[calc(50%+10rem)] sm:w-[min(46rem,calc(100vw-22rem))]' : ''}`;
+  const variableLabel = variables.find((v) => v.id === variable)?.label;
+
+  // Same frame as SPCOutlookSelector: flush on the bar's top edge, the bar's width.
+  const frame = (children) => (
+    <div
+      ref={ref}
+      role="group"
+      aria-label="Model forecast time"
+      className="dark absolute bottom-20 left-1/2 -translate-x-1/2 z-20 w-[min(34rem,calc(100vw-2rem))]
+                 bg-sentinel-900 border border-sentinel-600 rounded-t-2xl shadow-2xl shadow-black/60 ring-1 ring-white/10
+                 overflow-hidden text-white"
+      style={{
+        width: bottomBarWidth ? `${bottomBarWidth}px` : undefined,
+        bottom: bottomBarHeight ? `${bottomBarHeight + 16}px` : undefined,
+        maxWidth: 'calc(100vw - 1rem)',
+      }}
+    >
+      {children}
+    </div>
+  );
 
   if (!timeline.length || !validTime) {
-    return (
-      <div className={position} style={{ bottom: bottomOffset }}>
-        <div className="rounded-xl border border-dashed border-sentinel-600 bg-sentinel-900/95 px-3 py-2 text-sm text-sentinel-200">
+    return frame(
+      <div className="flex items-center gap-2 px-3 py-2">
+        <span className={`min-w-0 flex-1 text-xs ${wm.manifestError ? 'text-red-300' : 'text-sentinel-300'}`}>
           {wm.manifestError ? `Model fields unavailable: ${wm.manifestError.message}` : 'Loading model runs…'}
-        </div>
+        </span>
+        <ModelChip mode={mode} variableLabel={variableLabel} />
       </div>
     );
   }
@@ -55,36 +102,28 @@ export default function ModelFieldTimeline({ bottomOffset = 80 }) {
   const hourModels = mode === 'compare' ? ['hrrr', 'gfs'] : [mode];
   const max = timeline.length - 1;
 
-  return (
-    <div className={position} style={{ bottom: bottomOffset }}>
-      <div className="dark rounded-xl border border-sentinel-600 bg-sentinel-900/95 backdrop-blur-md shadow-2xl px-3 py-2 text-white">
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-          <button
-            type="button"
-            onClick={() => setPlaying(!playing)}
-            aria-label={playing ? 'Pause forecast animation' : 'Play forecast animation'}
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white text-sentinel-900 hover:bg-sentinel-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-sky-500"
-          >
-            {playing ? <Pause size={15} aria-hidden /> : <Play size={15} className="ml-0.5" aria-hidden />}
-          </button>
-          <div className="min-w-0 text-sm">
-            <span className="font-semibold">{localTime(validTime, { month: 'short', day: 'numeric', minute: '2-digit' })}</span>
-            <span className="ml-2 text-xs text-sentinel-300 tabular-nums">
-              valid {zulu(validTime)} · {hourModels.map((m) => `${mode === 'compare' ? `${m.toUpperCase()} ` : ''}+${hourAt(manifest, m, validTime)} h`).join(' · ')}
-            </span>
-          </div>
-          <div className="ml-auto flex flex-wrap gap-1" role="group" aria-label="Jump to forecast time">
-            {jumps.map((j) => (
-              <button key={j.label} type="button" onClick={() => { setPlaying(false); setValidTime(timeline[j.i]); }}
-                aria-pressed={j.i === index}
-                className={`rounded px-1.5 py-0.5 text-[11px] font-medium tabular-nums focus-visible:outline focus-visible:outline-2 focus-visible:outline-sky-500 ${
-                  j.i === index ? 'bg-white text-sentinel-900' : 'text-sentinel-200 hover:bg-sentinel-700'}`}>
-                {j.label}
-              </button>
-            ))}
+  return frame(
+    <>
+      {/* Wraps the model chip onto its own line when the bar is narrow (phones). */}
+      <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5 px-3 pt-2">
+        <button
+          type="button"
+          onClick={() => setPlaying(!playing)}
+          aria-label={playing ? 'Pause forecast animation' : 'Play forecast animation'}
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white text-sentinel-900 hover:bg-sentinel-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-sky-500"
+        >
+          {playing ? <Pause size={15} aria-hidden /> : <Play size={15} className="ml-0.5" aria-hidden />}
+        </button>
+        <div className="min-w-[8rem] flex-1 leading-tight">
+          <div className="truncate text-sm font-semibold">{localTime(validTime, { month: 'short', day: 'numeric', minute: '2-digit' })}</div>
+          <div className="truncate text-[10px] text-sentinel-300 tabular-nums">
+            valid {zulu(validTime)} · {hourModels.map((m) => `${mode === 'compare' ? `${m.toUpperCase()} ` : ''}+${hourAt(manifest, m, validTime)} h`).join(' · ')}
           </div>
         </div>
-        <div className="relative mt-1.5">
+        <ModelChip mode={mode} variableLabel={variableLabel} />
+      </div>
+      <div className="px-3 pt-2">
+        <div className="relative">
           <div aria-hidden className="pointer-events-none absolute left-0 top-1/2 h-1.5 -translate-y-1/2 rounded-l bg-sentinel-500/60"
             style={{ width: `${(now / Math.max(1, max)) * 100}%` }} />
           <input
@@ -100,6 +139,18 @@ export default function ModelFieldTimeline({ bottomOffset = 80 }) {
           <span>{localTime(timeline[max])}</span>
         </div>
       </div>
-    </div>
+      <div className="mt-1.5 flex gap-1 overflow-x-auto border-t border-sentinel-700 px-2 py-1.5" role="group" aria-label="Jump to forecast time">
+        {jumps.map((j) => (
+          <button key={j.label} type="button" onClick={() => { setPlaying(false); setValidTime(timeline[j.i]); }}
+            aria-pressed={j.i === index}
+            className={`shrink-0 rounded-md px-2 py-0.5 text-[11px] font-semibold tabular-nums focus-visible:outline focus-visible:outline-2 focus-visible:outline-sky-500 ${
+              j.i === index ? 'bg-white text-sentinel-900' : 'text-sentinel-200 hover:bg-sentinel-700'}`}>
+            {j.label}
+          </button>
+        ))}
+      </div>
+    </>
   );
-}
+});
+
+export default ModelFieldTimeline;
