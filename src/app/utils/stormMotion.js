@@ -11,8 +11,7 @@
  * this line by hand in the warning text itself
  * ("TIME...MOT...LOC 2247Z 268DEG 39KT 3617 9757"), so this only covers
  * storms currently under an active warning that includes it; it is not a
- * general radar-derived storm-cell tracker (see NEXRAD_REFLECTIVITY_HIDE_BELOW_DBZ
- * and this project's radar rendering — cell detection/tracking from raw
+ * general radar-derived storm-cell tracker (cell detection/tracking from raw
  * reflectivity is a much larger, separate undertaking).
  */
 

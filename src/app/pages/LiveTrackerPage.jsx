@@ -49,10 +49,6 @@ import { useCaliforniaLandOwnership, isWithinLandOwnershipRange } from '../hooks
 import { useFloodHazards } from '../hooks/useFloodHazards';
 import { usePlan } from '../../shared/hooks/usePlan';
 import { useWaterGauges } from '../hooks/useWaterGauges';
-import { useNexradSites } from '../hooks/useNexradSites';
-import { useNexradScan } from '../hooks/useNexradScan';
-import { useNexradRaster } from '../hooks/useNexradRaster';
-import { useNexradComposite } from '../hooks/useNexradComposite';
 import { useStormMotionVectors } from '../hooks/useStormMotionVectors';
 import { useCaliforniaCameras } from '../hooks/useCaliforniaCameras';
 import { useCalFirePerimeters } from '../hooks/useCalFirePerimeters';
@@ -75,11 +71,10 @@ import AccountPanel from '../components/AccountPanel/AccountPanel';
 import Legend from '../components/Legend/Legend';
 import FloodHazardStatus from '../components/MapControls/FloodHazardStatus';
 // Lazy-loaded: each only ever mounts once the user has actually selected the
-// corresponding fire/gauge/radar site/camera, so their code shouldn't ship in
+// corresponding fire/gauge/camera, so their code shouldn't ship in
 // the initial bundle for sessions that never open one.
 const FireDetailPanel = lazy(() => import('../components/FireDetailPanel/FireDetailPanel'));
 const WaterGaugePanel = lazy(() => import('../components/WaterGaugePanel/WaterGaugePanel'));
-const RadarSitePanel = lazy(() => import('../components/RadarSitePanel/RadarSitePanel'));
 const CameraPanel = lazy(() => import('../components/CameraPanel/CameraPanel'));
 
 // US continental bounding box for data fetches
@@ -103,7 +98,6 @@ const WILDFIRE_LAYER_PRESET = {
   goesFire16: false,
   goesFire18: false,
   spcWeatherOutlooks: false,
-  radar: false,
   evacZones: true,
   rawsStations: false,
   airNowMonitors: false,
@@ -125,7 +119,6 @@ const ALL_HAZARD_LAYER_PRESET = {
   goesEast: false,
   goesWest: false,
   spcWeatherOutlooks: false,
-  radar: true,
   evacZones: true,
   rawsStations: false,
   airNowMonitors: false,
@@ -138,9 +131,8 @@ const ALL_HAZARD_LAYER_PRESET = {
   floodHazard: false,
 };
 
-// Weather tab: auto-enable NWS alerts (includes SPC MDs on map) and
-// Composite Radar; other weather layers, including NEXRAD, are opt-in
-// via the layer panel.
+// Weather tab: auto-enable NWS alerts (includes SPC MDs on map); other
+// weather layers are opt-in via the layer panel.
 const WEATHER_LAYER_PRESET = {
   fireHotspots: false,
   firePerimeters: false,
@@ -153,7 +145,6 @@ const WEATHER_LAYER_PRESET = {
   goesFire18: false,
   spcWeatherOutlooks: false,
   stormReports: false,
-  radarComposite: true,
   criticalInfrastructure: false,
   evacZones: false,
   rawsStations: false,
@@ -252,7 +243,7 @@ function filterActiveFiresGeoJSON(geoJSON, { containedKey }) {
 const RAWS_MIN_ZOOM = 9;
 
 export default function LiveTrackerPage() {
-  const { layers, setLayer, feedFilter, selectedGauge, selectGauge, selectedFire, selectFire, selectedRadarSite, selectRadarSite, selectedCamera, selectCamera, wpcOutlookDay } = useApp();
+  const { layers, setLayer, feedFilter, selectedGauge, selectGauge, selectedFire, selectFire, selectedCamera, selectCamera, wpcOutlookDay } = useApp();
   const { setRefreshed, setLoading, alerts, userLocation } = useAppStatus();
   const { home, nearbyActive } = useHomeSetup();
   const { viewport, setViewport, flyToFire } = useViewport();
@@ -266,7 +257,6 @@ export default function LiveTrackerPage() {
   const [bannerDismissed, setBannerDismissed] = useState(false);
   const [measureActive, setMeasureActive] = useState(false);
   const [measureMode, setMeasureMode] = useState('distance');
-  const [precipRingActive, setPrecipRingActive] = useState(false);
 
   const onMeasureActivate = useCallback((mode) => {
     setMeasureMode(mode);
@@ -276,26 +266,6 @@ export default function LiveTrackerPage() {
   const onMeasureClose = useCallback(() => {
     setMeasureActive(false);
   }, []);
-
-  const onPrecipRingToggle = useCallback(() => {
-    if (!precipRingActive) {
-      setLayer('radarComposite', true);
-    }
-    setPrecipRingActive(!precipRingActive);
-  }, [precipRingActive, setLayer]);
-
-  useEffect(() => {
-    if (activeMapTab !== MAP_TABS.weather && activeMapTab !== MAP_TABS.allhazard) {
-      setPrecipRingActive(false);
-    }
-  }, [activeMapTab]);
-
-  // NEXRAD Level II turned off, or leaving the weather/all-hazard tabs,
-  // closes any open site radar panel so its live scan polling stops.
-  const isWeatherOrAllHazardTab = activeMapTab === MAP_TABS.weather || activeMapTab === MAP_TABS.allhazard;
-  useEffect(() => {
-    if (!layers.radarNexrad || !isWeatherOrAllHazardTab) selectRadarSite(null);
-  }, [layers.radarNexrad, isWeatherOrAllHazardTab, selectRadarSite]);
 
   useEffect(() => {
     if (!criticalInfraEntitled && layers.criticalInfrastructure) {
@@ -678,52 +648,10 @@ export default function LiveTrackerPage() {
     geoJSON: waterGaugesGeoJSON,
   } = useWaterGauges(layers.waterGauges);
 
-  // NWS NEXRAD Level 2 radar sites — live operability status. Needed both
-  // for the site-picker layer (radarNexrad) and as the coordinate source for
-  // Composite Radar's per-site rasterization (radarComposite).
-  const {
-    geoJSON: nexradSitesGeoJSON,
-  } = useNexradSites(weatherDataEnabled && (layers.radarNexrad || layers.radarComposite));
-
   // Live California highway cameras — Caltrans District CCTV
   const {
     geoJSON: californiaCamerasGeoJSON,
   } = useCaliforniaCameras(layers.wildfireCameras);
-
-  // Live Level II sweep for whichever radar site is currently selected.
-  const [radarProduct, setRadarProduct] = useState('reflectivity');
-  useEffect(() => {
-    setRadarProduct('reflectivity');
-  }, [selectedRadarSite?.id]);
-
-  const { meta: radarScanMeta, payload: radarScanPayload, status: radarScanStatus, error: radarScanError } =
-    useNexradScan(selectedRadarSite?.id, radarProduct, Boolean(selectedRadarSite));
-
-  const radarRaster = useNexradRaster(
-    selectedRadarSite?.id,
-    radarProduct,
-    radarScanMeta?.scan_time,
-    radarScanPayload,
-    selectedRadarSite ? { lat: selectedRadarSite.lat, lng: selectedRadarSite.lng } : null
-  );
-
-  // Composite Radar — every NEXRAD site's own reflectivity sweep, rendered
-  // as its own map layer (see useNexradComposite.js's doc comment for why
-  // this replaced the old national MRMS mosaic). Independent of the
-  // single-site NEXRAD Level II view above; feeds only layers.radarComposite.
-  const {
-    frames: nexradCompositeFrames,
-    selectedTimestamp: nexradCompositeSelectedTimestamp,
-    isLive: nexradCompositeIsLive,
-    isPlaying: nexradCompositeIsPlaying,
-    error: nexradCompositeError,
-    sites: nexradCompositeSites,
-    selectFrame: onNexradCompositeSelectFrame,
-    play: onNexradCompositePlay,
-    pause: onNexradCompositePause,
-    previous: onNexradCompositePrevious,
-    next: onNexradCompositeNext,
-  } = useNexradComposite(weatherDataEnabled && layers.radarComposite, nexradSitesGeoJSON, viewport);
 
   // Community-submitted reports – only approved ones, realtime-subscribed.
   // Tertiary tier: a supplemental overlay, not needed for first paint.
@@ -1307,10 +1235,9 @@ export default function LiveTrackerPage() {
     floodHazardEnabled,
   ]);
 
-  // Measures the bottom bar's own rendered size so the Composite Radar
-  // scrub bar (rendered separately, inside MapView) and the NEXRAD Level II
-  // site popup (below) can match its width and sit flush against it,
-  // instead of guessing a fixed size.
+  // Measures the bottom bar's own rendered size so the outlook selectors
+  // docked on top of it (rendered separately, inside MapView) can match its
+  // width and sit flush against it, instead of guessing a fixed size.
   const mapBottomBarRef = useRef(null);
   const [mapBottomBarSize, setMapBottomBarSize] = useState({ width: 0, height: 0 });
 
@@ -1327,49 +1254,9 @@ export default function LiveTrackerPage() {
     return () => observer.disconnect();
   }, []);
 
-  const radarScrubberAttached = (activeMapTab === MAP_TABS.weather || activeMapTab === MAP_TABS.allhazard)
-    && Boolean(layers.radarComposite) && nexradCompositeFrames.length >= 2;
-
-  // Measures the radar scrub bar's own height so the Layers panel (opened
-  // from inside MapBottomBar) can clear it too, instead of only clearing
-  // MapBottomBar and opening on top of the scrub bar.
-  const radarTimelineRef = useRef(null);
-  const [radarTimelineHeight, setRadarTimelineHeight] = useState(0);
-
-  useEffect(() => {
-    const el = radarTimelineRef.current;
-    if (!el) {
-      setRadarTimelineHeight(0);
-      return undefined;
-    }
-    const observer = new ResizeObserver(() => {
-      setRadarTimelineHeight(el.getBoundingClientRect().height);
-    });
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [radarScrubberAttached]);
-
-  // Measures the NEXRAD Level II site popup's own height so the Layers panel
-  // can clear it too — same reasoning as the Composite Radar scrub bar above.
-  const radarSitePanelRef = useRef(null);
-  const [radarSitePanelHeight, setRadarSitePanelHeight] = useState(0);
-
-  useEffect(() => {
-    const el = radarSitePanelRef.current;
-    if (!el) {
-      setRadarSitePanelHeight(0);
-      return undefined;
-    }
-    const observer = new ResizeObserver(() => {
-      setRadarSitePanelHeight(el.getBoundingClientRect().height);
-    });
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [selectedRadarSite?.id]);
-
   // The SPC outlook selector docks above the same bottom-bar stack (see
   // MapView), so it needs to be measured too — the Layers panel and the
-  // bar/radar-panel top corners all need to account for it being on top.
+  // bar's top corners both need to account for it being on top.
   const outlookShowing = (activeMapTab === MAP_TABS.weather || activeMapTab === MAP_TABS.allhazard)
     && Boolean(layers.spcWeatherOutlooks);
   const spcOutlookPanelRef = useRef(null);
@@ -1408,24 +1295,19 @@ export default function LiveTrackerPage() {
     return () => observer.disconnect();
   }, [fireWxOutlookShowing]);
 
-  // Either radar control can be docked above the bottom bar, and both can be
-  // open together (the site popup then stacks flush on top of the timeline),
-  // and the SPC/fire-weather outlook selector can dock on top of all of that
-  // — so the bar's own "something is attached to my top edge" flag and the
-  // Layers panel's clearance both need to account for whichever combination
-  // is actually showing.
-  const radarBottomBarAttached = radarScrubberAttached || Boolean(selectedRadarSite) || outlookShowing || fireWxOutlookShowing;
-  const radarStackHeight = (radarScrubberAttached ? radarTimelineHeight : 0) + (selectedRadarSite ? radarSitePanelHeight : 0);
-  const totalDockedHeight = radarStackHeight
-    + (outlookShowing ? spcOutlookPanelHeight : 0)
+  // The SPC/fire-weather outlook selector docks on the bottom bar's top
+  // edge, so the bar's own "something is attached to my top edge" flag and
+  // the Layers panel's clearance both need to account for it.
+  const bottomBarAttached = outlookShowing || fireWxOutlookShowing;
+  const totalDockedHeight = (outlookShowing ? spcOutlookPanelHeight : 0)
     + (fireWxOutlookShowing ? fireWxOutlookPanelHeight : 0);
-  const layerPanelRadarClearance = totalDockedHeight ? totalDockedHeight + 8 : 0;
+  const layerPanelDockClearance = totalDockedHeight ? totalDockedHeight + 8 : 0;
 
   return (
     <div className="h-screen supports-[height:100dvh]:h-dvh w-screen flex flex-col bg-sentinel-900 text-white overflow-hidden select-none">
       <Seo
         title="Live Wildfire Map & Tracker | Sentinel by NWTT"
-        description="Track active wildfires in real time with satellite hotspot detection, fire perimeters, containment status, red flag warnings, radar, and air quality — free, from the National Wildfire Tracking Team."
+        description="Track active wildfires in real time with satellite hotspot detection, fire perimeters, containment status, red flag warnings, and air quality — free, from the National Wildfire Tracking Team."
         path="/"
       />
       {/* ── Top bar ── */}
@@ -1503,28 +1385,9 @@ export default function LiveTrackerPage() {
             measureMode={measureMode}
             onMeasureActivate={onMeasureActivate}
             onMeasureClose={onMeasureClose}
-            precipRingActive={precipRingActive}
-            onPrecipRingToggle={onPrecipRingToggle}
             waterGaugesGeoJSON={waterGaugesGeoJSON}
-            nexradSitesGeoJSON={nexradSitesGeoJSON}
-            nexradScanUrl={radarRaster?.dataUrl}
-            nexradScanCoordinates={radarRaster?.coordinates}
-            nexradCompositeSites={nexradCompositeSites}
-            nexradCompositeIsLive={nexradCompositeIsLive}
-            nexradCompositeTimelineVisible={(activeMapTab === MAP_TABS.weather || activeMapTab === MAP_TABS.allhazard) && layers.radarComposite}
-            nexradCompositeFrames={nexradCompositeFrames}
-            nexradCompositeSelectedTimestamp={nexradCompositeSelectedTimestamp}
-            nexradCompositeIsPlaying={nexradCompositeIsPlaying}
-            nexradCompositeError={nexradCompositeError}
-            onNexradCompositeSelectFrame={onNexradCompositeSelectFrame}
-            onNexradCompositePlay={onNexradCompositePlay}
-            onNexradCompositePause={onNexradCompositePause}
-            onNexradCompositePrevious={onNexradCompositePrevious}
-            onNexradCompositeNext={onNexradCompositeNext}
             mapBottomBarWidth={mapBottomBarSize.width}
             mapBottomBarHeight={mapBottomBarSize.height}
-            radarStackHeight={radarStackHeight}
-            radarTimelineRef={radarTimelineRef}
             spcOutlookPanelRef={spcOutlookPanelRef}
             fireWxOutlookPanelRef={fireWxOutlookPanelRef}
             calFireHistoricalPerimetersGeoJSON={calFireHistoricalPerimetersGeoJSON}
@@ -1577,18 +1440,14 @@ export default function LiveTrackerPage() {
             measureMode={measureMode}
             onMeasureActivate={onMeasureActivate}
             onMeasureClose={onMeasureClose}
-            precipRingActive={precipRingActive}
-            onPrecipRingToggle={onPrecipRingToggle}
-            radarScrubberAttached={radarBottomBarAttached}
-            radarPanelClearance={layerPanelRadarClearance}
+            dockedAttached={bottomBarAttached}
+            dockedPanelClearance={layerPanelDockClearance}
           />
 
           <Legend
             spcOutlookType={spcOutlookType}
             spcActiveDay={spcActiveDay}
             fireWxOutlookType={fireWxOutlookType}
-            radarScanActive={Boolean(selectedRadarSite)}
-            radarScanProduct={radarProduct}
           />
           <Suspense fallback={null}>
             {selectedFire && <FireDetailPanel />}
@@ -1596,23 +1455,6 @@ export default function LiveTrackerPage() {
               <WaterGaugePanel
                 gauge={selectedGauge}
                 onClose={() => selectGauge(null)}
-              />
-            )}
-            {selectedRadarSite && (
-              <RadarSitePanel
-                ref={radarSitePanelRef}
-                site={selectedRadarSite}
-                product={radarProduct}
-                onProductChange={setRadarProduct}
-                meta={radarScanMeta}
-                status={radarScanStatus}
-                error={radarScanError}
-                onClose={() => selectRadarSite(null)}
-                bottomBarWidth={mapBottomBarSize.width}
-                bottomBarHeight={
-                  mapBottomBarSize.height + (radarScrubberAttached ? radarTimelineHeight : 0)
-                }
-                topAttached={outlookShowing}
               />
             )}
             {selectedCamera && (

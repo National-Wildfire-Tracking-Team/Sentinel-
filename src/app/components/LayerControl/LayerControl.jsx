@@ -7,7 +7,7 @@
 import { useState, memo, useMemo, useEffect } from 'react';
 import { getMainOrigin } from '../../../shared/utils/getAppOrigin';
 import {
-  Layers, Flame, MapPin, Wind, CloudRain, CloudLightning, Eye, ChevronDown, ChevronRight, Radar, AlertTriangle, Ruler, Hexagon, Satellite, Thermometer, Activity, Droplets, Zap, Lock, GraduationCap, History, TrendingUp, Crosshair, Camera, Snowflake, Landmark, Waves,
+  Layers, Flame, MapPin, Wind, CloudRain, CloudLightning, Eye, ChevronDown, ChevronRight, AlertTriangle, Ruler, Hexagon, Satellite, Thermometer, Activity, Droplets, Zap, Lock, GraduationCap, History, TrendingUp, Camera, Snowflake, Landmark, Waves,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { trackSentinelUse } from '../../../shared/utils/analytics';
@@ -39,8 +39,6 @@ const LAYER_DEFS = {
   goesWest:          { label: 'GOES West Imagery',   sublabel: 'NOAA GOES West · visible',    icon: Eye,           color: '#7c3aed' },
   goesFire16:        { label: 'GOES East Fire RGB',  sublabel: 'NOAA GOES East · Day Land Cloud Fire RGB', icon: Eye, color: '#a855f7' },
   goesFire18:        { label: 'GOES West Fire RGB',  sublabel: 'NOAA GOES West · Day Land Cloud Fire RGB', icon: Eye, color: '#9333ea' },
-  radarComposite:    { label: 'Composite Radar',      sublabel: 'Every NEXRAD site, live', icon: Radar, color: '#10b981' },
-  radarNexrad:       { label: 'NEXRAD Level II',      sublabel: 'Per-site reflectivity & velocity scans', icon: Radar, color: '#06b6d4' },
   aqi:               { label: 'AQI Heatmap',          sublabel: 'EPA AirNow gradient overlay',  icon: Wind,         color: '#3b82f6' },
   smoke:             { label: 'Smoke Forecast',      sublabel: 'NOAA HRRR',                   icon: CloudRain,    color: '#94a3b8' },
   waterGauges:        { label: 'Water Gauges',        sublabel: 'NOAA NWPS river & coastal gauges', icon: Droplets, color: '#1e90ff' },
@@ -68,7 +66,7 @@ const TAB_SECTIONS = {
       title: 'Weather hazards',
       groups: [
         {
-          layers: ['weatherAlerts', 'stormReports', 'damageAssessment', 'radarComposite', 'radarNexrad', 'waterGauges', 'floodHazard', 'spcWeatherOutlooks', 'fireWeatherOutlooks', 'fireRiskOutlook', 'wpcEro', 'wpcWssi', 'wpcQpf', 'wpcFronts'],
+          layers: ['weatherAlerts', 'stormReports', 'damageAssessment', 'waterGauges', 'floodHazard', 'spcWeatherOutlooks', 'fireWeatherOutlooks', 'fireRiskOutlook', 'wpcEro', 'wpcWssi', 'wpcQpf', 'wpcFronts'],
         },
       ],
     },
@@ -124,10 +122,10 @@ const TAB_SECTIONS = {
   weather: [
     {
       id: 'wx-imagery',
-      title: 'Radar & satellite',
+      title: 'Satellite',
       groups: [
         {
-          layers: ['radarComposite', 'radarNexrad', 'goesEast', 'goesWest'],
+          layers: ['goesEast', 'goesWest'],
         },
       ],
     },
@@ -353,9 +351,7 @@ const LayerControl = memo(function LayerControl({
   measureMode = 'distance',
   onMeasureActivate,
   onMeasureClose,
-  precipRingActive = false,
-  onPrecipRingToggle,
-  radarPanelClearance = 0,
+  dockedPanelClearance = 0,
 }) {
   const { layerPanelOpen, toggleLayerPanel } = useApp();
   const [collapsed, setCollapsed] = useState({});
@@ -419,8 +415,6 @@ const LayerControl = memo(function LayerControl({
     activeMapTab === 'allhazard' ? 'from-red-700/40 via-fire-700/20 to-black' :
                                    'from-fire-600/35 to-black';
 
-  const isWeatherTab = activeMapTab === 'weather';
-  const isAllHazardTab = activeMapTab === 'allhazard';
 
   return (
     <>
@@ -445,7 +439,7 @@ const LayerControl = memo(function LayerControl({
                         bg-sentinel-900 backdrop-blur-md border border-sentinel-600
                         rounded-2xl shadow-2xl shadow-black/60 overflow-hidden
                         origin-bottom animate-slide-up-panel"
-          style={radarPanelClearance ? { marginBottom: `${radarPanelClearance}px` } : undefined}
+          style={dockedPanelClearance ? { marginBottom: `${dockedPanelClearance}px` } : undefined}
         >
           <div className={`px-3 pt-3 pb-2 border-b border-sentinel-700 bg-gradient-to-b ${tabAccent}`}>
             <div className="flex items-center justify-between gap-2">
@@ -456,26 +450,6 @@ const LayerControl = memo(function LayerControl({
               </div>
 
               <div className="flex items-center gap-1 shrink-0">
-                {(isWeatherTab || isAllHazardTab) && (
-                  <div className="relative group">
-                    <button
-                      type="button"
-                      onClick={onPrecipRingToggle}
-                      className={`w-7 h-7 flex items-center justify-center rounded-md transition-all ${
-                        precipRingActive
-                          ? 'bg-sky-500 text-white border border-sky-400'
-                          : 'text-sentinel-200 hover:text-white hover:bg-sentinel-700'
-                      }`}
-                      aria-label="Toggle dBZ radar probe"
-                      aria-pressed={precipRingActive}
-                    >
-                      <Crosshair size={13} />
-                    </button>
-                    <span className="absolute top-full mt-1.5 left-1/2 -translate-x-1/2 whitespace-nowrap rounded px-2 py-0.5 text-[11px] font-medium bg-sentinel-800 text-sentinel-100 shadow pointer-events-none z-50 opacity-0 group-hover:opacity-100 transition-opacity">
-                      dBZ radar probe
-                    </span>
-                  </div>
-                )}
                 <div className="relative group">
                   <button
                     type="button"
@@ -513,11 +487,11 @@ const LayerControl = memo(function LayerControl({
           </div>
 
           {/* Also capped to what's left between the header and the bottom bar
-              (plus any docked radar/outlook panels), so short landscape phone
+              (plus any docked outlook panel), so short landscape phone
               screens don't push the panel's header up under the page header. */}
           <div
             className="py-2 max-h-[min(60vh,28rem)] overflow-y-auto"
-            style={{ maxHeight: `min(60vh, 28rem, calc(100dvh - 14rem - ${radarPanelClearance}px))` }}
+            style={{ maxHeight: `min(60vh, 28rem, calc(100dvh - 14rem - ${dockedPanelClearance}px))` }}
           >
             {sections.map((section) => {
               const sectionKey = section.id;

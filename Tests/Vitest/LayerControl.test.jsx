@@ -98,16 +98,10 @@ describe('LayerControl — Infrastructure & Modeling group', () => {
     expect(screen.queryByText('Evacuation Zones')).not.toBeInTheDocument();
   });
 
-  it('shows and toggles the dBZ probe on the weather tab', () => {
-    const onPrecipRingToggle = vi.fn();
-    renderPanel({ activeMapTab: 'weather', onPrecipRingToggle });
-    const button = screen.getByRole('button', { name: 'Toggle dBZ radar probe' });
-    fireEvent.click(button);
-    expect(onPrecipRingToggle).toHaveBeenCalledOnce();
-  });
-
-  it('does not show the dBZ probe on the wildfire tab', () => {
-    renderPanel({ activeMapTab: 'wildfire' });
+  it('no longer offers radar layers or the dBZ probe (radar is being rebuilt)', () => {
+    renderPanel({ activeMapTab: 'weather' });
+    expect(screen.queryByText('Composite Radar')).not.toBeInTheDocument();
+    expect(screen.queryByText('NEXRAD Level II')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Toggle dBZ radar probe' })).not.toBeInTheDocument();
   });
 });

@@ -14,9 +14,7 @@ import {
   CLUSTER_ACTIVE_RING_COLOR,
   CLUSTER_CONTAINED_RING_COLOR,
 } from '../Map/layers/IncidentLocationsLayer';
-import { NEXRAD_STATUS } from '../../api/nexradSites';
 import { FLOOD_ATTRIBUTION, FLOOD_CATEGORIES } from '../../utils/floodHazard';
-import { VELOCITY_SCALE as LIVE_VELOCITY_SCALE, REFLECTIVITY_SCALE } from '../../utils/radarRaster';
 
 const CONTAINMENT_SCALE = [
   { color: '#ef4444', label: 'Uncontained (0%)' },
@@ -34,29 +32,6 @@ const FRP_SCALE = [
   { color: '#ff4500', label: 'Very High  (200–500 MW)' },
   { color: '#ff0000', label: 'Extreme  (>500 MW)' },
 ];
-
-// Derived directly from radarRaster.js's REFLECTIVITY_SCALE — the actual
-// standard-NWS color table every reflectivity renderer uses (single-site
-// NEXRAD Level II and Composite Radar alike now render through the same
-// rasterizeSweep, since Composite Radar is itself built from every NEXRAD
-// site's own sweep — see useNexradComposite.js), so the legend can never
-// drift out of sync with either. Labeled purely by dBZ range, per NOAA's
-// JetStream reflectivity guidance: dBZ is returned radar energy, not a
-// direct rainfall measurement, so no "light/moderate/heavy" rain descriptors
-// are shown. Filtered to NEXRAD_REFLECTIVITY_HIDE_BELOW_DBZ (radarRaster.js's
-// hide threshold for the 'reflectivity' product) since nothing below that is
-// ever rendered, on either layer.
-const NEXRAD_REFLECTIVITY_HIDE_BELOW_DBZ = 20;
-const VISIBLE_REFLECTIVITY_SCALE = REFLECTIVITY_SCALE.filter(
-  (stop) => stop.min >= NEXRAD_REFLECTIVITY_HIDE_BELOW_DBZ
-);
-export const RADAR_DBZ_SCALE = VISIBLE_REFLECTIVITY_SCALE.map((stop, i) => {
-  const next = VISIBLE_REFLECTIVITY_SCALE[i + 1];
-  return {
-    color: stop.color,
-    label: next ? `${stop.min}–${next.min} dBZ` : `${stop.min}+ dBZ`,
-  };
-});
 
 // Official SPC categorical palette (NOAA fill colors)
 const SPC_CATEGORICAL_SCALE = [
@@ -211,16 +186,9 @@ const FLOOD_HAZARD_SCALE = Object.entries(FLOOD_CATEGORIES)
   .filter(([key]) => key !== 'other')
   .map(([, meta]) => ({ color: meta.color, label: meta.label }));
 
-const LIVE_VELOCITY_LEGEND_SCALE = LIVE_VELOCITY_SCALE.map(({ min, color }) => ({
-  color,
-  label: `${min > 0 ? '+' : ''}${min} kt${min < 0 ? ' (toward)' : min > 0 ? ' (away)' : ''}`,
-}));
-
 const Legend = memo(function Legend({
   spcOutlookType = 'categorical',
   fireWxOutlookType = 'winds_low_humidity',
-  radarScanActive = false,
-  radarScanProduct = null,
 }) {
   const { layers, legendOpen, layerPanelOpen } = useApp();
   const [collapsed, setCollapsed] = useState(true);
@@ -346,39 +314,6 @@ const Legend = memo(function Legend({
                 <div className="text-sentinel-300 text-[10px] pt-1 mt-1 border-t border-sentinel-700">
                   NWS DAT: post-storm surveys, last 30 days
                 </div>
-              </Section>
-            )}
-
-            {/* NEXRAD Level II and Composite Radar each get their own
-                independent legend entry, gated only by that layer's own
-                state — not merged into one shared "radar reflectivity"
-                section — even though both now render identically (same
-                rasterizeSweep, same RADAR_DBZ_SCALE, same 20 dBZ hide
-                threshold), since Composite Radar is itself built from every
-                NEXRAD site's own sweep. */}
-            {radarScanActive && radarScanProduct === 'reflectivity' && (
-              <Section title="NEXRAD Reflectivity (dBZ)">
-                {RADAR_DBZ_SCALE.map(row => <ColorRow key={row.label} {...row} />)}
-              </Section>
-            )}
-
-            {layers.radarComposite && (
-              <Section title="Composite Radar Reflectivity (dBZ)">
-                {RADAR_DBZ_SCALE.map(row => <ColorRow key={row.label} {...row} />)}
-              </Section>
-            )}
-
-            {radarScanActive && radarScanProduct === 'velocity' && (
-              <Section title="Radar Velocity (kt)">
-                {LIVE_VELOCITY_LEGEND_SCALE.map(row => <ColorRow key={row.label} {...row} />)}
-              </Section>
-            )}
-
-            {layers.radarNexrad && (
-              <Section title="NEXRAD Sites">
-                <ColorRow color="#9ca3af" label="Station" />
-                <ColorRow color="#22c55e" label="Selected" />
-                <ColorRow color={NEXRAD_STATUS.offline.color} label="Out of service" />
               </Section>
             )}
 

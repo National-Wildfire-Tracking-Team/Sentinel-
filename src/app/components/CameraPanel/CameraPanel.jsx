@@ -2,8 +2,7 @@
  * CameraPanel.jsx
  * Compact floating widget for a selected California highway camera —
  * live still image (auto-refreshed), route/location, and an optional
- * link to the raw HLS stream. Styled to match RadarSitePanel's
- * floating-card conventions. The header is drag-handled so the user can
+ * link to the raw HLS stream. Styled as a floating card. The header is drag-handled so the user can
  * reposition the panel anywhere over the map, and the bottom corners are
  * resize-handled (locked to the panel's aspect ratio) so the live feed
  * can be scaled up or down in place.
