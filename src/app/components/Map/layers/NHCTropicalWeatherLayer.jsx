@@ -20,8 +20,15 @@ const EMPTY_FC = { type: 'FeatureCollection', features: [] };
 // ─── Tropical weather outlook (disturbances) ─────────────────────────────────
 const DIST_FILL_COLOR = ['coalesce', ['get', 'fillColor'], '#FFE566'];
 const DIST_STROKE_COLOR = ['coalesce', ['get', 'strokeColor'], '#CCAA00'];
-const DIST_AREA_FILL_PAINT   = { 'fill-color': DIST_FILL_COLOR,   'fill-opacity': 0.3 };
-const DIST_AREA_STROKE_PAINT = { 'line-color': DIST_STROKE_COLOR, 'line-opacity': 0.8, 'line-width': 1.5, 'line-dasharray': [2, 2] };
+// 7-day areas: a faint tint of the risk color with a solid outline in the
+// same color, so the basemap's ocean labels still read through the shape.
+const DIST_AREA_FILL_PAINT   = { 'fill-color': DIST_FILL_COLOR, 'fill-opacity': 0.12 };
+const DIST_AREA_STROKE_PAINT = {
+  'line-color': DIST_FILL_COLOR,
+  'line-opacity': 0.8,
+  'line-width': ['interpolate', ['linear'], ['zoom'], 2, 1.5, 6, 2.5],
+};
+const DIST_AREA_STROKE_LAYOUT = { 'line-join': 'round', 'line-cap': 'round' };
 const DIST_POINT_PAINT = {
   'circle-radius': ['interpolate', ['linear'], ['zoom'], 2, 5, 6, 8],
   'circle-color': DIST_FILL_COLOR,
@@ -104,7 +111,7 @@ const NHCTropicalWeatherLayer = memo(function NHCTropicalWeatherLayer({
       {/* 1. Tropical weather outlook — 7-day areas + current disturbance points */}
       <Source id="nhc-disturbance-areas" type="geojson" data={disturbanceAreasGeoJSON || EMPTY_FC}>
         <Layer id="nhc-disturbance-fill"   type="fill" source="nhc-disturbance-areas" layout={{ visibility: vis }} paint={DIST_AREA_FILL_PAINT} />
-        <Layer id="nhc-disturbance-stroke" type="line" source="nhc-disturbance-areas" layout={{ visibility: vis }} paint={DIST_AREA_STROKE_PAINT} />
+        <Layer id="nhc-disturbance-stroke" type="line" source="nhc-disturbance-areas" layout={{ ...DIST_AREA_STROKE_LAYOUT, visibility: vis }} paint={DIST_AREA_STROKE_PAINT} />
       </Source>
       <Source id="nhc-disturbance-points" type="geojson" data={disturbancePointsGeoJSON || EMPTY_FC}>
         <Layer id="nhc-disturbance-circle" type="circle" source="nhc-disturbance-points" layout={{ visibility: vis }} paint={DIST_POINT_PAINT} />

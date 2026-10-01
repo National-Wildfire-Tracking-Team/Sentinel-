@@ -661,8 +661,8 @@ export default function LiveTrackerPage() {
     refresh: refreshWpcMpd,
   } = useWpcMesoscaleDiscussion(weatherDataEnabled && layers.weatherAlerts);
 
-  // Permanent layer (not user-toggleable) — fetches whenever the weather/all-hazard tab is active.
-  const nhcTropicalWeatherEnabled = weatherDataEnabled;
+  // Permanent layer (not user-toggleable) — fetches whenever the weather, all-hazard or models tab is active.
+  const nhcTropicalWeatherEnabled = weatherDataEnabled || (activeMapTab === MAP_TABS.models && mapReady);
   const {
     forecastPointsGeoJSON: nhcForecastPointsGeoJSON,
     forecastTrackGeoJSON: nhcForecastTrackGeoJSON,

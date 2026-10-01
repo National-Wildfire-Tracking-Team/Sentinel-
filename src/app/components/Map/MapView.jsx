@@ -2068,7 +2068,7 @@ export default function MapView({
         />
 
         {/* NHC hurricane tracks, cone, watch/warnings, and tropical weather outlook —
-            permanent layer, not user-toggleable; shows whenever weather/all-hazard data is in scope */}
+            permanent layer, not user-toggleable; shows on the weather, all-hazard and models tabs */}
         <NHCTropicalWeatherLayer
           forecastPointsGeoJSON={nhcForecastPointsGeoJSON}
           forecastTrackGeoJSON={nhcForecastTrackGeoJSON}
@@ -2079,7 +2079,7 @@ export default function MapView({
           disturbancePointsGeoJSON={nhcDisturbancePointsGeoJSON}
           disturbanceAreasGeoJSON={nhcDisturbanceAreasGeoJSON}
           stormLabelsGeoJSON={nhcStormLabelsGeoJSON}
-          visible={isWeatherTab || isAllHazardTab}
+          visible={isWeatherTab || isAllHazardTab || activeMapTab === 'models'}
         />
 
         {/* Fire hotspot points – rendered last (top) */}
