@@ -52,6 +52,8 @@ const Sidebar = memo(function Sidebar({
   // Near-me mode: alerts already filtered to the user's radius (null = off)
   nearbyAlerts = null,
   nearbyOutlooks = NO_OUTLOOKS,
+  // Models tab body (WeatherModelsPanel), rendered in place of the feeds
+  modelsPanel = null,
 }) {
   const { sidebarOpen } = useApp();
   const { alerts: allAlerts } = useAppStatus();
@@ -61,6 +63,7 @@ const Sidebar = memo(function Sidebar({
   const [weatherFeedTab, setWeatherFeedTab] = useState('alerts');
   const isWeatherTab = activeMapTab === 'weather';
   const isAllHazardTab = activeMapTab === 'allhazard';
+  const isModelsTab = activeMapTab === 'models';
   const nhcActiveCount = nhcInvests.length + nhcCyclones.length;
 
   const activeCount  = incidents.filter(i => i.status === 'active').length;
@@ -90,7 +93,15 @@ const Sidebar = memo(function Sidebar({
         {/* Sidebar header — left-padded on mobile to clear the floating corner-button column, which only shifts out of the way at sm+ */}
         <div className={`flex items-center pl-20 pr-4 sm:px-4 py-3 border-b shrink-0 ${isAllHazardTab ? 'border-red-900/60 bg-gradient-to-r from-fire-900/30 to-sky-900/20' : 'border-sentinel-700'}`}>
           <div className="flex items-center gap-2">
-            {isAllHazardTab ? (
+            {isModelsTab ? (
+              <>
+                <Wind size={16} className="text-indigo-300" />
+                <h2 className="font-semibold text-white text-sm">Weather Models</h2>
+                <span className="px-1.5 py-0.5 rounded border border-dashed border-sentinel-500 text-sentinel-300 text-[11px]">
+                  Model forecast
+                </span>
+              </>
+            ) : isAllHazardTab ? (
               <>
                 <div className="relative">
                   <AlertTriangle size={16} className="text-yellow-400" />
@@ -120,6 +131,7 @@ const Sidebar = memo(function Sidebar({
           </div>
         </div>
 
+        {isModelsTab ? modelsPanel : (<>
         {/* Summary stats strip — same mobile left-padding as the header, for the same reason */}
         <div className={`pl-20 pr-16 sm:px-3 py-2 border-b shrink-0 ${isAllHazardTab ? 'border-red-900/50' : 'border-sentinel-700'}`}>
           <div className="flex justify-center gap-2 overflow-x-auto pb-1 scrollbar-none">
@@ -263,6 +275,7 @@ const Sidebar = memo(function Sidebar({
             <IncidentFeed incidents={incidents} loading={loading} error={error} />
           )}
         </div>
+        </>)}
         </>)}
       </aside>
     </>

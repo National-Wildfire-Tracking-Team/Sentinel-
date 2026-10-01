@@ -18,11 +18,16 @@ export class GithubDeployStack extends Stack {
   /**
    * @param {import('constructs').Construct} scope
    * @param {string} id
-   * @param {import('aws-cdk-lib').StackProps & { githubRepo: string, existingOidcProviderArn?: string }} props
+   * @param {import('aws-cdk-lib').StackProps & {
+   *   githubRepo: string, existingOidcProviderArn?: string, regions?: string[],
+   * }} props
    */
   constructor(scope, id, props) {
     super(scope, id, props);
     const { githubRepo, existingOidcProviderArn } = props;
+    // CDK bootstrap roles are per region. us-west-2 is bootstrapped only for
+    // SentinelWeatherModels (next to the HRRR/GFS buckets).
+    const regions = props.regions ?? [this.region];
 
     // An account holds one provider per URL; reuse it if another project
     // already created one.
@@ -47,7 +52,7 @@ export class GithubDeployStack extends Stack {
 
     role.addToPolicy(new iam.PolicyStatement({
       actions: ['sts:AssumeRole'],
-      resources: [`arn:${this.partition}:iam::${this.account}:role/cdk-hnb659fds-*-${this.account}-${this.region}`],
+      resources: regions.map((r) => `arn:${this.partition}:iam::${this.account}:role/cdk-hnb659fds-*-${this.account}-${r}`),
     }));
 
     new CfnOutput(this, 'DeployRoleArn', { value: role.roleArn, description: 'GitHub secret AWS_DEPLOY_ROLE_ARN' });

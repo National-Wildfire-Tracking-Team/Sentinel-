@@ -167,3 +167,8 @@ body {
     overflow: hidden;
   }
 }
+
+/* Models tab inspect popup: the content draws its own dark card. */
+.wm-inspect .mapboxgl-popup-content { background: transparent; padding: 0; box-shadow: 0 10px 25px rgba(0, 0, 0, 0.45); border-radius: 0.375rem; }
+.wm-inspect .mapboxgl-popup-tip { border-top-color: #0a0c0e; }
+.wm-inspect .mapboxgl-popup-close-button { color: #8a9ab0; right: 2px; top: 0; }

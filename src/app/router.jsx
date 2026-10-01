@@ -10,6 +10,7 @@ import { lazy, Suspense, useEffect } from 'react';
 import { getReporterOrigin } from '../shared/utils/getAppOrigin';
 import { supabase } from '../shared/api/supabaseClient';
 import Seo from '../shared/components/Seo';
+import { modelsHref } from './utils/weatherModelsLink';
 // Statically imported (not lazy) — "/" is the app subdomain's root route and
 // virtually every visit hits it, so lazy-loading it here only adds a serial
 // fetch waterfall (AppTree chunk -> LiveTrackerPage chunk -> vendor-mapbox
@@ -27,6 +28,15 @@ const DeploymentsPage = lazy(() => import('./pages/DeploymentsPage'));
 const VolunteerProfilePage = lazy(() => import('./pages/VolunteerProfilePage'));
 const ManageDeploymentsPage = lazy(() => import('./pages/ManageDeploymentsPage'));
 const ErrorTestPage = lazy(() => import('./pages/ErrorTestPage'));
+
+/** /weather-models?lat=&lon=&place=&model= → the live map's Models tab. */
+function WeatherModelsRedirect() {
+  const { search } = useLocation();
+  const p = new URLSearchParams(search);
+  const lat = Number.parseFloat(p.get('lat'));
+  const lon = Number.parseFloat(p.get('lon'));
+  return <Navigate to={modelsHref({ lat, lon, place: p.get('place'), model: p.get('model') })} replace />;
+}
 
 /** Scroll to top on route change */
 function ScrollToTop() {
@@ -99,6 +109,9 @@ export default function AppRouter() {
         <Routes>
           {/* Full-screen live tracker — app root */}
           <Route path="/" element={<LiveTrackerPage />} />
+
+          {/* Weather Models is the live map's Models tab; keep a readable URL that opens it */}
+          <Route path="/weather-models" element={<WeatherModelsRedirect />} />
 
           {/* Standalone, shareable, indexable overview for a single fire */}
           <Route path="/fire/:id" element={<FireIncidentPage />} />

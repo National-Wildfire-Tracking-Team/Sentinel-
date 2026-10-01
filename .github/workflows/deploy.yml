@@ -43,6 +43,10 @@ jobs:
           # Unset the secret to fall back to the per-tab Netlify path
           # (/api/wx + /api/nws/wwa), no code change needed.
           VITE_NWS_ALERTS_SERVICE_URL: ${{ secrets.VITE_NWS_ALERTS_SERVICE_URL }}
+          # HRRR/GFS model forecasts for the live map's Models tab — see
+          # cloud/weather-models/README.md. Unset: the tab explains the
+          # service isn't configured; nothing else in the app changes.
+          VITE_WEATHER_MODEL_SERVICE_URL: ${{ secrets.VITE_WEATHER_MODEL_SERVICE_URL }}
       # Snapshot the marketing pages as static HTML for crawlers (see
       # scripts/prerender.mjs). Deliberately run here rather than as part of
       # `npm run build` itself, so netlify.toml's own build command (used
