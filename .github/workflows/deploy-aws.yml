@@ -1,0 +1,59 @@
+name: Deploy AWS data services
+
+# Deploys infra/aws (CDK) — the AWS replacement for the cloud/* Cloud Run
+# services. Manual only: nothing here runs on push, so merging this file
+# changes nothing until someone triggers it. See infra/aws/README.md.
+#
+# Auth is GitHub OIDC → the `sentinel-github-deploy` role (created by the
+# SentinelGithubDeploy stack). No AWS keys are stored in this repo. The job
+# runs in the `aws-production` environment, the only one that role trusts,
+# so required reviewers on that environment gate every deploy.
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: diff (preview only) or deploy
+        type: choice
+        options: [diff, deploy]
+        default: diff
+
+concurrency:
+  group: deploy-aws
+  cancel-in-progress: false
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  cdk:
+    name: CDK ${{ inputs.action }}
+    runs-on: ubuntu-latest
+    environment: aws-production
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: infra/aws
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: infra/aws/package-lock.json
+      - run: npm ci
+      - run: npm test
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: us-east-1
+      - name: cdk ${{ inputs.action }}
+        run: |
+          CTX=(-c "sentinel:alarmEmail=${{ vars.AWS_ALARM_EMAIL }}" -c "sentinel:nwsUserAgent=${{ vars.NWS_USER_AGENT }}")
+          if [ "${{ inputs.action }}" = "deploy" ]; then
+            npx cdk deploy SentinelDataServices "${CTX[@]}" --require-approval never --outputs-file cdk-outputs.json
+            cat cdk-outputs.json
+          else
+            npx cdk diff SentinelDataServices "${CTX[@]}"
+          fi

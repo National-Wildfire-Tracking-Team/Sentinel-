@@ -1,5 +1,14 @@
 # Sentinel data platform — Google Cloud
 
+> **Moving to AWS.** `calfire-frap-proxy`, `california-land-ownership-proxy`,
+> `fema-nfhl-proxy`, `fire-perimeters-merge` and `nws-alerts` now also deploy,
+> unchanged, to AWS Lambda behind CloudFront from [`infra/aws/`](../infra/aws/README.md).
+> Each service's `run.sh` is the Lambda entry point; Cloud Run ignores it.
+> Cloud Run stays live until the cutover and decommission steps in
+> [`infra/aws/MIGRATION.md`](../infra/aws/MIGRATION.md) are complete. The old
+> NEXRAD services (`nexrad-sync`, `nexrad-heartbeat`) have been removed:
+> radar is being rebuilt. References to them below are historical.
+
 `cloud/` holds Sentinel's Google Cloud data layer. Each subdirectory is one
 self-contained, independently deployable Cloud Run service or job. The
 frontend stays on Netlify; this layer takes over the work that shouldn't
