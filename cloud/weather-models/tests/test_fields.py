@@ -231,6 +231,17 @@ class TestBuilder:
         assert again['built'] is False
         assert len(store.order) == n
 
+    def test_a_new_variable_rebuilds_the_current_run_once(self, tmp_path):
+        builder, store = make_builder(tmp_path)
+        builder.run()
+        manifest = read_manifest(store)
+        manifest['models']['hrrr']['variables'].remove('compositeReflectivity')  # as published by older code
+        store.put(MANIFEST_KEY, __import__('json').dumps(manifest).encode(), 'application/json', 'x')
+        again = FieldBuilder(builder.providers, store, hrrr_width=180, gfs_width=130).run()
+        assert again['built'] is True
+        assert 'compositeReflectivity' in read_manifest(store)['models']['hrrr']['variables']
+        assert FieldBuilder(builder.providers, store, hrrr_width=180, gfs_width=130).run()['built'] is False
+
     def test_incomplete_newest_run_keeps_the_previous_complete_run(self, tmp_path):
         builder, store = make_builder(tmp_path, hrrr_cell=constant_cell(missing_after={1: 3}))
         builder.run()

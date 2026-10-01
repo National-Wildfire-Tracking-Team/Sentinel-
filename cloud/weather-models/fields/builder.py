@@ -207,7 +207,14 @@ class FieldBuilder:
         started = time.monotonic()
         previous = self.store.get_json(MANIFEST_KEY) or {}
         prev_models = previous.get('models', {})
-        plans = {m: self.plan(m, prev_models.get(m, {}).get('current')) for m in ('hrrr', 'gfs')}
+        # A published run counts as built only if it has every variable this
+        # code produces; adding a variable rebuilds the current run once.
+        def published(m):
+            prev = prev_models.get(m, {})
+            expected = [v.id for v in FIELD_VARIABLES.values() if m in v.models]
+            return prev.get('current') if prev.get('variables') == expected else None
+
+        plans = {m: self.plan(m, published(m)) for m in ('hrrr', 'gfs')}
         hrrr, gfs = plans['hrrr'], plans['gfs']
 
         shared = sorted(set(hrrr.valid_times) & set(gfs.valid_times))
