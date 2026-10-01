@@ -72,6 +72,7 @@ export default function ModelFieldLegend() {
             A difference is disagreement, not error.
           </div>
         )}
+        {spec.notice && <div className="mt-0.5 text-[10px] text-amber-200">{spec.notice}</div>}
         {spec.timeSemantics === 'period-average' && !isDiff && (
           <div className="mt-0.5 text-[10px] text-sentinel-300">Average rate over the preceding forecast step.</div>
         )}

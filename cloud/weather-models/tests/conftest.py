@@ -126,6 +126,7 @@ def constant_cell(overrides=None, missing_after=None, missing_runs=()):
         'pressure_surface': 95000.0,
         'pressure_reduced_to_mean_sea_level': 101325.0,
         'total_cloud_cover_atmosphere': 50.0,
+        'composite_reflectivity': 35.0,  # dBZ
     }
     base.update(overrides or {})
     missing_after = missing_after or {}

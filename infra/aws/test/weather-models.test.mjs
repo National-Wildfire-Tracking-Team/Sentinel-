@@ -142,7 +142,13 @@ test('the distribution serves /weather-models/fields/* from S3 before the API pa
   const origin = cfg.Origins.find((o) => o.Id === fields.TargetOriginId);
   assert.equal(origin.DomainName, 'sentinel-weather-model-fields-123456789012.s3.us-west-2.amazonaws.com');
   assert.ok(origin.OriginAccessControlId, 'OAC-signed');
-  assert.ok(fields.ResponseHeadersPolicyId, 'CORS headers for Mapbox image loads');
+  // CORS via a viewer-response function, not the managed SimpleCORS policy
+  // (which drops the header for requests carrying `Priority: u=1, i`).
+  assert.equal(fields.ResponseHeadersPolicyId, undefined);
+  const assoc = fields.FunctionAssociations?.find((a) => a.EventType === 'viewer-response');
+  assert.ok(assoc, 'viewer-response function on the fields path');
+  const fns = Object.values(data.findResources('AWS::CloudFront::Function'));
+  assert.ok(fns.some((f) => f.Properties.FunctionCode.includes("access-control-allow-origin'] = { value: '*' }")));
   assert.equal(Object.keys(data.findResources('AWS::S3::BucketPolicy')).length, 0, 'no cross-region bucket policy');
 });
 

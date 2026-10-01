@@ -33,7 +33,7 @@ import numpy as np
 class FieldVariable:
     id: str
     label: str
-    quantity: str  # unit family for display conversion: temperature|percent|speed|rate|depth|pressure
+    quantity: str  # unit family for display conversion: temperature|percent|speed|rate|depth|pressure|reflectivity
     units: str  # SI units of the encoded values
     level: str
     time_semantics: str  # instant | period-average | since-run-start
@@ -54,6 +54,8 @@ class FieldVariable:
             'encoding': {'transform': self.transform, 'lo': self.lo, 'hi': self.hi, 'nodata': 0, 'min': 1, 'max': 255},
             'palette': [[v, c, a] for v, c, a in self.palette],
         }
+        if self.extra.get('notice'):
+            out['notice'] = self.extra['notice']
         if self.diff:
             out['difference'] = {
                 'subtract': 'HRRR − GFS',
@@ -115,6 +117,19 @@ FIELD_VARIABLES: dict[str, FieldVariable] = {v.id: v for v in [
          (15, '#2171b5', 0.8), (35, '#08306b', 0.85), (75, '#54278f', 0.9), (150, '#3f007d', 0.95)),
         transform='sqrt',
         description="Total since this run's start time. Not comparable between models whose runs start at different times."),
+    FieldVariable(
+        'compositeReflectivity', 'Reflectivity (simulated)', 'reflectivity', 'dBZ', 'column maximum', 'instant',
+        ('composite_reflectivity',),
+        -10, 75,
+        # The conventional radar dBZ scale: a domain convention readers rely
+        # on, kept despite being multi-hue. Clear below 5 dBZ (no echo).
+        ((-10, '#000000', 0.0), (4.9, '#04e9e7', 0.0), (5, '#04e9e7', 0.55), (10, '#019ff4', 0.65),
+         (15, '#0300f4', 0.7), (20, '#02fd02', 0.75), (25, '#01c501', 0.8), (30, '#008e00', 0.8),
+         (35, '#fdf802', 0.85), (40, '#e5bc00', 0.85), (45, '#fd9500', 0.85), (50, '#fd0000', 0.9),
+         (55, '#d40000', 0.9), (60, '#bc0000', 0.9), (65, '#f800fd', 0.9), (70, '#9854c6', 0.9), (75, '#fdfdfd', 0.9)),
+        models=('hrrr',),
+        description="HRRR's simulated composite (column-maximum) radar reflectivity. Not in GFS.",
+        extra={'notice': 'Simulated by the HRRR model: a forecast of what radar would show, not radar observations.'}),
     FieldVariable(
         'pressureMsl', 'Sea-level pressure', 'pressure', 'hPa', 'mean sea level', 'instant',
         ('pressure_reduced_to_mean_sea_level',),
