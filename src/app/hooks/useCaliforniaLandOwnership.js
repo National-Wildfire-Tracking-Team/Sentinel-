@@ -17,9 +17,8 @@ const EMPTY_GEOJSON = { type: 'FeatureCollection', features: [] };
 
 const DEBOUNCE_MS = 450;
 
-// Same assumed-viewport-width approximation as useNexradComposite.js's
-// visible-radius cull — a soft relevance gate has no need for pixel-precise
-// map bounds.
+// Assumed viewport width for the visible-radius estimate — a soft relevance
+// gate has no need for pixel-precise map bounds.
 const ASSUMED_VIEWPORT_PX = 1600;
 export const MAX_DISTANCE_MILES = 5;
 

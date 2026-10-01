@@ -36,12 +36,9 @@ import GOESLayer          from './layers/GOESLayer';
 import StormReportsLayer  from './layers/StormReportsLayer';
 import UserReportsLayer   from './layers/UserReportsLayer';
 import SPCOutlookLayer from './layers/SPCOutlookLayer';
-import RadarLayer from './layers/RadarLayer';
 import StormMotionVectorLayer from './layers/StormMotionVectorLayer';
 import EvacuationZonesLayer from './layers/EvacuationZonesLayer';
 import { MeasurementLayer, MeasurementPanel } from './MeasurementTool';
-import { PrecipitationRing } from './PrecipitationRing';
-import RadarTimeline from './RadarTimeline';
 import SPCOutlookSelector from './SPCOutlookSelector';
 import RAWSLayer from './layers/RAWSLayer';
 import AirNowMonitorsLayer from './layers/AirNowMonitorsLayer';
@@ -62,9 +59,7 @@ import FloodHazardLayer, { FLOOD_ZONES_FILL_ID, FLOOD_PANELS_FILL_ID } from './l
 import { floodCategoryMeta } from '../../utils/floodHazard';
 import NHCTropicalWeatherLayer from './layers/NHCTropicalWeatherLayer';
 import WaterGaugesLayer from './layers/WaterGaugesLayer';
-import NexradSitesLayer from './layers/NexradSitesLayer';
 import CaliforniaCamerasLayer from './layers/CaliforniaCamerasLayer';
-import NexradScanLayer from './layers/NexradScanLayer';
 import CalFirePerimetersLayer from './layers/CalFirePerimetersLayer';
 import HazardEventsLayer, { HAZARD_CATEGORY_LABELS } from './layers/HazardEventsLayer';
 import DamageAssessmentLayer from './layers/DamageAssessmentLayer';
@@ -114,7 +109,7 @@ function buildFloodHazardRecord(zoneProps, lngLat, panelProps) {
  * click can build a record for every feature at the point (not just the
  * topmost one) when more than one stacks up, e.g. an evac zone over a fire
  * perimeter. Returns null for layers with their own selection slot (water
- * gauges, radar sites, cameras) or that aren't selectable (SPC MD, which
+ * gauges, cameras) or that aren't selectable (SPC MD, which
  * opens a link instead) — those stay handled directly in handleClick.
  */
 function buildFeatureRecord(feature, lngLat, alerts, { floodPanel = null } = {}) {
@@ -1165,37 +1160,6 @@ function getHoverContent(feature) {
       );
       break;
     }
-    case 'nexrad-sites-circle': {
-      const statusColors = {
-        operate: 'text-green-400',
-        alarm: 'text-amber-400',
-        offline: 'text-red-400',
-        unknown: 'text-sentinel-300',
-      };
-      content = (
-        <>
-          <div className="font-semibold text-cyan-300">{p.id} · {p.name}</div>
-          <div className={`text-xs font-medium mt-0.5 ${statusColors[p.status] || 'text-sentinel-300'}`}>
-            {p.statusLabel}
-          </div>
-          {p.rdaStatus && (
-            <div className="text-sentinel-200 text-xs mt-0.5">
-              RDA: <span className="text-white font-medium">{p.rdaStatus}</span>
-              {p.alarmSummary && p.alarmSummary !== 'No Alarms' && (
-                <span className="text-amber-400"> · {p.alarmSummary}</span>
-              )}
-            </div>
-          )}
-          {p.levelTwoLastReceivedTime && (
-            <div className="text-sentinel-400 text-[10px] mt-1">
-              Last Level 2 data: {new Date(p.levelTwoLastReceivedTime).toLocaleString()}
-            </div>
-          )}
-          <div className="text-cyan-500 text-[10px] mt-0.5 uppercase tracking-wide">NWS · api.weather.gov</div>
-        </>
-      );
-      break;
-    }
     case 'dat-points-circle':
     case 'dat-lines-line':
     case 'dat-polygons-fill': {
@@ -1440,24 +1404,7 @@ export default function MapView({
   measureActive = false,
   measureMode = 'distance',
   onMeasureClose,
-  precipRingActive = false,
-  onPrecipRingToggle,
   waterGaugesGeoJSON,
-  nexradSitesGeoJSON,
-  nexradScanUrl,
-  nexradScanCoordinates,
-  nexradCompositeSites,
-  nexradCompositeIsLive,
-  nexradCompositeTimelineVisible,
-  nexradCompositeFrames,
-  nexradCompositeSelectedTimestamp,
-  nexradCompositeIsPlaying,
-  nexradCompositeError,
-  onNexradCompositeSelectFrame,
-  onNexradCompositePlay,
-  onNexradCompositePause,
-  onNexradCompositePrevious,
-  onNexradCompositeNext,
   calFireHistoricalPerimetersGeoJSON,
   californiaCamerasGeoJSON,
   wpcEroGeoJSON,
@@ -1468,24 +1415,14 @@ export default function MapView({
   onMapLoad,
   mapBottomBarWidth,
   mapBottomBarHeight,
-  radarStackHeight = 0,
-  radarTimelineRef,
   spcOutlookPanelRef,
   fireWxOutlookPanelRef,
 }) {
-  const { layers, selectedFire, selectFire, selectGauge, selectedRadarSite, selectRadarSite, selectCamera, sidebarOpen, locationGranted, layerPanelOpen, closeLayerPanel } = useApp();
+  const { layers, selectedFire, selectFire, selectGauge, selectCamera, sidebarOpen, locationGranted, layerPanelOpen, closeLayerPanel } = useApp();
   const { alerts, userLocation, setUserLocation } = useAppStatus();
   const { viewport, setViewport } = useViewport();
   const { prefs: displayPrefs } = usePreferences();
   const mapRef = useRef(null);
-
-  // First symbol (label) layer in the current basemap style — used as the
-  // `beforeId` anchor for radar raster layers so roads, admin boundaries,
-  // and labels (all of which come before labels in a standard Mapbox style
-  // stack) render on top of radar instead of being painted over by it.
-  // Recomputed on every load since `key={mapType}` remounts <Map> (and so
-  // re-fires onLoad) whenever the basemap style itself changes.
-  const [radarBeforeId, setRadarBeforeId] = useState(null);
 
   // Popup shown when a click hits multiple stacked features at once
   const [featurePopup, setFeaturePopup] = useState(null);
@@ -1518,11 +1455,6 @@ export default function MapView({
   const isWildfireTab   = activeMapTab === 'wildfire';
   const isWeatherTab    = activeMapTab === 'weather';
   const isAllHazardTab  = activeMapTab === 'allhazard';
-  // SPC outlook popup docks above the radar stack (or the bar itself) — the
-  // radar timeline/site popup need to know this to square off their own top
-  // edge when it's showing.
-  const outlookDocked = (isWeatherTab || isAllHazardTab) && layers.spcWeatherOutlooks;
-
   // Hover tooltip state (array so overlapping features each get their own box)
   const [hoverFeatures, setHoverFeatures] = useState(null);
   const [hoverLngLat,   setHoverLngLat]   = useState(null);
@@ -1562,29 +1494,6 @@ export default function MapView({
   // Measurement tool state (active/mode lifted to LiveTrackerPage; points/preview stay local)
   const [measurePoints,  setMeasurePoints]  = useState([]);   // [{lng, lat}, ...]
   const [measurePreview, setMeasurePreview] = useState(null); // {lng, lat} – live cursor
-  const [probeMoving, setProbeMoving] = useState(false);
-  const [probeLocked, setProbeLocked] = useState(false);
-  const [lockedProbeCoords, setLockedProbeCoords] = useState(null);
-
-  useEffect(() => {
-    if (!precipRingActive) {
-      setProbeMoving(false);
-      setProbeLocked(false);
-      setLockedProbeCoords(null);
-    }
-  }, [precipRingActive]);
-
-  const toggleProbeLock = useCallback(() => {
-    if (probeLocked) {
-      setProbeLocked(false);
-      setLockedProbeCoords(null);
-      return;
-    }
-    setLockedProbeCoords({ lat: viewport.latitude, lng: viewport.longitude });
-    setProbeLocked(true);
-    setProbeMoving(false);
-  }, [probeLocked, viewport.latitude, viewport.longitude]);
-
   const closeMeasure = useCallback(() => {
     onMeasureClose?.();
     setMeasurePoints([]);
@@ -1687,7 +1596,6 @@ export default function MapView({
     if (layers.waterGauges && waterGaugesGeoJSON?.features?.length) {
       ids.push('water-gauges-circle-priority', 'water-gauges-circle-other');
     }
-    if ((isWeatherTab || isAllHazardTab) && layers.radarNexrad && nexradSitesGeoJSON?.features?.length) ids.push('nexrad-sites-circle');
     if (isWildfireTab && layers.wildfireCameras && californiaCamerasGeoJSON?.features?.length) ids.push('ca-cameras-circle');
     if (hazardEventsGeoJSON?.features?.length) ids.push('hazard-events-circle');
     if ((isWeatherTab || isAllHazardTab) && layers.wpcEro && wpcEroGeoJSON?.features?.length) ids.push('wpc-ero-fill');
@@ -1715,7 +1623,6 @@ export default function MapView({
       landOwnershipVisible, landOwnershipGeoJSON,
       floodHazardVisible, floodHazardData,
       layers.waterGauges, waterGaugesGeoJSON,
-      layers.radarNexrad, nexradSitesGeoJSON,
       layers.wildfireCameras, californiaCamerasGeoJSON,
       hazardEventsGeoJSON]);
 
@@ -1763,13 +1670,6 @@ export default function MapView({
         if (err) return;
         mapRef.current?.easeTo({ center: [lng, lat], zoom, duration: 500 });
       });
-      setFeaturePopup(null);
-      return;
-    }
-
-    if (feature.layer.id === 'nexrad-sites-circle') {
-      const [lng, lat] = feature.geometry?.coordinates ?? [evt.lngLat.lng, evt.lngLat.lat];
-      selectRadarSite({ ...feature.properties, lat, lng });
       setFeaturePopup(null);
       return;
     }
@@ -1836,7 +1736,7 @@ export default function MapView({
       mouseLngLat: evt.lngLat,
       anchorFeature: records[0].feature,
     });
-  }, [measureActive, alerts, selectFire, selectGauge, selectRadarSite, selectCamera, layerPanelOpen, closeLayerPanel]);
+  }, [measureActive, alerts, selectFire, selectGauge, selectCamera, layerPanelOpen, closeLayerPanel]);
 
   // Handle mouse move – update hover tooltip OR measurement preview
   const handleMouseMove = useCallback((evt) => {
@@ -1902,23 +1802,12 @@ export default function MapView({
   // Sync viewport to context
   const handleMove = useCallback((evt) => {
     setViewport(evt.viewState);
-    if (precipRingActive && !probeLocked) setProbeMoving(true);
-  }, [setViewport, precipRingActive, probeLocked]);
+  }, [setViewport]);
 
   const [mapInstance, setMapInstance] = useState(null);
 
-  const handleMoveEnd = useCallback(() => {
-    setProbeMoving(false);
-  }, []);
-
   const handleMapLoad = useCallback((e) => {
     setMapInstance(e.target);
-    try {
-      const symbolLayer = e.target.getStyle()?.layers?.find(l => l.type === 'symbol');
-      setRadarBeforeId(symbolLayer?.id ?? null);
-    } catch {
-      setRadarBeforeId(null);
-    }
     onMapLoad?.(e);
   }, [onMapLoad]);
 
@@ -1934,7 +1823,7 @@ export default function MapView({
           activeDay={fireWxActiveDay}
           onActiveDayChange={onFireWxActiveDayChange}
           bottomBarWidth={mapBottomBarWidth}
-          bottomBarHeight={mapBottomBarHeight + radarStackHeight}
+          bottomBarHeight={mapBottomBarHeight}
         />
       )}
 
@@ -1947,8 +1836,7 @@ export default function MapView({
       )}
 
       {/* Weather + All Hazards tabs: SPC convective outlook selector — docks
-          flush above MapBottomBar, or above the Composite Radar / NEXRAD
-          panel stack when one of those is also open. */}
+          flush above MapBottomBar. */}
       {(isWeatherTab || isAllHazardTab) && layers.spcWeatherOutlooks && (
         <SPCOutlookSelector
           ref={spcOutlookPanelRef}
@@ -1959,7 +1847,7 @@ export default function MapView({
           loading={spcOutlooksLoading}
           validTime={spcValidTime}
           bottomBarWidth={mapBottomBarWidth}
-          bottomBarHeight={mapBottomBarHeight + radarStackHeight}
+          bottomBarHeight={mapBottomBarHeight}
         />
       )}
 
@@ -1975,7 +1863,6 @@ export default function MapView({
         onMouseMove={handleMouseMove}
         onMouseLeave={handleMouseLeave}
         onMove={handleMove}
-        onMoveEnd={handleMoveEnd}
         onLoad={handleMapLoad}
         transformRequest={transformRequest}
         attributionControl={false}
@@ -2015,14 +1902,6 @@ export default function MapView({
         {/* FEMA flood hazard zones — contextual, so it sits directly above base
             imagery and below alerts, perimeters, incidents, and evac zones */}
         <FloodHazardLayer data={floodHazardData} visible={floodHazardVisible} />
-
-        {/* NEXRAD radar reflectivity — every site's own sweep, composited */}
-        <RadarLayer
-          visible={(isWeatherTab || isAllHazardTab) && layers.radarComposite}
-          sites={nexradCompositeSites}
-          live={nexradCompositeIsLive}
-          beforeId={radarBeforeId}
-        />
 
         {/* Smoke forecast */}
         <SmokeLayer visible={isAllHazardTab && layers.smoke} />
@@ -2220,25 +2099,10 @@ export default function MapView({
           visible={layers.waterGauges}
         />
 
-        {/* NWS NEXRAD Level 2 radar sites — live operability status */}
-        <NexradSitesLayer
-          geoJSON={nexradSitesGeoJSON}
-          visible={(isWeatherTab || isAllHazardTab) && layers.radarNexrad}
-          selectedId={selectedRadarSite?.id}
-        />
-
         {/* Live California highway cameras — Caltrans District CCTV */}
         <CaliforniaCamerasLayer
           geoJSON={californiaCamerasGeoJSON}
           visible={isWildfireTab && layers.wildfireCameras}
-        />
-
-        {/* Live Level II sweep (reflectivity/velocity) for the selected radar site */}
-        <NexradScanLayer
-          dataUrl={nexradScanUrl}
-          coordinates={nexradScanCoordinates}
-          visible={Boolean(nexradScanUrl)}
-          beforeId={radarBeforeId}
         />
 
         {/* CAL FIRE FRAP historical fire perimeter scars */}
@@ -2246,15 +2110,6 @@ export default function MapView({
           geoJSON={calFireHistoricalPerimetersGeoJSON}
           visible={(isWildfireTab || isAllHazardTab) && layers.calFireHistoricalPerimeters}
         />
-
-        {/* User live location marker */}
-        {precipRingActive && probeLocked && lockedProbeCoords && (
-          <Marker longitude={lockedProbeCoords.lng} latitude={lockedProbeCoords.lat} anchor="center">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full border-2 border-amber-300 bg-black/35 shadow-lg" aria-label="Locked radar probe location">
-              <div className="h-2 w-2 rounded-full bg-amber-300" />
-            </div>
-          </Marker>
-        )}
 
         {/* Near-me radius — the Home Setup radius around the live location */}
         {nearbyRadiusGeoJSON && (
@@ -2347,34 +2202,13 @@ export default function MapView({
             mouseLngLat={featurePopup.mouseLngLat}
             anchorFeature={featurePopup.anchorFeature}
             prefs={displayPrefs}
-            nexradSitesGeoJSON={nexradSitesGeoJSON}
             onSelect={(item) => { setFeaturePopup(null); selectFire(item); }}
-            onSelectRadarSite={selectRadarSite}
             onClose={() => setFeaturePopup(null)}
           />
         )}
       </Map>
 
       <MapZoomControl mapRef={mapRef} map={mapInstance} />
-
-      {/* Composite Radar timeline — history/playback control, independent of NEXRAD */}
-      {nexradCompositeTimelineVisible && (
-        <RadarTimeline
-          ref={radarTimelineRef}
-          frames={nexradCompositeFrames}
-          selectedTimestamp={nexradCompositeSelectedTimestamp}
-          isPlaying={nexradCompositeIsPlaying}
-          error={nexradCompositeError}
-          onSelectFrame={onNexradCompositeSelectFrame}
-          onPlay={onNexradCompositePlay}
-          onPause={onNexradCompositePause}
-          onPrevious={onNexradCompositePrevious}
-          onNext={onNexradCompositeNext}
-          bottomBarWidth={mapBottomBarWidth}
-          bottomBarHeight={mapBottomBarHeight}
-          topAttached={Boolean(selectedRadarSite) || outlookDocked}
-        />
-      )}
 
       {/* Measurement results panel – visible while tool is active */}
       {measureActive && (
@@ -2386,17 +2220,6 @@ export default function MapView({
         />
       )}
 
-      {/* Precipitation ring – center-locked dBZ sampler */}
-      <PrecipitationRing
-        active={precipRingActive}
-        lat={probeLocked ? lockedProbeCoords?.lat : viewport?.latitude}
-        lng={probeLocked ? lockedProbeCoords?.lng : viewport?.longitude}
-        moving={probeMoving}
-        locked={probeLocked}
-        radarVisible={(isWeatherTab || isAllHazardTab) && layers.radarComposite}
-        onLockToggle={toggleProbeLock}
-        onClose={onPrecipRingToggle}
-      />
     </div>
   );
 }

@@ -16,10 +16,8 @@ const MapBottomBar = memo(forwardRef(function MapBottomBar({
   measureMode = 'distance',
   onMeasureActivate,
   onMeasureClose,
-  precipRingActive = false,
-  onPrecipRingToggle,
-  radarScrubberAttached = false,
-  radarPanelClearance = 0,
+  dockedAttached = false,
+  dockedPanelClearance = 0,
 }, ref) {
   const isAllHazardTab = activeMapTab === 'allhazard';
 
@@ -27,7 +25,7 @@ const MapBottomBar = memo(forwardRef(function MapBottomBar({
     <div
       ref={ref}
       className={`absolute bottom-4 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1 px-2 py-1.5 bg-white/90 dark:bg-sentinel-900/90 backdrop-blur-sm border border-sentinel-200 dark:border-sentinel-600 shadow-2xl shadow-black/10 dark:shadow-black/60 ${
-        radarScrubberAttached ? 'rounded-b-2xl border-t-0' : 'rounded-2xl'
+        dockedAttached ? 'rounded-b-2xl border-t-0' : 'rounded-2xl'
       }`}
     >
       <LayerControl
@@ -37,9 +35,7 @@ const MapBottomBar = memo(forwardRef(function MapBottomBar({
         measureMode={measureMode}
         onMeasureActivate={onMeasureActivate}
         onMeasureClose={onMeasureClose}
-        precipRingActive={precipRingActive}
-        onPrecipRingToggle={onPrecipRingToggle}
-        radarPanelClearance={radarPanelClearance}
+        dockedPanelClearance={dockedPanelClearance}
       />
 
       <div className="w-px self-stretch my-1 bg-sentinel-200 dark:bg-sentinel-600" />

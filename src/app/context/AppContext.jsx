@@ -32,10 +32,6 @@ const initialState = {
     spcWeatherOutlooks: false,
     fireWeatherOutlooks: false,
     fireRiskOutlook: false,
-    /** Every NEXRAD site's own reflectivity sweep, composited (IEM fallback if unavailable) */
-    radarComposite:    false,
-    /** NEXRAD Level II — per-site reflectivity/velocity scans */
-    radarNexrad:       false,
     /** Caltrans District CCTV — live California highway camera locations */
     wildfireCameras:   false,
     evacZones:         true,
@@ -73,8 +69,6 @@ const initialState = {
   selectedFire: null,
   // Currently selected water gauge (properties from map feature)
   selectedGauge: null,
-  // Currently selected NEXRAD radar site (properties from map feature, incl. lat/lng)
-  selectedRadarSite: null,
   // Currently selected California highway camera (properties from map feature, incl. lat/lng)
   selectedCamera: null,
   // Sidebar open/closed (left panel) — closed by default, opened via the top-left corner buttons
@@ -102,7 +96,6 @@ const A = {
   SELECT_FIRE:        'SELECT_FIRE',
   CLEAR_SELECTED:     'CLEAR_SELECTED',
   SELECT_GAUGE:       'SELECT_GAUGE',
-  SELECT_RADAR_SITE:  'SELECT_RADAR_SITE',
   SELECT_CAMERA:      'SELECT_CAMERA',
   TOGGLE_SIDEBAR:     'TOGGLE_SIDEBAR',
   OPEN_SIDEBAR:       'OPEN_SIDEBAR',
@@ -115,27 +108,13 @@ const A = {
   GRANT_LOCATION:     'GRANT_LOCATION',
 };
 
-// Composite Radar and NEXRAD Level II render the same map area two
-// different ways, and their controls now share one docked spot above the
-// bottom bar — so only one may be on at a time. Turning one on switches the
-// other off (which in turn clears any selected NEXRAD site, via the effect
-// watching layers.radarNexrad in LiveTrackerPage.jsx).
-function applyRadarExclusivity(layers, changedLayer, value) {
-  const next = { ...layers, [changedLayer]: value };
-  if (value && changedLayer === 'radarComposite') next.radarNexrad = false;
-  if (value && changedLayer === 'radarNexrad') next.radarComposite = false;
-  return next;
-}
-
 // ─── Reducer ─────────────────────────────────────────────────────────────────
 function reducer(state, action) {
   switch (action.type) {
-    case A.TOGGLE_LAYER: {
-      const next = !state.layers[action.layer];
-      return { ...state, layers: applyRadarExclusivity(state.layers, action.layer, next) };
-    }
+    case A.TOGGLE_LAYER:
+      return { ...state, layers: { ...state.layers, [action.layer]: !state.layers[action.layer] } };
     case A.SET_LAYER:
-      return { ...state, layers: applyRadarExclusivity(state.layers, action.layer, action.value) };
+      return { ...state, layers: { ...state.layers, [action.layer]: action.value } };
     case A.SET_FIRE_RISK_DAY:
       return { 
         ...state,
@@ -150,15 +129,13 @@ function reducer(state, action) {
         wpcOutlookDay: { ...state.wpcOutlookDay, [action.product]: action.day },
       };
     case A.SELECT_FIRE:
-      return { ...state, selectedFire: action.fire, selectedGauge: null, selectedRadarSite: null, selectedCamera: null };
+      return { ...state, selectedFire: action.fire, selectedGauge: null, selectedCamera: null };
     case A.CLEAR_SELECTED:
-      return { ...state, selectedFire: null, selectedGauge: null, selectedRadarSite: null, selectedCamera: null };
+      return { ...state, selectedFire: null, selectedGauge: null, selectedCamera: null };
     case A.SELECT_GAUGE:
-      return { ...state, selectedGauge: action.gauge, selectedFire: null, selectedRadarSite: null, selectedCamera: null };
-    case A.SELECT_RADAR_SITE:
-      return { ...state, selectedRadarSite: action.site, selectedFire: null, selectedGauge: null, selectedCamera: null };
+      return { ...state, selectedGauge: action.gauge, selectedFire: null, selectedCamera: null };
     case A.SELECT_CAMERA:
-      return { ...state, selectedCamera: action.camera, selectedFire: null, selectedGauge: null, selectedRadarSite: null };
+      return { ...state, selectedCamera: action.camera, selectedFire: null, selectedGauge: null };
     case A.TOGGLE_SIDEBAR: {
       const next = !state.sidebarOpen;
       return { ...state, sidebarOpen: next, futurePanelOpen: next ? false : state.futurePanelOpen, accountPanelOpen: next ? false : state.accountPanelOpen };
@@ -201,7 +178,6 @@ export function AppProvider({ children }) {
   const selectFire       = useCallback((fire) => dispatch({ type: A.SELECT_FIRE, fire }), []);
   const clearSelected    = useCallback(() => dispatch({ type: A.CLEAR_SELECTED }), []);
   const selectGauge      = useCallback((gauge) => dispatch({ type: A.SELECT_GAUGE, gauge }), []);
-  const selectRadarSite  = useCallback((site) => dispatch({ type: A.SELECT_RADAR_SITE, site }), []);
   const selectCamera     = useCallback((camera) => dispatch({ type: A.SELECT_CAMERA, camera }), []);
   const toggleSidebar    = useCallback(() => dispatch({ type: A.TOGGLE_SIDEBAR }), []);
   const openSidebar      = useCallback(() => dispatch({ type: A.OPEN_SIDEBAR }), []);
@@ -226,7 +202,6 @@ export function AppProvider({ children }) {
     selectFire,
     clearSelected,
     selectGauge,
-    selectRadarSite,
     selectCamera,
     toggleSidebar,
     openSidebar,
@@ -246,7 +221,6 @@ export function AppProvider({ children }) {
     selectFire,
     clearSelected,
     selectGauge,
-    selectRadarSite,
     selectCamera,
     toggleSidebar,
     openSidebar,
