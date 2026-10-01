@@ -13,7 +13,7 @@
  * The next few frames are pre-fetched so the timeline steps instantly.
  */
 
-import { useEffect, useMemo, useState } from 'react';
+import { Component, useEffect, useMemo, useState } from 'react';
 import { Marker, useMap } from 'react-map-gl';
 import { useWeatherModelsContext } from '../../context/WeatherModelsContext';
 import { differenceUrl, fieldUrl, fieldsBase, hourAt, rasterPaint, windUrl } from '../../api/modelFields';
@@ -49,13 +49,47 @@ function ModelField({ base, manifest, model, variable, validTime, res, particles
   if (hour == null) return null;
   return (
     <>
-      <ModelFieldLayer id={`${idPrefix}-field`} url={fieldUrl(base, manifest, model, variable, hour, res)} coordinates={m.image.coordinates} paint={paint} />
+      {/* key = id: react-map-gl forbids changing a mounted Source's id (HRRR ↔ GFS), so remount instead */}
+      <ModelFieldLayer key={`${idPrefix}-field`} id={`${idPrefix}-field`} url={fieldUrl(base, manifest, model, variable, hour, res)} coordinates={m.image.coordinates} paint={paint} />
       {particles && <WindParticles url={windUrl(base, manifest, model, hour)} coordinates={m.wind.coordinates} range={m.wind.range} />}
     </>
   );
 }
 
-export default function WeatherModelsMapLayer({ mapStyle, mapboxAccessToken }) {
+/**
+ * Keeps a Models-layer failure inside the Models overlay: the live map, its
+ * other layers and the rest of the app keep working. Resets when the user
+ * changes model, view or variable.
+ */
+class ModelLayerBoundary extends Component {
+  constructor(props) {
+    super(props);
+    this.state = { failed: false };
+  }
+
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+
+  componentDidCatch(error) {
+    console.error('[WeatherModels] map layer failed:', error);
+  }
+
+  render() {
+    return this.state.failed ? null : this.props.children;
+  }
+}
+
+export default function WeatherModelsMapLayer(props) {
+  const wm = useWeatherModelsContext();
+  return (
+    <ModelLayerBoundary key={`${wm?.mode}|${wm?.compareView}|${wm?.variable}`}>
+      <ModelsOverlay {...props} />
+    </ModelLayerBoundary>
+  );
+}
+
+function ModelsOverlay({ mapStyle, mapboxAccessToken }) {
   const wm = useWeatherModelsContext();
   const zoom = useZoom();
   const base = fieldsBase();

@@ -88,6 +88,7 @@ class HRRRProvider(WeatherModelProvider):
         'pressureSurface': ('pressure_surface',),
         'pressureMsl': ('pressure_reduced_to_mean_sea_level',),
         'cloudCover': ('total_cloud_cover_atmosphere',),
+        'compositeReflectivity': ('composite_reflectivity',),
     }
 
     def locate(self, lat: float, lon: float) -> GridPoint:

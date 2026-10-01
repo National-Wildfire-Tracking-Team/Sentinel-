@@ -108,8 +108,8 @@ export function rasterPaint({ encoding, palette }, opacity = 1) {
 // ── Display units ──
 
 export const DISPLAY_UNITS = {
-  us: { temperature: '°F', percent: '%', speed: 'mph', rate: 'in/h', depth: 'in', pressure: 'hPa' },
-  si: { temperature: '°C', percent: '%', speed: 'm/s', rate: 'mm/h', depth: 'mm', pressure: 'hPa' },
+  us: { temperature: '°F', percent: '%', speed: 'mph', rate: 'in/h', depth: 'in', pressure: 'hPa', reflectivity: 'dBZ' },
+  si: { temperature: '°C', percent: '%', speed: 'm/s', rate: 'mm/h', depth: 'mm', pressure: 'hPa', reflectivity: 'dBZ' },
 };
 
 /** SI → display units. `delta` converts a difference (no °F offset). */

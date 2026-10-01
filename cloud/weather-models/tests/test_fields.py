@@ -211,6 +211,18 @@ class TestBuilder:
         assert totals[1] == pytest.approx(1, abs=0.4)
         assert totals[3] == pytest.approx(6, abs=0.6)
 
+    def test_reflectivity_field_is_hrrr_only_and_labelled_simulated(self, tmp_path):
+        builder, store = make_builder(tmp_path)  # 35 dBZ in the test blocks
+        builder.run()
+        m = read_manifest(store)
+        spec = m['variables']['compositeReflectivity']
+        assert spec['models'] == ['hrrr'] and 'difference' not in spec
+        assert 'not radar observations' in spec['notice']
+        assert 'compositeReflectivity' in m['models']['hrrr']['variables']
+        assert 'compositeReflectivity' not in m['models']['gfs']['variables']
+        px = decode_png(open(tmp_path / f'{KEY_PREFIX}/hrrr/20261001T12Z/compositeReflectivity/hi/003.png', 'rb').read())
+        assert np.nanmax(decode_bytes(px, -10, 75)) == pytest.approx(35, abs=0.4)
+
     def test_second_run_does_nothing(self, tmp_path):
         builder, store = make_builder(tmp_path)
         builder.run()
@@ -218,6 +230,17 @@ class TestBuilder:
         again = FieldBuilder(builder.providers, store, hrrr_width=180, gfs_width=130).run()
         assert again['built'] is False
         assert len(store.order) == n
+
+    def test_a_new_variable_rebuilds_the_current_run_once(self, tmp_path):
+        builder, store = make_builder(tmp_path)
+        builder.run()
+        manifest = read_manifest(store)
+        manifest['models']['hrrr']['variables'].remove('compositeReflectivity')  # as published by older code
+        store.put(MANIFEST_KEY, __import__('json').dumps(manifest).encode(), 'application/json', 'x')
+        again = FieldBuilder(builder.providers, store, hrrr_width=180, gfs_width=130).run()
+        assert again['built'] is True
+        assert 'compositeReflectivity' in read_manifest(store)['models']['hrrr']['variables']
+        assert FieldBuilder(builder.providers, store, hrrr_width=180, gfs_width=130).run()['built'] is False
 
     def test_incomplete_newest_run_keeps_the_previous_complete_run(self, tmp_path):
         builder, store = make_builder(tmp_path, hrrr_cell=constant_cell(missing_after={1: 3}))

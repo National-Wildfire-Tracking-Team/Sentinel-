@@ -14,7 +14,7 @@ export const MODEL_MODES = ['hrrr', 'gfs', 'compare'];
 /** Everything the point API offers, so inspection can show any map variable. */
 export const POINT_VARIABLES = [
   'temperature', 'dewPoint', 'relativeHumidity', 'windSpeed', 'windDirection', 'windGust',
-  'precipitationRate', 'precipitationAmount', 'pressureSurface', 'pressureMsl', 'cloudCover',
+  'precipitationRate', 'precipitationAmount', 'pressureSurface', 'pressureMsl', 'cloudCover', 'compositeReflectivity',
 ];
 
 /**
