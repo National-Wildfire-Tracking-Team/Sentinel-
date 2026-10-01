@@ -67,6 +67,8 @@ VARIABLES: dict[str, Variable] = {
                             'Pressure reduced to mean sea level.'),
     'cloudCover': Variable('Cloud cover', 'entire atmosphere', 'instant', 'percent', 0,
                            'Total cloud cover.'),
+    'compositeReflectivity': Variable('Reflectivity (simulated)', 'column maximum', 'instant', 'reflectivity', 0,
+                                      "Model-simulated composite radar reflectivity (HRRR only); not radar observations."),
 }
 
 # What a request gets when it doesn't name variables: the fire-weather inputs.
@@ -77,9 +79,9 @@ DEFAULT_VARIABLES = (
 
 UNIT_SYSTEMS = {
     'us': {'temperature': '°F', 'percent': '%', 'speed': 'mph', 'direction': '°',
-           'rate': 'in/h', 'depth': 'in', 'pressure': 'hPa'},
+           'rate': 'in/h', 'depth': 'in', 'pressure': 'hPa', 'reflectivity': 'dBZ'},
     'si': {'temperature': '°C', 'percent': '%', 'speed': 'm/s', 'direction': '°',
-           'rate': 'mm/h', 'depth': 'mm', 'pressure': 'hPa'},
+           'rate': 'mm/h', 'depth': 'mm', 'pressure': 'hPa', 'reflectivity': 'dBZ'},
 }
 
 # Below this the direction of a wind vector is noise, so it's reported as
@@ -129,6 +131,8 @@ def si_series(var: str, raw: dict[str, np.ndarray], lead_seconds: np.ndarray, wi
         return raw['pressure_reduced_to_mean_sea_level'] / 100.0
     if var == 'cloudCover':
         return raw['total_cloud_cover_atmosphere']
+    if var == 'compositeReflectivity':
+        return raw['composite_reflectivity']
     raise KeyError(var)
 
 

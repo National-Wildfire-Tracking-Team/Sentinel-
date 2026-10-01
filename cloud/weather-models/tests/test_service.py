@@ -187,6 +187,16 @@ class TestVariables:
         assert body['forecast'][0]['temperature'] == 20.0
         assert body['units'] == {'temperature': '°C', 'dewPoint': '°C'}
 
+    def test_reflectivity_is_hrrr_only(self):
+        service, _ = make_service()
+        hrrr, _ = forecast(service, model='hrrr', hours=1, variables=('compositeReflectivity',))
+        assert hrrr['forecast'][1]['compositeReflectivity'] == 35
+        assert hrrr['units'] == {'compositeReflectivity': 'dBZ'}
+        assert 'not radar observations' in hrrr['variables']['compositeReflectivity']['description']
+        gfs, _ = forecast(service, model='gfs', hours=1, variables=('temperature', 'compositeReflectivity'))
+        assert gfs['unavailableVariables'] == ['compositeReflectivity']
+        assert all('compositeReflectivity' not in e for e in gfs['forecast'])
+
     def test_only_unavailable_variables_requested(self):
         service, _ = make_service()
         with pytest.raises(InvalidRequestError, match='none of the requested'):

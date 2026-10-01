@@ -211,6 +211,18 @@ class TestBuilder:
         assert totals[1] == pytest.approx(1, abs=0.4)
         assert totals[3] == pytest.approx(6, abs=0.6)
 
+    def test_reflectivity_field_is_hrrr_only_and_labelled_simulated(self, tmp_path):
+        builder, store = make_builder(tmp_path)  # 35 dBZ in the test blocks
+        builder.run()
+        m = read_manifest(store)
+        spec = m['variables']['compositeReflectivity']
+        assert spec['models'] == ['hrrr'] and 'difference' not in spec
+        assert 'not radar observations' in spec['notice']
+        assert 'compositeReflectivity' in m['models']['hrrr']['variables']
+        assert 'compositeReflectivity' not in m['models']['gfs']['variables']
+        px = decode_png(open(tmp_path / f'{KEY_PREFIX}/hrrr/20261001T12Z/compositeReflectivity/hi/003.png', 'rb').read())
+        assert np.nanmax(decode_bytes(px, -10, 75)) == pytest.approx(35, abs=0.4)
+
     def test_second_run_does_nothing(self, tmp_path):
         builder, store = make_builder(tmp_path)
         builder.run()
