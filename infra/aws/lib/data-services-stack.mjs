@@ -183,8 +183,21 @@ export class DataServicesStack extends Stack {
         cachedMethods: cloudfront.CachedMethods.CACHE_GET_HEAD,
         // Frames are immutable (max-age 1 y); the manifest says max-age 60.
         cachePolicy: cloudfront.CachePolicy.CACHING_OPTIMIZED,
-        // Mapbox loads images with fetch(), so they need CORS headers.
-        responseHeadersPolicy: cloudfront.ResponseHeadersPolicy.CORS_ALLOW_ALL_ORIGINS,
+        // Mapbox and the app load these with fetch(), so every response needs
+        // Access-Control-Allow-Origin. Not the managed SimpleCORS policy: it
+        // omits the header when the request carries `Priority: u=1, i`, which
+        // current Chrome and Safari send on fetch(). A viewer-response
+        // function sets it unconditionally (the data is public).
+        functionAssociations: [{
+          function: new cloudfront.Function(this, 'WeatherModelFieldsCors', {
+            runtime: cloudfront.FunctionRuntime.JS_2_0,
+            comment: 'Weather model fields: always Access-Control-Allow-Origin: * (public data)',
+            code: cloudfront.FunctionCode.fromInline(
+              "function handler(event) { var r = event.response; r.headers['access-control-allow-origin'] = { value: '*' }; return r; }",
+            ),
+          }),
+          eventType: cloudfront.FunctionEventType.VIEWER_RESPONSE,
+        }],
         compress: true,
       };
 
