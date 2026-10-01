@@ -31,7 +31,7 @@ export const SERVICES = [
     pathPrefix: '/calfire-frap-proxy',
     frontendEnvVar: 'VITE_CALFIRE_FRAP_PROXY_URL',
     healthPath: '/health',
-    memoryMb: 2048, // Cloud Run: 2Gi — holds the whole statewide CKAN GeoJSON in memory
+    memoryMb: 4096, // live since 2026-10-01 (raised from Cloud Run's 2Gi and deployed, but never committed); holds the whole statewide CKAN GeoJSON in memory
     timeoutSeconds: 120,
     env: {},
   },
