@@ -22,7 +22,8 @@ browser ─▶ CloudFront (d….cloudfront.net) ─OAC/SigV4─▶ Lambda Functi
 | Stack | Region | What it holds |
 |---|---|---|
 | `SentinelDataServices` | us-east-1 | 5 Lambda functions (arm64, Node 24), 5 Function URLs, 1 CloudFront distribution, cache policy, CloudWatch log groups (14 days), 16 alarms, SNS alarm topic, dashboard, monthly budget |
-| `SentinelGithubDeploy` | us-east-1 | GitHub OIDC provider + `sentinel-github-deploy` role (may only assume the CDK bootstrap roles) |
+| `SentinelGithubDeploy` | us-east-1 | GitHub OIDC provider + `sentinel-github-deploy` role (may only assume the CDK bootstrap roles in us-east-1 and us-west-2) |
+| `SentinelWeatherModels` *(opt-in)* | **us-west-2** | `sentinel-weather-models` point API (Python 3.13 arm64, IAM-only Function URL, logs-only role) + `sentinel-weather-models-field-builder` (every 15 min) + private fields bucket (3-day expiry), 7 alarms + SNS topic. Served at `/weather-models/*` and `/weather-models/fields/*` on the distribution above. See [Weather Models](#weather-models) |
 
 ## Settings
 
@@ -36,6 +37,9 @@ Defaults are in `bin/sentinel.mjs`. Override any of them with `-c sentinel:<key>
 | `monthlyBudgetUsd` | `50` | Budget alert at 80% actual and 100% forecast. `0` disables it. |
 | `githubRepo` | `National-Wildfire-Tracking-Team/Sentinel-` | Trusted by the deploy role |
 | `existingOidcProviderArn` | *(none)* | Set this if the account already has a GitHub OIDC provider |
+| `weatherModels` | `disabled` | `enabled` adds `SentinelWeatherModels` and the `/weather-models/*` route. In CI it's the `AWS_WEATHER_MODELS` repo variable. |
+| `distributionId` | *(none)* | After the first deploy, set it to the `DistributionId` output to narrow the weather-models invoke permission from "CloudFront in this account" to this one distribution. In CI it's `AWS_DISTRIBUTION_ID`. |
+| `weatherModelsReservedConcurrency` | `0` (no cap) | Caps concurrent weather-models executions. Needs spare account concurrency (at least 10 must stay unreserved). |
 
 Nothing here is a secret. The services call only public APIs, so there's
 nothing to put in Secrets Manager.
@@ -88,6 +92,80 @@ or `deploy`.
 Also activate the `project` and `service` cost-allocation tags in the
 Billing console. They're applied to every resource, and Cost Explorer can
 then split spend per service.
+
+## Weather Models
+
+HRRR/GFS model forecasts (`cloud/weather-models`, contract in its
+[README](../../cloud/weather-models/README.md)). Unlike the five migrated
+services it's new, it's Python, and it runs in **us-west-2**, next to
+dynamical.org's public HRRR/GFS buckets. Same-region reads are free and fast.
+It is still served through the one existing distribution, at `/weather-models/*`.
+
+It's opt-in. Without `-c sentinel:weatherModels=enabled` the app synthesizes as
+before (the only differences are a new `DistributionId` output and the deploy
+role being allowed into us-west-2).
+
+The Models tab's map fields come from a second function in the same stack:
+the field builder. EventBridge runs it every 15 minutes; it writes PNG frames
+to a private bucket (`sentinel-weather-model-fields-<account>`, us-west-2,
+3-day expiry), which CloudFront serves at `/weather-models/fields/*` through
+OAC. The bucket policy (in the us-west-2 stack) allows only CloudFront
+distributions in this account to read `weather-models/fields/*`, or only this
+one distribution once `sentinel:distributionId` is set. The builder can read
+and write that prefix and nothing else. It never deletes; the lifecycle rule
+does that.
+
+How the two regions connect:
+
+- `SentinelWeatherModels` (us-west-2) owns the function, its IAM-only Function
+  URL and CloudFront's invoke permission. The permission has to sit with the
+  function, because CloudFormation can't create a Lambda permission in another
+  region.
+- `SentinelDataServices` (us-east-1) adds the behavior and a Function URL OAC.
+  It reads the URL through a CDK cross-region reference (`crossRegionReferences`:
+  CDK writes it to SSM in us-east-1 using a small custom resource). CDK deploys
+  the us-west-2 stack first.
+
+Deploy (laptop, admin credentials, after the data services are up):
+
+```bash
+cd infra/aws && npm ci
+export CDK_DEFAULT_ACCOUNT=$(aws sts get-caller-identity --query Account --output text)
+
+# 1. One-time: bootstrap us-west-2 too.
+npx cdk bootstrap aws://$CDK_DEFAULT_ACCOUNT/us-west-2
+
+# 2. Review, then deploy. Deploying SentinelDataServices deploys
+#    SentinelWeatherModels first, as a dependency. Needs `uv` (preferred) or Docker
+#    to build the arm64 Python zip.
+npx cdk diff   SentinelWeatherModels SentinelDataServices -c sentinel:weatherModels=enabled -c sentinel:alarmEmail=<ops mailbox>
+npx cdk deploy SentinelDataServices -c sentinel:weatherModels=enabled -c sentinel:alarmEmail=<ops mailbox>
+
+# 3. Narrow the invoke permission to this distribution.
+npx cdk deploy SentinelWeatherModels -c sentinel:weatherModels=enabled \
+  -c sentinel:distributionId=<DistributionId output> -c sentinel:alarmEmail=<ops mailbox>
+
+# 4. Smoke test through CloudFront. The first field build runs within 15
+#    minutes (or invoke sentinel-weather-models-field-builder once by hand).
+curl "https://<distribution>/weather-models/health"
+curl "https://<distribution>/weather-models/v1/forecast?lat=34.05&lon=-118.25&model=hrrr&hours=6"
+curl -I "https://<distribution>/weather-models/fields/v1/manifest.json"
+```
+
+Then set the `VITE_WEATHER_MODEL_SERVICE_URL` GitHub secret (and the Netlify env
+var for previews) to the `WeatherModelsBaseUrl` output. For CI deploys, set the
+repo variables `AWS_WEATHER_MODELS=enabled` and `AWS_DISTRIBUTION_ID`, and
+redeploy `SentinelGithubDeploy` once so its role can use the us-west-2
+bootstrap roles. You must also confirm the new SNS email subscription.
+
+**Rollback.** Unset `VITE_WEATHER_MODEL_SERVICE_URL`: the page then says model
+forecasts aren't configured, and nothing else in the app changes. To remove
+the infrastructure, deploy with `weatherModels` unset, then
+`npx cdk destroy SentinelWeatherModels -c sentinel:weatherModels=enabled`.
+
+**Cost.** A few dollars a month at current scale: Lambda only on CloudFront
+misses, no S3 charges to Sentinel (AWS Open Data, same-region), and no
+storage. The breakdown is in the service README.
 
 ## Parallel run and validation
 

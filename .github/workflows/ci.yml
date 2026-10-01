@@ -49,3 +49,34 @@ jobs:
           name: playwright-report
           path: playwright-report/
           retention-days: 14
+
+  weather-models:
+    name: Weather Models service (Python)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: cloud/weather-models
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      # Offline: the tests build synthetic Icechunk datasets in memory and
+      # never read the real HRRR/GFS buckets.
+      - run: uv run --python 3.13 --with-requirements requirements-dev.txt pytest
+
+  infra:
+    name: AWS infrastructure (CDK synth + assertions)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: infra/aws
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: infra/aws/package-lock.json
+      - run: npm ci
+      - run: npm test

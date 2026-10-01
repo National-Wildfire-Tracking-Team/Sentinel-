@@ -22,6 +22,7 @@ import {
 import { frpToLabel, containmentToColor, getAQICategory } from '../../utils/colorUtils';
 import { nwsAlertColor } from '../../utils/nwsColors';
 import IncidentTimeline from '../IncidentTimeline/IncidentTimeline';
+import ModelForecastSummary from '../WeatherModels/ModelForecastSummary';
 import { HAZARD_CATEGORY_COLORS } from '../Map/layers/HazardEventsLayer';
 import { normalizeHazardCategory } from '../../hooks/useHazardEvents';
 import { trackSentinelUse } from '../../../shared/utils/analytics';
@@ -317,6 +318,9 @@ function IncidentDetail({ fire }) {
           )}
         </div>
       )}
+
+      {/* HRRR/GFS summary; the full model experience is /weather-models */}
+      <ModelForecastSummary lat={fire.lat} lon={fire.lng} place={fire.name} />
 
       {/* UPDATES / INFO tabs */}
       <div className="border-b border-sentinel-700 mb-4 flex gap-0">

@@ -1,0 +1,6 @@
+# Runtime dependencies, pinned. Installed for arm64 Linux (manylinux_2_28)
+# into the Lambda zip by infra/aws (see README.md "Build and deploy").
+icechunk==2.2.2
+zarr==3.4.0
+numpy==2.5.3
+numcodecs==0.17.0
