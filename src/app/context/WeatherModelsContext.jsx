@@ -40,7 +40,7 @@ export function WeatherModelsProvider({ active, onOpen, apiRef, children }) {
   const [variable, setVariableState] = useState(initial?.variable || 'temperature');
   const [validTimeChoice, setValidTime] = useState(null);
   const [playing, setPlaying] = useState(false);
-  const [particles, setParticles] = useState(true);
+  const [particles, setParticles] = useState(false);
   const [location, setLocationState] = useState(initial?.location ?? null);
 
   // ── manifest ──

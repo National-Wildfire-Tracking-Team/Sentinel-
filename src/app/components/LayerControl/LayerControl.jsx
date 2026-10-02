@@ -428,11 +428,11 @@ const LayerControl = memo(function LayerControl({
                    text-sentinel-900 dark:text-white text-sm font-medium transition-colors ${
                      layerPanelOpen ? 'bg-sentinel-100 dark:bg-sentinel-700' : 'hover:bg-sentinel-100/70 dark:hover:bg-sentinel-700/70'
                    }`}
-        aria-label="Toggle layer control"
+        aria-label={isModelsTab ? 'Toggle model variables' : 'Toggle layer control'}
         aria-pressed={layerPanelOpen}
       >
         <Layers size={16} />
-        <span className="hidden sm:inline">Layers</span>
+        <span className="hidden sm:inline">{isModelsTab ? 'Variables' : 'Layers'}</span>
       </button>
 
       {layerPanelOpen && (
