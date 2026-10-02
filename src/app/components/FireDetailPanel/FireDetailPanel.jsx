@@ -27,6 +27,7 @@ import { HAZARD_CATEGORY_COLORS } from '../Map/layers/HazardEventsLayer';
 import { normalizeHazardCategory } from '../../hooks/useHazardEvents';
 import { trackSentinelUse } from '../../../shared/utils/analytics';
 import { FLOOD_ATTRIBUTION, floodCategoryMeta, floodZoneDescription, floodZoneRows } from '../../utils/floodHazard';
+import { fetchSpcMdText, fetchWpcMpdText } from '../../api/mesoscaleDiscussionText';
 
 // Fire-related detail types that represent a user opening a tracked wildfire
 // incident (as opposed to AQI stations, weather alerts, evac zones, etc).
@@ -573,6 +574,217 @@ function AlertDetail({ fire, alerts }) {
         )}
       </div>
     </>
+  );
+}
+
+// SPC MDs are red and WPC MPDs green on the map — keep the modal accent matched.
+const MD_SOURCE_META = {
+  spc: { color: '#ff0000', office: 'Storm Prediction Center', label: 'SPC Mesoscale Discussion' },
+  wpc: { color: '#00b300', office: 'Weather Prediction Center', label: 'WPC Mesoscale Precipitation Discussion' },
+};
+
+/** Official product graphic for an MD/MPD (plain <img> loads fine cross-origin). */
+function mesoscaleGraphicUrl(fire) {
+  if (!Number.isFinite(fire.number)) return null;
+  const n = String(fire.number).padStart(4, '0');
+  if (fire.source === 'wpc') return `https://www.wpc.ncep.noaa.gov/metwatch/images/mcd${n}.gif`;
+  const year = fire.issue ? new Date(fire.issue).getUTCFullYear() : new Date().getUTCFullYear();
+  return `https://www.spc.noaa.gov/products/md/${year}/mcd${n}.png`;
+}
+
+/**
+ * Centered, wide reader for SPC MD / WPC MPD bulletins — the full discussion
+ * is long-form prose, which is cramped in the narrow side panel.
+ */
+function MesoscaleDiscussionModal({ fire, onClose }) {
+  const [text, setText] = useState(null);
+  const [status, setStatus] = useState('loading'); // loading | ready | missing | error
+  const [tab, setTab] = useState('text');
+  const [graphicFailed, setGraphicFailed] = useState(false);
+  const [actionStatus, setActionStatus] = useState('');
+  const meta = MD_SOURCE_META[fire.source] || MD_SOURCE_META.spc;
+  const graphicUrl = mesoscaleGraphicUrl(fire);
+
+  useEffect(() => {
+    let cancelled = false;
+    setText(null);
+    setStatus('loading');
+    setTab('text');
+    setGraphicFailed(false);
+    const load = fire.source === 'wpc'
+      ? fetchWpcMpdText(fire.productId)
+      : fetchSpcMdText(fire.number);
+    load
+      .then((t) => {
+        if (cancelled) return;
+        setText(t);
+        setStatus(t ? 'ready' : 'missing');
+      })
+      .catch(() => { if (!cancelled) setStatus('error'); });
+    return () => { cancelled = true; };
+  }, [fire.source, fire.number, fire.productId]);
+
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
+  const flash = (msg) => {
+    setActionStatus(msg);
+    window.setTimeout(() => setActionStatus(''), 2000);
+  };
+
+  const handleCopy = async () => {
+    try {
+      if (!text || !navigator.clipboard?.writeText) return flash('Unavailable');
+      await navigator.clipboard.writeText(text);
+      flash('Copied');
+    } catch {
+      flash('Copy failed');
+    }
+  };
+
+  const handleShare = async () => {
+    const payload = {
+      title: `${meta.label} ${fire.number ?? ''}`.trim(),
+      text: (text || fire.name).slice(0, 4000),
+      ...(fire.url ? { url: fire.url } : {}),
+    };
+    const canShare =
+      typeof navigator.share === 'function' &&
+      (typeof navigator.canShare !== 'function' || navigator.canShare(payload));
+    if (canShare) {
+      navigator.share(payload).catch(() => {});
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(fire.url ? `${payload.text}\n${fire.url}` : payload.text);
+      flash('Copied');
+    } catch {
+      flash('Share unavailable');
+    }
+  };
+
+  const chipBase =
+    'inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-semibold border';
+  const chipInfo = `${chipBase} bg-sky-100/95 text-blue-900 border-blue-200/80`;
+  const chipOutline = `${chipBase} bg-white text-[#1D2951] border-[#1D2951]/40`;
+  const iconBtn =
+    'p-1.5 rounded-md border border-sentinel-600 bg-sentinel-800/90 text-sentinel-300 hover:text-white hover:bg-sentinel-700 transition-colors disabled:opacity-40';
+  const tabBtn = (active) =>
+    `px-3 pb-2 text-sm font-semibold border-b-2 transition-colors ${
+      active ? 'text-white border-blue-500' : 'text-sentinel-400 border-transparent hover:text-sentinel-200'
+    }`;
+
+  return (
+    <div className="fixed inset-0 z-40 flex items-center justify-center p-3 sm:p-6">
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-[1px]" onClick={onClose} />
+
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={fire.name}
+        className="relative w-full max-w-3xl max-h-[88vh] flex flex-col
+                   bg-sentinel-900 border border-sentinel-700 rounded-2xl shadow-2xl overflow-hidden"
+      >
+        <div className="h-1 shrink-0" style={{ backgroundColor: meta.color }} aria-hidden />
+
+        {/* Header */}
+        <div className="px-5 pt-4 shrink-0">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-[11px] font-bold text-sentinel-400 uppercase tracking-widest">{meta.label}</p>
+              <h2 className="font-bold text-white text-xl leading-tight mt-0.5">{fire.name}</h2>
+              {fire.concerning && <p className="text-sentinel-200 text-sm mt-1">{fire.concerning}</p>}
+            </div>
+            <button
+              onClick={onClose}
+              className="p-1 text-sentinel-400 hover:text-white hover:bg-sentinel-700 rounded transition-colors shrink-0"
+              aria-label="Close discussion"
+            >
+              <X size={18} />
+            </button>
+          </div>
+
+          <div className="flex flex-wrap gap-1.5 mt-3">
+            {fire.issue && <span className={chipInfo}>Issued {formatRelativeTime(fire.issue)}</span>}
+            {fire.expire
+              ? <span className={chipInfo}>Expires {formatRelativeTime(fire.expire)}</span>
+              : fire.activeTill && <span className={chipInfo}>Active till {fire.activeTill}</span>}
+            <span className={chipOutline}>Source: {meta.office}</span>
+          </div>
+
+          {/* Tabs */}
+          <div className="flex gap-1 mt-4 border-b border-sentinel-700">
+            <button type="button" className={tabBtn(tab === 'text')} onClick={() => setTab('text')}>
+              Discussion
+            </button>
+            {graphicUrl && (
+              <button type="button" className={tabBtn(tab === 'graphic')} onClick={() => setTab('graphic')}>
+                Graphic
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Body */}
+        <div className="relative flex-1 overflow-y-auto px-5 py-4">
+          {tab === 'text' && (
+            <>
+              <div className="sticky top-0 float-right flex items-center gap-1.5 ml-3">
+                {actionStatus && <span className="text-[11px] text-sentinel-400">{actionStatus}</span>}
+                <button type="button" onClick={handleShare} className={iconBtn} aria-label="Share discussion" title="Share">
+                  <Share2 size={14} />
+                </button>
+                <button type="button" onClick={handleCopy} disabled={!text} className={iconBtn} aria-label="Copy discussion text" title="Copy text">
+                  <Copy size={14} />
+                </button>
+              </div>
+              {status === 'loading' && <p className="text-sm text-sentinel-400">Loading discussion…</p>}
+              {status === 'ready' && (
+                <pre className="text-[13px] sm:text-sm leading-relaxed text-sentinel-100 font-mono whitespace-pre-wrap break-words">
+                  {text}
+                </pre>
+              )}
+              {(status === 'missing' || status === 'error') && (
+                <p className="text-sm text-sentinel-400">
+                  {status === 'error' ? 'Could not load the discussion text.' : 'Discussion text is not available yet.'}
+                  {fire.url && ' Use the official product link below.'}
+                </p>
+              )}
+            </>
+          )}
+
+          {tab === 'graphic' && graphicUrl && (
+            graphicFailed ? (
+              <p className="text-sm text-sentinel-400">The product graphic is not available.</p>
+            ) : (
+              <img
+                src={graphicUrl}
+                alt={`${fire.name} graphic`}
+                onError={() => setGraphicFailed(true)}
+                className="mx-auto max-w-full h-auto rounded-lg border border-sentinel-700 bg-white"
+              />
+            )
+          )}
+        </div>
+
+        {fire.url && (
+          <div className="px-5 py-3 border-t border-sentinel-700 shrink-0">
+            <a
+              href={fire.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 text-xs text-sky-400 hover:text-sky-300 transition-colors"
+            >
+              <ExternalLink size={12} />
+              View official product
+            </a>
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -1605,6 +1817,12 @@ const FireDetailPanel = memo(function FireDetailPanel() {
   };
 
   if (!selectedFire) return null;
+
+  // Discussions are long-form text — read them in a wide centered modal
+  // rather than the narrow side panel.
+  if (selectedFire.type === 'mesoscale-discussion') {
+    return <MesoscaleDiscussionModal fire={selectedFire} onClose={clearSelected} />;
+  }
 
   return (
     <>
