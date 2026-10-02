@@ -5,7 +5,10 @@ directory for development and tests. Both take the same object keys.
 
 Frame keys include the run, so a frame never changes once written and is
 cached "immutable". The manifest is the only mutable object, written last,
-with a short cache lifetime.
+with a short cache lifetime. Past that, browsers and CloudFront may answer
+with the old manifest for up to 5 more minutes while they fetch the new one
+(stale-while-revalidate), so opening the Models tab never waits on S3. An
+old manifest is harmless: its frames stay in the bucket for days.
 """
 
 from __future__ import annotations
@@ -14,7 +17,7 @@ import json
 import os
 
 IMMUTABLE = 'public, max-age=31536000, immutable'
-MANIFEST_CACHE = 'public, max-age=60, must-revalidate'
+MANIFEST_CACHE = 'public, max-age=60, stale-while-revalidate=300'
 
 
 class LocalStore:

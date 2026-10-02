@@ -331,6 +331,7 @@ export default function LiveTrackerPage() {
   // "Open in Models" switches here (closing the detail panel over the map).
   const modelsApiRef = useRef(null);
   const handleModelPick = useCallback((pt) => modelsApiRef.current?.pick(pt), []);
+  const handleModelsIntent = useCallback(() => modelsApiRef.current?.warm(), []);
   const handleOpenModels = useCallback(() => {
     selectFire(null);
     handleTabChange(MAP_TABS.models);
@@ -1496,6 +1497,7 @@ export default function LiveTrackerPage() {
             ref={mapBottomBarRef}
             activeMapTab={activeMapTab}
             onTabChange={handleTabChange}
+            onModelsIntent={handleModelsIntent}
             infrastructureLayersEntitled={hasProInfrastructureAccess}
             measureActive={measureActive}
             measureMode={measureMode}

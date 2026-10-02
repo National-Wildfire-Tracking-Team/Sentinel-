@@ -184,6 +184,21 @@ class TestRoutes:
         assert app.handle('POST', '/v1/forecast?lat=1&lon=1').status == 405
         assert app.handle('OPTIONS', '/v1/forecast').status == 204
 
+    def test_warm_opens_each_dataset(self):
+        app, _ = app_for()
+        out = io.StringIO()
+        with redirect_stdout(out):
+            resp = app.handle('POST', '/events', client='test')
+        assert resp.status == 200 and resp.headers['Cache-Control'] == 'no-store'
+        assert resp.body['models'] == {'hrrr': 'available', 'gfs': 'available'}
+        assert all(p._run_index is not None for p in app.service.providers.values())
+        assert json.loads(out.getvalue().splitlines()[-1])['message'] == 'warm'
+
+    def test_warm_is_post_only(self):
+        app, _ = app_for()
+        assert get(app, '/events')[0].status == 404
+        assert app.handle('POST', '/v1/models').status == 405
+
     def test_rate_limit(self):
         service, _ = make_service()
         app = App(service, rate_limit_per_minute=2)

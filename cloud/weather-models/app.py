@@ -7,6 +7,10 @@ straight from the dynamical.org Icechunk datasets on AWS Open Data.
 GET /v1/forecast?lat=&lon=[&model=auto|hrrr|gfs][&hours=][&variables=a,b][&units=us|si]
 GET /v1/models   → model catalog: newest runs, lead hours, coverage, variables
 GET /health      → counters only; never touches S3 (it's the readiness check)
+POST /events     → keep-warm (an EventBridge schedule, which the Lambda Web
+                   Adapter forwards here): opens each dataset's session and
+                   reads its run index so a user's first click doesn't pay
+                   for them. Not reachable through CloudFront (GET only).
 
 The request handling is the pure function `handle()`, so tests call it
 without a socket. See README.md for the contract.
@@ -56,6 +60,10 @@ STATUS_BY_ERROR = {
     StaleDataError: 503,
     DatasetError: 502,
 }
+
+# Where the Lambda Web Adapter delivers non-HTTP events (its default
+# AWS_LWA_PASS_THROUGH_PATH): here, only the keep-warm schedule.
+WARM_PATH = '/events'
 
 MODELS = ('auto', *PROVIDER_CLASSES)
 UNITS = tuple(normalize.UNIT_SYSTEMS)
@@ -155,9 +163,11 @@ class App:
     def handle(self, method: str, target: str, client: str = 'unknown') -> Response:
         if method == 'OPTIONS':
             return Response(204, None)
+        parts = urlsplit(target)
+        if method == 'POST' and parts.path == WARM_PATH:
+            return self._warm()
         if method not in ('GET', 'HEAD'):
             return error(405, 'method_not_allowed', 'Only GET is supported')
-        parts = urlsplit(target)
         query = parse_qs(parts.query, keep_blank_values=True)
         if parts.path == '/health':
             return Response(200, {
@@ -178,6 +188,12 @@ class App:
                 return resp
             return self._forecast(query)
         return error(404, 'not_found', 'Not found')
+
+    def _warm(self) -> Response:
+        started = time.monotonic()
+        status = {m['id']: m['status'] for m in self.service.models()['models']}
+        log('INFO', 'warm', latencyMs=round((time.monotonic() - started) * 1000), models=status)
+        return Response(200, {'ok': True, 'models': status}, {'Cache-Control': 'no-store'})
 
     def _models(self) -> Response:
         started = time.monotonic()
@@ -299,6 +315,11 @@ def make_handler(app: App):
             self._respond()
 
         def do_POST(self):  # noqa: N802
+            # Drain the body (the adapter's event JSON) so a kept-alive
+            # connection's next request starts at the right byte.
+            length = int(self.headers.get('Content-Length') or 0)
+            if length:
+                self.rfile.read(length)
             self._respond()
 
         def log_message(self, *args):  # the structured request log replaces http.server's
