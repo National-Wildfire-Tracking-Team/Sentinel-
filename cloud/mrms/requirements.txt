@@ -1,0 +1,5 @@
+# Runtime dependencies, pinned. Installed for arm64 Linux (manylinux_2_28)
+# into the Lambda zip by infra/aws (see README.md "Build and deploy").
+# boto3 (frames bucket writes only) comes with the Lambda Python runtime.
+numpy==2.5.3
+pillow==12.3.0

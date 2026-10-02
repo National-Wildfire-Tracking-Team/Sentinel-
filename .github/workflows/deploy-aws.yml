@@ -55,8 +55,10 @@ jobs:
           # AWS_WEATHER_MODELS=enabled adds SentinelWeatherModels (us-west-2,
           # deployed first as a dependency) and the /weather-models/* route.
           # us-west-2 must be CDK-bootstrapped once first; see infra/aws/README.md.
+          # AWS_MRMS=enabled adds SentinelMrms (us-east-1, deployed first) and the /mrms/* route.
           CTX=(-c "sentinel:alarmEmail=${{ vars.AWS_ALARM_EMAIL }}" -c "sentinel:nwsUserAgent=${{ vars.NWS_USER_AGENT }}"
-               -c "sentinel:weatherModels=${{ vars.AWS_WEATHER_MODELS }}" -c "sentinel:distributionId=${{ vars.AWS_DISTRIBUTION_ID }}")
+               -c "sentinel:weatherModels=${{ vars.AWS_WEATHER_MODELS }}" -c "sentinel:distributionId=${{ vars.AWS_DISTRIBUTION_ID }}"
+               -c "sentinel:mrms=${{ vars.AWS_MRMS }}")
           if [ "${{ inputs.action }}" = "deploy" ]; then
             npx cdk deploy SentinelDataServices "${CTX[@]}" --require-approval never --outputs-file cdk-outputs.json
             cat cdk-outputs.json
