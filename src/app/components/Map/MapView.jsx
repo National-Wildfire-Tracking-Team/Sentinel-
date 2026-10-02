@@ -63,6 +63,7 @@ import CaliforniaCamerasLayer from './layers/CaliforniaCamerasLayer';
 import CalFirePerimetersLayer from './layers/CalFirePerimetersLayer';
 import HazardEventsLayer, { HAZARD_CATEGORY_LABELS } from './layers/HazardEventsLayer';
 import DamageAssessmentLayer from './layers/DamageAssessmentLayer';
+import MrmsLayer from './layers/MrmsLayer';
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN || '';
 const HAS_MAPBOX_TOKEN = Boolean(MAPBOX_TOKEN.trim());
@@ -1905,6 +1906,10 @@ export default function MapView({
           fire16Visible={(isWildfireTab || isAllHazardTab) && layers.goesFire16}
           fire18Visible={(isWildfireTab || isAllHazardTab) && layers.goesFire18}
         />
+
+        {/* NOAA MRMS radar (Weather tab). Visibility, product and frame come
+            from MrmsContext, which is active only on the Weather tab with the layer on. */}
+        <MrmsLayer />
 
         {/* FEMA flood hazard zones — contextual, so it sits directly above base
             imagery and below alerts, perimeters, incidents, and evac zones */}

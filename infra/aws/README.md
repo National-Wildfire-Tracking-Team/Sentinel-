@@ -39,6 +39,7 @@ Defaults are in `bin/sentinel.mjs`. Override any of them with `-c sentinel:<key>
 | `existingOidcProviderArn` | *(none)* | Set this if the account already has a GitHub OIDC provider |
 | `weatherModels` | `disabled` | `enabled` adds `SentinelWeatherModels` and the `/weather-models/*` route. In CI it's the `AWS_WEATHER_MODELS` repo variable. |
 | `distributionId` | *(none)* | After the first deploy, set it to the `DistributionId` output to narrow the weather-models invoke permission from "CloudFront in this account" to this one distribution. In CI it's `AWS_DISTRIBUTION_ID`. |
+| `mrms` | `disabled` | `enabled` adds `SentinelMrms` (us-east-1) and the `/mrms/*` route. In CI it's the `AWS_MRMS` repo variable. With `distributionId` set, the frames bucket is readable only by that distribution. |
 | `weatherModelsReservedConcurrency` | `0` (no cap) | Caps concurrent weather-models executions. Needs spare account concurrency (at least 10 must stay unreserved). |
 
 Nothing here is a secret. The services call only public APIs, so there's
@@ -166,6 +167,49 @@ the infrastructure, deploy with `weatherModels` unset, then
 **Cost.** A few dollars a month at current scale: Lambda only on CloudFront
 misses, no S3 charges to Sentinel (AWS Open Data, same-region), and no
 storage. The breakdown is in the service README.
+
+## MRMS radar
+
+NOAA MRMS radar for the Weather tab (`cloud/mrms`, details in its
+[README](../../cloud/mrms/README.md)). It has no API function:
+- a builder Lambda runs every 2 minutes (EventBridge);
+- it reads only new files from `s3://noaa-mrms-pds`, anonymously and in the same region;
+- it writes 8-bit PNG frames and a manifest to a private bucket (`sentinel-mrms-frames-<account>`, 1-day expiry);
+- CloudFront serves that bucket at `/mrms/*` through OAC.
+
+It's in **us-east-1**, the same region as both the NOAA bucket and the distribution's stack, so it needs no cross-region references or new bootstrap.
+
+It's opt-in. Without `-c sentinel:mrms=enabled` nothing changes. With it, `SentinelDataServices` depends on `SentinelMrms`, so deploying the distribution deploys MRMS first. That includes CI, which deploys only `SentinelDataServices`.
+
+Deploy (laptop, admin credentials, after the data services are up):
+
+```bash
+cd infra/aws && npm ci
+export CDK_DEFAULT_ACCOUNT=$(aws sts get-caller-identity --query Account --output text)
+
+# 1. Review, then deploy (needs `uv` or Docker for the arm64 Python zip).
+npx cdk diff   SentinelMrms SentinelDataServices -c sentinel:mrms=enabled -c sentinel:alarmEmail=<ops mailbox>
+npx cdk deploy SentinelDataServices -c sentinel:mrms=enabled -c sentinel:alarmEmail=<ops mailbox>
+
+# 2. Narrow the bucket's read grant to this distribution (if not already passing it).
+npx cdk deploy SentinelDataServices -c sentinel:mrms=enabled -c sentinel:distributionId=<DistributionId output> \
+  -c sentinel:alarmEmail=<ops mailbox>
+
+# 3. Smoke test. The first build runs within 2 minutes (or invoke sentinel-mrms-builder by hand);
+#    the hour of history fills in over the next few runs.
+curl -s "https://<distribution>/mrms/v1/manifest.json" | head -c 600
+```
+
+Then set the `VITE_MRMS_URL` GitHub secret (and the Netlify env var for
+previews) to the `MrmsBaseUrl` output. For CI deploys, set the repo variable
+`AWS_MRMS=enabled`. You must also confirm the new SNS email subscription.
+
+**Rollback.** Unset `VITE_MRMS_URL`: the layer row disappears. To remove the
+infrastructure, deploy with `mrms` unset, then
+`npx cdk destroy SentinelMrms -c sentinel:mrms=enabled`. The bucket is
+retained; its lifecycle rule empties it within a day.
+
+**Cost.** About $2–7 a month (breakdown in the service README).
 
 ## Parallel run and validation
 
