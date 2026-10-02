@@ -10,13 +10,16 @@
  *
  * Resolution: HRRR frames come in two sizes. The light one is used while
  * animating or zoomed out; the full 3 km one once paused at zoom ≥ 5.
- * The next few frames are pre-fetched so the timeline steps instantly.
+ * Frames the user is likely to want next (playback, the jump buttons, the
+ * other variables and model, and on a desktop the whole timeline) are
+ * pre-fetched so steps and switches draw from the HTTP cache.
  */
 
 import { Component, useEffect, useMemo, useState } from 'react';
 import { Marker, useMap } from 'react-map-gl';
 import { useWeatherModelsContext } from '../../context/WeatherModelsContext';
 import { differenceUrl, fieldUrl, fieldsBase, hourAt, rasterPaint, windUrl } from '../../api/modelFields';
+import { prefetchPlan } from '../../utils/modelFieldSelection';
 import ModelFieldLayer from './ModelFieldLayer';
 import { usePreloadFrames } from '../../hooks/usePreloadFrames';
 import ModelInspectPopup from './ModelInspectPopup';
@@ -25,7 +28,9 @@ import WindParticles from './WindParticles';
 import { zulu } from './modelTheme';
 
 const HI_RES_ZOOM = 5;
-const PRELOAD_AHEAD = 4;
+// A precise pointer is a reasonable proxy for a desktop on an unmetered
+// connection; there the whole timeline is pre-fetched for scrubbing.
+const WHOLE_TIMELINE = typeof window !== 'undefined' && window.matchMedia?.('(pointer: fine)').matches;
 
 function useZoom() {
   const { current } = useMap();
@@ -96,18 +101,12 @@ function ModelsOverlay({ mapStyle, mapboxAccessToken }) {
   const manifest = wm?.manifest;
   const { mode, compareView, variable, validTime, timeline, playing, particles, location } = wm ?? {};
 
-  // Pre-fetch the next frames along the timeline.
-  const upcoming = useMemo(() => {
-    if (!manifest || !validTime || !base) return [];
-    const i = timeline.indexOf(validTime);
-    const next = timeline.slice(i + 1, i + 1 + PRELOAD_AHEAD);
-    if (mode === 'compare' && compareView === 'difference') return next.map((t) => differenceUrl(base, manifest, variable, t));
-    const models = mode === 'compare' ? ['hrrr', 'gfs'] : [mode];
-    return next.flatMap((t) => models.map((m) => {
-      const h = hourAt(manifest, m, t);
-      return h == null ? null : fieldUrl(base, manifest, m, variable, h, 'lo');
-    })).filter(Boolean);
-  }, [manifest, base, timeline, validTime, mode, compareView, variable]);
+  // Pre-fetch what's likely next (see prefetchPlan for the order).
+  const res = !playing && zoom >= HI_RES_ZOOM ? 'hi' : 'lo';
+  const hiRes = zoom >= HI_RES_ZOOM - 1; // one level early: the 3 km frames are ready when they're used
+  const upcoming = useMemo(() => prefetchPlan({
+    base, manifest, mode, compareView, variable, validTime, timeline, playing, particles, hiRes, shownRes: res, whole: WHOLE_TIMELINE,
+  }), [base, manifest, mode, compareView, variable, validTime, timeline, playing, particles, hiRes, res]);
   usePreloadFrames(upcoming);
 
   const diffPaint = useMemo(() => {
@@ -116,7 +115,6 @@ function ModelsOverlay({ mapStyle, mapboxAccessToken }) {
   }, [manifest, variable]);
 
   if (!wm || !manifest || !validTime || !base) return null;
-  const res = !playing && zoom >= HI_RES_ZOOM ? 'hi' : 'lo';
   const showParticles = particles && mode !== 'compare';
 
   let content;

@@ -25,7 +25,65 @@ export async function fetchFieldManifest(baseUrl = WEATHER_MODEL_SERVICE_URL) {
   if (!base) throw new Error('Model fields are not configured for this build');
   const res = await fetch(`${base}/manifest.json`, { signal: AbortSignal.timeout(TIMEOUT_MS) });
   if (!res.ok) throw new Error(`Model field manifest unavailable (HTTP ${res.status})`);
-  return parseFieldManifest(await res.json());
+  const manifest = parseFieldManifest(await res.json());
+  writeCachedManifest(manifest, base);
+  return manifest;
+}
+
+// One manifest request at a time, shared by the idle prefetch, the tab's
+// hover warm-up and the tab itself. Reused for SHARE_MS, then refetched.
+const SHARE_MS = 30 * 1000;
+let shared = null;
+
+/** fetchFieldManifest, deduplicated: callers within SHARE_MS get the same promise. */
+export function loadFieldManifest(baseUrl = WEATHER_MODEL_SERVICE_URL) {
+  if (shared && shared.baseUrl === baseUrl && Date.now() - shared.at < SHARE_MS) return shared.promise;
+  const promise = fetchFieldManifest(baseUrl);
+  shared = { baseUrl, at: Date.now(), promise };
+  promise.catch(() => { if (shared?.promise === promise) shared = null; });
+  return promise;
+}
+
+// The last manifest, kept on this device so the tab draws immediately on the
+// next visit while a fresh one loads. Past CACHED_MAX_MS it's not used: by
+// then a newer run has usually replaced it.
+const CACHE_KEY = 'sentinel:model-field-manifest:v1';
+const CACHED_MAX_MS = 6 * 60 * 60 * 1000;
+
+export function readCachedManifest(baseUrl = WEATHER_MODEL_SERVICE_URL, now = Date.now()) {
+  const base = fieldsBase(baseUrl);
+  if (!base) return null;
+  try {
+    const saved = JSON.parse(window.localStorage.getItem(CACHE_KEY));
+    if (!saved || saved.base !== base || !(now - saved.savedAt < CACHED_MAX_MS)) return null;
+    return parseFieldManifest(saved.manifest);
+  } catch {
+    return null;
+  }
+}
+
+function writeCachedManifest(manifest, base) {
+  try {
+    window.localStorage.setItem(CACHE_KEY, JSON.stringify({ base, savedAt: Date.now(), manifest }));
+  } catch {
+    // storage full or blocked: the next visit just waits for the network
+  }
+}
+
+/** Open the connection to the fields CDN early, so the first frame doesn't pay for DNS + TLS. */
+export function preconnectFields(baseUrl = WEATHER_MODEL_SERVICE_URL) {
+  let origin;
+  try {
+    origin = new URL(baseUrl).origin;
+  } catch {
+    return;
+  }
+  if (origin === window.location.origin || document.querySelector(`link[rel="preconnect"][href="${origin}"]`)) return;
+  const link = document.createElement('link');
+  link.rel = 'preconnect';
+  link.href = origin;
+  link.crossOrigin = 'anonymous'; // frames are fetched in CORS mode without credentials
+  document.head.appendChild(link);
 }
 
 export function parseFieldManifest(body) {

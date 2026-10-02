@@ -169,6 +169,7 @@ class TestBuilder:
         builder.run()
         assert store.order[-1][0] == MANIFEST_KEY
         assert 'max-age=60' in store.order[-1][1]
+        assert 'stale-while-revalidate' in store.order[-1][1]
         assert all('immutable' in cc for k, cc in store.order[:-1])
 
     def test_differences_only_for_compatible_variables_and_windows(self, tmp_path):
