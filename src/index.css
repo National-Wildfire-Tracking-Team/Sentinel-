@@ -64,23 +64,18 @@
   filter: invert(1);
 }
 
-/* Scale control */
-.mapboxgl-ctrl-scale {
-  @apply text-sentinel-200 bg-sentinel-800/90 border-sentinel-700 text-[10px] font-medium tracking-wide;
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  border-width: 0 2px 2px;
-  padding: 3px 8px;
+/* Scale control — scoped to MapScaleBar's host so it outranks mapbox-gl.css
+   (loaded later, white with a #333 border). Same surface and border as the
+   legend box it hangs from: an open-topped tab whose width is the distance. */
+.sentinel-scale .mapboxgl-ctrl-scale {
+  @apply text-sentinel-100 bg-sentinel-900/95 border-sentinel-700 text-[10px] font-medium tracking-wide;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  border-style: solid;
+  border-width: 0 1px 1px;
+  padding: 2px 8px 3px;
   border-radius: 0 0 10px 10px;
   box-shadow: 0 8px 24px rgba(0,0,0,0.4);
-}
-
-/* On phones the bottom-left scale sits under the centered bottom bar; the
-   custom scale above the zoom cluster (MapZoomControl) still shows it. */
-@media (max-width: 639px) {
-  .mapboxgl-ctrl-bottom-left .mapboxgl-ctrl-scale {
-    display: none;
-  }
 }
 
 /* ─── Mapbox popup override ─────────────────────────────────────────────────*/
