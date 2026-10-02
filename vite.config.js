@@ -1,6 +1,23 @@
 /// <reference types="vitest" />
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import { ROUTES as NWS_MAPSERVICE_ROUTES } from './netlify/edge-functions/nws-mapservices-proxy.js';
+
+// Dev/preview twin of netlify/edge-functions/nws-mapservices-proxy.js: one
+// proxy entry per route, so /api/nws/<key>/... reaches the same upstream
+// service locally (without it these requests fall through to index.html and
+// the SPC/WPC/CPC/NHC/LSR/DAT layers come up empty).
+const nwsMapServiceProxy = Object.fromEntries(
+  Object.entries(NWS_MAPSERVICE_ROUTES).map(([key, route]) => {
+    const prefix = `/api/nws/${key}`;
+    return [`^${prefix}(/|\\?|$)`, {
+      target: route.origin ?? 'https://mapservices.weather.noaa.gov',
+      changeOrigin: true,
+      secure: true,
+      rewrite: (path) => route.path + path.slice(prefix.length),
+    }];
+  })
+);
 
 export default defineConfig({
   plugins: [react()],
@@ -107,6 +124,7 @@ export default defineConfig({
         changeOrigin: true,
         rewrite: () => '/static/rest/services/nws_reference_maps/nws_reference_map/FeatureServer/5/query?where=1%3D1&outFields=id&outSR=4326&f=geojson',
       },
+      ...nwsMapServiceProxy,
       // NWPS – api.water.noaa.gov lacks CORS headers; dev server proxies same paths as Netlify edge fn
       '/api/nwps': {
         target: 'https://api.water.noaa.gov/nwps/v1',
@@ -200,6 +218,7 @@ export default defineConfig({
         changeOrigin: true,
         rewrite: () => '/static/rest/services/nws_reference_maps/nws_reference_map/FeatureServer/5/query?where=1%3D1&outFields=id&outSR=4326&f=geojson',
       },
+      ...nwsMapServiceProxy,
       '/api/nwps': {
         target: 'https://api.water.noaa.gov/nwps/v1',
         changeOrigin: true,

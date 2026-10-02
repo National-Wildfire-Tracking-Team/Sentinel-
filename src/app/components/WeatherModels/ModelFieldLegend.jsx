@@ -6,6 +6,7 @@
  * transparency (where the field is clear, the bar shows the dark backdrop).
  */
 
+import { useApp } from '../../context/AppContext';
 import { useWeatherModelsContext } from '../../context/WeatherModelsContext';
 import { DISPLAY_UNITS, byteToValue, formatDisplay, hourAt, toDisplay, valueToByte } from '../../api/modelFields';
 import { MODEL_STYLE, ageLabel, localTime, zulu } from './modelTheme';
@@ -34,6 +35,7 @@ function age(runTime) {
 
 export default function ModelFieldLegend() {
   const wm = useWeatherModelsContext();
+  const { layerPanelOpen } = useApp();
   if (!wm?.manifest || !wm.validTime) return null;
   const { manifest, mode, compareView, variable, validTime, units } = wm;
   const spec = manifest.variables[variable];
@@ -45,8 +47,10 @@ export default function ModelFieldLegend() {
   const labels = ticks(scale, spec.quantity, units, isDiff);
 
   return (
-    // Phones: between the left and right corner-button columns. Wider: centred.
-    <div className="absolute top-2 left-[4.25rem] right-[4.25rem] z-20 pointer-events-none sm:left-1/2 sm:right-auto sm:-translate-x-1/2 sm:w-[min(46rem,calc(100vw-10rem))]">
+    // Phones: between the left and right corner-button columns, and out of the way
+    // while the layer pop-up fills the screen. Wider: centred.
+    <div className={`absolute top-2 left-[4.25rem] right-[4.25rem] z-20 pointer-events-none sm:left-1/2 sm:right-auto sm:-translate-x-1/2 sm:w-[min(46rem,calc(100vw-10rem))] ${
+      layerPanelOpen ? 'max-sm:hidden' : ''}`}>
       <div className="rounded-lg border border-dashed border-sentinel-500/70 bg-sentinel-900/90 backdrop-blur-sm px-2.5 py-1.5 text-white shadow-xl">
         <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-[11px] leading-tight">
           <span className="font-bold">

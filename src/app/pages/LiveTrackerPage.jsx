@@ -68,7 +68,6 @@ import WeatherModelsPanel from '../components/WeatherModels/WeatherModelsPanel';
 import WeatherModelsMapLayer from '../components/WeatherModels/WeatherModelsMapLayer';
 import ModelFieldTimeline from '../components/WeatherModels/ModelFieldTimeline';
 import ModelFieldLegend from '../components/WeatherModels/ModelFieldLegend';
-import ModelFieldControls from '../components/WeatherModels/ModelFieldControls';
 import { ROOT_VARS as MODEL_COLOR_VARS } from '../components/WeatherModels/modelTheme';
 import { WeatherModelsProvider } from '../context/WeatherModelsContext';
 import { parseModelsQuery } from '../utils/weatherModelsLink';
@@ -661,8 +660,8 @@ export default function LiveTrackerPage() {
     refresh: refreshWpcMpd,
   } = useWpcMesoscaleDiscussion(weatherDataEnabled && layers.weatherAlerts);
 
-  // Permanent layer (not user-toggleable) — fetches whenever the weather/all-hazard tab is active.
-  const nhcTropicalWeatherEnabled = weatherDataEnabled;
+  // Permanent layer (not user-toggleable) — fetches whenever the weather, all-hazard or models tab is active.
+  const nhcTropicalWeatherEnabled = weatherDataEnabled || (activeMapTab === MAP_TABS.models && mapReady);
   const {
     forecastPointsGeoJSON: nhcForecastPointsGeoJSON,
     forecastTrackGeoJSON: nhcForecastTrackGeoJSON,
@@ -1328,12 +1327,31 @@ export default function LiveTrackerPage() {
     return () => observer.disconnect();
   }, [fireWxOutlookShowing]);
 
-  // The SPC/fire-weather outlook selector docks on the bottom bar's top
-  // edge, so the bar's own "something is attached to my top edge" flag and
-  // the Layers panel's clearance both need to account for it.
-  const bottomBarAttached = outlookShowing || fireWxOutlookShowing;
+  // The Models tab's forecast-time scrubber docks there too.
+  const modelsTimelineShowing = activeMapTab === MAP_TABS.models;
+  const modelsTimelineRef = useRef(null);
+  const [modelsTimelineHeight, setModelsTimelineHeight] = useState(0);
+
+  useEffect(() => {
+    const el = modelsTimelineRef.current;
+    if (!el) {
+      setModelsTimelineHeight(0);
+      return undefined;
+    }
+    const observer = new ResizeObserver(() => {
+      setModelsTimelineHeight(el.getBoundingClientRect().height);
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [modelsTimelineShowing]);
+
+  // The SPC/fire-weather outlook selector and the Models scrubber dock on the
+  // bottom bar's top edge, so the bar's own "something is attached to my top
+  // edge" flag and the Layers panel's clearance both need to account for them.
+  const bottomBarAttached = outlookShowing || fireWxOutlookShowing || modelsTimelineShowing;
   const totalDockedHeight = (outlookShowing ? spcOutlookPanelHeight : 0)
-    + (fireWxOutlookShowing ? fireWxOutlookPanelHeight : 0);
+    + (fireWxOutlookShowing ? fireWxOutlookPanelHeight : 0)
+    + (modelsTimelineShowing ? modelsTimelineHeight : 0);
   const layerPanelDockClearance = totalDockedHeight ? totalDockedHeight + 8 : 0;
 
   return (
@@ -1484,8 +1502,11 @@ export default function LiveTrackerPage() {
           {activeMapTab === MAP_TABS.models && (
             <>
               <ModelFieldLegend />
-              <ModelFieldControls />
-              <ModelFieldTimeline bottomOffset={mapBottomBarSize.height + 24} />
+              <ModelFieldTimeline
+                ref={modelsTimelineRef}
+                bottomBarWidth={mapBottomBarSize.width}
+                bottomBarHeight={mapBottomBarSize.height}
+              />
             </>
           )}
 
