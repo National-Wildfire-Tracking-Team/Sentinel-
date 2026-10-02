@@ -15,8 +15,8 @@ import { Pause, Play } from 'lucide-react';
 import { useWeatherModelsContext } from '../../context/WeatherModelsContext';
 import { hourAt } from '../../api/modelFields';
 import { localTime, nowIndex, zulu } from './modelTheme';
+import { jumpTargets } from '../../utils/modelFieldSelection';
 
-const JUMPS = [1, 3, 6, 12, 24, 48, 72, 120, 168, 240, 384];
 const FRAME_MS = 650;
 
 const ModelFieldTimeline = forwardRef(function ModelFieldTimeline({ bottomBarWidth, bottomBarHeight }, ref) {
@@ -64,12 +64,8 @@ const ModelFieldTimeline = forwardRef(function ModelFieldTimeline({ bottomBarWid
   }
 
   const index = timeline.indexOf(validTime);
-  const entries = timeline.map((t) => ({ validTime: t }));
-  const now = nowIndex(entries);
-  const nowMs = Date.parse(timeline[now]);
-  const jumps = [{ label: 'Now', i: now }, ...JUMPS
-    .map((h) => ({ label: `+${h}h`, i: timeline.findIndex((t) => Date.parse(t) === nowMs + h * 3_600_000) }))
-    .filter((j) => j.i !== -1)];
+  const now = nowIndex(timeline.map((t) => ({ validTime: t })));
+  const jumps = jumpTargets(timeline);
   const hourModels = mode === 'compare' ? ['hrrr', 'gfs'] : [mode];
   const max = timeline.length - 1;
 

@@ -11,6 +11,7 @@ import LayerControl from '../LayerControl/LayerControl';
 const MapBottomBar = memo(forwardRef(function MapBottomBar({
   activeMapTab = 'wildfire',
   onTabChange,
+  onModelsIntent,
   infrastructureLayersEntitled = false,
   measureActive = false,
   measureMode = 'distance',
@@ -86,6 +87,10 @@ const MapBottomBar = memo(forwardRef(function MapBottomBar({
       <button
         type="button"
         onClick={() => onTabChange?.('models')}
+        // Hover, focus or the start of a tap: fetch the first frame before the click lands.
+        onPointerEnter={onModelsIntent}
+        onPointerDown={onModelsIntent}
+        onFocus={onModelsIntent}
         className={`inline-flex items-center gap-1.5 px-3 py-2 whitespace-nowrap text-sm font-semibold rounded-xl transition-colors ${
           activeMapTab === 'models'
             ? 'bg-indigo-600 text-white'

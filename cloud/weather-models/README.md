@@ -202,6 +202,10 @@ Each layer is listed cheapest first:
 2. **Point cache** (`cache.py`, in Lambda memory). One entry per (model, run, grid cell, dataset variable), holding a few hundred floats. A complete run never changes, so its entries live 6 h; entries for a run still arriving expire after 60 s. Any variable mix or units for the same cell and run reuses them.
 3. **Icechunk chunk cache** (256 MB per instance, `WEATHER_MODELS_CHUNK_CACHE_MB`). This holds the compressed chunks behind those series. A second location in the same ~800 km HRRR tile costs no S3 read. Measured: 56 ms versus ~1-5 s for the first read.
 
+Both weather-model origins sit behind **CloudFront Origin Shield** in us-west-2. After a new run, the first edge to ask for a frame or point fills one regional cache, and every other edge fills from it.
+
+**Keep-warm.** An EventBridge rule invokes the API function every 5 minutes. The Lambda Web Adapter delivers that event as `POST /events`, which opens each dataset's session and reads its run index. One instance therefore stays initialised, and a user's first click skips the multi-second cold start. CloudFront allows only GET, so the path isn't public.
+
 Nothing is persisted, and there's no DynamoDB, ElastiCache or S3 cache. Cold starts refill from a few S3 range requests. If traffic grows enough that cold-instance misses dominate cost, the next step is a small S3 or DynamoDB cache of normalized point series keyed `model/run/iy/ix`, shared across instances.
 
 ## Configuration
@@ -309,7 +313,7 @@ EventBridge, every 15 min ─▶ field builder Lambda (fields/, same code as the
      → derive SI values → resample to Web Mercator (precomputed bilinear LUT; HRRR winds rotated to true north)
      → 8-bit PNG per forecast hour → s3://sentinel-weather-model-fields-<account>/weather-models/fields/v1/…
    HRRR − GFS frames at shared valid times; manifest.json written last
-CloudFront /weather-models/fields/* ─OAC─▶ that bucket (frames immutable, manifest 60 s)
+CloudFront /weather-models/fields/* ─Origin Shield (us-west-2)─OAC─▶ that bucket (frames immutable, manifest 60 s + 5 min stale-while-revalidate)
 Browser: Mapbox image source + raster layer coloured by `raster-color`; canvas wind particles; second synced map for swipe
 ```
 
@@ -361,7 +365,8 @@ Difference frames exist only at valid times both current runs share. The legend 
 - **Bottom bar:** the **Models** tab sits next to Weather. The map switches to flat Mercator, terrain is turned off, and operational layers are off.
 - **Controls (top left):** HRRR / GFS / Compare (Swipe or Difference), a variable list (unavailable variables disabled, with the reason), and a wind-particles toggle.
 - **Legend (top):** the colour scale, plus model, variable, units, valid time, forecast hour, run and age, and "Model forecast".
-- **Timeline (bottom):** play/pause, a scrubber, and jumps (Now, +1h … +384h). It steps a valid time, so each model shows its own forecast hour for that time. The next four frames are pre-fetched.
+- **Timeline (bottom):** play/pause, a scrubber, and jumps (Now, +1h … +384h). It steps a valid time, so each model shows its own forecast hour for that time.
+- **Loading fast:** the last manifest is kept in `localStorage` (used for up to 6 h) so the tab draws at once while a fresh one loads, and the live map fetches the manifest when idle and preconnects to the CDN before the tab is opened. Hovering, focusing or pressing the tab button fetches the frame the tab opens on. After that, a shared queue (`usePreloadFrames`, four requests at a time, low priority) warms frames in the order `prefetchPlan` gives: the next steps, the frame behind, the jump buttons, the same moment in the other variables and the other model, and the 3 km frames once zoomed to 4 or closer. While playing, it warms the whole loop. With a precise pointer (a desktop), it also warms the rest of the timeline for scrubbing. With Save-Data or a 2G/3G connection, it fetches only the first few.
 - **Swipe:** HRRR on the main map, GFS on a second map synced to the first and clipped right of a draggable divider (keyboard: ←/→). Each swipe session is one extra Mapbox map load.
 - **Click to inspect:** a popup with the point API value for the selected variable and time, from each model shown, plus HRRR − GFS in Compare. If the point API's run is newer than the map's, the popup says so. "Point forecast" opens the sidebar's full point panel.
 - **Code:** `WeatherModelsContext` (state, mirrored to `/?tab=models&model=&var=&view=&lat=&lon=`), `WeatherModelsMapLayer`, `ModelFieldLayer`, `WindParticles`, `SwipeCompare`, `ModelFieldLegend`, `ModelFieldControls`, `ModelFieldTimeline` and `ModelInspectPopup`.

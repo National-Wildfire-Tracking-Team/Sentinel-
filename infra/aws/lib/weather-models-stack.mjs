@@ -64,6 +64,10 @@ export const WEATHER_MODELS = {
   builderMemoryMb: 4096, // measured peak ~2.6 GB for a full HRRR + GFS + difference build; ~2.3 vCPU
   builderTimeoutSeconds: 900,
   builderScheduleMinutes: 15,
+  // Keeps one API instance initialised (imports, dataset sessions, run
+  // indexes), so a user's first click skips the multi-second cold start.
+  // About 290 short invocations a day, within Lambda's free tier.
+  warmScheduleMinutes: 5,
 };
 
 /** Deterministic, so the us-east-1 distribution can name it without a cross-region lookup. */
@@ -165,6 +169,14 @@ export class WeatherModelsStack extends Stack {
         sourceAccount: this.account,
       });
     }
+
+    // Keep-warm: the Lambda Web Adapter hands this non-HTTP event to the
+    // app as POST /events (see app.py). A missed tick costs one cold start.
+    new events.Rule(this, 'WarmSchedule', {
+      description: `Keep one weather-models API instance warm (every ${cfg.warmScheduleMinutes} minutes)`,
+      schedule: events.Schedule.rate(Duration.minutes(cfg.warmScheduleMinutes)),
+      targets: [new targets.LambdaFunction(fn, { retryAttempts: 0, maxEventAge: Duration.minutes(2) })],
+    });
 
     const alarmAction = this.#alarms(fn, alarmEmail);
     this.#fields(code, sourceArn, alarmAction);

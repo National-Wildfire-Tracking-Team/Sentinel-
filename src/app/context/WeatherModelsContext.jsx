@@ -4,9 +4,11 @@
  * which compare view (swipe / difference), which variable, which valid time,
  * playback, wind particles, and the point the user clicked to inspect.
  *
- * The field manifest (what runs, hours and variables exist) is fetched while
- * the tab is open and refreshed every 5 minutes, so a new model run shows up
- * without a reload.
+ * The field manifest (what runs, hours and variables exist) is refreshed
+ * every 5 minutes while the tab is open, so a new model run shows up without
+ * a reload. So the tab draws at once: the last manifest is kept on the
+ * device, a fresh one is fetched when the map page goes idle, and hovering
+ * the tab (warm()) also fetches the first frame.
  *
  * It's a context so that stepping through forecast time re-renders only the
  * Models pieces, never the whole live map page. The tab's model, variable,
@@ -16,7 +18,8 @@
 import { createContext, useCallback, useContext, useEffect, useImperativeHandle, useMemo, useState } from 'react';
 import { useViewport } from './ViewportContext';
 import { MODEL_MODES, useWeatherModels } from '../hooks/useWeatherModels';
-import { fetchFieldManifest } from '../api/modelFields';
+import { fieldUrl, fieldsBase, hourAt, loadFieldManifest, preconnectFields, readCachedManifest } from '../api/modelFields';
+import { preloadFrame } from '../hooks/usePreloadFrames';
 import { WEATHER_MODEL_SERVICE_URL } from '../api/weatherModels';
 import { nowIndex } from '../components/WeatherModels/modelTheme';
 import { URL_KEYS, modelsHref, parseModelsQuery } from '../utils/weatherModelsLink';
@@ -26,15 +29,16 @@ const WeatherModelsContext = createContext(null);
 const MANIFEST_REFRESH_MS = 5 * 60 * 1000;
 /**
  * @param {{ active: boolean, onOpen?: () => void, apiRef?: object, children: any }} props
- *   active  — the Models tab is selected (nothing is fetched otherwise)
+ *   active  — the Models tab is selected (otherwise only the manifest is fetched, once, when idle)
  *   onOpen  — asks the page to switch to the Models tab (from an incident link)
- *   apiRef  — receives { pick({lat, lon}) } so the page's map click can inspect a point
+ *   apiRef  — receives { pick({lat, lon}), warm() }: the page's map click inspects a point;
+ *             warm() (tab hover/focus) fetches the manifest and the frame the tab opens on
  */
 export function WeatherModelsProvider({ active, onOpen, apiRef, children }) {
   const initial = useMemo(() => parseModelsQuery(window.location.search), []);
   const { setViewport } = useViewport();
 
-  const [manifestState, setManifestState] = useState({ manifest: null, error: null });
+  const [manifestState, setManifestState] = useState(() => ({ manifest: readCachedManifest(), error: null }));
   const [mode, setModeState] = useState(initial?.mode ?? 'hrrr');
   const [compareView, setCompareView] = useState(COMPARE_VIEWS.includes(initial?.view) ? initial.view : 'swipe');
   const [variable, setVariableState] = useState(initial?.variable || 'temperature');
@@ -44,16 +48,33 @@ export function WeatherModelsProvider({ active, onOpen, apiRef, children }) {
   const [location, setLocationState] = useState(initial?.location ?? null);
 
   // ── manifest ──
+  const loadManifest = useCallback(() => loadFieldManifest()
+    .then((manifest) => { setManifestState({ manifest, error: null }); return manifest; }), []);
+
   useEffect(() => {
     if (!active || !WEATHER_MODEL_SERVICE_URL) return undefined;
     let cancelled = false;
-    const load = () => fetchFieldManifest()
+    const load = () => loadFieldManifest()
       .then((manifest) => { if (!cancelled) setManifestState({ manifest, error: null }); })
       .catch((error) => { if (!cancelled) setManifestState((s) => ({ manifest: s.manifest, error })); });
     load();
     const id = setInterval(load, MANIFEST_REFRESH_MS);
     return () => { cancelled = true; clearInterval(id); };
   }, [active]);
+
+  // Before the tab is opened: connect to the CDN now, and fetch the manifest
+  // once the page is idle, so opening the tab doesn't wait on either.
+  useEffect(() => {
+    if (active || !WEATHER_MODEL_SERVICE_URL) return undefined;
+    preconnectFields();
+    const prefetch = () => { loadManifest().catch(() => {}); };
+    if (window.requestIdleCallback) {
+      const id = window.requestIdleCallback(prefetch, { timeout: 5000 });
+      return () => window.cancelIdleCallback(id);
+    }
+    const id = setTimeout(prefetch, 2000);
+    return () => clearTimeout(id);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const { manifest } = manifestState;
 
   // ── selection, kept valid against what the manifest offers ──
@@ -86,9 +107,24 @@ export function WeatherModelsProvider({ active, onOpen, apiRef, children }) {
     onOpen?.();
   }, [setLocation, onOpen]);
 
+  // Tab hover/focus: the manifest, then the frame the tab will open on.
+  const warm = useCallback(() => {
+    if (active || !WEATHER_MODEL_SERVICE_URL || (mode === 'compare' && compareView === 'difference')) return;
+    loadManifest().then((m) => {
+      const model = mode === 'gfs' ? 'gfs' : 'hrrr';
+      const times = timelineFor(m, mode, compareView);
+      const t = times[nowIndex(times.map((v) => ({ validTime: v })))];
+      const hour = t && hourAt(m, model, t);
+      if (hour != null && m.variables[variable]?.models.includes(model)) {
+        preloadFrame(fieldUrl(fieldsBase(), m, model, variable, hour, 'lo'));
+      }
+    }).catch(() => {});
+  }, [active, loadManifest, mode, compareView, variable]);
+
   useImperativeHandle(apiRef, () => ({
     pick: ({ lat, lon }) => setLocation({ lat, lon, place: null }, { fly: false }),
-  }), [setLocation]);
+    warm,
+  }), [setLocation, warm]);
 
   // Arriving from a shared link with a point: center the map on it.
   useEffect(() => {

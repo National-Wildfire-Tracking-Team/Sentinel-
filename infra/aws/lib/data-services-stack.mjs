@@ -177,6 +177,10 @@ export class DataServicesStack extends Stack {
           originAccessControl: new cloudfront.S3OriginAccessControl(this, 'WeatherModelFieldsOac', {
             originAccessControlName: 'sentinel-weather-model-fields',
           }),
+          // Origin Shield in the bucket's region: after a new run, the first
+          // edge to ask fills one regional cache and every other edge fills
+          // from it instead of each going back to S3.
+          originShieldRegion: WEATHER_MODELS.region,
         }),
         viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
         allowedMethods: cloudfront.AllowedMethods.ALLOW_GET_HEAD_OPTIONS,
@@ -210,6 +214,8 @@ export class DataServicesStack extends Stack {
       behaviors[`${WEATHER_MODELS.pathPrefix}/*`] = {
         origin: new CrossRegionFunctionUrlOrigin(weatherModelsFunctionUrl, oac, {
           readTimeout: Duration.seconds(WEATHER_MODELS.timeoutSeconds),
+          // Same point asked from two edges is one Lambda call, not two.
+          originShieldRegion: WEATHER_MODELS.region,
         }),
         viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
         allowedMethods: cloudfront.AllowedMethods.ALLOW_GET_HEAD_OPTIONS,
