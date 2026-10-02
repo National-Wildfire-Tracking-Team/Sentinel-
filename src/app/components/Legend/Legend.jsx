@@ -1,10 +1,12 @@
 /**
  * Legend.jsx
  * Map legend showing color scales for all active data layers.
- * Positioned bottom-left, collapsible.
+ * Positioned bottom-left, collapsible, with the map's distance scale under it.
+ * LegendFrame is the shared box; the Models tab fills it with ModelLegend.
  */
 
 import { useState, memo } from 'react';
+import MapScaleBar from '../Map/MapScaleBar';
 import { Info, ChevronDown, ChevronUp } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { AQI_CATEGORIES } from '../../utils/colorUtils';
@@ -75,7 +77,7 @@ const SPC_SCALES = {
   severe:      { title: 'SPC Severe Probability',    scale: SPC_PROB_SCALE },
 };
 
-function ColorRow({ color, label }) {
+export function ColorRow({ color, label }) {
   return (
     <div className="flex items-center gap-2">
       <span className="w-3 h-3 rounded-sm shrink-0" style={{ backgroundColor: color }} />
@@ -108,7 +110,7 @@ function IconRow({ src, label }) {
   );
 }
 
-function Section({ title, children }) {
+export function Section({ title, children }) {
   return (
     <div className="mb-3">
       <div className="text-[10px] font-bold text-sentinel-300 uppercase tracking-widest mb-1.5">{title}</div>
@@ -203,19 +205,16 @@ function MrmsLegendSection() {
   );
 }
 
-const Legend = memo(function Legend({
-  spcOutlookType = 'categorical',
-  fireWxOutlookType = 'winds_low_humidity',
-}) {
-  const { layers, legendOpen, layerPanelOpen } = useApp();
+/**
+ * The bottom-left legend box: a Legend header that expands to show `children`,
+ * and the map's distance scale underneath (shown even while the legend is
+ * hidden). With nothing to show, the header stays put but doesn't expand.
+ */
+export function LegendFrame({ map = null, children = null }) {
+  const { legendOpen, layerPanelOpen } = useApp();
   const [collapsed, setCollapsed] = useState(true);
-
-  if (!legendOpen) return null;
-
-  // Incident report pins are a permanent (non-toggleable) layer, so the
-  // legend is always reachable even if every toggleable layer is off.
-
-  const spcScale = SPC_SCALES[spcOutlookType] || SPC_SCALES.categorical;
+  const hasContent = Boolean(children);
+  const expanded = hasContent && !collapsed;
 
   // Below lg the centered bottom bar is wide enough to reach under this
   // corner, so the legend stacks above it instead of beside it, and steps out
@@ -226,23 +225,54 @@ const Legend = memo(function Legend({
         layerPanelOpen ? 'max-lg:opacity-0 max-lg:pointer-events-none' : ''
       }`}
     >
+      {legendOpen && (
       <div className="bg-sentinel-900/95 backdrop-blur-sm border border-sentinel-700 rounded-2xl shadow-2xl overflow-hidden w-48">
         {/* Header */}
         <button
-          onClick={() => setCollapsed(c => !c)}
-          className="w-full flex items-center justify-between px-3 py-2 border-b border-sentinel-700
-                     hover:bg-sentinel-800/50 transition-colors"
+          type="button"
+          onClick={() => { if (hasContent) setCollapsed(c => !c); }}
+          aria-expanded={hasContent ? expanded : undefined}
+          className={`w-full flex items-center justify-between px-3 py-2 border-b border-sentinel-700 transition-colors ${
+            hasContent ? 'hover:bg-sentinel-800/50' : 'cursor-default'
+          }`}
         >
           <div className="flex items-center gap-1.5 text-sentinel-100">
             <Info size={12} />
             <span className="text-[10px] font-bold uppercase tracking-widest">Legend</span>
           </div>
-          {collapsed ? <ChevronDown size={12} className="text-sentinel-300" /> : <ChevronUp size={12} className="text-sentinel-300" />}
+          {hasContent && (expanded
+            ? <ChevronUp size={12} className="text-sentinel-300" />
+            : <ChevronDown size={12} className="text-sentinel-300" />)}
         </button>
 
-        {!collapsed && (
+        {expanded && (
           <div className="p-3 space-y-3 max-h-72 supports-[height:100dvh]:max-h-[min(18rem,calc(100dvh-14rem))] overflow-y-auto">
+            {children}
+          </div>
+        )}
+      </div>
+      )}
+      {/* Hangs from the legend's bottom edge (overlapping its border by 1px so
+          the two read as one shape), inset past the rounded corner. */}
+      <MapScaleBar map={map} className={legendOpen ? '-mt-px ml-4 relative' : ''} />
+    </div>
+  );
+}
 
+const Legend = memo(function Legend({
+  map = null,
+  spcOutlookType = 'categorical',
+  fireWxOutlookType = 'winds_low_humidity',
+}) {
+  const { layers } = useApp();
+
+  // Incident report pins are a permanent (non-toggleable) layer, so the
+  // legend is always reachable even if every toggleable layer is off.
+
+  const spcScale = SPC_SCALES[spcOutlookType] || SPC_SCALES.categorical;
+
+  return (
+    <LegendFrame map={map}>
             {layers.incidentLocations && (
               <Section title="Fire Containment">
                 {CONTAINMENT_SCALE.map(row => <ColorRow key={row.label} {...row} />)}
@@ -419,10 +449,7 @@ const Legend = memo(function Legend({
                 <IconRow key={key} src={hazardPinDataUrl(key)} label={label} />
               ))}
             </Section>
-          </div>
-        )}
-      </div>
-    </div>
+    </LegendFrame>
   );
 });
 export default Legend;

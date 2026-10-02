@@ -6,7 +6,7 @@
  */
 
 import { useRef, useCallback, useMemo, useState, useEffect } from 'react';
-import Map, { ScaleControl, Popup, Marker, Source, Layer } from 'react-map-gl';
+import Map, { Popup, Marker, Source, Layer } from 'react-map-gl';
 import { Navigation } from 'lucide-react';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import MapZoomControl from './MapZoomControl';
@@ -1815,10 +1815,7 @@ export default function MapView({
     setViewport(evt.viewState);
   }, [setViewport]);
 
-  const [mapInstance, setMapInstance] = useState(null);
-
   const handleMapLoad = useCallback((e) => {
-    setMapInstance(e.target);
     onMapLoad?.(e);
   }, [onMapLoad]);
 
@@ -1896,9 +1893,6 @@ export default function MapView({
             maxzoom={14}
           />
         )}
-
-        {/* Navigation controls */}
-        <ScaleControl position="bottom-left" style={{ marginLeft: '1rem', marginBottom: '1rem' }} />
 
         {/* ── Data Layers (ordered back-to-front, each independently controlled via visibility) ── */}
 
@@ -2229,7 +2223,7 @@ export default function MapView({
           : modelOverlay}
       </Map>
 
-      <MapZoomControl mapRef={mapRef} map={mapInstance} />
+      <MapZoomControl mapRef={mapRef} />
 
       {/* Measurement results panel – visible while tool is active */}
       {measureActive && (

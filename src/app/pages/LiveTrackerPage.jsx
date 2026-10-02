@@ -68,6 +68,7 @@ import WeatherModelsPanel from '../components/WeatherModels/WeatherModelsPanel';
 import WeatherModelsMapLayer from '../components/WeatherModels/WeatherModelsMapLayer';
 import ModelFieldTimeline from '../components/WeatherModels/ModelFieldTimeline';
 import ModelFieldLegend from '../components/WeatherModels/ModelFieldLegend';
+import ModelLegend from '../components/WeatherModels/ModelLegend';
 import { ROOT_VARS as MODEL_COLOR_VARS } from '../components/WeatherModels/modelTheme';
 import { WeatherModelsProvider } from '../context/WeatherModelsContext';
 import { MrmsProvider } from '../context/MrmsContext';
@@ -333,6 +334,7 @@ export default function LiveTrackerPage() {
   // "Open in Models" switches here (closing the detail panel over the map).
   const modelsApiRef = useRef(null);
   const handleModelPick = useCallback((pt) => modelsApiRef.current?.pick(pt), []);
+  const handleModelsIntent = useCallback(() => modelsApiRef.current?.warm(), []);
   const handleOpenModels = useCallback(() => {
     selectFire(null);
     handleTabChange(MAP_TABS.models);
@@ -375,7 +377,12 @@ export default function LiveTrackerPage() {
   // community-submitted overlays — is deferred a further step, kicked off
   // only once the browser is idle after the map is ready.
   const [mapReady, setMapReady] = useState(false);
-  const handleMapLoad = useCallback(() => setMapReady(true), []);
+  // The live map instance, for the distance scale drawn under the legends.
+  const [mapInstance, setMapInstance] = useState(null);
+  const handleMapLoad = useCallback((e) => {
+    setMapReady(true);
+    setMapInstance(e?.target ?? null);
+  }, []);
 
   useEffect(() => {
     if (mapReady) return undefined;
@@ -1495,6 +1502,7 @@ export default function LiveTrackerPage() {
             ref={mapBottomBarRef}
             activeMapTab={activeMapTab}
             onTabChange={handleTabChange}
+            onModelsIntent={handleModelsIntent}
             infrastructureLayersEntitled={hasProInfrastructureAccess}
             measureActive={measureActive}
             measureMode={measureMode}
@@ -1507,6 +1515,7 @@ export default function LiveTrackerPage() {
           {activeMapTab === MAP_TABS.models && (
             <>
               <ModelFieldLegend />
+              <ModelLegend map={mapInstance} />
               <ModelFieldTimeline
                 ref={modelsTimelineRef}
                 bottomBarWidth={mapBottomBarSize.width}
@@ -1515,9 +1524,11 @@ export default function LiveTrackerPage() {
             </>
           )}
 
-          {/* The legend explains operational layers, which the Models tab turns off. */}
+          {/* The legend explains operational layers, which the Models tab turns off
+              (it gets ModelLegend in the same spot instead). */}
           {activeMapTab !== MAP_TABS.models && (
             <Legend
+              map={mapInstance}
               spcOutlookType={spcOutlookType}
               spcActiveDay={spcActiveDay}
               fireWxOutlookType={fireWxOutlookType}

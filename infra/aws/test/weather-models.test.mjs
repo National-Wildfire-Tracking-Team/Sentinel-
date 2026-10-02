@@ -152,6 +152,26 @@ test('the distribution serves /weather-models/fields/* from S3 before the API pa
   assert.equal(Object.keys(data.findResources('AWS::S3::BucketPolicy')).length, 0, 'no cross-region bucket policy');
 });
 
+test('both weather-model origins sit behind Origin Shield in us-west-2', () => {
+  const [dist] = Object.values(data.findResources('AWS::CloudFront::Distribution'));
+  const cfg = dist.Properties.DistributionConfig;
+  for (const pattern of ['/weather-models/fields/*', '/weather-models/*']) {
+    const behavior = cfg.CacheBehaviors.find((b) => b.PathPattern === pattern);
+    const origin = cfg.Origins.find((o) => o.Id === behavior.TargetOriginId);
+    assert.deepEqual(origin.OriginShield, { Enabled: true, OriginShieldRegion: 'us-west-2' }, pattern);
+  }
+});
+
+test('keep-warm: the API function is invoked every 5 minutes, no retries', () => {
+  const rules = Object.values(wm.findResources('AWS::Events::Rule'));
+  const warm = rules.find((r) => r.Properties.ScheduleExpression === 'rate(5 minutes)');
+  assert.ok(warm, 'warm schedule exists');
+  const [target] = warm.Properties.Targets;
+  assert.match(JSON.stringify(target.Arn), /Function/);
+  assert.doesNotMatch(JSON.stringify(target.Arn), /FieldBuilder/, 'targets the API, not the builder');
+  assert.equal(target.RetryPolicy.MaximumRetryAttempts, 0);
+});
+
 test('no VPC, 14-day logs, alarms that notify', () => {
   for (const fn of Object.values(wm.findResources('AWS::Lambda::Function'))) assert.equal(fn.Properties.VpcConfig, undefined);
   wm.hasResourceProperties('AWS::Logs::LogGroup', { LogGroupName: '/sentinel/weather-models', RetentionInDays: 14 });

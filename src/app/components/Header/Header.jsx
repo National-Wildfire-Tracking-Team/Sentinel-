@@ -114,9 +114,10 @@ const Header = memo(function Header({ onRefresh }) {
 
         {/* Right – Status indicators */}
         <div className="flex items-center gap-2 sm:gap-3">
-          {/* Donation widget */}
+          {/* Donation widget — Givebutter's button is a fixed 48px inside its shadow
+              DOM, so zoom it to 42px: 75% of the 56px (h-14) header. */}
           <div className="hidden sm:block">
-            <givebutter-widget id={GIVEBUTTER_WIDGET_ID}></givebutter-widget>
+            <givebutter-widget id={GIVEBUTTER_WIDGET_ID} style={{ zoom: 0.875 }}></givebutter-widget>
           </div>
 
           {/* Last updated */}
