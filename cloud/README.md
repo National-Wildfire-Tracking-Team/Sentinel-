@@ -51,6 +51,7 @@ happen once per browser tab.
 | `california-land-ownership-proxy` | service | direct ArcGIS | `VITE_CALIFORNIA_LAND_OWNERSHIP_PROXY_URL` | in `deploy.yml`, optional |
 | `calfire-frap-proxy` | service | direct ArcGIS | `VITE_CALFIRE_FRAP_PROXY_URL` | in `deploy.yml`, optional |
 | `nws-alerts` | service | api.weather.gov + WWA MapServer in each tab, every 60 s | `VITE_NWS_ALERTS_SERVICE_URL` | in `deploy.yml`, opt-in |
+| `mrms` | scheduled builder (Python, **AWS only**, us-east-1) + static frames on CloudFront | new: NOAA MRMS radar from AWS Open Data for the Weather tab | `VITE_MRMS_URL` | in `deploy.yml`, opt-in, no fallback (the layer is hidden when unset) |
 | `weather-models` | service (Python, **AWS only**, us-west-2) | new: HRRR/GFS model forecasts from AWS Open Data for `/weather-models` | `VITE_WEATHER_MODEL_SERVICE_URL` | in `deploy.yml`, opt-in, no fallback (model data has no other source) |
 
 ## Conventions every service follows

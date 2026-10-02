@@ -9,6 +9,9 @@
  * through the same CloudFront distribution. It's opt-in: until
  * `sentinel:weatherModels=enabled`, the app synthesizes exactly as before.
  *
+ * MRMS (SentinelMrms) builds radar frames from NOAA's MRMS bucket in
+ * us-east-1 and is served at /mrms/*. Also opt-in: `sentinel:mrms=enabled`.
+ *
  * Settings come from cdk.json context and can be overridden per deploy, e.g.
  *   npx cdk deploy SentinelDataServices -c sentinel:alarmEmail=ops@example.org
  */
@@ -17,6 +20,7 @@ import { App } from 'aws-cdk-lib';
 import { DataServicesStack } from '../lib/data-services-stack.mjs';
 import { GithubDeployStack } from '../lib/github-deploy-stack.mjs';
 import { WEATHER_MODELS, WeatherModelsStack } from '../lib/weather-models-stack.mjs';
+import { MrmsStack } from '../lib/mrms-stack.mjs';
 
 // Defaults live here, not in cdk.json: an empty `-c sentinel:key=` (an
 // unset GitHub variable in deploy-aws.yml) replaces cdk.json context
@@ -31,6 +35,7 @@ const DEFAULTS = {
   weatherModels: 'disabled', // 'enabled' adds SentinelWeatherModels and the /weather-models/* route
   distributionId: '', // set after the first deploy to scope the weather-models invoke permission
   weatherModelsReservedConcurrency: '0', // >0 caps concurrent executions (needs spare account concurrency)
+  mrms: 'disabled', // 'enabled' adds SentinelMrms and the /mrms/* route
 };
 
 const app = new App();
@@ -52,7 +57,18 @@ if (weatherModelsEnabled) {
   });
 }
 
-new DataServicesStack(app, 'SentinelDataServices', {
+const mrmsEnabled = ctx('mrms') === 'enabled';
+let mrms;
+if (mrmsEnabled) {
+  mrms = new MrmsStack(app, 'SentinelMrms', {
+    env,
+    description: 'Sentinel MRMS: radar map frames from NOAA MRMS on AWS Open Data (Lambda + S3, us-east-1)',
+    alarmEmail: ctx('alarmEmail'),
+    distributionId: ctx('distributionId') || undefined,
+  });
+}
+
+const dataServices = new DataServicesStack(app, 'SentinelDataServices', {
   env,
   crossRegionReferences: weatherModelsEnabled,
   description: 'Sentinel public-data HTTP services (Lambda + CloudFront), migrated from Google Cloud Run',
@@ -61,7 +77,10 @@ new DataServicesStack(app, 'SentinelDataServices', {
   alarmEmail: ctx('alarmEmail'),
   monthlyBudgetUsd: Number(ctx('monthlyBudgetUsd')),
   weatherModelsFunctionUrl: weatherModels?.functionUrl.url,
+  mrms: mrmsEnabled,
 });
+// Deploying the distribution deploys SentinelMrms first (its bucket backs /mrms/*), as CI deploys only SentinelDataServices.
+if (mrms) dataServices.addDependency(mrms);
 
 new GithubDeployStack(app, 'SentinelGithubDeploy', {
   env,

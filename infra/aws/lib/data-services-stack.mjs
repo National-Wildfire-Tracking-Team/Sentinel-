@@ -41,6 +41,7 @@ import path from 'node:path';
 import { SERVICES, LWA_LAYER_ACCOUNT, LWA_LAYER_NAME, LWA_LAYER_VERSION } from './services.mjs';
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import { WEATHER_MODELS, fieldsBucketName } from './weather-models-stack.mjs';
+import { MRMS, mrmsBucketName } from './mrms-stack.mjs';
 
 const CLOUD_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../cloud');
 const LOG_RETENTION = logs.RetentionDays.TWO_WEEKS;
@@ -78,12 +79,12 @@ export class DataServicesStack extends Stack {
    * @param {string} id
    * @param {import('aws-cdk-lib').StackProps & {
    *   allowedOrigins: string, nwsUserAgent: string, alarmEmail?: string, monthlyBudgetUsd?: number,
-   *   weatherModelsFunctionUrl?: string,
+   *   weatherModelsFunctionUrl?: string, mrms?: boolean,
    * }} props
    */
   constructor(scope, id, props) {
     super(scope, id, props);
-    const { allowedOrigins, nwsUserAgent, alarmEmail, monthlyBudgetUsd, weatherModelsFunctionUrl } = props;
+    const { allowedOrigins, nwsUserAgent, alarmEmail, monthlyBudgetUsd, weatherModelsFunctionUrl, mrms } = props;
 
     Tags.of(this).add('project', 'sentinel');
     Tags.of(this).add('component', 'data-services');
@@ -220,6 +221,41 @@ export class DataServicesStack extends Stack {
       };
     }
 
+    // Sentinel MRMS (MrmsStack, same region): static radar frames and the
+    // manifest, straight from its bucket. Frames are immutable; the manifest
+    // says max-age 30, which CACHING_OPTIMIZED honours. The bucket grants
+    // this distribution read access in its own policy, as for model fields.
+    if (mrms) {
+      const framesBucket = s3.Bucket.fromBucketAttributes(this, 'MrmsFramesBucket', {
+        bucketName: mrmsBucketName(this.account),
+        region: MRMS.region,
+      });
+      behaviors[`${MRMS.pathPrefix}/*`] = {
+        origin: origins.S3BucketOrigin.withOriginAccessControl(framesBucket, {
+          originAccessControl: new cloudfront.S3OriginAccessControl(this, 'MrmsFramesOac', {
+            originAccessControlName: 'sentinel-mrms-frames',
+          }),
+        }),
+        viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+        allowedMethods: cloudfront.AllowedMethods.ALLOW_GET_HEAD_OPTIONS,
+        cachedMethods: cloudfront.CachedMethods.CACHE_GET_HEAD,
+        cachePolicy: cloudfront.CachePolicy.CACHING_OPTIMIZED,
+        // Same reason as the model fields: always send the CORS header.
+        functionAssociations: [{
+          function: new cloudfront.Function(this, 'MrmsCors', {
+            runtime: cloudfront.FunctionRuntime.JS_2_0,
+            comment: 'MRMS frames: always Access-Control-Allow-Origin: * (public data)',
+            code: cloudfront.FunctionCode.fromInline(
+              "function handler(event) { var r = event.response; r.headers['access-control-allow-origin'] = { value: '*' }; return r; }",
+            ),
+          }),
+          eventType: cloudfront.FunctionEventType.VIEWER_RESPONSE,
+        }],
+        compress: true,
+      };
+      Annotations.of(this).acknowledgeWarning('@aws-cdk/aws-cloudfront-origins:updateImportedBucketPolicyOac');
+    }
+
     const distribution = new cloudfront.Distribution(this, 'Distribution', {
       comment: 'Sentinel data services (replaces the *.run.app endpoints)',
       priceClass: cloudfront.PriceClass.PRICE_CLASS_100, // US/Canada/Europe edges — Sentinel's audience is US
@@ -298,6 +334,12 @@ export class DataServicesStack extends Stack {
       new CfnOutput(this, 'WeatherModelsBaseUrl', {
         description: `Value for ${WEATHER_MODELS.frontendEnvVar}`,
         value: `https://${distribution.distributionDomainName}${WEATHER_MODELS.pathPrefix}`,
+      });
+    }
+    if (mrms) {
+      new CfnOutput(this, 'MrmsBaseUrl', {
+        description: `Value for ${MRMS.frontendEnvVar}`,
+        value: `https://${distribution.distributionDomainName}${MRMS.pathPrefix}`,
       });
     }
     new CfnOutput(this, 'DistributionId', {

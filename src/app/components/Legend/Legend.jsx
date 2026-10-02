@@ -15,6 +15,8 @@ import {
   CLUSTER_CONTAINED_RING_COLOR,
 } from '../Map/layers/IncidentLocationsLayer';
 import { FLOOD_ATTRIBUTION, FLOOD_CATEGORIES } from '../../utils/floodHazard';
+import { useMrmsContext } from '../../context/MrmsContext';
+import { mrmsLegendRows } from '../../api/mrms';
 
 const CONTAINMENT_SCALE = [
   { color: '#ef4444', label: 'Uncontained (0%)' },
@@ -185,6 +187,21 @@ const NDGD_SMOKE_SCALE = [
 const FLOOD_HAZARD_SCALE = Object.entries(FLOOD_CATEGORIES)
   .filter(([key]) => key !== 'other')
   .map(([, meta]) => ({ color: meta.color, label: meta.label }));
+
+// MRMS radar: the active product's scale, from the manifest (so it always
+// matches the frames). Its own component, so animation frames re-render only this.
+function MrmsLegendSection() {
+  const mrms = useMrmsContext();
+  if (!mrms?.active || !mrms.spec) return null;
+  const { spec } = mrms;
+  return (
+    <Section title={`MRMS ${spec.label}`}>
+      {mrmsLegendRows(spec).map((row) => <ColorRow key={row.label} {...row} />)}
+      <div className="text-sentinel-400 text-[10px] pt-1 mt-1 border-t border-sentinel-700 leading-snug">{spec.description}</div>
+      <div className="text-sentinel-500 text-[9px] leading-snug">{mrms.manifest.attribution}</div>
+    </Section>
+  );
+}
 
 const Legend = memo(function Legend({
   spcOutlookType = 'categorical',
@@ -372,6 +389,8 @@ const Legend = memo(function Legend({
                 {WPC_WSSI_SCALE.map(row => <ColorRow key={row.label} {...row} />)}
               </Section>
             )}
+
+            {layers.mrms && <MrmsLegendSection />}
 
             {layers.wpcQpf && (
               <Section title="WPC Precipitation Forecast (24hr)">

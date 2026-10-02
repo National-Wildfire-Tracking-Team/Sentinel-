@@ -60,6 +60,8 @@ const initialState = {
     wpcQpf: false,
     /** WPC surface-analysis fronts (Day 1-3) */
     wpcFronts: false,
+    /** NOAA MRMS radar (Weather tab); product, frame and opacity live in MrmsContext */
+    mrms: false,
   },
   // Currently selected 7-day fire risk forecast (1-7)
   fireRiskDay: 1,

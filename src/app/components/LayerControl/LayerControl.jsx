@@ -7,12 +7,14 @@
 import { useState, memo, useMemo, useEffect } from 'react';
 import { getMainOrigin } from '../../../shared/utils/getAppOrigin';
 import {
-  Layers, Flame, MapPin, Wind, CloudRain, CloudLightning, Eye, AlertTriangle, Ruler, Hexagon, Satellite, Thermometer, Activity, Droplets, Zap, Lock, GraduationCap, History, TrendingUp, Camera, Snowflake, Landmark, Waves,
+  Layers, Flame, MapPin, Wind, CloudRain, CloudLightning, Eye, Radar, AlertTriangle, Ruler, Hexagon, Satellite, Thermometer, Activity, Droplets, Zap, Lock, GraduationCap, History, TrendingUp, Camera, Snowflake, Landmark, Waves,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { trackSentinelUse } from '../../../shared/utils/analytics';
 import LayerPanelSection from './LayerPanelSection';
 import ModelLayerPanel from '../WeatherModels/ModelLayerPanel';
+import MrmsControls from './MrmsControls';
+import { MRMS_URL } from '../../api/mrms';
 
 /** Layer row definitions — grouped under tab-specific sections below */
 const LAYER_DEFS = {
@@ -37,6 +39,7 @@ const LAYER_DEFS = {
   stormReports:      { label: 'Storm reports',       sublabel: 'NWS LSR · last 24 hours',     icon: CloudLightning, color: '#7c3aed' },
   damageAssessment:  { label: 'Damage assessment',    sublabel: 'NWS DAT · surveys, last 30 days', icon: Hexagon,    color: '#dc2626' },
   spcWeatherOutlooks: { label: 'SPC outlooks',     sublabel: 'Convective severe weather outlook',    icon: AlertTriangle, color: '#f59e0b' },
+  mrms:              { label: 'MRMS Radar',          sublabel: 'NOAA Multi-Radar/Multi-Sensor · 2-min updates', icon: Radar, color: '#22c55e' },
   goesEast:          { label: 'GOES East Imagery',   sublabel: 'NOAA GOES East · visible',    icon: Eye,           color: '#8b5cf6' },
   goesWest:          { label: 'GOES West Imagery',   sublabel: 'NOAA GOES West · visible',    icon: Eye,           color: '#7c3aed' },
   goesFire16:        { label: 'GOES East Fire RGB',  sublabel: 'NOAA GOES East · Day Land Cloud Fire RGB', icon: Eye, color: '#a855f7' },
@@ -124,10 +127,11 @@ const TAB_SECTIONS = {
   weather: [
     {
       id: 'wx-imagery',
-      title: 'Satellite',
+      title: MRMS_URL ? 'Radar & satellite' : 'Satellite',
       groups: [
         {
-          layers: ['goesEast', 'goesWest'],
+          // MRMS is offered only when its frames service is configured (VITE_MRMS_URL).
+          layers: [...(MRMS_URL ? ['mrms'] : []), 'goesEast', 'goesWest'],
         },
       ],
     },
@@ -558,6 +562,7 @@ const LayerControl = memo(function LayerControl({
                                 color={def.color}
                               />
 
+                              {layerKey === 'mrms' && <MrmsControls />}
                               {layerKey === 'fireRiskOutlook' && (
                                 <FireRiskDaySelector />
                               )}

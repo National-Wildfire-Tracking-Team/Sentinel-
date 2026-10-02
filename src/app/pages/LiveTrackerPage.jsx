@@ -70,6 +70,7 @@ import ModelFieldTimeline from '../components/WeatherModels/ModelFieldTimeline';
 import ModelFieldLegend from '../components/WeatherModels/ModelFieldLegend';
 import { ROOT_VARS as MODEL_COLOR_VARS } from '../components/WeatherModels/modelTheme';
 import { WeatherModelsProvider } from '../context/WeatherModelsContext';
+import { MrmsProvider } from '../context/MrmsContext';
 import { parseModelsQuery } from '../utils/weatherModelsLink';
 import MapCornerButtons from '../components/MapControls/MapCornerButtons';
 import FutureFeaturesPanel from '../components/MapControls/FutureFeaturesPanel';
@@ -77,6 +78,7 @@ import AccountButton from '../components/MapControls/AccountButton';
 import AccountPanel from '../components/AccountPanel/AccountPanel';
 import Legend from '../components/Legend/Legend';
 import FloodHazardStatus from '../components/MapControls/FloodHazardStatus';
+import MrmsStatus from '../components/MapControls/MrmsStatus';
 // Lazy-loaded: each only ever mounts once the user has actually selected the
 // corresponding fire/gauge/camera, so their code shouldn't ship in
 // the initial bundle for sessions that never open one.
@@ -161,6 +163,7 @@ const WEATHER_LAYER_PRESET = {
   schoolsUniversities: false,
   landOwnership: false,
   floodHazard: false,
+  mrms: false,
 };
 
 // Models tab: HRRR/GFS model output only. Every operational layer (alerts,
@@ -1371,6 +1374,7 @@ export default function LiveTrackerPage() {
       {/* --map-bottom-stack: space taken by the bottom bar plus anything docked on
           it, so the left drawers can end above it where they'd otherwise cover it. */}
       <WeatherModelsProvider active={activeMapTab === MAP_TABS.models} onOpen={handleOpenModels} apiRef={modelsApiRef}>
+      <MrmsProvider active={activeMapTab === MAP_TABS.weather && Boolean(layers.mrms)}>
       <div
         className={`flex-1 relative overflow-hidden ${MODEL_COLOR_VARS}`}
         style={{ '--map-bottom-stack': `${mapBottomBarSize.height + totalDockedHeight + 24}px` }}
@@ -1464,6 +1468,7 @@ export default function LiveTrackerPage() {
               onRetry={retryFloodHazards}
             />
           )}
+          <MrmsStatus offset={floodHazardEnabled} />
 
           <Sidebar
             incidents={nearbyResult ? nearbyResult.incidents : mergedIncidents}
@@ -1534,6 +1539,7 @@ export default function LiveTrackerPage() {
             )}
           </Suspense>
       </div>
+      </MrmsProvider>
       </WeatherModelsProvider>
 
     </div>
