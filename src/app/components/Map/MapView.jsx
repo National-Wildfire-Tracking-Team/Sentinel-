@@ -110,8 +110,8 @@ function buildFloodHazardRecord(zoneProps, lngLat, panelProps) {
  * click can build a record for every feature at the point (not just the
  * topmost one) when more than one stacks up, e.g. an evac zone over a fire
  * perimeter. Returns null for layers with their own selection slot (water
- * gauges, cameras) or that aren't selectable (SPC MD, which
- * opens a link instead) — those stay handled directly in handleClick.
+ * gauges, cameras, SPC MDs / WPC MPDs) — those stay handled directly in
+ * handleClick.
  */
 function buildFeatureRecord(feature, lngLat, alerts, { floodPanel = null } = {}) {
   const p = feature.properties;
@@ -571,9 +571,7 @@ function getHoverContent(feature) {
             <div className="text-sentinel-200 text-xs mt-0.5">{tillStr}</div>
           )}
           <div className="text-sentinel-300 text-xs mt-0.5">SPC Mesoscale Discussion</div>
-          {p.url && (
-            <div className="text-sky-400 text-xs mt-1">Click for full discussion ↗</div>
-          )}
+          <div className="text-sky-400 text-xs mt-1">Click for full discussion</div>
         </>
       );
       break;
@@ -592,9 +590,7 @@ function getHoverContent(feature) {
             <div className="text-sentinel-200 text-xs mt-0.5">{tillStr}</div>
           )}
           <div className="text-sentinel-300 text-xs mt-0.5">WPC Mesoscale Discussion</div>
-          {p.url && (
-            <div className="text-sky-400 text-xs mt-1">Click for full discussion ↗</div>
-          )}
+          <div className="text-sky-400 text-xs mt-1">Click for full discussion</div>
         </>
       );
       break;
@@ -1692,19 +1688,42 @@ export default function MapView({
       return;
     }
 
+    // SPC MD / WPC MPD polygons open the full discussion text in the detail panel
     if (feature.layer.id === 'spc-md-fill') {
-      // Open the SPC MD page in a new tab when the user clicks a polygon
-      if (p.url) {
-        window.open(p.url, '_blank', 'noopener,noreferrer');
-      }
+      const mdNumber = Number.isFinite(Number(p.mdNumber)) && p.mdNumber != null ? Number(p.mdNumber) : null;
+      selectFire({
+        type:       'mesoscale-discussion',
+        source:     'spc',
+        id:         `spc-md-${mdNumber ?? p.name}`,
+        name:       p.name || 'Mesoscale Discussion',
+        number:     mdNumber,
+        activeTill: p.activeTill || null,
+        url:        p.url || null,
+        lat:        evt.lngLat.lat,
+        lng:        evt.lngLat.lng,
+      });
+      setFeaturePopup(null);
       return;
     }
 
     if (feature.layer.id === 'wpc-mpd-fill') {
-      // Open the WPC MPD page in a new tab when the user clicks a polygon
-      if (p.url) {
-        window.open(p.url, '_blank', 'noopener,noreferrer');
-      }
+      const mpdNumber = Number.isFinite(Number(p.mpdNumber)) && p.mpdNumber != null ? Number(p.mpdNumber) : null;
+      selectFire({
+        type:       'mesoscale-discussion',
+        source:     'wpc',
+        id:         `wpc-mpd-${p.product_id ?? mpdNumber}`,
+        name:       mpdNumber != null ? `MPD ${mpdNumber}` : 'Mesoscale Precipitation Discussion',
+        number:     mpdNumber,
+        productId:  p.product_id || null,
+        concerning: p.concerning || null,
+        issue:      p.issue || null,
+        expire:     p.expire || null,
+        activeTill: p.activeTill || null,
+        url:        p.url || null,
+        lat:        evt.lngLat.lat,
+        lng:        evt.lngLat.lng,
+      });
+      setFeaturePopup(null);
       return;
     }
 
