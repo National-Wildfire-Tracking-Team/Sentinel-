@@ -4,7 +4,7 @@
  * zoom in, zoom out, orient north, and report a bug — one vertical rectangle.
  */
 
-import { memo, useRef, useEffect } from 'react';
+import { memo } from 'react';
 import { Plus, Minus, Compass } from 'lucide-react';
 import { useViewport } from '../../context/ViewportContext';
 import { useApp } from '../../context/AppContext';
@@ -12,11 +12,9 @@ import { useApp } from '../../context/AppContext';
 const REPORT_BUG_URL =
   'https://docs.google.com/forms/d/e/1FAIpQLSej35yFro7KsQ349MzgQ6Lek4_M67qfoK59UFssX9CaTKf07Q/viewform?usp=header';
 
-const MapZoomControl = memo(function MapZoomControl({ mapRef, map }) {
+const MapZoomControl = memo(function MapZoomControl({ mapRef }) {
   const { viewport, setViewport } = useViewport();
   const { layerPanelOpen } = useApp();
-
-  const scaleHostRef = useRef(null);
 
   const zoomIn = () => mapRef.current?.zoomIn();
   const zoomOut = () => mapRef.current?.zoomOut();
@@ -30,26 +28,6 @@ const MapZoomControl = memo(function MapZoomControl({ mapRef, map }) {
     }
   };
 
-  // Mount Mapbox's native ScaleControl into our cluster so the bar resizes
-  // and relabels as the map zooms. Re-runs when the map remounts (style switch).
-  useEffect(() => {
-    const host = scaleHostRef.current;
-    if (!map || !host) return;
-
-    let control;
-    let cancelled = false;
-    import('mapbox-gl').then(({ default: mapboxgl }) => {
-      if (cancelled) return;
-      control = new mapboxgl.ScaleControl({ maxWidth: 100, unit: 'imperial' });
-      host.appendChild(control.onAdd(map));
-    });
-
-    return () => {
-      cancelled = true;
-      control?.onRemove();
-    };
-  }, [map]);
-
   // On phones the Layers popover spans the full width above the bottom bar and
   // would half-cover this cluster, so fade it out while the popover is open
   // (same treatment as the top-left corner buttons).
@@ -59,8 +37,6 @@ const MapZoomControl = memo(function MapZoomControl({ mapRef, map }) {
         layerPanelOpen ? 'max-sm:opacity-0 max-sm:pointer-events-none' : ''
       }`}
     >
-
-      <div ref={scaleHostRef} className="mb-2 flex justify-end" />
 
     <div className="flex flex-col w-9 rounded-lg overflow-hidden border border-sentinel-600 bg-sentinel-900/90 backdrop-blur-sm shadow-xl">
       <button

@@ -1,12 +1,18 @@
 /// <reference types="vitest" />
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import https from 'node:https';
 import { ROUTES as NWS_MAPSERVICE_ROUTES } from './netlify/edge-functions/nws-mapservices-proxy.js';
 
 // Dev/preview twin of netlify/edge-functions/nws-mapservices-proxy.js: one
 // proxy entry per route, so /api/nws/<key>/... reaches the same upstream
 // service locally (without it these requests fall through to index.html and
 // the SPC/WPC/CPC/NHC/LSR/DAT layers come up empty).
+//
+// No keep-alive: Node 19+ reuses sockets by default, and NOAA's ArcGIS hosts
+// close idle ones, so a reused socket fails with "http proxy error … ECONNRESET"
+// (the NHC layer's burst of slot queries hit this most).
+const noaaAgent = new https.Agent({ keepAlive: false });
 const nwsMapServiceProxy = Object.fromEntries(
   Object.entries(NWS_MAPSERVICE_ROUTES).map(([key, route]) => {
     const prefix = `/api/nws/${key}`;
@@ -14,6 +20,7 @@ const nwsMapServiceProxy = Object.fromEntries(
       target: route.origin ?? 'https://mapservices.weather.noaa.gov',
       changeOrigin: true,
       secure: true,
+      agent: noaaAgent,
       rewrite: (path) => route.path + path.slice(prefix.length),
     }];
   })

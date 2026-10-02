@@ -6,49 +6,22 @@
  *
  * Docked flush above MapBottomBar and matched to its width, the same way
  * the SPC outlook selector docks on the Weather tab, so the scrubber and
- * the bar's layer pop-up read as one control area. The model chip opens
- * that pop-up, where the model and variable are chosen.
+ * the bar's layer pop-up read as one control area. The model and variable
+ * are chosen in that pop-up, from the bar's Variables button.
  */
 
 import { forwardRef, useEffect } from 'react';
-import { ChevronUp, GitCompare, Pause, Play } from 'lucide-react';
-import { useApp } from '../../context/AppContext';
+import { Pause, Play } from 'lucide-react';
 import { useWeatherModelsContext } from '../../context/WeatherModelsContext';
 import { hourAt } from '../../api/modelFields';
-import { MODEL_STYLE, localTime, nowIndex, zulu } from './modelTheme';
+import { localTime, nowIndex, zulu } from './modelTheme';
 
 const JUMPS = [1, 3, 6, 12, 24, 48, 72, 120, 168, 240, 384];
 const FRAME_MS = 650;
 
-const MODEL_LABEL = { hrrr: 'HRRR', gfs: 'GFS', compare: 'Compare' };
-
-/** Current model + variable; opens the bar's layer pop-up to change them. */
-function ModelChip({ mode, variableLabel }) {
-  const { layerPanelOpen, toggleLayerPanel } = useApp();
-  const swatch = MODEL_STYLE[mode];
-  return (
-    <button
-      type="button"
-      onClick={toggleLayerPanel}
-      aria-pressed={layerPanelOpen}
-      aria-label={`Change model or variable (${MODEL_LABEL[mode] ?? mode}, ${variableLabel ?? 'no variable'})`}
-      className={`flex min-w-0 items-center gap-1.5 rounded-lg border px-2 py-1 text-xs font-semibold transition-colors
-        focus-visible:outline focus-visible:outline-2 focus-visible:outline-sky-500 ${
-        layerPanelOpen ? 'border-sentinel-500 bg-sentinel-700 text-white' : 'border-sentinel-600 text-sentinel-100 hover:bg-sentinel-700 hover:text-white'}`}
-    >
-      {swatch
-        ? <span aria-hidden className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: swatch.hexDark }} />
-        : <GitCompare size={12} className="shrink-0 text-indigo-300" aria-hidden />}
-      <span className="shrink-0">{MODEL_LABEL[mode] ?? mode}</span>
-      {variableLabel && <span className="truncate font-medium text-sentinel-300">· {variableLabel}</span>}
-      <ChevronUp size={13} className={`shrink-0 text-sentinel-400 transition-transform ${layerPanelOpen ? '' : 'rotate-180'}`} aria-hidden />
-    </button>
-  );
-}
-
 const ModelFieldTimeline = forwardRef(function ModelFieldTimeline({ bottomBarWidth, bottomBarHeight }, ref) {
   const wm = useWeatherModelsContext();
-  const { timeline = [], validTime, setValidTime, playing, setPlaying, manifest, mode, variables = [], variable } = wm ?? {};
+  const { timeline = [], validTime, setValidTime, playing, setPlaying, manifest, mode } = wm ?? {};
 
   useEffect(() => {
     if (!playing || timeline.length < 2) return undefined;
@@ -60,7 +33,6 @@ const ModelFieldTimeline = forwardRef(function ModelFieldTimeline({ bottomBarWid
   }, [playing, timeline, validTime, setValidTime]);
 
   if (!wm) return null;
-  const variableLabel = variables.find((v) => v.id === variable)?.label;
 
   // Same frame as SPCOutlookSelector: flush on the bar's top edge, the bar's width.
   const frame = (children) => (
@@ -87,7 +59,6 @@ const ModelFieldTimeline = forwardRef(function ModelFieldTimeline({ bottomBarWid
         <span className={`min-w-0 flex-1 text-xs ${wm.manifestError ? 'text-red-300' : 'text-sentinel-300'}`}>
           {wm.manifestError ? `Model fields unavailable: ${wm.manifestError.message}` : 'Loading model runs…'}
         </span>
-        <ModelChip mode={mode} variableLabel={variableLabel} />
       </div>
     );
   }
@@ -104,7 +75,6 @@ const ModelFieldTimeline = forwardRef(function ModelFieldTimeline({ bottomBarWid
 
   return frame(
     <>
-      {/* Wraps the model chip onto its own line when the bar is narrow (phones). */}
       <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5 px-3 pt-2">
         <button
           type="button"
@@ -120,7 +90,6 @@ const ModelFieldTimeline = forwardRef(function ModelFieldTimeline({ bottomBarWid
             valid {zulu(validTime)} · {hourModels.map((m) => `${mode === 'compare' ? `${m.toUpperCase()} ` : ''}+${hourAt(manifest, m, validTime)} h`).join(' · ')}
           </div>
         </div>
-        <ModelChip mode={mode} variableLabel={variableLabel} />
       </div>
       <div className="px-3 pt-2">
         <div className="relative">
