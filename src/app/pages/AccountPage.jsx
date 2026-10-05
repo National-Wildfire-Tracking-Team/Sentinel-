@@ -21,6 +21,7 @@ import { useSavedLocations } from '../hooks/useSavedLocations';
 import { useNotificationPreferences } from '../hooks/useNotificationPreferences';
 import { usePlan } from '../../shared/hooks/usePlan';
 import { NOTIFIABLE_ALERT_TYPES } from '../utils/nwsColors';
+import { DEFAULT_RADIUS_MILES } from '../../../supabase/functions/_shared/savedLocationAlerts.js';
 
 export default function AccountPage() {
   const { user, profile, isAuthenticated, loading, profileLoading } = useAuth();
@@ -309,12 +310,12 @@ export default function AccountPage() {
           </div>
         </section>
 
-        {/* ── Saved Zip Codes card ── */}
+        {/* ── Saved Locations card ── */}
         <section className="rounded-xl bg-sentinel-900 border border-sentinel-700 p-6 space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
               <MapPin size={14} className="text-emerald-400" />
-              Saved Zip Codes
+              Saved Locations
             </h2>
             <button
               onClick={() => navigate('/manage-zipcodes')}
@@ -349,12 +350,12 @@ export default function AccountPage() {
 
           {(!locations || locations.length === 0) ? (
             <p className="text-xs text-sentinel-400">
-              No zip codes saved yet.{' '}
+              No locations saved yet.{' '}
               <button
                 onClick={() => navigate('/manage-zipcodes')}
                 className="text-emerald-400 hover:text-emerald-300 transition-colors underline underline-offset-2"
               >
-                Add your first zip code
+                Add your first location
               </button>{' '}
               to get real-time fire &amp; weather alerts.
             </p>
@@ -367,6 +368,10 @@ export default function AccountPage() {
                   {loc.address && loc.address !== loc.name && (
                     <span className="text-sentinel-400 truncate">{loc.address}</span>
                   )}
+                  <span className="ml-auto shrink-0 text-sentinel-500">
+                    {loc.notify_radius_miles ?? DEFAULT_RADIUS_MILES} mi
+                    {loc.alerts_enabled === false && ' · notifications off'}
+                  </span>
                 </li>
               ))}
             </ul>
@@ -381,8 +386,9 @@ export default function AccountPage() {
           </h2>
 
           <p className="text-xs text-sentinel-400">
-            Choose which saved zip codes receive new-wildfire emails.
-            Choose which NWS weather alerts you'd also like emailed when they're issued for one of your saved zip codes.
+            Choose which saved locations receive wildfire emails, and which NWS weather alerts you'd
+            also like emailed when one affects a saved location. Each location's alert radius and
+            on/off switch are set under Manage.
           </p>
 
           {(notifyPrefsError || fireToggleError) && (
@@ -393,15 +399,19 @@ export default function AccountPage() {
             <div className="space-y-2">
               <p className="text-[11px] font-semibold uppercase tracking-wider text-sentinel-400">New wildfire alerts</p>
               {locations.map((location) => {
-                const active = location.notify_new_fires !== false;
+                const paused = location.alerts_enabled === false;
+                const active = !paused && location.notify_new_fires !== false;
                 return (
                   <div key={location.id} className="flex items-center justify-between gap-3 text-xs">
-                    <span className="truncate text-sentinel-200">{location.name}</span>
+                    <span className="truncate text-sentinel-200">
+                      {location.name}
+                      {paused && <span className="text-sentinel-500"> (notifications off)</span>}
+                    </span>
                     <button
                       type="button"
                       role="switch"
                       aria-checked={active}
-                      disabled={fireToggleBusy === location.id}
+                      disabled={paused || fireToggleBusy === location.id}
                       onClick={() => handleFireToggle(location)}
                       className={`shrink-0 rounded-full border px-2.5 py-1 text-[11px] transition-colors disabled:opacity-50 ${
                         active
@@ -418,6 +428,9 @@ export default function AccountPage() {
           )}
 
           <p className="text-[11px] font-semibold uppercase tracking-wider text-sentinel-400">NWS weather alert types</p>
+          {nwsAlertTypes.length === 0 && (
+            <p className="text-[11px] text-sentinel-500">None selected — pick at least one to receive weather alert emails.</p>
+          )}
           <div className="flex flex-wrap gap-2">
             {NOTIFIABLE_ALERT_TYPES.map((type) => {
               const active = nwsAlertTypes.includes(type);
