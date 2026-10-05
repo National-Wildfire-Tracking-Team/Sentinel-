@@ -12,6 +12,8 @@ import {
 } from 'lucide-react';
 
 import { useAuth } from '../../shared/context/AuthContext';
+import { isEmailNotConfirmedError } from '../../shared/utils/authEmail';
+import ResendConfirmation from '../components/Auth/ResendConfirmation';
 import { supabase } from '../../shared/api/supabaseClient';
 import { getMainOrigin } from '../../shared/utils/getAppOrigin';
 
@@ -26,7 +28,7 @@ async function fetchRole(userId) {
 }
 
 export default function LoginPage() {
-  const { signIn, isSupabaseConfigured } = useAuth();
+  const { signIn, requestPasswordReset, isSupabaseConfigured } = useAuth();
   const navigate  = useNavigate();
   const location  = useLocation();
 
@@ -36,6 +38,7 @@ export default function LoginPage() {
   const [rememberMe,   setRememberMe]   = useState(false);
   const [error,        setError]        = useState(null);
   const [busy,         setBusy]         = useState(false);
+  const [unconfirmed,  setUnconfirmed]  = useState(false);
 
   // Forgot-password sub-state
   const [forgotMode,  setForgotMode]  = useState(false);
@@ -49,6 +52,7 @@ export default function LoginPage() {
   async function handleSignIn(e) {
     e.preventDefault();
     setError(null);
+    setUnconfirmed(false);
     setBusy(true);
     try {
       const { data, error: err } = await signIn(email, password, rememberMe);
@@ -73,12 +77,14 @@ export default function LoginPage() {
       }
     } catch (err) {
       const msg = err?.message || '';
-      if (
-        msg.toLowerCase().includes('invalid login credentials') ||
-        msg.toLowerCase().includes('email not confirmed')
-      ) {
+      if (isEmailNotConfirmedError(err)) {
+        setUnconfirmed(true);
         setError(
-          'Invalid credentials. If you just registered, please confirm your email address first — check your inbox (and spam folder) for the confirmation link.'
+          'Your email address hasn\'t been confirmed yet. Click the link we emailed you (check spam too), or resend it below.'
+        );
+      } else if (msg.toLowerCase().includes('invalid login credentials')) {
+        setError(
+          'Invalid email or password. If you just registered, confirm your email address first — check your inbox (and spam folder) for the confirmation link.'
         );
       } else if (
         msg.toLowerCase().includes('failed to fetch') ||
@@ -102,7 +108,7 @@ export default function LoginPage() {
     setBusy(true);
     try {
       const addr = resetEmail.trim() || email.trim();
-      const { error: err } = await supabase.auth.resetPasswordForEmail(addr);
+      const { error: err } = await requestPasswordReset(addr);
       if (err) throw err;
       setResetSent(true);
     } catch (err) {
@@ -223,6 +229,7 @@ export default function LoginPage() {
                     <span>{error}</span>
                   </div>
                 )}
+                {unconfirmed && <ResendConfirmation email={email} />}
 
                 {/* Submit */}
                 <button

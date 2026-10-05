@@ -24,7 +24,7 @@ import { NOTIFIABLE_ALERT_TYPES } from '../utils/nwsColors';
 import { DEFAULT_RADIUS_MILES } from '../../../supabase/functions/_shared/savedLocationAlerts.js';
 
 export default function AccountPage() {
-  const { user, profile, isAuthenticated, loading, profileLoading } = useAuth();
+  const { user, profile, isAuthenticated, loading, profileLoading, requestPasswordReset } = useAuth();
   const { planId, plan, subscription, isPaid, cancelAtPeriodEnd, currentPeriodEnd } = usePlan();
   const navigate = useNavigate();
   const { requestSignOut, signOutDialog } = useConfirmSignOut(() => navigate('/'));
@@ -67,7 +67,7 @@ export default function AccountPage() {
     setResetError(null);
     setResetBusy(true);
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(email);
+      const { error } = await requestPasswordReset(email);
       if (error) throw error;
       setResetSent(true);
     } catch (err) {

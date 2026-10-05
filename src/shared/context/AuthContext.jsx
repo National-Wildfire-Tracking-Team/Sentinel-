@@ -6,6 +6,7 @@
 
 import { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { supabase, isSupabaseConfigured, REMEMBER_ME_KEY } from '../api/supabaseClient';
+import { authCallbackUrl } from '../utils/authEmail';
 
 const AuthContext = createContext(null);
 
@@ -105,8 +106,29 @@ export function AuthProvider({ children }) {
     return supabase.auth.signUp({
       email,
       password,
-      options: Object.keys(metadata).length ? { data: metadata } : undefined,
+      options: {
+        emailRedirectTo: authCallbackUrl(),
+        ...(Object.keys(metadata).length ? { data: metadata } : {}),
+      },
     });
+  }, []);
+
+  // Re-send the sign-up confirmation link (Supabase allows one per address per minute).
+  const resendConfirmation = useCallback(async (email) => {
+    return supabase.auth.resend({
+      type: 'signup',
+      email,
+      options: { emailRedirectTo: authCallbackUrl() },
+    });
+  }, []);
+
+  // Email a password-reset link; it lands on /auth/callback's new-password form.
+  const requestPasswordReset = useCallback(async (email) => {
+    return supabase.auth.resetPasswordForEmail(email, { redirectTo: authCallbackUrl() });
+  }, []);
+
+  const updatePassword = useCallback(async (password) => {
+    return supabase.auth.updateUser({ password });
   }, []);
 
   const signOut = useCallback(async () => {
@@ -130,6 +152,9 @@ export function AuthProvider({ children }) {
     signIn,
     signUp,
     signOut,
+    resendConfirmation,
+    requestPasswordReset,
+    updatePassword,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
