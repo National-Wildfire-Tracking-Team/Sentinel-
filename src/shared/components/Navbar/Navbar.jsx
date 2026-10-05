@@ -134,7 +134,7 @@ export default function Navbar() {
               href={`${getAppOrigin()}/`}
               className="ml-2 px-4 py-2 rounded-lg text-sm font-semibold bg-fire-600 text-white hover:bg-fire-500 transition-colors"
             >
-              Sentinel<sup className="ml-0.5 text-[0.6em] font-bold tracking-wider align-super">BETA</sup>
+              Sentinel
             </a>
 
             {!isAuthenticated && (
@@ -245,7 +245,7 @@ export default function Navbar() {
               onClick={() => setMobileOpen(false)}
               className="block px-4 py-2.5 rounded-lg text-sm font-semibold bg-fire-600 text-white hover:bg-fire-500 transition-colors"
             >
-              Sentinel<sup className="ml-0.5 text-[0.6em] font-bold tracking-wider align-super">BETA</sup>
+              Sentinel
             </a>
 
             {isAuthenticated && (

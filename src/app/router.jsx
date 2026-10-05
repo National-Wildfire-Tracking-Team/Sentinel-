@@ -21,6 +21,7 @@ import LiveTrackerPage from './pages/LiveTrackerPage';
 const FireIncidentPage = lazy(() => import('./pages/FireIncidentPage'));
 const LoginPage = lazy(() => import('./pages/LoginPage'));
 const RegisterPage = lazy(() => import('./pages/RegisterPage'));
+const AuthCallbackPage = lazy(() => import('./pages/AuthCallbackPage'));
 const AccountPage = lazy(() => import('./pages/AccountPage'));
 const ManageZipcodesPage = lazy(() => import('./pages/ManageZipcodesPage'));
 const AdminDashboardPage = lazy(() => import('./pages/AdminDashboardPage'));
@@ -119,6 +120,8 @@ export default function AppRouter() {
           {/* Auth pages — noindex: thin forms with no standalone search value */}
           <Route path="/login" element={<><Seo title="Sign In | Sentinel" noindex /><LoginPage /></>} />
           <Route path="/register" element={<><Seo title="Create Account | Sentinel" noindex /><RegisterPage /></>} />
+          {/* Landing page for emailed confirmation / password-reset links (see authEmail.js) */}
+          <Route path="/auth/callback" element={<><Seo title="Account | Sentinel" noindex /><AuthCallbackPage /></>} />
 
           {/* Reporter portal moved to its own subdomain — redirect old bookmarks/links */}
           <Route path="/reporter-login" element={<ReporterPortalRedirect reporterPath="/login" />} />

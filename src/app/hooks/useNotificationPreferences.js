@@ -2,7 +2,8 @@
  * useNotificationPreferences.js
  * Manages the current user's email-notification preferences: which NWS
  * alert types they want emailed about (public.notification_preferences).
- * Read by scripts/notification-sync.mjs to decide who to email.
+ * Read by the notification-sync Edge Function (via get_monitored_saved_locations)
+ * to decide which NWS alerts to email about.
  */
 
 import { useState, useEffect, useCallback } from 'react';
