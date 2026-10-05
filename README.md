@@ -61,13 +61,13 @@ portal at `reporter.nationalwildfiretrackingteam.org`.
 
 ## Optional: GOES-DL-backed satellite pipeline
 
-If you want to use your own GOES tile infrastructure, you can point Sentinel to
-custom GOES tile templates via environment variables in `.env`:
+The Satellite layer reads public sources directly (IEM WMS for every ABI band,
+NASA GIBS for GeoColor, composites and loops; see `src/app/api/goesSatellite.js`).
+To serve the default CONUS Band 2 (Visible) view from your own GOES tile
+infrastructure instead, set these in `.env`:
 
 - `VITE_GOES_EAST_VISIBLE_TILE_URL`
 - `VITE_GOES_WEST_VISIBLE_TILE_URL`
-- `VITE_GOES_EAST_FIRE_RGB_TILE_URL`
-- `VITE_GOES_WEST_FIRE_RGB_TILE_URL`
 
 This is compatible with endpoints produced by a pipeline built with
 [GOES-DL](https://github.com/wvenialbo/GOES-DL), as long as your service

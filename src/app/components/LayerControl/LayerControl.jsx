@@ -7,13 +7,14 @@
 import { useState, memo, useMemo, useEffect } from 'react';
 import { getMainOrigin } from '../../../shared/utils/getAppOrigin';
 import {
-  Layers, Flame, MapPin, Wind, CloudRain, CloudLightning, Eye, Radar, AlertTriangle, Ruler, Hexagon, Satellite, Thermometer, Activity, Droplets, Zap, Lock, GraduationCap, History, TrendingUp, Camera, Snowflake, Landmark, Waves,
+  Layers, Flame, MapPin, Wind, CloudRain, CloudLightning, Radar, AlertTriangle, Ruler, Hexagon, Satellite, Thermometer, Activity, Droplets, Zap, Lock, GraduationCap, History, TrendingUp, Camera, Snowflake, Landmark, Waves,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { trackSentinelUse } from '../../../shared/utils/analytics';
 import LayerPanelSection from './LayerPanelSection';
 import ModelLayerPanel from '../WeatherModels/ModelLayerPanel';
 import MrmsControls from './MrmsControls';
+import SatelliteRowControls from './SatelliteRowControls';
 import { MRMS_URL } from '../../api/mrms';
 
 /** Layer row definitions — grouped under tab-specific sections below */
@@ -23,7 +24,6 @@ const LAYER_DEFS = {
   firePerimeters:    { label: 'Fire Perimeters',     sublabel: 'NIFC WFIGS',                  icon: MapPin,       color: '#ff6600' },
   calFireHistoricalPerimeters: { label: 'Historical Fire Perimeters', sublabel: 'CAL FIRE FRAP · past fire scars', icon: History, color: '#92400e' },
   incidentLocations: { label: 'Incident Locations',  sublabel: 'WFIGS · NWTT verified',       icon: Flame,        color: '#f59e0b' },
-  goesFireTemperature:  { label: 'GOES Fire Temperature', sublabel: 'NOAA GOES-19 · Fire Temperature RGB', icon: Thermometer, color: '#ef4444' },
   evacZones:         { label: 'Evacuation Zones',    sublabel: 'Cal OES + IPAWS + field-reported zones', icon: AlertTriangle, color: '#ef4444' },
   ndgdSmokeForecast: { label: 'Smoke Concentration', sublabel: 'NOAA NDGD hourly (48h)',      icon: CloudRain,    color: '#eab308' },
   droughtOutlook:    { label: 'Drought Outlook',     sublabel: 'NOAA CPC Monthly Outlook',    icon: Droplets,     color: '#f59e0b' },
@@ -40,10 +40,7 @@ const LAYER_DEFS = {
   damageAssessment:  { label: 'Damage assessment',    sublabel: 'NWS DAT · surveys, last 30 days', icon: Hexagon,    color: '#dc2626' },
   spcWeatherOutlooks: { label: 'SPC outlooks',     sublabel: 'Convective severe weather outlook',    icon: AlertTriangle, color: '#f59e0b' },
   mrms:              { label: 'MRMS Radar',          sublabel: 'NOAA Multi-Radar/Multi-Sensor · 2-min updates', icon: Radar, color: '#22c55e' },
-  goesEast:          { label: 'GOES East Imagery',   sublabel: 'NOAA GOES East · visible',    icon: Eye,           color: '#8b5cf6' },
-  goesWest:          { label: 'GOES West Imagery',   sublabel: 'NOAA GOES West · visible',    icon: Eye,           color: '#7c3aed' },
-  goesFire16:        { label: 'GOES East Fire RGB',  sublabel: 'NOAA GOES East · Day Land Cloud Fire RGB', icon: Eye, color: '#a855f7' },
-  goesFire18:        { label: 'GOES West Fire RGB',  sublabel: 'NOAA GOES West · Day Land Cloud Fire RGB', icon: Eye, color: '#9333ea' },
+  satellite:         { label: 'Satellite',           sublabel: 'NOAA GOES-East/West · bands, regions & loops', icon: Satellite, color: '#8b5cf6' },
   aqi:               { label: 'AQI Heatmap',          sublabel: 'EPA AirNow gradient overlay',  icon: Wind,         color: '#3b82f6' },
   smoke:             { label: 'Smoke Forecast',      sublabel: 'NOAA HRRR',                   icon: CloudRain,    color: '#94a3b8' },
   waterGauges:        { label: 'Water Gauges',        sublabel: 'NOAA NWPS river & coastal gauges', icon: Droplets, color: '#1e90ff' },
@@ -80,7 +77,7 @@ const TAB_SECTIONS = {
       title: 'Monitoring & imagery',
       groups: [
         {
-          layers: ['ndgdSmokeForecast', 'smoke', 'droughtOutlook', 'airNowMonitors', 'aqi', 'goesEast', 'goesWest', 'rawsStations'],
+          layers: ['ndgdSmokeForecast', 'smoke', 'droughtOutlook', 'airNowMonitors', 'aqi', 'satellite', 'rawsStations'],
         },
       ],
     },
@@ -95,7 +92,7 @@ const TAB_SECTIONS = {
             { key: 'weatherAlerts', label: 'Red Flag Warnings', sublabel: 'NWS active Red Flag Warnings' },
             'evacZones',
             'firePerimeters', 'incidentLocations',
-            'fireHotspots', 'ngfsDetections', 'calFireHistoricalPerimeters', 'goesFireTemperature',
+            'fireHotspots', 'ngfsDetections', 'calFireHistoricalPerimeters', 'satellite',
             'fireBehaviorModeling',
           ],
         },
@@ -109,7 +106,6 @@ const TAB_SECTIONS = {
           layers: [
             'fireRiskOutlook', 'ndgdSmokeForecast', 'droughtOutlook',
             { key: 'fireWeatherOutlooks', label: 'SPC outlook', sublabel: 'SPC Day 1-8 fire weather' },
-            'goesFire16', 'goesFire18',
           ],
         },
       ],
@@ -131,7 +127,7 @@ const TAB_SECTIONS = {
       groups: [
         {
           // MRMS is offered only when its frames service is configured (VITE_MRMS_URL).
-          layers: [...(MRMS_URL ? ['mrms'] : []), 'goesEast', 'goesWest'],
+          layers: [...(MRMS_URL ? ['mrms'] : []), 'satellite'],
         },
       ],
     },
@@ -563,6 +559,7 @@ const LayerControl = memo(function LayerControl({
                               />
 
                               {layerKey === 'mrms' && <MrmsControls />}
+                              {layerKey === 'satellite' && <SatelliteRowControls />}
                               {layerKey === 'fireRiskOutlook' && (
                                 <FireRiskDaySelector />
                               )}
