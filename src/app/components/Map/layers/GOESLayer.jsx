@@ -1,183 +1,130 @@
 /**
  * GOESLayer.jsx
- * GOES-East / GOES-West near real-time satellite imagery via Iowa Environmental Mesonet WMS.
- * Visible band (ch02) layers for weather tab; ABI-L2-MCMIP Day Land Cloud Fire RGB
- * composites for wildfire tab.
+ * NOAA GOES-East / GOES-West imagery for the live map's Satellite layer.
+ * What is drawn comes from SatelliteContext (satellite, region, product,
+ * latest scan or loop frame); see api/goesSatellite.js for the sources.
  *
- * Tile endpoints are configurable via Vite env vars so deployments can point
- * to a GOES-DL-backed tile service when desired.
+ * - Latest image: one raster source. Its key changes with the selection, so
+ *   switching products unmounts the old source and Mapbox cancels its
+ *   in-flight tiles. A new IEM scan changes only the tile URL's version, so
+ *   the source reloads in place.
+ * - Loop: one raster source per frame, mounted as playback reaches it (plus a
+ *   few ahead) and kept while the loop is on, so later passes are instant.
+ *   Frames not on screen draw at opacity 0, which still loads their tiles.
  */
 
-import { memo } from 'react';
-import { Source, Layer } from 'react-map-gl';
+import { memo, useEffect, useMemo, useState } from 'react';
+import { Layer, Source, useMap } from 'react-map-gl';
+import { useSatelliteContext } from '../../../context/SatelliteContext';
+import { attributionFor, gibsTileUrl, iemTileUrl } from '../../../api/goesSatellite';
 
-// ── Weather-tab visible-band layers (Channel 02, 0.64µm) ─────────────────────
-const DEFAULT_IEM_WMS_EAST_VISIBLE =
-  'https://mesonet.agron.iastate.edu/cgi-bin/wms/goes_east.cgi' +
-  '?SERVICE=WMS&VERSION=1.1.1&REQUEST=GetMap&LAYERS=conus_ch02' +
-  '&FORMAT=image/png&TRANSPARENT=true&SRS=EPSG:3857' +
-  '&WIDTH=256&HEIGHT=256&BBOX={bbox-epsg-3857}';
+const PRELOAD_AHEAD = 3;
+const SOURCE_PREFIX = 'goes-sat';
 
-const DEFAULT_IEM_WMS_WEST_VISIBLE =
-  'https://mesonet.agron.iastate.edu/cgi-bin/wms/goes_west.cgi' +
-  '?SERVICE=WMS&VERSION=1.1.1&REQUEST=GetMap&LAYERS=conus_ch02' +
-  '&FORMAT=image/png&TRANSPARENT=true&SRS=EPSG:3857' +
-  '&WIDTH=256&HEIGHT=256&BBOX={bbox-epsg-3857}';
+function liveTiles(source, version, satelliteId) {
+  return source.kind === 'iem'
+    ? iemTileUrl(source, version, satelliteId)
+    : gibsTileUrl(source.layer, source.level, source.time);
+}
 
-// ── Wildfire-tab ABI-L2-MCMIP Day Land Cloud Fire RGB composites ─────────────
-// Source data: GOES-East/West ABI-L2-MCMIP.
-// RGB recipe: Red=Band 6 (2.2µm), Green=Band 3 (0.86µm), Blue=Band 2 (0.64µm)
-const DEFAULT_IEM_FIRE_RGB_EAST =
-  'https://mesonet.agron.iastate.edu/cgi-bin/wms/goes_east.cgi' +
-  '?SERVICE=WMS&VERSION=1.1.1&REQUEST=GetMap&LAYERS=conus_firetemp' +
-  '&FORMAT=image/png&TRANSPARENT=true&SRS=EPSG:3857' +
-  '&WIDTH=256&HEIGHT=256&BBOX={bbox-epsg-3857}';
+function RasterSource({ id, tiles, maxzoom, attribution, opacity, fade }) {
+  return (
+    <Source id={id} type="raster" tiles={[tiles]} tileSize={256} maxzoom={maxzoom} attribution={attribution}>
+      <Layer
+        id={`${id}-raster`}
+        type="raster"
+        source={id}
+        paint={{ 'raster-opacity': opacity, 'raster-resampling': 'linear', 'raster-fade-duration': fade }}
+      />
+    </Source>
+  );
+}
 
-const DEFAULT_IEM_FIRE_RGB_WEST =
-  'https://mesonet.agron.iastate.edu/cgi-bin/wms/goes_west.cgi' +
-  '?SERVICE=WMS&VERSION=1.1.1&REQUEST=GetMap&LAYERS=conus_firetemp' +
-  '&FORMAT=image/png&TRANSPARENT=true&SRS=EPSG:3857' +
-  '&WIDTH=256&HEIGHT=256&BBOX={bbox-epsg-3857}';
+/** Map events for this layer's sources: tile failures, loading, and zooming to a picked region. */
+function useSatelliteMapEvents(sat) {
+  const { current } = useMap();
+  const map = current?.getMap?.();
+  const reportTileError = sat?.reportTileError;
+  const setTilesLoading = sat?.setTilesLoading;
 
-const envOr = (value, fallback) => {
-  if (typeof value !== 'string') return fallback;
-  const trimmed = value.trim();
-  return trimmed || fallback;
-};
+  useEffect(() => {
+    if (!map || !reportTileError || !setTilesLoading) return undefined;
+    const ours = (e) => typeof e?.sourceId === 'string' && e.sourceId.startsWith(SOURCE_PREFIX);
+    const onError = (e) => { if (ours(e)) reportTileError(); };
+    const onLoading = (e) => { if (ours(e)) setTilesLoading(true); };
+    const onIdle = () => setTilesLoading(false);
+    map.on('error', onError);
+    map.on('sourcedataloading', onLoading);
+    map.on('idle', onIdle);
+    return () => {
+      map.off('error', onError);
+      map.off('sourcedataloading', onLoading);
+      map.off('idle', onIdle);
+      setTilesLoading(false);
+    };
+  }, [map, reportTileError, setTilesLoading]);
 
-const GOES_EAST_VISIBLE_TILE_URL = envOr(
-  import.meta.env.VITE_GOES_EAST_VISIBLE_TILE_URL,
-  DEFAULT_IEM_WMS_EAST_VISIBLE
-);
-const GOES_WEST_VISIBLE_TILE_URL = envOr(
-  import.meta.env.VITE_GOES_WEST_VISIBLE_TILE_URL,
-  DEFAULT_IEM_WMS_WEST_VISIBLE
-);
-const GOES_EAST_FIRE_RGB_TILE_URL = envOr(
-  import.meta.env.VITE_GOES_EAST_FIRE_RGB_TILE_URL,
-  DEFAULT_IEM_FIRE_RGB_EAST
-);
-const GOES_WEST_FIRE_RGB_TILE_URL = envOr(
-  import.meta.env.VITE_GOES_WEST_FIRE_RGB_TILE_URL,
-  DEFAULT_IEM_FIRE_RGB_WEST
-);
+  const focusSeq = sat?.focus?.seq;
+  useEffect(() => {
+    const bounds = sat?.focus?.bounds;
+    if (!map || !bounds) return;
+    map.fitBounds([[bounds[0], bounds[1]], [bounds[2], bounds[3]]], { padding: 40, duration: 800 });
+  }, [map, focusSeq]); // eslint-disable-line react-hooks/exhaustive-deps
+}
 
-const GOES_EAST_ATTRIBUTION = envOr(
-  import.meta.env.VITE_GOES_EAST_ATTRIBUTION,
-  'NOAA GOES-East via Iowa Environmental Mesonet'
-);
-const GOES_WEST_ATTRIBUTION = envOr(
-  import.meta.env.VITE_GOES_WEST_ATTRIBUTION,
-  'NOAA GOES-West via Iowa Environmental Mesonet'
-);
-const GOES_EAST_FIRE_ATTRIBUTION = envOr(
-  import.meta.env.VITE_GOES_EAST_FIRE_ATTRIBUTION,
-  'NOAA GOES-East ABI-L2-MCMIP Day Land Cloud Fire RGB via Iowa Environmental Mesonet'
-);
-const GOES_WEST_FIRE_ATTRIBUTION = envOr(
-  import.meta.env.VITE_GOES_WEST_FIRE_ATTRIBUTION,
-  'NOAA GOES-West ABI-L2-MCMIP Day Land Cloud Fire RGB via Iowa Environmental Mesonet'
-);
+const GOESLayer = memo(function GOESLayer() {
+  const sat = useSatelliteContext();
+  useSatelliteMapEvents(sat);
 
-const GOESLayer = memo(function GOESLayer({
-  eastVisible,
-  westVisible,
-  fire16Visible,
-  fire18Visible,
-}) {
-  const eastVis    = eastVisible    ? 'visible' : 'none';
-  const westVis    = westVisible    ? 'visible' : 'none';
-  const fire16Vis  = fire16Visible  ? 'visible' : 'none';
-  const fire18Vis  = fire18Visible  ? 'visible' : 'none';
+  const { active, source, imageTime, frames = [], index = 0, live = true, opacity = 0.7, reloadKey = 0 } = sat ?? {};
+  const satelliteId = sat?.satellite?.id;
+  const looping = Boolean(active && source && !live && source.kind === 'gibs');
+
+  // Loop frames to keep mounted: everything already shown this loop, plus the next few.
+  const loopKey = looping ? `${source.layer}|${frames[0]?.id}|${frames.length}|${reloadKey}` : null;
+  const [kept, setKept] = useState({ key: null, ids: [] });
+  const mountedIds = useMemo(() => {
+    if (!loopKey) return [];
+    const ids = new Set(kept.key === loopKey ? kept.ids : []);
+    for (let k = 0; k <= PRELOAD_AHEAD && k < frames.length; k += 1) ids.add(frames[(index + k) % frames.length].id);
+    return [...ids];
+  }, [loopKey, kept, frames, index]);
+  useEffect(() => {
+    if (!loopKey) return;
+    if (kept.key !== loopKey || mountedIds.length !== kept.ids.length) setKept({ key: loopKey, ids: mountedIds });
+  }, [loopKey, mountedIds, kept]);
+
+  if (!active || !source) return null;
+  const attribution = attributionFor(source);
+
+  if (looping) {
+    const current = frames[index]?.id;
+    return frames
+      .filter((f) => mountedIds.includes(f.id))
+      .map((f) => (
+        <RasterSource
+          key={`${source.layer}-${f.id}-${reloadKey}`}
+          id={`${SOURCE_PREFIX}-frame-${f.id}`}
+          tiles={gibsTileUrl(source.layer, source.level, f.id)}
+          maxzoom={source.level}
+          attribution={attribution}
+          opacity={f.id === current ? opacity : 0}
+          fade={0}
+        />
+      ));
+  }
 
   return (
-    <>
-      {/* ── Weather tab: visible-band imagery ── */}
-      <Source
-        id="goes-east"
-        type="raster"
-        tiles={[GOES_EAST_VISIBLE_TILE_URL]}
-        tileSize={256}
-        maxzoom={10}
-        attribution={GOES_EAST_ATTRIBUTION}
-      >
-        <Layer
-          id="goes-east-raster"
-          type="raster"
-          source="goes-east"
-          layout={{ visibility: eastVis }}
-          paint={{
-            'raster-opacity': 0.7,
-            'raster-resampling': 'linear',
-            'raster-fade-duration': 300,
-          }}
-        />
-      </Source>
-
-      <Source
-        id="goes-west"
-        type="raster"
-        tiles={[GOES_WEST_VISIBLE_TILE_URL]}
-        tileSize={256}
-        maxzoom={10}
-        attribution={GOES_WEST_ATTRIBUTION}
-      >
-        <Layer
-          id="goes-west-raster"
-          type="raster"
-          source="goes-west"
-          layout={{ visibility: westVis }}
-          paint={{
-            'raster-opacity': 0.7,
-            'raster-resampling': 'linear',
-            'raster-fade-duration': 300,
-          }}
-        />
-      </Source>
-
-      {/* ── Wildfire tab: ABI-L2-MCMIP Day Land Cloud Fire RGB ── */}
-      <Source
-        id="goes16-fire-rgb"
-        type="raster"
-        tiles={[GOES_EAST_FIRE_RGB_TILE_URL]}
-        tileSize={256}
-        maxzoom={10}
-        attribution={GOES_EAST_FIRE_ATTRIBUTION}
-      >
-        <Layer
-          id="goes16-fire-rgb-raster"
-          type="raster"
-          source="goes16-fire-rgb"
-          layout={{ visibility: fire16Vis }}
-          paint={{
-            'raster-opacity': 0.75,
-            'raster-resampling': 'linear',
-            'raster-fade-duration': 300,
-          }}
-        />
-      </Source>
-
-      <Source
-        id="goes18-fire-rgb"
-        type="raster"
-        tiles={[GOES_WEST_FIRE_RGB_TILE_URL]}
-        tileSize={256}
-        maxzoom={10}
-        attribution={GOES_WEST_FIRE_ATTRIBUTION}
-      >
-        <Layer
-          id="goes18-fire-rgb-raster"
-          type="raster"
-          source="goes18-fire-rgb"
-          layout={{ visibility: fire18Vis }}
-          paint={{
-            'raster-opacity': 0.75,
-            'raster-resampling': 'linear',
-            'raster-fade-duration': 300,
-          }}
-        />
-      </Source>
-    </>
+    <RasterSource
+      key={`${source.kind}-${source.service ?? ''}-${source.layer}-${reloadKey}`}
+      id={`${SOURCE_PREFIX}-live`}
+      tiles={liveTiles(source, imageTime, satelliteId)}
+      maxzoom={source.kind === 'iem' ? 10 : source.level}
+      attribution={attribution}
+      opacity={opacity}
+      fade={300}
+    />
   );
 });
+
 export default GOESLayer;

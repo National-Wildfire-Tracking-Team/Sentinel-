@@ -19,6 +19,8 @@ import {
 import { FLOOD_ATTRIBUTION, FLOOD_CATEGORIES } from '../../utils/floodHazard';
 import { useMrmsContext } from '../../context/MrmsContext';
 import { mrmsLegendRows } from '../../api/mrms';
+import { useSatelliteContext } from '../../context/SatelliteContext';
+import { LEGENDS as SATELLITE_LEGENDS, attributionFor } from '../../api/goesSatellite';
 
 const CONTAINMENT_SCALE = [
   { color: '#ef4444', label: 'Uncontained (0%)' },
@@ -201,6 +203,31 @@ function MrmsLegendSection() {
       {mrmsLegendRows(spec).map((row) => <ColorRow key={row.label} {...row} />)}
       <div className="text-sentinel-400 text-[10px] pt-1 mt-1 border-t border-sentinel-700 leading-snug">{spec.description}</div>
       <div className="text-sentinel-500 text-[9px] leading-snug">{mrms.manifest.attribution}</div>
+    </Section>
+  );
+}
+
+// Satellite: the selected product's interpretation, for the source on screen
+// (the loop can come from a different source than the latest scan).
+export function SatelliteLegendSection() {
+  const sat = useSatelliteContext();
+  if (!sat?.active || !sat.source || !sat.product) return null;
+  const legend = SATELLITE_LEGENDS[sat.source.legend];
+  return (
+    <Section title={`${sat.satellite.label} ${sat.product.label}`}>
+      {sat.product.detail && <div className="text-sentinel-300 text-[10px] mb-1">{sat.product.detail}</div>}
+      {legend?.gradient && (
+        <div>
+          <div className="h-2 rounded-sm" style={{ background: `linear-gradient(to right, ${legend.gradient.join(', ')})` }} />
+          <div className="flex justify-between text-[10px] text-sentinel-300 mt-0.5">
+            <span>{legend.ends[0]}</span>
+            <span>{legend.ends[1]}</span>
+          </div>
+        </div>
+      )}
+      {legend?.swatches?.map((row) => <ColorRow key={row.label} {...row} />)}
+      {legend?.note && <div className="text-sentinel-400 text-[10px] pt-1 mt-1 border-t border-sentinel-700 leading-snug">{legend.note}</div>}
+      <div className="text-sentinel-500 text-[9px] leading-snug">{attributionFor(sat.source)}</div>
     </Section>
   );
 }
@@ -421,6 +448,8 @@ const Legend = memo(function Legend({
             )}
 
             {layers.mrms && <MrmsLegendSection />}
+
+            {layers.satellite && <SatelliteLegendSection />}
 
             {layers.wpcQpf && (
               <Section title="WPC Precipitation Forecast (24hr)">
