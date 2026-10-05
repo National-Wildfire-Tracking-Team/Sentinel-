@@ -104,7 +104,6 @@ const Header = memo(function Header({ onRefresh }) {
             </div>
             <span className="inline-flex items-center font-bold text-sentinel-900 dark:text-white text-lg tracking-tight">
               Sentinel
-              <span className="self-start ml-0.5 mt-0.5 text-[0.45em] font-bold tracking-wider text-fire-400">BETA</span>
             </span>
             <span className="hidden sm:inline text-sentinel-500 dark:text-sentinel-400 text-sm font-light">
               All Hazard Intelligence

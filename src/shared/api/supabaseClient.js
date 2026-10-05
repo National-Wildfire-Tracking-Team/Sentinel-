@@ -8,6 +8,7 @@
  */
 
 import { createClient } from '@supabase/supabase-js';
+import { readAuthRedirect } from '../utils/authEmail';
 
 const SUPABASE_URL      = import.meta.env.VITE_SUPABASE_URL || '';
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
@@ -58,6 +59,15 @@ const sessionAwareStorage = {
     sessionStorage.removeItem(key);
   },
 };
+
+/**
+ * What an email link (confirmation / password recovery / expired link)
+ * carried in the URL on page load. Captured here, before createClient,
+ * because detectSessionInUrl clears the hash during client init — see
+ * readAuthRedirect and AuthCallbackPage.
+ */
+export const initialAuthRedirect =
+  typeof window !== 'undefined' ? readAuthRedirect(window.location) : null;
 
 /**
  * Exported even when not configured so imports don't crash.
