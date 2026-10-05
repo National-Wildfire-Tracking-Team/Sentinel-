@@ -211,10 +211,21 @@ async function writeSnapshot(source: string, incidents: Incident[]): Promise<voi
   }
 }
 
-async function insertIncidentUpdate({ incidentId, incidentName, content, sourceName, dedupKey }: {
+// Whether incident_updates has the update_type column (migration
+// 20261005000000_incident_update_type.sql). Assumed yes; the first insert that
+// fails with PostgREST's unknown-column error flips it off for the rest of the
+// run, so deploying this function ahead of the migration doesn't stop the feed.
+let sendUpdateType = true;
+
+function isMissingUpdateTypeColumn(status: number, body: string): boolean {
+  return status === 400 && body.includes('PGRST204') && body.includes('update_type');
+}
+
+async function insertIncidentUpdate({ incidentId, incidentName, content, sourceName, dedupKey, updateType }: {
   incidentId: string; incidentName: string | null; content: string; sourceName: string; dedupKey?: string | null;
+  updateType?: 'fire_growth' | 'incident_update';
 }): Promise<boolean> {
-  const resp = await fetch(
+  const post = (withType: boolean) => fetch(
     dedupKey
       ? `${SUPABASE_URL}/rest/v1/incident_updates?on_conflict=dedup_key`
       : `${SUPABASE_URL}/rest/v1/incident_updates`,
@@ -232,9 +243,22 @@ async function insertIncidentUpdate({ incidentId, incidentName, content, sourceN
         source_name: sourceName,
         user_id: null,
         dedup_key: dedupKey ?? null,
+        ...(withType ? { update_type: updateType ?? 'incident_update' } : {}),
       }),
     },
   );
+
+  let resp = await post(sendUpdateType);
+  if (!resp.ok && sendUpdateType) {
+    const body = await resp.text().catch(() => '');
+    if (!isMissingUpdateTypeColumn(resp.status, body)) {
+      console.warn(`[${JOB_NAME}] insert failed (${resp.status}) for ${incidentId}:`, body);
+      return false;
+    }
+    console.warn(`[${JOB_NAME}] incident_updates.update_type not found; inserting without it until the migration is applied`);
+    sendUpdateType = false;
+    resp = await post(false);
+  }
   if (!resp.ok) {
     console.warn(`[${JOB_NAME}] insert failed (${resp.status}) for ${incidentId}:`, await resp.text().catch(() => ''));
     return false;
@@ -308,6 +332,7 @@ async function syncSource({ source, newFireLabel, newFireDedupSuffix, fieldChang
         incidentName: inc.name,
         content: changes.join('\n'),
         sourceName: fieldChangeLabel,
+        updateType: inc.acres > Number(old.acres) ? 'fire_growth' : 'incident_update',
       });
       if (inserted) counts.fieldChanges++;
     }
@@ -374,6 +399,8 @@ async function runSync() {
 Deno.serve(async (_req: Request) => {
   const startedAt = Date.now();
   console.log(`[${JOB_NAME}] starting`);
+  // Re-check every run: a warm isolate outlives the migration being applied.
+  sendUpdateType = true;
 
   if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
     return jsonResponse({ error: 'Supabase service credentials are not configured.' }, 500);

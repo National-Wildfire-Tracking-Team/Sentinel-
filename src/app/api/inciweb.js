@@ -198,6 +198,8 @@ export function incidentsToGeoJSON(incidents) {
           evacuation_warnings: inc.evacuation_warnings || 0,
           evacuation_order_lines_json: JSON.stringify(inc.evacuation_order_lines || []),
           updates_json: JSON.stringify(inc.updates || []),
+          // Mapbox flattens arrays; MapView parses this back (incidentAliases.js).
+          alias_ids: (inc.aliasIds || []).join(','),
         },
       })),
   };

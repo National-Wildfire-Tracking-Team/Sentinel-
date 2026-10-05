@@ -487,6 +487,19 @@ function mergePerimeterSources(primary, secondary) {
   return { ...primary, features: [...primary.features, ...addedFeatures] };
 }
 
+/**
+ * Other ids the same fire is known by, as a comma string excluding the
+ * primary id. Mirrors joinAliasIds in src/app/utils/incidentAliases.js —
+ * clients query incident data under the primary id plus these.
+ */
+function joinAliasIds(primaryId, ...sources) {
+  const primary = primaryId == null ? '' : String(primaryId);
+  const ids = sources.flatMap((s) => (Array.isArray(s) ? s : String(s ?? '').split(',')))
+    .map((id) => String(id ?? '').trim())
+    .filter((id) => id && id !== primary);
+  return [...new Set(ids)].join(',');
+}
+
 function mergeFireData(perimeters, incidents, calFireDotsGeoJSON = null) {
   const calFeatures = calFireDotsGeoJSON?.features?.length
     ? calFireDotsGeoJSON.features.map((f, i) => {
@@ -517,7 +530,9 @@ function mergeFireData(perimeters, incidents, calFireDotsGeoJSON = null) {
     return Number.isNaN(t) ? 0 : t;
   };
 
+  // The losing record's id is kept on the winner as `_aliasIds`.
   const featuresByKey = new Map();
+  const aliasesByKey = new Map();
   const noKeyFeatures = [];
   const considerIncident = (f) => {
     const key = getFireMatchKey(f.properties.IncidentName);
@@ -526,14 +541,20 @@ function mergeFireData(perimeters, incidents, calFireDotsGeoJSON = null) {
     if (!existing) { featuresByKey.set(key, f); return; }
     const existingIsCalFire = existing.properties._source === 'CAL_FIRE';
     const candidateIsCalFire = f.properties._source === 'CAL_FIRE';
-    if (candidateIsCalFire !== existingIsCalFire) {
-      if (candidateIsCalFire) featuresByKey.set(key, f);
-      return;
-    }
-    if (incidentTime(f.properties) > incidentTime(existing.properties)) featuresByKey.set(key, f);
+    const candidateWins = candidateIsCalFire !== existingIsCalFire
+      ? candidateIsCalFire
+      : incidentTime(f.properties) > incidentTime(existing.properties);
+    const loser = candidateWins ? existing : f;
+    aliasesByKey.set(key, joinAliasIds(null, aliasesByKey.get(key), loser.properties.UniqueFireIdentifier, loser.properties._aliasIds));
+    if (candidateWins) featuresByKey.set(key, f);
   };
   incidents.features.forEach(considerIncident);
   calFeatures.forEach(considerIncident);
+
+  for (const [key, f] of featuresByKey) {
+    const aliases = joinAliasIds(f.properties.UniqueFireIdentifier, aliasesByKey.get(key), f.properties._aliasIds);
+    if (aliases) featuresByKey.set(key, { ...f, properties: { ...f.properties, _aliasIds: aliases } });
+  }
 
   const mergedIncidents = { ...incidents, features: [...featuresByKey.values(), ...noKeyFeatures] };
   const incidentsByKey = new Map();
@@ -557,6 +578,7 @@ function mergeFireData(perimeters, incidents, calFireDotsGeoJSON = null) {
       ...f,
       properties: {
         ...f.properties,
+        _aliasIds: joinAliasIds(id, f.properties._aliasIds, inc._aliasIds),
         IncidentName: getFireMatchKey(f.properties.IncidentName) ? f.properties.IncidentName : inc.IncidentName,
         FireCause: f.properties.FireCause || inc.FireCause || 'Undetermined',
         GISAcres: Math.max(f.properties.GISAcres || 0, inc.GISAcres || 0),
@@ -576,6 +598,10 @@ function mergeFireData(perimeters, incidents, calFireDotsGeoJSON = null) {
         properties: {
           ...f.properties,
           UniqueFireIdentifier: inc.UniqueFireIdentifier || f.properties.UniqueFireIdentifier,
+          _aliasIds: joinAliasIds(
+            inc.UniqueFireIdentifier || f.properties.UniqueFireIdentifier,
+            f.properties.UniqueFireIdentifier, f.properties._aliasIds, inc._aliasIds,
+          ),
           FireCause: f.properties.FireCause || inc.FireCause || 'Undetermined',
           GISAcres: Math.max(f.properties.GISAcres || 0, inc.GISAcres || 0),
           PercentContained: Math.max(f.properties.PercentContained || 0, inc.PercentContained || 0),
@@ -604,6 +630,10 @@ function mergeFireData(perimeters, incidents, calFireDotsGeoJSON = null) {
         ...f.properties,
         IncidentName: inc.IncidentName,
         UniqueFireIdentifier: inc.UniqueFireIdentifier || f.properties.UniqueFireIdentifier,
+        _aliasIds: joinAliasIds(
+          inc.UniqueFireIdentifier || f.properties.UniqueFireIdentifier,
+          f.properties.UniqueFireIdentifier, f.properties._aliasIds, inc._aliasIds,
+        ),
         FireCause: f.properties.FireCause || inc.FireCause || 'Undetermined',
         GISAcres: Math.max(f.properties.GISAcres || 0, inc.GISAcres || 0),
         TotalIncidentPersonnel: f.properties.TotalIncidentPersonnel || inc.TotalIncidentPersonnel || 0,
@@ -630,6 +660,10 @@ function mergeFireData(perimeters, incidents, calFireDotsGeoJSON = null) {
         ...f.properties,
         IncidentName: inc.IncidentName,
         UniqueFireIdentifier: inc.UniqueFireIdentifier || f.properties.UniqueFireIdentifier,
+        _aliasIds: joinAliasIds(
+          inc.UniqueFireIdentifier || f.properties.UniqueFireIdentifier,
+          f.properties.UniqueFireIdentifier, f.properties._aliasIds, inc._aliasIds,
+        ),
         FireCause: f.properties.FireCause || inc.FireCause || 'Undetermined',
         GISAcres: Math.max(f.properties.GISAcres || 0, inc.GISAcres || 0),
         TotalIncidentPersonnel: f.properties.TotalIncidentPersonnel || inc.TotalIncidentPersonnel || 0,

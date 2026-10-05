@@ -22,6 +22,7 @@ import { getMainOrigin } from '../../shared/utils/getAppOrigin';
 import { useIncidents } from '../hooks/useIncidents';
 import { useCalFireIncidents } from '../hooks/useCalFireIncidents';
 import { mergeIrwinAndCalFireIncidents } from '../utils/mergeIncidents';
+import { incidentIdsFor } from '../utils/incidentAliases';
 import {
   formatAcres, formatContainment, formatPersonnel, formatDate,
   formatDateTime, formatRelativeTime,
@@ -63,7 +64,7 @@ export default function FireIncidentPage() {
   const loading = incidentsLoading || calFireLoading;
 
   const merged = mergeIrwinAndCalFireIncidents(incidents, calFireIncidents);
-  const fire = merged.find((inc) => String(inc.id) === id);
+  const fire = merged.find((inc) => incidentIdsFor(inc).includes(id));
 
   if (!loading && !fire) {
     return (

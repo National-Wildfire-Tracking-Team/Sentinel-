@@ -2,7 +2,8 @@
  * notification-sync – Supabase Edge Function
  *
  * Emails users when a wildfire or a subscribed NWS alert affects one of their
- * saved locations. Invoked every 5 minutes by the `notification-sync` pg_cron
+ * saved locations, and sends digests of new updates on incidents they follow
+ * (../_shared/incidentFollowAlerts.js). Invoked every 5 minutes by the `notification-sync` pg_cron
  * job (supabase/migrations/20260915000000_scheduled_sync_infrastructure.sql)
  * via pg_net.
  *
@@ -22,6 +23,7 @@
  */
 
 import { runNotificationSync } from '../_shared/savedLocationAlerts.js';
+import { runFollowNotifications } from '../_shared/incidentFollowAlerts.js';
 import { createNotificationSyncClients, createStructuredLogger } from '../_shared/notificationSyncClients.js';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? '';
@@ -103,10 +105,18 @@ Deno.serve(async (req: Request) => {
       now: Date.now(),
       concurrency: CONCURRENCY,
     });
+    // Independent of the saved-location pass: a failure here is logged and
+    // retried next run without failing (or re-running) the job above.
+    let followSummary: Record<string, number> = {};
+    try {
+      followSummary = await runFollowNotifications({ ...clients, log, appUrl: APP_URL });
+    } catch (err) {
+      log('follow_pass_failed', { error: err instanceof Error ? err.message : String(err) });
+    }
     await clients.releaseJob(true);
     const durationMs = Date.now() - startedAt;
     log('job_done', { durationMs });
-    return jsonResponse({ ok: true, durationMs, ...summary });
+    return jsonResponse({ ok: true, durationMs, ...summary, ...followSummary });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     log('job_failed', { error: message });

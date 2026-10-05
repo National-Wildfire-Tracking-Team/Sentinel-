@@ -5,24 +5,49 @@
  * appear instantly in the feed.
  */
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase, isSupabaseConfigured } from '../../shared/api/supabaseClient';
+import { idsFromKey, incidentIdRealtimeFilter, incidentIdsKey } from '../utils/incidentAliases';
+
+/**
+ * Rows from the fire's alias ids: reporter posts always belong, but automated
+ * feed diffs only from the primary id — incident-updates-sync posts one diff
+ * per source (IRWIN and CAL FIRE), and only the primary record's source is
+ * the one being displayed, so alias diffs would show each change twice.
+ */
+function belongsToFeed(row, primaryId) {
+  return row.incident_id === primaryId || row.source_type !== 'automated';
+}
+
+/** How long a realtime-inserted update stays marked as fresh (highlighted). */
+export const FRESH_UPDATE_MS = 4000;
 
 /**
  * Subscribe to the live update feed for an incident.
  * Returns updates in reverse-chronological order (newest first).
  *
  * @param {string|null} incidentId  The incident identifier (IRWIN ID, fire name, etc.)
- * @returns {{ updates, loading, error, addUpdate, editUpdate, deleteUpdate }}
+ * @param {string[]} [aliasIds]     Other ids the same fire is known by; their
+ *                                  updates are merged into the feed. New posts
+ *                                  always go to incidentId.
+ * Rows that arrive over realtime are listed in `freshIds` for
+ * FRESH_UPDATE_MS so the UI can highlight them; `lastInsertAt` is the time
+ * the most recent one arrived (0 if none since the feed opened).
+ *
+ * @returns {{ updates, loading, error, freshIds, lastInsertAt, addUpdate, editUpdate, deleteUpdate, refresh }}
  */
-export function useIncidentUpdates(incidentId) {
+export function useIncidentUpdates(incidentId, aliasIds) {
+  const idsKey = incidentIdsKey(incidentId, aliasIds);
   const [updates, setUpdates] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [freshIds, setFreshIds] = useState(() => new Set());
+  const [lastInsertAt, setLastInsertAt] = useState(0);
+  const freshTimers = useRef(new Map());
 
   // ── Initial fetch ──────────────────────────────────────────────────────
   const load = useCallback(async () => {
-    if (!isSupabaseConfigured || !incidentId) {
+    if (!isSupabaseConfigured || !idsKey) {
       setUpdates([]);
       setLoading(false);
       return;
@@ -30,8 +55,8 @@ export function useIncidentUpdates(incidentId) {
     setLoading(true);
     const { data, error: err } = await supabase
       .from('incident_updates')
-      .select('id, incident_id, content, source_type, source_name, user_id, photo_urls, created_at')
-      .eq('incident_id', incidentId)
+      .select('*')
+      .in('incident_id', idsFromKey(idsKey))
       .order('created_at', { ascending: false });
 
     if (err) {
@@ -39,28 +64,45 @@ export function useIncidentUpdates(incidentId) {
       setUpdates([]);
     } else {
       setError(null);
-      setUpdates(data || []);
+      setUpdates((data || []).filter((row) => belongsToFeed(row, incidentId)));
     }
     setLoading(false);
-  }, [incidentId]);
+  }, [idsKey, incidentId]);
 
   useEffect(() => { load(); }, [load]);
 
   // ── Realtime subscription ──────────────────────────────────────────────
   useEffect(() => {
-    if (!isSupabaseConfigured || !incidentId) return undefined;
+    if (!isSupabaseConfigured || !idsKey) return undefined;
+    const timers = freshTimers.current;
+
+    const markFresh = (id) => {
+      clearTimeout(timers.get(id));
+      setFreshIds((prev) => new Set(prev).add(id));
+      setLastInsertAt(Date.now());
+      timers.set(id, setTimeout(() => {
+        timers.delete(id);
+        setFreshIds((prev) => {
+          const next = new Set(prev);
+          next.delete(id);
+          return next;
+        });
+      }, FRESH_UPDATE_MS));
+    };
 
     const channel = supabase
-      .channel(`incident_updates_${incidentId}`)
+      .channel(`incident_updates_${idsKey}`)
       .on(
         'postgres_changes',
         {
           event: '*',
           schema: 'public',
           table: 'incident_updates',
-          filter: `incident_id=eq.${incidentId}`,
+          filter: incidentIdRealtimeFilter(idsFromKey(idsKey)),
         },
         (payload) => {
+          if (payload.new?.incident_id && !belongsToFeed(payload.new, incidentId)) return;
+          if (payload.eventType === 'INSERT' && payload.new?.id) markFresh(payload.new.id);
           setUpdates((prev) => {
             const row = payload.new || payload.old;
             if (!row) return prev;
@@ -81,14 +123,20 @@ export function useIncidentUpdates(incidentId) {
       )
       .subscribe();
 
-    return () => { supabase.removeChannel(channel); };
-  }, [incidentId]);
+    return () => {
+      supabase.removeChannel(channel);
+      timers.forEach(clearTimeout);
+      timers.clear();
+      setFreshIds(new Set());
+      setLastInsertAt(0);
+    };
+  }, [idsKey, incidentId]);
 
   // ── CRUD helpers ───────────────────────────────────────────────────────
 
-  /** Add a reporter update. */
+  /** Add a reporter update. `updateType` omitted → column default. */
   const addUpdate = useCallback(
-    async ({ content, sourceName, userId, photoUrls }) => {
+    async ({ content, sourceName, userId, photoUrls, updateType }) => {
       if (!isSupabaseConfigured) throw new Error('Supabase is not configured');
       if (!incidentId) throw new Error('No incident selected');
 
@@ -101,6 +149,7 @@ export function useIncidentUpdates(incidentId) {
           source_name: sourceName,
           user_id: userId,
           photo_urls: photoUrls ?? [],
+          ...(updateType ? { update_type: updateType } : {}),
         })
         .select()
         .single();
@@ -138,14 +187,14 @@ export function useIncidentUpdates(incidentId) {
     if (err) throw err;
   }, []);
 
-  return { updates, loading, error, addUpdate, editUpdate, deleteUpdate, refresh: load };
+  return { updates, loading, error, freshIds, lastInsertAt, addUpdate, editUpdate, deleteUpdate, refresh: load };
 }
 
 /**
  * Insert a reporter update from outside the hook (e.g. ReporterDashboardPage).
  * Mirrors the addUpdate callback but as a standalone async function.
  */
-export async function insertReporterUpdate({ incidentId, content, sourceName, userId, photoUrls }) {
+export async function insertReporterUpdate({ incidentId, content, sourceName, userId, photoUrls, updateType }) {
   if (!isSupabaseConfigured) throw new Error('Supabase is not configured');
 
   const { data, error } = await supabase
@@ -157,6 +206,7 @@ export async function insertReporterUpdate({ incidentId, content, sourceName, us
       source_name: sourceName,
       user_id: userId,
       photo_urls: photoUrls ?? [],
+      ...(updateType ? { update_type: updateType } : {}),
     })
     .select()
     .single();
