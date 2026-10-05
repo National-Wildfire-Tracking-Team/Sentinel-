@@ -5,15 +5,11 @@
  */
 
 import { memo } from 'react';
-import { Pause, Play, Radio } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { useMrmsContext } from '../../context/MrmsContext';
+import FrameScrubber from './FrameScrubber';
 
 const ACCENT = '#22c55e';
-
-function clock(iso) {
-  return iso ? new Date(iso).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : '—';
-}
 
 const MrmsControls = memo(function MrmsControls() {
   const { layers } = useApp();
@@ -54,47 +50,21 @@ const MrmsControls = memo(function MrmsControls() {
         )}
       </div>
 
-      {frames.length > 0 && (
-        <div>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={togglePlaying}
-              disabled={frames.length < 2}
-              aria-label={playing ? 'Pause radar animation' : 'Play the last hour of radar'}
-              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white text-sentinel-900 hover:bg-sentinel-100 disabled:opacity-40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-sky-500"
-            >
-              {playing ? <Pause size={13} aria-hidden /> : <Play size={13} className="ml-0.5" aria-hidden />}
-            </button>
-            <input
-              type="range"
-              min={0}
-              max={frames.length - 1}
-              step={1}
-              value={index}
-              onChange={(e) => setFrame(frames[Number(e.target.value)].id)}
-              aria-label="Radar time"
-              aria-valuetext={clock(frame?.time)}
-              className="h-1.5 min-w-0 flex-1 cursor-pointer accent-green-500"
-            />
-            <button
-              type="button"
-              onClick={goLive}
-              aria-pressed={live}
-              className={`inline-flex shrink-0 items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-semibold ${
-                live ? 'bg-green-600 text-white' : 'text-sentinel-300 hover:bg-sentinel-700'}`}
-            >
-              <Radio size={10} aria-hidden />
-              Live
-            </button>
-          </div>
-          <div className="mt-1 flex justify-between text-[10px] text-sentinel-400 tabular-nums">
-            <span>{clock(frames[0].time)}</span>
-            <span className="text-sentinel-200">{clock(frame?.time)}</span>
-            <span>{clock(frames[frames.length - 1].time)}</span>
-          </div>
-        </div>
-      )}
+      <FrameScrubber
+        frames={frames}
+        index={index}
+        frame={frame}
+        live={live}
+        playing={playing}
+        onTogglePlaying={togglePlaying}
+        onSeek={setFrame}
+        onLive={goLive}
+        playLabel="Play the last hour of radar"
+        pauseLabel="Pause radar animation"
+        sliderLabel="Radar time"
+        sliderClass="accent-green-500"
+        liveClass="bg-green-600"
+      />
 
       <label className="flex items-center gap-2 text-[10px] text-sentinel-300">
         <span className="font-semibold uppercase tracking-wider">Opacity</span>
