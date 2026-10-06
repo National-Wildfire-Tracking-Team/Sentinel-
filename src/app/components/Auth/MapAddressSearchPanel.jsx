@@ -145,7 +145,7 @@ function LocationSettingsFields({ value, onChange, idPrefix }) {
           onClick={() => onChange({ ...value, alertsEnabled: !value.alertsEnabled })}
           className={`flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition-colors ${
             value.alertsEnabled
-              ? 'bg-fire-600/15 border-fire-500/40 text-fire-300'
+              ? 'bg-fire-600/25 border-fire-600/50 text-fire-300'
               : 'bg-sentinel-800 border-sentinel-600 text-sentinel-400'
           }`}
         >

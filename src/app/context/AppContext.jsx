@@ -59,7 +59,7 @@ const initialState = {
     wpcFronts: false,
     /** NOAA MRMS radar (Weather tab); product, frame and opacity live in MrmsContext */
     mrms: false,
-    /** NHC tropical layers (Weather, All-hazard and Models tabs): one panel
+    /** NHC tropical layers (Weather and All-hazard tabs): one panel
      *  row (nhcTropical) turns the set on/off; the rest pick its parts. On by
      *  default: storms were a permanent layer before they became switchable. */
     nhcTropical: true,

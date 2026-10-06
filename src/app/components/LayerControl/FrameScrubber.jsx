@@ -11,9 +11,11 @@
 
 import { memo } from 'react';
 import { ChevronLeft, ChevronRight, Pause, Play, Radio } from 'lucide-react';
+import { withClock } from '../../utils/formatUtils';
+import { useTimeFormat } from '../../hooks/useTimeFormat';
 
 function clock(iso) {
-  return iso ? new Date(iso).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : '—';
+  return iso ? new Date(iso).toLocaleTimeString([], withClock({ hour: 'numeric', minute: '2-digit' })) : '—';
 }
 
 const STEP_CLASS = 'flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-sentinel-300 hover:bg-sentinel-700 hover:text-white disabled:opacity-40 disabled:hover:bg-transparent';
@@ -34,6 +36,7 @@ const FrameScrubber = memo(function FrameScrubber({
   sliderClass,
   liveClass,
 }) {
+  useTimeFormat();
   if (!frames.length) return null;
   return (
     <div>

@@ -328,7 +328,7 @@ export default function VolunteerProfilePage() {
               </div>
             )}
 
-            <div className="mt-10 p-6 rounded-2xl bg-gradient-to-br from-fire-600/10 to-transparent border border-fire-600/20 flex items-center gap-4">
+            <div className="mt-10 p-6 rounded-2xl bg-fire-600/10 border border-fire-600/20 flex items-center gap-4">
               <HeartHandshake size={24} className="text-fire-400 shrink-0" />
               <p className="text-sentinel-200 text-sm">
                 Thank you for volunteering with NWTT Disaster Response. Your readiness helps

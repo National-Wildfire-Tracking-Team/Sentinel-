@@ -28,6 +28,7 @@ import {
   formatDateTime, formatRelativeTime,
 } from '../utils/formatUtils';
 import { containmentToColor } from '../utils/colorUtils';
+import { useTimeFormat } from '../hooks/useTimeFormat';
 
 function StatTile({ label, value, icon: Icon, color }) {
   return (
@@ -57,6 +58,7 @@ function PageChrome({ children }) {
 }
 
 export default function FireIncidentPage() {
+  useTimeFormat();
   const { id } = useParams();
 
   const { incidents, loading: incidentsLoading } = useIncidents(0.1, true);

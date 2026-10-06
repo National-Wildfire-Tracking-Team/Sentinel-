@@ -16,10 +16,12 @@ import {
   POSTABLE_UPDATE_TYPES, UPDATE_TYPE_LABELS, updateMessage, updateTypeLabel,
 } from '../FireDetailPanel/incidentDetailModel';
 import PhotoPickerButton from '../PhotoAttachments/PhotoPickerButton';
+import { useTimeFormat } from '../../hooks/useTimeFormat';
 
 // ─── Single update entry ─────────────────────────────────────────────────────
 
 function UpdateEntry({ update, fresh, padX, currentUserId, onEdit, onDelete }) {
+  useTimeFormat();
   const isOwn = currentUserId && update.user_id === currentUserId;
   const isAutomated = update.source_type === 'automated';
   const photos = Array.isArray(update.photo_urls) ? update.photo_urls : [];
@@ -160,8 +162,8 @@ function ComposeBox({ onSubmit, disabled }) {
         <button
           type="submit"
           disabled={(!text.trim() && photos.images.length === 0) || disabled || submitting}
-          className="w-11 h-11 inline-flex items-center justify-center bg-fire-600 hover:bg-fire-500
-                     text-sentinel-900 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
+          className="w-11 h-11 inline-flex items-center justify-center bg-fire-600/25 hover:bg-fire-600/35
+                     border border-fire-600/50 text-white rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
           aria-label="Post update"
           title="Post update (Ctrl+Enter)"
         >

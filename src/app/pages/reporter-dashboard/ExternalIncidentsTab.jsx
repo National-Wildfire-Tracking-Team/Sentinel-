@@ -214,7 +214,7 @@ function ExternalIncidentCard({ incident, profile, userId }) {
             onClick={() => toggle('update')}
             className={`p-2 rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5
               ${panel === 'update'
-                ? 'bg-fire-600/20 text-fire-400 border border-fire-600/30'
+                ? 'bg-fire-600/25 text-fire-400 border border-fire-600/50'
                 : 'text-sentinel-300 hover:text-white hover:bg-sentinel-700'}`}
           >
             <Activity size={14} />

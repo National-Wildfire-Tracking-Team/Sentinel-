@@ -9,6 +9,8 @@ import { memo, useState, useMemo, useRef } from 'react';
 import { X, Droplets, ExternalLink } from 'lucide-react';
 import { useWaterGaugeDetail } from '../../hooks/useWaterGaugeDetail';
 import { FLOOD_CATEGORY_META, floodCategoryLabel } from '../../api/noaaWaterGauge';
+import { withClock } from '../../utils/formatUtils';
+import { useTimeFormat } from '../../hooks/useTimeFormat';
 
 // ─── Flood stage colours ───────────────────────────────────────────────────────
 // Threshold-line colors for the chart (major/moderate/minor/action only).
@@ -34,11 +36,12 @@ function formatChartDate(ms) {
 function formatTooltipDateTime(ms) {
   const d = new Date(ms);
   const date = d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-  const time = d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+  const time = d.toLocaleTimeString(undefined, withClock({ hour: 'numeric', minute: '2-digit' }));
   return `${date} at ${time}`;
 }
 
 function WaterLevelChart({ observed, forecast, thresholds, currentStage }) {
+  useTimeFormat();
   const containerRef = useRef(null);
   const [hover, setHover] = useState(null);
 

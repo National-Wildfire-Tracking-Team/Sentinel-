@@ -142,15 +142,18 @@ html.site-theme:not(.dark) .hover\:text-fire-300:hover {
 /* Scale control — scoped to MapScaleBar's host so it outranks mapbox-gl.css
    (loaded later, white with a #333 border). Same dark surface as the other map
    chrome: an open-topped ruler whose width is the distance. */
+/* A full rounded rectangle like the zoom buttons beside it (rounded-lg,
+   sentinel-600 border, translucent sentinel-900, blur), not Mapbox's open
+   ruler bracket. Its width is still the scale length. */
 .sentinel-scale .mapboxgl-ctrl-scale {
-  @apply text-sentinel-100 bg-sentinel-900/95 border-sentinel-700 text-[10px] font-medium tracking-wide;
+  @apply text-sentinel-100 bg-sentinel-900/90 border-sentinel-600 text-[10px] font-medium tracking-wide text-center;
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
   border-style: solid;
-  border-width: 0 1px 1px;
-  padding: 2px 8px 3px;
-  border-radius: 0 0 10px 10px;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+  border-width: 1px;
+  padding: 2px 8px;
+  border-radius: 0.5rem;
+  box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1);
 }
 
 /* ─── Mapbox popup override ─────────────────────────────────────────────────*/
@@ -217,19 +220,39 @@ body {
   -webkit-tap-highlight-color: transparent;
 }
 
-/* Live map: how far the large viewport (browser toolbars retracted) reaches
-   below the dynamic one the page is laid out in. The map canvas alone extends
-   by this much, so the strip behind a mobile browser's bottom toolbar (iOS
-   Safari's floating, see-through one in particular) shows map, not the black
-   page background, while every control stays clear of the toolbar. */
+/* Live map page. With viewport-fit=cover (index.html) iOS lets the page draw
+   into the bottom safe area behind Safari's address bar and home indicator.
+   The page itself stops short of that area, so every control stays clear of
+   it, while the map canvas alone extends below by --viewport-bleed: the safe
+   area plus how far the large viewport (toolbars retracted) reaches past the
+   dynamic one. So the strip behind the toolbar shows map, not a black bar.
+   Side/top insets pad the page (landscape notch, home-screen web app). */
 .viewport-bleed {
-  --viewport-bleed: 0px;
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --viewport-bleed: var(--safe-bottom);
+  height: calc(100vh - var(--safe-bottom));
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-left: env(safe-area-inset-left, 0px);
+  padding-right: env(safe-area-inset-right, 0px);
+}
+
+@supports (height: 100dvh) {
+  .viewport-bleed {
+    height: calc(100dvh - var(--safe-bottom));
+  }
 }
 
 @supports (height: 100lvh) {
   .viewport-bleed {
-    --viewport-bleed: calc(100lvh - 100dvh);
+    --viewport-bleed: calc(100lvh - 100dvh + var(--safe-bottom));
   }
+}
+
+/* viewport-fit=cover also lets every other page draw under a landscape
+   notch; keep their content clear of it. */
+body:not(:has(.viewport-bleed)) {
+  padding-left: env(safe-area-inset-left, 0px);
+  padding-right: env(safe-area-inset-right, 0px);
 }
 
 /* Panels that dock above the bottom bar (layer controls, outlook selectors,

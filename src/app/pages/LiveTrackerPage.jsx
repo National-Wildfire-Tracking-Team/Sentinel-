@@ -87,7 +87,9 @@ import { APP_VERSION } from '../version';
 import FloodHazardStatus from '../components/MapControls/FloodHazardStatus';
 import MrmsStatus from '../components/MapControls/MrmsStatus';
 import SatellitePanel, { SatelliteShowControlsPill } from '../components/Map/SatellitePanel';
+import MrmsPanel, { MrmsShowControlsPill, mrmsPanelOpenAfter } from '../components/Map/MrmsPanel';
 import SatelliteStormFocus from '../components/Map/SatelliteStormFocus';
+import { drawsCentroidDot } from '../components/Map/layers/perimeterCentroids';
 // Lazy-loaded: each only ever mounts once the user has actually selected the
 // corresponding fire/gauge/camera, so their code shouldn't ship in
 // the initial bundle for sessions that never open one.
@@ -108,7 +110,7 @@ const MAP_TABS = {
 
 const WILDFIRE_LAYER_PRESET = {
   fireHotspots: false,
-  firePerimeters: true,
+  firePerimeters: false, // off on open; switch on from the layer panel
   incidentLocations: true,
   weatherAlerts: true,
   smoke: false,
@@ -128,7 +130,7 @@ const WILDFIRE_LAYER_PRESET = {
 
 const ALL_HAZARD_LAYER_PRESET = {
   fireHotspots: false,
-  firePerimeters: true,
+  firePerimeters: false, // off on open; switch on from the layer panel
   incidentLocations: true,
   weatherAlerts: true,
   smoke: false,
@@ -144,10 +146,12 @@ const ALL_HAZARD_LAYER_PRESET = {
   schoolsUniversities: false,
   landOwnership: false,
   floodHazard: false,
+  nhcTropical: true, // on by default; the Weather preset turns it off
 };
 
-// Weather tab: auto-enable NWS alerts (includes SPC MDs on map); other
-// weather layers are opt-in via the layer panel.
+// Weather tab: opens with only NWS & mesoscale (NWS alerts + SPC/WPC MDs) and
+// MRMS radar on. Every other layer is listed off so nothing carries over from
+// the previous tab; all of them stay available in the layer panel.
 const WEATHER_LAYER_PRESET = {
   fireHotspots: false,
   firePerimeters: false,
@@ -165,13 +169,31 @@ const WEATHER_LAYER_PRESET = {
   schoolsUniversities: false,
   landOwnership: false,
   floodHazard: false,
-  mrms: false,
+  aqi: false,
+  wildfireCameras: false,
+  fireWeatherOutlooks: false,
+  fireRiskOutlook: false,
+  droughtOutlook: false,
+  calFireHistoricalPerimeters: false,
+  fireBehaviorModeling: false,
+  waterGauges: false,
+  damageAssessment: false,
+  wpcEro: false,
+  wpcWssi: false,
+  wpcQpf: false,
+  wpcFronts: false,
+  nhcTropical: false,
+  mrms: true,
 };
 
 // Models tab: HRRR/GFS model output only. Every operational layer (alerts,
 // incidents, observations) is off so model data is never blended with them;
 // any of them can still be switched on from the layer panel.
-const MODELS_LAYER_PRESET = Object.fromEntries(Object.keys(WILDFIRE_LAYER_PRESET).map((k) => [k, false]));
+// NHC tropical graphics are off too: the Models tab shows model fields only.
+const MODELS_LAYER_PRESET = {
+  ...Object.fromEntries(Object.keys(WILDFIRE_LAYER_PRESET).map((k) => [k, false])),
+  nhcTropical: false,
+};
 
 const THREE_DAYS_MS = 3 * 24 * 60 * 60 * 1000;
 
@@ -320,10 +342,14 @@ export default function LiveTrackerPage() {
 
   // The map canvas bleeds below the page (see .viewport-bleed), so the
   // document itself must not scroll while this full-screen page is mounted.
+  // Only <html> gets overflow: hidden (that stops document scrolling); on
+  // <body> it would clip the bleed and leave a black bar under the toolbar.
   useEffect(() => {
-    const els = [document.documentElement, document.body];
+    const html = document.documentElement;
+    const els = [html, document.body];
     const prev = els.map((el) => [el.style.overflow, el.style.overscrollBehavior]);
-    els.forEach((el) => { el.style.overflow = 'hidden'; el.style.overscrollBehavior = 'none'; });
+    html.style.overflow = 'hidden';
+    els.forEach((el) => { el.style.overscrollBehavior = 'none'; });
     return () => els.forEach((el, i) => { [el.style.overflow, el.style.overscrollBehavior] = prev[i]; });
   }, []);
 
@@ -698,13 +724,13 @@ export default function LiveTrackerPage() {
     refresh: refreshWpcMpd,
   } = useWpcMesoscaleDiscussion(weatherDataEnabled && layers.weatherAlerts);
 
-  // Fetches on the weather, all-hazard and models tabs while any Tropical (NHC)
-  // switch is on — the sidebar's Tropical feed reads the same data.
+  // Fetches on the weather and all-hazard tabs while any Tropical (NHC)
+  // switch is on — the sidebar's Tropical feed reads the same data. The Models
+  // tab never draws tropical graphics.
   // The wind/surge layers need the active storm slots, so they count too.
   const nhcAnyLayerOn = Boolean(layers.nhcTropical && (layers.nhcCone || layers.nhcTrack || layers.nhcWatchWarning
     || layers.nhcOutlook || layers.nhcWindProb || layers.nhcWindRadii || layers.nhcArrival || layers.nhcSurge));
-  const nhcTropicalWeatherEnabled = nhcAnyLayerOn
-    && (weatherDataEnabled || (activeMapTab === MAP_TABS.models && mapReady));
+  const nhcTropicalWeatherEnabled = nhcAnyLayerOn && weatherDataEnabled;
   const {
     cyclones: nhcCyclones,
     invests: nhcInvests,
@@ -905,12 +931,15 @@ export default function LiveTrackerPage() {
     return filterActiveFiresGeoJSON(freshIncidentDotsGeoJSON, { containedKey: 'PercentContained' });
   }, [isFocused, freshIncidentDotsGeoJSON]);
 
-  // Fires with perimeter overlays already render a centered perimeter centroid
-  // indicator. Build a set of those names so we can hide off-center IRWIN dots.
+  // Fires whose perimeter draws a centered centroid dot already have their
+  // dot. Build a set of those names so we can hide off-center IRWIN dots.
+  // Only perimeters that actually draw one count (drawsCentroidDot): a grey
+  // stale/historical perimeter has no dot, so its incident dot must stay.
   const perimeterMatchKeys = useMemo(() => {
     if (!filteredPerimetersGeoJSON?.features?.length) return new Set();
     const keys = new Set();
     filteredPerimetersGeoJSON.features.forEach(f => {
+      if (!drawsCentroidDot(f.properties)) return;
       const key = getFireMatchKey(f.properties.IncidentName);
       if (key) keys.add(key);
     });
@@ -1418,28 +1447,51 @@ export default function LiveTrackerPage() {
   // its own docked or floating controls is switched on after it, so only one
   // layer's controls hold the dock at a time. The Satellite row's Controls
   // button brings them back.
+  // The MRMS radar controls pop up the same way while the MRMS layer is on.
   const [satellitePanelOpen, setSatellitePanelOpen] = useState(false);
+  const [mrmsPanelOpen, setMrmsPanelOpen] = useState(false);
   const prevLayersRef = useRef(layers);
   useEffect(() => {
     const prev = prevLayersRef.current;
     prevLayersRef.current = layers;
     setSatellitePanelOpen((open) => satellitePanelOpenAfter(prev, layers, open));
+    setMrmsPanelOpen((open) => mrmsPanelOpenAfter(prev, layers, open));
   }, [layers]);
+
+  // Weather tab: radar and satellite imagery are exclusive. Switching one on
+  // turns the other off, and the one switched on takes the dock.
+  const exclusivePrevLayersRef = useRef(layers);
+  useEffect(() => {
+    const prev = exclusivePrevLayersRef.current;
+    exclusivePrevLayersRef.current = layers;
+    if (activeMapTab !== MAP_TABS.weather) return;
+    if (layers.mrms && !prev.mrms && layers.satellite) setLayer('satellite', false);
+    else if (layers.satellite && !prev.satellite && layers.mrms) setLayer('mrms', false);
+  }, [layers, activeMapTab, setLayer]);
+
   const satelliteActive = Boolean(layers.satellite) && activeMapTab !== MAP_TABS.models;
   const satelliteDocked = satelliteActive && satellitePanelOpen;
+  const mrmsActive = Boolean(layers.mrms) && activeMapTab === MAP_TABS.weather;
+  const mrmsDocked = mrmsActive && mrmsPanelOpen;
+  const mrmsPanelRef = useRef(null);
+  const [mrmsPanelHeight, setMrmsPanelHeight] = useState(0);
+
+  useEffect(() => {
+    const el = mrmsPanelRef.current;
+    if (!el) {
+      setMrmsPanelHeight(0);
+      return undefined;
+    }
+    const observer = new ResizeObserver(() => {
+      setMrmsPanelHeight(el.getBoundingClientRect().height);
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [mrmsDocked]);
 
   // What the satellite panel reports as drawn over the imagery.
-  const alertsOnThisTab = activeMapTab === MAP_TABS.wildfire || activeMapTab === MAP_TABS.weather
-    || activeMapTab === MAP_TABS.allhazard;
   const satelliteOverlays = useMemo(() => {
     if (!satelliteActive) return null;
-    const alerts = alertsOnThisTab
-      ? {
-        on: Boolean(layers.weatherAlerts),
-        count: (filteredAlertsGeoJSON?.features ?? []).filter((f) => f?.geometry).length,
-        onToggle: () => setLayer('weatherAlerts', !layers.weatherAlerts),
-      }
-      : null;
     const tropical = nhcTropicalWeatherEnabled
       ? {
         storms: nhcStormLabelsGeoJSON?.features?.length ?? 0,
@@ -1447,8 +1499,8 @@ export default function LiveTrackerPage() {
         bounds: featureCollectionsBounds(nhcConeGeoJSON, nhcForecastPointsGeoJSON, nhcDisturbanceAreasGeoJSON, nhcDisturbancePointsGeoJSON),
       }
       : null;
-    return { alerts, tropical };
-  }, [satelliteActive, alertsOnThisTab, layers.weatherAlerts, filteredAlertsGeoJSON, setLayer, nhcTropicalWeatherEnabled,
+    return { tropical };
+  }, [satelliteActive, nhcTropicalWeatherEnabled,
     nhcStormLabelsGeoJSON, nhcDisturbanceAreasGeoJSON, nhcConeGeoJSON, nhcForecastPointsGeoJSON, nhcDisturbancePointsGeoJSON]);
   const satellitePanelRef = useRef(null);
   const [satellitePanelHeight, setSatellitePanelHeight] = useState(0);
@@ -1470,7 +1522,7 @@ export default function LiveTrackerPage() {
   // MapView), so it needs to be measured too — the Layers panel and the
   // bar's top corners both need to account for it being on top.
   const outlookShowing = (activeMapTab === MAP_TABS.weather || activeMapTab === MAP_TABS.allhazard)
-    && Boolean(layers.spcWeatherOutlooks) && !satelliteDocked;
+    && Boolean(layers.spcWeatherOutlooks) && !satelliteDocked && !mrmsDocked;
   const spcOutlookPanelRef = useRef(null);
   const [spcOutlookPanelHeight, setSpcOutlookPanelHeight] = useState(0);
 
@@ -1528,8 +1580,9 @@ export default function LiveTrackerPage() {
   // The SPC/fire-weather outlook selector and the Models scrubber dock on the
   // bottom bar's top edge, so the bar's own "something is attached to my top
   // edge" flag and the Layers panel's clearance both need to account for them.
-  const bottomBarAttached = satelliteDocked || outlookShowing || fireWxOutlookShowing || modelsTimelineShowing;
+  const bottomBarAttached = satelliteDocked || mrmsDocked || outlookShowing || fireWxOutlookShowing || modelsTimelineShowing;
   const totalDockedHeight = (satelliteDocked ? satellitePanelHeight : 0)
+    + (mrmsDocked ? mrmsPanelHeight : 0)
     + (outlookShowing ? spcOutlookPanelHeight : 0)
     + (fireWxOutlookShowing ? fireWxOutlookPanelHeight : 0)
     + (modelsTimelineShowing ? modelsTimelineHeight : 0);
@@ -1538,7 +1591,7 @@ export default function LiveTrackerPage() {
   return (
     // overflow-x-clip (not overflow-hidden) so the map canvas can bleed below
     // the page into the large viewport — see .viewport-bleed in index.css.
-    <div className="viewport-bleed h-screen supports-[height:100dvh]:h-dvh w-screen flex flex-col bg-sentinel-900 text-white overflow-x-clip select-none">
+    <div className="viewport-bleed w-screen flex flex-col bg-sentinel-900 text-white overflow-x-clip select-none">
       <Seo
         title="Live Wildfire Map & Tracker | Sentinel by NWTT"
         description="Track active wildfires in real time with satellite hotspot detection, fire perimeters, containment status, red flag warnings, and air quality — free, from the National Wildfire Tracking Team."
@@ -1554,7 +1607,7 @@ export default function LiveTrackerPage() {
       {/* --map-bottom-stack: space taken by the bottom bar plus anything docked on
           it, so the left drawers can end above it where they'd otherwise cover it. */}
       <WeatherModelsProvider active={activeMapTab === MAP_TABS.models} onOpen={handleOpenModels} apiRef={modelsApiRef}>
-      <MrmsProvider active={activeMapTab === MAP_TABS.weather && Boolean(layers.mrms)}>
+      <MrmsProvider active={mrmsActive}>
       <SatelliteProvider active={satelliteActive} panelOpen={satellitePanelOpen} onPanelOpenChange={setSatellitePanelOpen}>
       <div
         className={`flex-1 relative overflow-x-clip ${MODEL_COLOR_VARS}`}
@@ -1627,7 +1680,8 @@ export default function LiveTrackerPage() {
             waterGaugesGeoJSON={waterGaugesGeoJSON}
             mapBottomBarWidth={mapBottomBarSize.width}
             mapBottomBarHeight={mapBottomBarSize.height}
-            satelliteDocked={satelliteDocked}
+            // Satellite or radar controls hold the dock, so the outlook/smoke selectors step aside.
+            satelliteDocked={satelliteDocked || mrmsDocked}
             spcOutlookPanelRef={spcOutlookPanelRef}
             fireWxOutlookPanelRef={fireWxOutlookPanelRef}
             calFireHistoricalPerimetersGeoJSON={calFireHistoricalPerimetersGeoJSON}
@@ -1712,6 +1766,18 @@ export default function LiveTrackerPage() {
           <SatelliteStormFocus selected={selectedFire} />
           {/* bottom-4 bar + anything docked on it + an 8px gap */}
           <SatelliteShowControlsPill bottomOffset={16 + mapBottomBarSize.height + totalDockedHeight + 8} />
+          <MrmsPanel
+            ref={mrmsPanelRef}
+            open={mrmsPanelOpen}
+            onClose={() => setMrmsPanelOpen(false)}
+            bottomBarWidth={mapBottomBarSize.width}
+            bottomBarHeight={mapBottomBarSize.height}
+          />
+          <MrmsShowControlsPill
+            open={mrmsPanelOpen}
+            onOpen={() => setMrmsPanelOpen(true)}
+            bottomOffset={16 + mapBottomBarSize.height + totalDockedHeight + 8}
+          />
 
           {activeMapTab === MAP_TABS.models && (
             <>

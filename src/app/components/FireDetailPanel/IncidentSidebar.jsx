@@ -19,6 +19,7 @@ import ModelForecastSummary from '../WeatherModels/ModelForecastSummary';
 import {
   SHELTER_KIND_LABELS, buildEvacuations, deriveSituation, directionsUrl, incidentSummary,
 } from './incidentDetailModel';
+import { useTimeFormat } from '../../hooks/useTimeFormat';
 
 // ─── Small hooks ─────────────────────────────────────────────────────────────
 
@@ -295,6 +296,7 @@ function InfoGroup({ title, rows }) {
 const infoLink = 'inline-flex items-center min-h-[44px] -my-3 font-semibold text-fire-400 hover:text-fire-300';
 
 function InfoTab({ fire, summary, updatedAt }) {
+  useTimeFormat();
   const hasCoords = Number.isFinite(fire.lat) && Number.isFinite(fire.lng);
   return (
     <>
@@ -370,6 +372,7 @@ function InfoTab({ fire, summary, updatedAt }) {
  * @param {string}   shareStatus Transient share feedback ("Link copied")
  */
 export default function IncidentSidebar({ fire, onClose, onShare, shareStatus }) {
+  useTimeFormat();
   useNow(30_000);
   const navigate = useNavigate();
   const location = useLocation();
@@ -616,8 +619,8 @@ export default function IncidentSidebar({ fire, onClose, onShare, shareStatus })
           className={`min-h-[48px] inline-flex items-center justify-center gap-2 rounded-xl text-[15px] font-semibold
             transition-colors disabled:opacity-60
             ${follow.following
-              ? 'border border-fire-600 text-fire-400 hover:bg-fire-600/10'
-              : 'bg-fire-600 text-sentinel-900 hover:bg-fire-500'}`}
+              ? 'border border-sentinel-600 text-sentinel-200 hover:bg-sentinel-700'
+              : 'bg-fire-600/25 border border-fire-600/50 text-white hover:bg-fire-600/35'}`}
         >
           {follow.following && <Check size={16} aria-hidden />}
           {follow.following ? 'Following' : 'Follow Incident'}

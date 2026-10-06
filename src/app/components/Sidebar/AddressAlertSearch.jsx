@@ -10,6 +10,8 @@ import { fetchAlertsByPoint } from '../../api/noaaWeather';
 import { useViewport } from '../../context/ViewportContext';
 import { geocodeAddress } from '../../utils/geocode';
 import { trackSentinelUse } from '../../../shared/utils/analytics';
+import { withClock } from '../../utils/formatUtils';
+import { useTimeFormat } from '../../hooks/useTimeFormat';
 
 const SEVERITY_STYLES = {
   Extreme:  'border-red-600/60 bg-red-950/50 text-red-200',
@@ -28,6 +30,7 @@ const SEVERITY_ICONS = {
 };
 
 function AlertCard({ alert }) {
+  useTimeFormat();
   const [expanded, setExpanded] = useState(false);
   const severity = alert.severity || 'Unknown';
   const styles = SEVERITY_STYLES[severity] || SEVERITY_STYLES.Unknown;
@@ -63,7 +66,7 @@ function AlertCard({ alert }) {
           )}
           {alert.expires && (
             <div className="text-[10px] opacity-70">
-              Expires: {new Date(alert.expires).toLocaleString()}
+              Expires: {new Date(alert.expires).toLocaleString(undefined, withClock())}
             </div>
           )}
         </div>

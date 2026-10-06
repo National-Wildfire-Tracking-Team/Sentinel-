@@ -332,7 +332,7 @@ export default function EventReportsTab({ events, userId, onRefresh }) {
                     onClick={() => setCategory(key)}
                     className={`flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold border transition-colors
                       ${active
-                        ? 'bg-fire-600/20 border-fire-600/40 text-fire-400'
+                        ? 'bg-fire-600/25 border-fire-600/50 text-fire-400'
                         : 'border-sentinel-600 text-sentinel-300 hover:border-sentinel-400 hover:text-white'}`}
                   >
                     <Icon size={13} />

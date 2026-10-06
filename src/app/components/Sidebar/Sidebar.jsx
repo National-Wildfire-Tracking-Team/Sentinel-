@@ -94,7 +94,7 @@ const Sidebar = memo(function Sidebar({
         `}
       >
         {/* Sidebar header — left-padded on mobile to clear the floating corner-button column, which only shifts out of the way at sm+ */}
-        <div className={`flex items-center pl-20 pr-4 sm:px-4 py-3 border-b shrink-0 ${isAllHazardTab ? 'border-red-900/60 bg-gradient-to-r from-fire-900/30 to-sky-900/20' : 'border-sentinel-700'}`}>
+        <div className={`flex items-center pl-20 pr-4 sm:px-4 py-3 border-b shrink-0 ${isAllHazardTab ? 'border-red-900/60' : 'border-sentinel-700'}`}>
           <div className="flex items-center gap-2">
             {isModelsTab ? (
               <>
@@ -177,7 +177,7 @@ const Sidebar = memo(function Sidebar({
                 onClick={() => setAllHazardFeedTab('fires')}
                 className={`flex-1 inline-flex items-center justify-center gap-1.5 px-2 py-1.5 text-[xs] font-semibold rounded-md transition-colors ${
                   allHazardFeedTab === 'fires'
-                    ? 'bg-fire-700 text-white'
+                    ? 'bg-fire-600/25 ring-1 ring-inset ring-fire-600/50 text-white'
                     : 'text-sentinel-300 hover:bg-sentinel-700'
                 }`}
               >

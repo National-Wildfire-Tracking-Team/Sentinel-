@@ -10,6 +10,8 @@
 import { memo } from 'react';
 import { AlertTriangle, Loader2, Radar, RotateCw } from 'lucide-react';
 import { useMrmsContext } from '../../context/MrmsContext';
+import { withClock } from '../../utils/formatUtils';
+import { useTimeFormat } from '../../hooks/useTimeFormat';
 
 const FALLBACK_ATTRIBUTION = 'MRMS: NOAA NSSL and NWS NCEP via NOAA Open Data Dissemination on AWS. Processed by Sentinel; not endorsed by NOAA.';
 
@@ -28,7 +30,7 @@ function statusOf(mrms, now) {
   if (!frame) {
     return { tone: 'error', text: `No ${spec.label.toLowerCase()} from MRMS in the last ${manifest.windowMinutes} minutes`, retry: true };
   }
-  const when = new Date(frame.time).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  const when = new Date(frame.time).toLocaleTimeString([], withClock({ hour: 'numeric', minute: '2-digit' }));
   const base = `${spec.label} · ${when}${live ? ` (${age(frame.time, now)})` : ''}`;
   if (stale) return { tone: 'error', text: `${base} · radar updates have stopped`, retry: true };
   if (spec.status === 'stale' && live) return { tone: 'info', text: `${base} · MRMS is delayed` };
@@ -37,6 +39,7 @@ function statusOf(mrms, now) {
 }
 
 const MrmsStatus = memo(function MrmsStatus({ offset = false }) {
+  useTimeFormat();
   const mrms = useMrmsContext();
   if (!mrms?.active) return null;
   const status = statusOf(mrms, Date.now());

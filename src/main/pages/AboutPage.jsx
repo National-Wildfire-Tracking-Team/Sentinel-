@@ -195,7 +195,7 @@ export default function AboutPage() {
             {dataSources.map((source) => (
               <div
                 key={source.name}
-                className="p-6 rounded-2xl bg-sentinel-900 border border-sentinel-700"
+                className="p-6 rounded-2xl bg-sentinel-900 border border-sentinel-700 hover:border-fire-600/40 transition-all duration-300 hover:shadow-lg hover:shadow-fire-600/5"
               >
                 <h3 className="text-white font-semibold mb-2">{source.name}</h3>
                 <p className="text-sentinel-300 text-sm leading-relaxed">{source.description}</p>

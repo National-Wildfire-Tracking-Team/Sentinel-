@@ -13,9 +13,7 @@ import { useApp } from '../../context/AppContext';
 import { trackSentinelUse } from '../../../shared/utils/analytics';
 import LayerPanelSection from './LayerPanelSection';
 import ModelLayerPanel from '../WeatherModels/ModelLayerPanel';
-import MrmsControls from './MrmsControls';
 import NhcTropicalControls from './NhcTropicalControls';
-import { MRMS_URL } from '../../api/mrms';
 
 /** Layer row definitions — grouped under tab-specific sections below */
 const LAYER_DEFS = {
@@ -61,7 +59,7 @@ const TAB_SECTIONS = {
       title: 'Fire activity',
       groups: [
         {
-          layers: ['firePerimeters', 'incidentLocations', 'evacZones', 'fireHotspots', 'ngfsDetections', 'calFireHistoricalPerimeters', 'fireBehaviorModeling'],
+          layers: ['incidentLocations', 'firePerimeters', 'evacZones', 'fireHotspots', 'ngfsDetections', 'calFireHistoricalPerimeters', 'fireBehaviorModeling'],
         },
       ],
     },
@@ -93,7 +91,7 @@ const TAB_SECTIONS = {
           layers: [
             { key: 'weatherAlerts', label: 'Red Flag Warnings', sublabel: 'NWS active Red Flag Warnings' },
             'evacZones',
-            'firePerimeters', 'incidentLocations',
+            'incidentLocations', 'firePerimeters',
             'fireHotspots', 'ngfsDetections', 'calFireHistoricalPerimeters', 'satellite',
             'fireBehaviorModeling',
           ],
@@ -125,11 +123,11 @@ const TAB_SECTIONS = {
   weather: [
     {
       id: 'wx-imagery',
-      title: MRMS_URL ? 'Radar & satellite' : 'Satellite',
+      title: 'Radar & satellite',
       groups: [
         {
-          // MRMS is offered only when its frames service is configured (VITE_MRMS_URL).
-          layers: [...(MRMS_URL ? ['mrms'] : []), 'satellite'],
+          // MRMS always shows; its pop-up controls (MrmsPanel) explain when VITE_MRMS_URL isn't set.
+          layers: ['mrms', 'satellite'],
         },
       ],
     },
@@ -154,7 +152,7 @@ const TAB_SECTIONS = {
   ],
 };
 
-function LayerToggle({ layerKey, label, sublabel, icon: Icon, color, locked, onToggle }) {
+function LayerToggle({ layerKey, label, sublabel, icon: Icon, locked, onToggle }) {
   const { layers, toggleLayer } = useApp();
   const active = layers[layerKey];
   const handleClick = onToggle || (() => {
@@ -199,11 +197,12 @@ function LayerToggle({ layerKey, label, sublabel, icon: Icon, color, locked, onT
       <div
         className="shrink-0 w-7 h-7 rounded-md flex items-center justify-center"
         style={{
-          backgroundColor: active ? `${color}22` : 'transparent',
-          border: `1px solid ${active ? color + '55' : '#52525b'}`,
+          // Softer fire-600 tint than the toggle track: 15% fill, 30% border.
+          backgroundColor: active ? 'rgba(255, 90, 0, 0.15)' : 'transparent',
+          border: `1px solid ${active ? 'rgba(255, 90, 0, 0.3)' : '#52525b'}`,
         }}
       >
-        <Icon size={14} style={{ color: active ? color : '#a1a1aa' }} />
+        <Icon size={14} style={{ color: active ? '#ff5a00' : '#a1a1aa' }} />
       </div>
 
       <div className="flex-1 min-w-0">
@@ -215,7 +214,7 @@ function LayerToggle({ layerKey, label, sublabel, icon: Icon, color, locked, onT
 
       <div
         className={`shrink-0 relative w-9 h-5 rounded-full transition-colors duration-200
-          ${active ? 'bg-fire-600' : 'bg-sentinel-500'}`}
+          ${active ? 'bg-fire-600/25 ring-1 ring-inset ring-fire-600/50' : 'bg-sentinel-500'}`}
       >
         <span
           className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow
@@ -415,11 +414,6 @@ const LayerControl = memo(function LayerControl({
   const toggleGroup = (key) => setCollapsed((c) => ({ ...c, [key]: !c[key] }));
 
   const isModelsTab = activeMapTab === 'models';
-  const tabAccent =
-    isModelsTab                  ? 'from-indigo-600/40 to-black'        :
-    activeMapTab === 'weather'   ? 'from-sky-600/40 to-black'           :
-    activeMapTab === 'allhazard' ? 'from-red-700/40 via-fire-700/20 to-black' :
-                                   'from-fire-600/35 to-black';
 
 
   return (
@@ -447,7 +441,7 @@ const LayerControl = memo(function LayerControl({
                         animate-dock-rise"
           style={dockedPanelClearance ? { marginBottom: `${dockedPanelClearance}px` } : undefined}
         >
-          <div className={`px-3 pt-3 pb-2 border-b border-sentinel-700 bg-gradient-to-b ${tabAccent}`}>
+          <div className="px-3 pt-3 pb-2 border-b border-sentinel-700">
             <div className="flex items-center justify-between gap-2">
               <div className="min-w-0">
                 <span className="text-[11px] font-bold text-white uppercase tracking-wider">
@@ -462,7 +456,7 @@ const LayerControl = memo(function LayerControl({
                     onClick={() => (measureActive && measureMode === 'distance') ? onMeasureClose?.() : onMeasureActivate?.('distance')}
                     className={`w-7 h-7 flex items-center justify-center rounded-md transition-all ${
                       measureActive && measureMode === 'distance'
-                        ? 'bg-orange-500 text-white border border-orange-400'
+                        ? 'bg-fire-600/25 text-white border border-fire-600/50'
                         : 'text-sentinel-200 hover:text-white hover:bg-sentinel-700'
                     }`}
                   >
@@ -478,7 +472,7 @@ const LayerControl = memo(function LayerControl({
                     onClick={() => (measureActive && measureMode === 'polygon') ? onMeasureClose?.() : onMeasureActivate?.('polygon')}
                     className={`w-7 h-7 flex items-center justify-center rounded-md transition-all ${
                       measureActive && measureMode === 'polygon'
-                        ? 'bg-orange-500 text-white border border-orange-400'
+                        ? 'bg-fire-600/25 text-white border border-fire-600/50'
                         : 'text-sentinel-200 hover:text-white hover:bg-sentinel-700'
                     }`}
                   >
@@ -560,7 +554,6 @@ const LayerControl = memo(function LayerControl({
                                 color={def.color}
                               />
 
-                              {layerKey === 'mrms' && <MrmsControls />}
                               {layerKey === 'nhcTropical' && <NhcTropicalControls />}
                               {layerKey === 'fireRiskOutlook' && (
                                 <FireRiskDaySelector />

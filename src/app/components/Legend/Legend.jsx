@@ -13,6 +13,10 @@ import {
   CLUSTER_FILL_COLOR,
   CLUSTER_ACTIVE_RING_COLOR,
   CLUSTER_CONTAINED_RING_COLOR,
+  CLUSTER_RED_RING_COLOR,
+  CLUSTER_FLAME_PATH,
+  CONTAINMENT_RED,
+  CONTAINMENT_ORANGE,
 } from '../Map/layers/IncidentLocationsLayer';
 import { FLOOD_ATTRIBUTION, FLOOD_CATEGORIES } from '../../utils/floodHazard';
 import {
@@ -24,8 +28,8 @@ import { useSatelliteContext } from '../../context/SatelliteContext';
 import { LEGENDS as SATELLITE_LEGENDS, attributionFor } from '../../api/goesSatellite';
 
 const CONTAINMENT_SCALE = [
-  { color: '#ef4444', label: 'Uncontained (0%)' },
-  { color: '#f97316', label: 'Low (1–24%)' },
+  { color: CONTAINMENT_RED, label: 'Uncontained (0%)' },
+  { color: CONTAINMENT_ORANGE, label: 'Low (1–24%)' },
   { color: '#eab308', label: 'Moderate (25–49%)' },
   { color: '#84cc16', label: 'High (50–74%)' },
   { color: '#22c55e', label: 'Contained (75–100%)' },
@@ -89,16 +93,22 @@ export function ColorRow({ color, label }) {
   );
 }
 
-// A miniature of the map's incident cluster bubble (dark fill, colored ring, count).
+// A miniature of the map's incident cluster flame (logo shape, dark fill, colored outline, count).
 function ClusterRow({ ringColor, label }) {
   return (
     <div className="flex items-center gap-2">
-      <span
-        className="w-4 h-4 rounded-full shrink-0 flex items-center justify-center text-[8px] font-bold text-white"
-        style={{ backgroundColor: CLUSTER_FILL_COLOR, border: `2px solid ${ringColor}` }}
-      >
-        5
-      </span>
+      <svg viewBox="0 0 24 24" className="w-5 h-5 shrink-0" aria-hidden>
+        <path
+          d={CLUSTER_FLAME_PATH}
+          fill={CLUSTER_FILL_COLOR}
+          fillOpacity={0.85}
+          stroke={ringColor}
+          strokeWidth={1}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+        <text x="12" y="18" textAnchor="middle" fontSize="8" fontWeight="700" fill="#ffffff">5</text>
+      </svg>
       <span className="text-sentinel-700 dark:text-sentinel-100 text-[11px]">{label}</span>
     </div>
   );
@@ -250,6 +260,7 @@ const Legend = memo(function Legend({
               <Section title="Fire Containment">
                 {CONTAINMENT_SCALE.map(row => <ColorRow key={row.label} {...row} />)}
                 <div className="pt-1 mt-1 border-t border-sentinel-200 dark:border-sentinel-700 space-y-1">
+                  <ClusterRow ringColor={CLUSTER_RED_RING_COLOR} label="Grouped fires · a third or more uncontained (0%)" />
                   <ClusterRow ringColor={CLUSTER_ACTIVE_RING_COLOR} label="Grouped fires · some active" />
                   <ClusterRow ringColor={CLUSTER_CONTAINED_RING_COLOR} label="Grouped fires · all contained" />
                   <div className="text-sentinel-500 dark:text-sentinel-400 text-[10px]">Number = fires in the group. Zoom in to see each one.</div>
