@@ -9,7 +9,7 @@ import {
   X, Flame, MapPin, Users, Home, Calendar, Thermometer,
   AlertTriangle, Wind, ExternalLink, TrendingUp, ShieldAlert,
   Clock, Info, Share2, Zap, Fuel,
-  GraduationCap, FileText, Copy, Waves, Navigation, Biohazard,
+  GraduationCap, FileText, Copy, Waves, Navigation, Biohazard, Satellite,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { useAppStatus } from '../../context/AppStatusContext';
@@ -26,6 +26,7 @@ import { normalizeHazardCategory } from '../../hooks/useHazardEvents';
 import { trackSentinelUse } from '../../../shared/utils/analytics';
 import { FLOOD_ATTRIBUTION, floodCategoryMeta, floodZoneDescription, floodZoneRows } from '../../utils/floodHazard';
 import { fetchSpcMdText, fetchWpcMpdText } from '../../api/mesoscaleDiscussionText';
+import { DISTURBANCE_COLORS, WATCH_WARNING_COLORS, categoryColor, categoryLabel } from '../../api/nhcTropicalWeather';
 
 // Fire-related detail types that represent a user opening a tracked wildfire
 // incident (as opposed to AQI stations, weather alerts, evac zones, etc).
@@ -1173,10 +1174,28 @@ function HazardEventDetail({ fire }) {
 
 // ─── NHC Tropical Weather Detail ─────────────────────────────────────────────
 
-const NHC_CHANCE_COLOR = { HIGH: '#FF4444', MEDIUM: '#FFA040', LOW: '#FFE566' };
+/**
+ * Turns on the Satellite layer; the page then points it at the selected
+ * system (right satellite, a view that contains it, GeoColor for day/night).
+ * Hidden once the layer is on, since selecting already does that.
+ */
+function ViewOnSatelliteButton() {
+  const { layers, setLayer } = useApp();
+  if (layers.satellite) return null;
+  return (
+    <button
+      type="button"
+      onClick={() => setLayer('satellite', true)}
+      className="mb-4 inline-flex items-center gap-1.5 rounded-lg border border-violet-500/50 bg-violet-600/20 px-2.5 py-1.5 text-xs font-semibold text-violet-100 hover:bg-violet-600/35"
+    >
+      <Satellite size={12} aria-hidden />
+      View on satellite
+    </button>
+  );
+}
 
 function NhcInvestDetail({ fire }) {
-  const chanceColor = NHC_CHANCE_COLOR[fire.formationChance] || '#94a3b8';
+  const chanceColor = DISTURBANCE_COLORS[fire.formationChance]?.fill || '#94a3b8';
 
   return (
     <>
@@ -1185,10 +1204,12 @@ function NhcInvestDetail({ fire }) {
           <Waves size={18} style={{ color: chanceColor }} />
         </div>
         <div>
-          <h3 className="font-bold text-white text-base">Invest {fire.investId || fire.name}</h3>
+          <h3 className="font-bold text-white text-base">{fire.investId ? `Invest ${fire.investId}` : fire.name}</h3>
           <p className="text-sentinel-400 text-xs">NHC Tropical Weather Outlook</p>
         </div>
       </div>
+
+      <ViewOnSatelliteButton />
 
       {(fire.day2Percent != null || fire.day7Percent != null) && (
         <div className="flex items-stretch mb-4 bg-sentinel-800/50 border border-sentinel-700 rounded-xl overflow-hidden">
@@ -1259,12 +1280,7 @@ function NhcInvestDetail({ fire }) {
 }
 
 function NhcStormDetail({ fire }) {
-  const color = fire.category?.includes('5') ? '#c026d3' :
-    fire.category?.includes('4') ? '#ef4444' :
-    fire.category?.includes('3') ? '#f97316' :
-    fire.category?.includes('2') ? '#eab308' :
-    fire.category?.includes('1') ? '#facc15' :
-    fire.category?.toLowerCase().includes('storm') ? '#38bdf8' : '#94a3b8';
+  const color = categoryColor(fire.category);
 
   return (
     <>
@@ -1274,22 +1290,29 @@ function NhcStormDetail({ fire }) {
         </div>
         <div>
           <h3 className="font-bold text-white text-base">{fire.name}</h3>
-          <p className="text-xs font-medium" style={{ color }}>{fire.category}</p>
+          <p className="text-xs font-medium" style={{ color }}>
+            {categoryLabel(fire.category)}{fire.basin ? ` · ${fire.basin}` : ''}
+          </p>
         </div>
       </div>
 
+      <ViewOnSatelliteButton />
+
       <div className="grid grid-cols-2 gap-2 mb-4">
-        {fire.intensityMph > 0 && (
-          <StatBlock label="Max Wind" value={`${fire.intensityMph} mph`} icon={Wind} color="text-white" />
+        {fire.maxWindKt > 0 && (
+          <StatBlock label="Max Wind" value={`${fire.maxWindMph} mph (${fire.maxWindKt} kt)`} icon={Wind} />
         )}
-        {fire.intensityKts > 0 && (
-          <StatBlock label="Max Wind (kt)" value={`${fire.intensityKts} kt`} />
+        {fire.gustKt > 0 && (
+          <StatBlock label="Gusts" value={`${Math.round(fire.gustKt * 1.15078)} mph (${fire.gustKt} kt)`} icon={Wind} />
         )}
-        {fire.pressure && (
-          <StatBlock label="Pressure" value={`${fire.pressure} mb`} />
+        {fire.mslp != null && (
+          <StatBlock label="Pressure" value={`${fire.mslp} mb`} />
         )}
-        {fire.advNum && (
-          <StatBlock label="Advisory" value={`#${fire.advNum}`} icon={Info} />
+        {fire.movement && (
+          <StatBlock label="Motion" value={fire.movement} icon={Navigation} />
+        )}
+        {fire.advisoryNum && (
+          <StatBlock label="Advisory" value={`#${fire.advisoryNum}`} icon={Info} />
         )}
       </div>
 
@@ -1297,44 +1320,34 @@ function NhcStormDetail({ fire }) {
         {Number.isFinite(fire.lat) && Number.isFinite(fire.lng) && (
           <div className="flex items-center gap-2">
             <MapPin size={12} />
-            <span>{fire.lat.toFixed(1)}°N, {Math.abs(fire.lng).toFixed(1)}°W</span>
+            <span>
+              {Math.abs(fire.lat).toFixed(1)}°{fire.lat >= 0 ? 'N' : 'S'}, {Math.abs(fire.lng).toFixed(1)}°{fire.lng < 0 ? 'W' : 'E'}
+            </span>
           </div>
         )}
-        {fire.movement && (
-          <div className="flex items-center gap-2">
-            <Navigation size={12} />
-            <span>Movement: {fire.movement}</span>
-          </div>
-        )}
-        {fire.lastUpdate && (
+        {fire.advisoryDate && (
           <div className="flex items-center gap-2">
             <Clock size={12} />
-            <span>Updated: {fire.lastUpdate}</span>
+            <span>Advisory issued {fire.advisoryDate}</span>
           </div>
         )}
       </div>
 
       <a
-        href={fire.advUrl || 'https://www.nhc.noaa.gov/'}
+        href={fire.advisoryUrl || 'https://www.nhc.noaa.gov/'}
         target="_blank"
         rel="noopener noreferrer"
         className="flex items-center gap-1.5 text-xs text-sky-400 hover:text-sky-300 transition-colors"
       >
         <ExternalLink size={12} />
-        Official NHC advisory
+        Official NHC public advisory
       </a>
     </>
   );
 }
 
-const WW_COLOR = {
-  'Hurricane Warning': '#FF0000', 'Hurricane Watch': '#FF00FF',
-  'Tropical Storm Warning': '#FF8C00', 'Tropical Storm Watch': '#F0E68C',
-  'Storm Surge Warning': '#C71585', 'Storm Surge Watch': '#DB7FF7',
-};
-
 function NhcWatchWarningDetail({ fire }) {
-  const color = WW_COLOR[fire.wwType] || '#94a3b8';
+  const color = WATCH_WARNING_COLORS[fire.wwType] || WATCH_WARNING_COLORS.Advisory;
   return (
     <>
       <div className="mb-4">

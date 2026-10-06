@@ -43,6 +43,7 @@ import { useWpcWssi } from '../hooks/useWpcWssi';
 import { useWpcQpf } from '../hooks/useWpcQpf';
 import { useWpcFronts } from '../hooks/useWpcFronts';
 import { useNhcTropicalWeather } from '../hooks/useNhcTropicalWeather';
+import { useNhcWindHazards } from '../hooks/useNhcWindHazards';
 import { useCriticalInfrastructure } from '../hooks/useCriticalInfrastructure';
 import { useNationalMapColleges } from '../hooks/useNationalMapColleges';
 import { useCaliforniaLandOwnership, isWithinLandOwnershipRange } from '../hooks/useCaliforniaLandOwnership';
@@ -54,7 +55,7 @@ import { useCaliforniaCameras } from '../hooks/useCaliforniaCameras';
 import { useCalFirePerimeters } from '../hooks/useCalFirePerimeters';
 import { useNearbyOutlooks } from '../hooks/useNearbyOutlooks';
 import { filterByRadius, filterFeatureCollectionByRadius, circlePolygon } from '../utils/radiusFilter';
-import { polygonCentroid } from '../utils/geoUtils';
+import { featureCollectionsBounds, polygonCentroid } from '../utils/geoUtils';
 import { incidentsToGeoJSON } from '../api/inciweb';
 import { mergeIrwinAndCalFireIncidents } from '../utils/mergeIncidents';
 import { incidentIdsFor, joinAliasIds, parseAliasIds } from '../utils/incidentAliases';
@@ -84,6 +85,7 @@ import Legend from '../components/Legend/Legend';
 import FloodHazardStatus from '../components/MapControls/FloodHazardStatus';
 import MrmsStatus from '../components/MapControls/MrmsStatus';
 import SatellitePanel from '../components/Map/SatellitePanel';
+import SatelliteStormFocus from '../components/Map/SatelliteStormFocus';
 // Lazy-loaded: each only ever mounts once the user has actually selected the
 // corresponding fire/gauge/camera, so their code shouldn't ship in
 // the initial bundle for sessions that never open one.
@@ -261,7 +263,7 @@ function filterActiveFiresGeoJSON(geoJSON, { containedKey }) {
 const RAWS_MIN_ZOOM = 9;
 
 export default function LiveTrackerPage() {
-  const { layers, setLayer, feedFilter, selectedGauge, selectGauge, selectedFire, selectFire, selectedCamera, selectCamera, wpcOutlookDay, closeLayerPanel } = useApp();
+  const { layers, setLayer, feedFilter, selectedGauge, selectGauge, selectedFire, selectFire, selectedCamera, selectCamera, wpcOutlookDay, nhcWindProbKt, closeLayerPanel } = useApp();
   const { setRefreshed, setLoading, alerts, userLocation } = useAppStatus();
   const { home, nearbyActive } = useHomeSetup();
   const { viewport, setViewport, flyToFire } = useViewport();
@@ -677,9 +679,17 @@ export default function LiveTrackerPage() {
     refresh: refreshWpcMpd,
   } = useWpcMesoscaleDiscussion(weatherDataEnabled && layers.weatherAlerts);
 
-  // Permanent layer (not user-toggleable) — fetches whenever the weather, all-hazard or models tab is active.
-  const nhcTropicalWeatherEnabled = weatherDataEnabled || (activeMapTab === MAP_TABS.models && mapReady);
+  // Fetches on the weather, all-hazard and models tabs while any Tropical (NHC)
+  // switch is on — the sidebar's Tropical feed reads the same data.
+  // The wind/surge layers need the active storm slots, so they count too.
+  const nhcAnyLayerOn = Boolean(layers.nhcTropical && (layers.nhcCone || layers.nhcTrack || layers.nhcWatchWarning
+    || layers.nhcOutlook || layers.nhcWindProb || layers.nhcWindRadii || layers.nhcArrival || layers.nhcSurge));
+  const nhcTropicalWeatherEnabled = nhcAnyLayerOn
+    && (weatherDataEnabled || (activeMapTab === MAP_TABS.models && mapReady));
   const {
+    cyclones: nhcCyclones,
+    invests: nhcInvests,
+    loading: nhcLoading,
     forecastPointsGeoJSON: nhcForecastPointsGeoJSON,
     forecastTrackGeoJSON: nhcForecastTrackGeoJSON,
     coneGeoJSON: nhcConeGeoJSON,
@@ -691,6 +701,16 @@ export default function LiveTrackerPage() {
     stormLabelsGeoJSON: nhcStormLabelsGeoJSON,
     refresh: refreshNhcTropicalWeather,
   } = useNhcTropicalWeather(nhcTropicalWeatherEnabled);
+
+  const nhcSlots = useMemo(() => nhcCyclones.map((c) => c.slot), [nhcCyclones]);
+  const nhcWindHazards = useNhcWindHazards({
+    enabled: nhcTropicalWeatherEnabled,
+    slots: nhcSlots,
+    probKt: layers.nhcTropical && layers.nhcWindProb ? nhcWindProbKt : null,
+    radii: Boolean(layers.nhcTropical && layers.nhcWindRadii),
+    arrival: Boolean(layers.nhcTropical && layers.nhcArrival),
+    surge: Boolean(layers.nhcTropical && layers.nhcSurge),
+  });
 
   // NOAA NWPS water gauges
   const {
@@ -1347,6 +1367,29 @@ export default function LiveTrackerPage() {
   }, [layers]);
   const satelliteActive = Boolean(layers.satellite) && activeMapTab !== MAP_TABS.models;
   const satelliteDocked = satelliteActive && satellitePanelOpen;
+
+  // What the satellite panel reports as drawn over the imagery.
+  const alertsOnThisTab = activeMapTab === MAP_TABS.wildfire || activeMapTab === MAP_TABS.weather
+    || activeMapTab === MAP_TABS.allhazard;
+  const satelliteOverlays = useMemo(() => {
+    if (!satelliteActive) return null;
+    const alerts = alertsOnThisTab
+      ? {
+        on: Boolean(layers.weatherAlerts),
+        count: (filteredAlertsGeoJSON?.features ?? []).filter((f) => f?.geometry).length,
+        onToggle: () => setLayer('weatherAlerts', !layers.weatherAlerts),
+      }
+      : null;
+    const tropical = nhcTropicalWeatherEnabled
+      ? {
+        storms: nhcStormLabelsGeoJSON?.features?.length ?? 0,
+        areas: nhcDisturbanceAreasGeoJSON?.features?.length ?? 0,
+        bounds: featureCollectionsBounds(nhcConeGeoJSON, nhcForecastPointsGeoJSON, nhcDisturbanceAreasGeoJSON, nhcDisturbancePointsGeoJSON),
+      }
+      : null;
+    return { alerts, tropical };
+  }, [satelliteActive, alertsOnThisTab, layers.weatherAlerts, filteredAlertsGeoJSON, setLayer, nhcTropicalWeatherEnabled,
+    nhcStormLabelsGeoJSON, nhcDisturbanceAreasGeoJSON, nhcConeGeoJSON, nhcForecastPointsGeoJSON, nhcDisturbancePointsGeoJSON]);
   const satellitePanelRef = useRef(null);
   const [satellitePanelHeight, setSatellitePanelHeight] = useState(0);
 
@@ -1498,6 +1541,7 @@ export default function LiveTrackerPage() {
             landOwnershipVisible={landOwnershipEnabled}
             floodHazardData={floodHazardData}
             floodHazardVisible={floodHazardEnabled}
+            satelliteImageryOn={satelliteActive}
             nhcForecastPointsGeoJSON={nhcForecastPointsGeoJSON}
             nhcForecastTrackGeoJSON={nhcForecastTrackGeoJSON}
             nhcConeGeoJSON={nhcConeGeoJSON}
@@ -1507,6 +1551,7 @@ export default function LiveTrackerPage() {
             nhcDisturbancePointsGeoJSON={nhcDisturbancePointsGeoJSON}
             nhcDisturbanceAreasGeoJSON={nhcDisturbanceAreasGeoJSON}
             nhcStormLabelsGeoJSON={nhcStormLabelsGeoJSON}
+            nhcWindHazards={nhcWindHazards}
             fireWeatherOutlooksGeoJSON={fireWeatherOutlooksGeoJSON}
             fireWxOutlookType={fireWxOutlookType}
             fireWxActiveDay={fireWxActiveDay}
@@ -1560,6 +1605,10 @@ export default function LiveTrackerPage() {
             weatherAlertFilter={weatherAlertFilter}
             onWeatherAlertFilterChange={setWeatherAlertFilter}
             onWeatherAlertsRefresh={refreshAlerts}
+            nhcCyclones={nhcCyclones}
+            nhcInvests={nhcInvests}
+            nhcLoading={nhcLoading}
+            nhcEnabled={nhcTropicalWeatherEnabled}
             modelsPanel={<WeatherModelsPanel />}
           />
 
@@ -1586,7 +1635,9 @@ export default function LiveTrackerPage() {
             ref={satellitePanelRef}
             bottomBarWidth={mapBottomBarSize.width}
             bottomBarHeight={mapBottomBarSize.height}
+            overlays={satelliteOverlays}
           />
+          <SatelliteStormFocus selected={selectedFire} />
 
           {activeMapTab === MAP_TABS.models && (
             <>

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { ringCentroid, polygonCentroid } from '../../src/app/utils/geoUtils';
+import { ringCentroid, polygonCentroid, featureCollectionsBounds } from '../../src/app/utils/geoUtils';
 
 describe('ringCentroid', () => {
   it('returns null for ring with < 3 points', () => {
@@ -99,5 +99,20 @@ describe('polygonCentroid', () => {
     const [lng, lat] = polygonCentroid(geometry);
     expect(lng).toBeCloseTo(12, 0);
     expect(lat).toBeCloseTo(12, 0);
+  });
+});
+
+describe('featureCollectionsBounds', () => {
+  it('covers points, lines and polygons across collections', () => {
+    const points = { type: 'FeatureCollection', features: [{ geometry: { type: 'Point', coordinates: [-60, 15] } }] };
+    const areas = {
+      type: 'FeatureCollection',
+      features: [{ geometry: { type: 'Polygon', coordinates: [[[-80, 20], [-70, 20], [-70, 30], [-80, 20]]] } }],
+    };
+    expect(featureCollectionsBounds(points, areas)).toEqual([-80, 15, -60, 30]);
+  });
+
+  it('returns null when nothing has geometry', () => {
+    expect(featureCollectionsBounds(null, { features: [{ geometry: null }] })).toBeNull();
   });
 });

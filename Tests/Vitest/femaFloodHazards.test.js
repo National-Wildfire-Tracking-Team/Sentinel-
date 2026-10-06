@@ -11,7 +11,6 @@ const SAMPLE = {
   level: 'detail',
   zones: { type: 'FeatureCollection', features: [{ type: 'Feature', id: 1, geometry: null, properties: { id: 1, zone: 'AE', category: 'pct_1' } }] },
   panels: { type: 'FeatureCollection', features: [] },
-  availability: { type: 'FeatureCollection', features: [] },
   attribution: 'Flood hazard data: FEMA National Flood Hazard Layer (NFHL)',
   truncated: false,
 };
@@ -69,7 +68,7 @@ describe('femaFloodHazards API client', () => {
 
   it('uses a different cache key per detail level', async () => {
     const api = await loadModule();
-    expect(api.snapFloodRequest(BOUNDS, 9).key).toMatch(/^overview:/);
+    expect(api.snapFloodRequest(BOUNDS, 9)).toBeNull();
     expect(api.snapFloodRequest(BOUNDS, 12.5).key).toMatch(/^detail:/);
     expect(api.snapFloodRequest(BOUNDS, 15).key).toMatch(/^fine:/);
   });

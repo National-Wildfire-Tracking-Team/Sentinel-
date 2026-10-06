@@ -20,7 +20,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import {
   DEFAULT_SELECTION, LOOP_HOURS, fetchGibsFrameTimes, fetchIemScanTime, getProduct, getRegion,
   getSatellite, iemScanTimeUrl, loopAvailable, loopFrames, normalizeSelection, parseSatelliteQuery,
-  regionsFor, resolveSource, writeSatelliteQuery,
+  regionsFor, resolveSource, stormSatelliteView, writeSatelliteQuery,
 } from '../api/goesSatellite';
 import { useFramePlayback } from '../hooks/useFramePlayback';
 
@@ -139,6 +139,19 @@ export function SatelliteProvider({ active, panelOpen = false, onPanelOpenChange
     }
   }, [clearChoice]);
 
+  /** Zoom the map to `[west, south, east, north]` — e.g. the active tropical systems. */
+  const focusBounds = useCallback((bounds) => {
+    if (bounds) setFocus({ bounds, seq: (focusSeq.current += 1) });
+  }, []);
+
+  /** Point the layer at a storm: see stormSatelliteView. */
+  const focusOnStorm = useCallback(({ lng, lat }) => {
+    const view = stormSatelliteView(lng, lat);
+    if (!view) return;
+    applySelection(view.selection);
+    setFocus({ bounds: view.bounds, seq: (focusSeq.current += 1) });
+  }, [applySelection]);
+
   const setSatellite = useCallback((id) => {
     const next = { ...selection, satellite: id };
     applySelection(next, { zoom: !getRegion(selection.region)?.satellites.includes(id) });
@@ -204,12 +217,14 @@ export function SatelliteProvider({ active, panelOpen = false, onPanelOpenChange
     opacity,
     setOpacity,
     focus,
+    focusBounds,
+    focusOnStorm,
     panelOpen: active && panelOpen,
     openPanel,
     closePanel,
   }), [active, selection, satellite, regionDef, productDef, setSatellite, setRegion, setProduct, notice, dismissNotice,
     source, imageTime, metaLoading, tilesLoading, error, reportTileError, retry, reloadKey, canLoop, loopHours, frames,
-    frame, index, live, playing, setFrame, goLive, togglePlaying, step, opacity, focus, panelOpen, openPanel, closePanel]);
+    frame, index, live, playing, setFrame, goLive, togglePlaying, step, opacity, focus, focusBounds, focusOnStorm, panelOpen, openPanel, closePanel]);
 
   return <SatelliteContext.Provider value={value}>{children}</SatelliteContext.Provider>;
 }
