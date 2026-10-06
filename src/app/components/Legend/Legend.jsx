@@ -1,13 +1,11 @@
 /**
  * Legend.jsx
- * Map legend showing color scales for all active data layers.
- * Positioned bottom-left, collapsible, with the map's distance scale under it.
- * LegendFrame is the shared box; the Models tab fills it with ModelLegend.
+ * Map legend showing color scales for all active data layers. Rendered
+ * inside the app menu (FutureFeaturesPanel); the map's distance scale stays
+ * on the map (MapScaleDock). The Models tab shows ModelLegend instead.
  */
 
-import { useState, memo } from 'react';
-import MapScaleBar from '../Map/MapScaleBar';
-import { Info, ChevronDown, ChevronUp } from 'lucide-react';
+import { memo } from 'react';
 import { useApp } from '../../context/AppContext';
 import { AQI_CATEGORIES } from '../../utils/colorUtils';
 import { HAZARD_CATEGORY_LABELS, hazardPinDataUrl } from '../Map/layers/HazardEventsLayer';
@@ -83,7 +81,7 @@ export function ColorRow({ color, label }) {
   return (
     <div className="flex items-center gap-2">
       <span className="w-3 h-3 rounded-sm shrink-0" style={{ backgroundColor: color }} />
-      <span className="text-sentinel-100 text-[11px]">{label}</span>
+      <span className="text-sentinel-700 dark:text-sentinel-100 text-[11px]">{label}</span>
     </div>
   );
 }
@@ -98,7 +96,7 @@ function ClusterRow({ ringColor, label }) {
       >
         5
       </span>
-      <span className="text-sentinel-100 text-[11px]">{label}</span>
+      <span className="text-sentinel-700 dark:text-sentinel-100 text-[11px]">{label}</span>
     </div>
   );
 }
@@ -107,7 +105,7 @@ function IconRow({ src, label }) {
   return (
     <div className="flex items-center gap-2">
       <img src={src} alt="" className="w-4 h-4 shrink-0" />
-      <span className="text-sentinel-100 text-[11px]">{label}</span>
+      <span className="text-sentinel-700 dark:text-sentinel-100 text-[11px]">{label}</span>
     </div>
   );
 }
@@ -115,7 +113,7 @@ function IconRow({ src, label }) {
 export function Section({ title, children }) {
   return (
     <div className="mb-3">
-      <div className="text-[10px] font-bold text-sentinel-300 uppercase tracking-widest mb-1.5">{title}</div>
+      <div className="text-[10px] font-bold text-sentinel-500 dark:text-sentinel-300 uppercase tracking-widest mb-1.5">{title}</div>
       <div className="space-y-1">{children}</div>
     </div>
   );
@@ -201,7 +199,7 @@ function MrmsLegendSection() {
   return (
     <Section title={`MRMS ${spec.label}`}>
       {mrmsLegendRows(spec).map((row) => <ColorRow key={row.label} {...row} />)}
-      <div className="text-sentinel-400 text-[10px] pt-1 mt-1 border-t border-sentinel-700 leading-snug">{spec.description}</div>
+      <div className="text-sentinel-500 dark:text-sentinel-400 text-[10px] pt-1 mt-1 border-t border-sentinel-200 dark:border-sentinel-700 leading-snug">{spec.description}</div>
       <div className="text-sentinel-500 text-[9px] leading-snug">{mrms.manifest.attribution}</div>
     </Section>
   );
@@ -215,79 +213,24 @@ export function SatelliteLegendSection() {
   const legend = SATELLITE_LEGENDS[sat.source.legend];
   return (
     <Section title={`${sat.satellite.label} ${sat.product.label}`}>
-      {sat.product.detail && <div className="text-sentinel-300 text-[10px] mb-1">{sat.product.detail}</div>}
+      {sat.product.detail && <div className="text-sentinel-500 dark:text-sentinel-300 text-[10px] mb-1">{sat.product.detail}</div>}
       {legend?.gradient && (
         <div>
           <div className="h-2 rounded-sm" style={{ background: `linear-gradient(to right, ${legend.gradient.join(', ')})` }} />
-          <div className="flex justify-between text-[10px] text-sentinel-300 mt-0.5">
+          <div className="flex justify-between text-[10px] text-sentinel-500 dark:text-sentinel-300 mt-0.5">
             <span>{legend.ends[0]}</span>
             <span>{legend.ends[1]}</span>
           </div>
         </div>
       )}
       {legend?.swatches?.map((row) => <ColorRow key={row.label} {...row} />)}
-      {legend?.note && <div className="text-sentinel-400 text-[10px] pt-1 mt-1 border-t border-sentinel-700 leading-snug">{legend.note}</div>}
+      {legend?.note && <div className="text-sentinel-500 dark:text-sentinel-400 text-[10px] pt-1 mt-1 border-t border-sentinel-200 dark:border-sentinel-700 leading-snug">{legend.note}</div>}
       <div className="text-sentinel-500 text-[9px] leading-snug">{attributionFor(sat.source)}</div>
     </Section>
   );
 }
 
-/**
- * The bottom-left legend box: a Legend header that expands to show `children`,
- * and the map's distance scale underneath (shown even while the legend is
- * hidden). With nothing to show, the header stays put but doesn't expand.
- */
-export function LegendFrame({ map = null, children = null }) {
-  const { legendOpen, layerPanelOpen } = useApp();
-  const [collapsed, setCollapsed] = useState(true);
-  const hasContent = Boolean(children);
-  const expanded = hasContent && !collapsed;
-
-  // Below lg the centered bottom bar is wide enough to reach under this
-  // corner, so the legend stacks above it instead of beside it, and steps out
-  // of the way of the Layers popover (which spans the same space) while open.
-  return (
-    <div
-      className={`absolute bottom-20 lg:bottom-10 left-4 [@media(max-height:500px)]:left-[4.5rem] z-20 animate-fade-in transition-opacity ${
-        layerPanelOpen ? 'max-lg:opacity-0 max-lg:pointer-events-none' : ''
-      }`}
-    >
-      {legendOpen && (
-      <div className="bg-sentinel-900/95 backdrop-blur-sm border border-sentinel-700 rounded-2xl shadow-2xl overflow-hidden w-48">
-        {/* Header */}
-        <button
-          type="button"
-          onClick={() => { if (hasContent) setCollapsed(c => !c); }}
-          aria-expanded={hasContent ? expanded : undefined}
-          className={`w-full flex items-center justify-between px-3 py-2 border-b border-sentinel-700 transition-colors ${
-            hasContent ? 'hover:bg-sentinel-800/50' : 'cursor-default'
-          }`}
-        >
-          <div className="flex items-center gap-1.5 text-sentinel-100">
-            <Info size={12} />
-            <span className="text-[10px] font-bold uppercase tracking-widest">Legend</span>
-          </div>
-          {hasContent && (expanded
-            ? <ChevronUp size={12} className="text-sentinel-300" />
-            : <ChevronDown size={12} className="text-sentinel-300" />)}
-        </button>
-
-        {expanded && (
-          <div className="p-3 space-y-3 max-h-72 supports-[height:100dvh]:max-h-[min(18rem,calc(100dvh-14rem))] overflow-y-auto">
-            {children}
-          </div>
-        )}
-      </div>
-      )}
-      {/* Hangs from the legend's bottom edge (overlapping its border by 1px so
-          the two read as one shape), inset past the rounded corner. */}
-      <MapScaleBar map={map} className={legendOpen ? '-mt-px ml-4 relative' : ''} />
-    </div>
-  );
-}
-
 const Legend = memo(function Legend({
-  map = null,
   spcOutlookType = 'categorical',
   fireWxOutlookType = 'winds_low_humidity',
 }) {
@@ -299,14 +242,14 @@ const Legend = memo(function Legend({
   const spcScale = SPC_SCALES[spcOutlookType] || SPC_SCALES.categorical;
 
   return (
-    <LegendFrame map={map}>
+    <>
             {layers.incidentLocations && (
               <Section title="Fire Containment">
                 {CONTAINMENT_SCALE.map(row => <ColorRow key={row.label} {...row} />)}
-                <div className="pt-1 mt-1 border-t border-sentinel-700 space-y-1">
+                <div className="pt-1 mt-1 border-t border-sentinel-200 dark:border-sentinel-700 space-y-1">
                   <ClusterRow ringColor={CLUSTER_ACTIVE_RING_COLOR} label="Grouped fires · some active" />
                   <ClusterRow ringColor={CLUSTER_CONTAINED_RING_COLOR} label="Grouped fires · all contained" />
-                  <div className="text-sentinel-400 text-[10px]">Number = fires in the group. Zoom in to see each one.</div>
+                  <div className="text-sentinel-500 dark:text-sentinel-400 text-[10px]">Number = fires in the group. Zoom in to see each one.</div>
                 </div>
               </Section>
             )}
@@ -326,7 +269,7 @@ const Legend = memo(function Legend({
             {layers.fireBehaviorModeling && (
               <Section title="Fire Behavior Modeling">
                 {FIRE_BEHAVIOR_SCALE.map(row => <ColorRow key={row.label} {...row} />)}
-                <div className="text-sentinel-400 text-[10px] pt-1 mt-1 border-t border-sentinel-700">
+                <div className="text-sentinel-500 dark:text-sentinel-400 text-[10px] pt-1 mt-1 border-t border-sentinel-200 dark:border-sentinel-700">
                   Estimated from nearby RAWS wind &amp; fuel moisture — situational awareness only, not an official forecast.
                 </div>
               </Section>
@@ -350,10 +293,10 @@ const Legend = memo(function Legend({
                 <ColorRow color="#BE2B82" label="Extreme Heat Warning" />
                 <ColorRow color="#CC2936" label="Hurricane Warning" />
                 <ColorRow color="#9E5936" label="Fire Warning" />
-                <div className="pt-1 mt-1 border-t border-sentinel-700" />
-                <div className="text-sentinel-300 text-[10px] mb-1">SPC mesoscale: red outline</div>
+                <div className="pt-1 mt-1 border-t border-sentinel-200 dark:border-sentinel-700" />
+                <div className="text-sentinel-500 dark:text-sentinel-300 text-[10px] mb-1">SPC mesoscale: red outline</div>
                 <ColorRow color="#e3000f" label="MD polygon (dashed)" />
-                <div className="text-sentinel-300 text-[10px] mt-1 mb-1">WPC mesoscale: green outline</div>
+                <div className="text-sentinel-500 dark:text-sentinel-300 text-[10px] mt-1 mb-1">WPC mesoscale: green outline</div>
                 <ColorRow color="#00b300" label="MPD polygon (dashed) · heavy rain" />
               </Section>
             )}
@@ -369,7 +312,7 @@ const Legend = memo(function Legend({
                 <ColorRow color="#ef4444" label="Tornado" />
                 <ColorRow color="#3b82f6" label="Hail" />
                 <ColorRow color="#f59e0b" label="Wind" />
-                <div className="text-sentinel-300 text-[10px] pt-1 mt-1 border-t border-sentinel-700">
+                <div className="text-sentinel-500 dark:text-sentinel-300 text-[10px] pt-1 mt-1 border-t border-sentinel-200 dark:border-sentinel-700">
                   NWS LSR: reports from the last 24 hours
                 </div>
               </Section>
@@ -385,7 +328,7 @@ const Legend = memo(function Legend({
                 <ColorRow color="#7f1d1d" label="EF5" />
                 <ColorRow color="#3b82f6" label="TSTM/Wind" />
                 <ColorRow color="#9ca3af" label="Unknown" />
-                <div className="text-sentinel-300 text-[10px] pt-1 mt-1 border-t border-sentinel-700">
+                <div className="text-sentinel-500 dark:text-sentinel-300 text-[10px] pt-1 mt-1 border-t border-sentinel-200 dark:border-sentinel-700">
                   NWS DAT: post-storm surveys, last 30 days
                 </div>
               </Section>
@@ -393,18 +336,18 @@ const Legend = memo(function Legend({
 
             {layers.ndgdSmokeForecast && (
               <Section title="NOAA Smoke Forecast (NDGD)">
-                <div className="text-sentinel-300 text-[10px] mb-1">Hourly surface smoke · µg/m³</div>
+                <div className="text-sentinel-500 dark:text-sentinel-300 text-[10px] mb-1">Hourly surface smoke · µg/m³</div>
                 {NDGD_SMOKE_SCALE.map(row => <ColorRow key={row.label} {...row} />)}
               </Section>
             )}
 
             <Section title="NHC Tropical Weather">
-              <div className="text-sentinel-300 text-[10px] mb-1">Invests · disturbance outlook (✕ marker)</div>
+              <div className="text-sentinel-500 dark:text-sentinel-300 text-[10px] mb-1">Invests · disturbance outlook (✕ marker)</div>
               <ColorRow color="#FFE566" label="Low formation chance" />
               <ColorRow color="#FFA040" label="Medium formation chance" />
               <ColorRow color="#FF4444" label="High formation chance" />
-              <div className="pt-1 mt-1 border-t border-sentinel-700" />
-              <div className="text-sentinel-300 text-[10px] mb-1">Active storms (SSHWS)</div>
+              <div className="pt-1 mt-1 border-t border-sentinel-200 dark:border-sentinel-700" />
+              <div className="text-sentinel-500 dark:text-sentinel-300 text-[10px] mb-1">Active storms (SSHWS)</div>
               <ColorRow color="#a3e8f0" label="Tropical Depression" />
               <ColorRow color="#4dffff" label="Tropical Storm" />
               <ColorRow color="#ffffd9" label="Category 1" />
@@ -412,11 +355,11 @@ const Legend = memo(function Legend({
               <ColorRow color="#ff9e59" label="Category 3" />
               <ColorRow color="#ff738a" label="Category 4" />
               <ColorRow color="#ff4d70" label="Category 5" />
-              <div className="pt-1 mt-1 border-t border-sentinel-700" />
+              <div className="pt-1 mt-1 border-t border-sentinel-200 dark:border-sentinel-700" />
               <ColorRow color="#888888" label="Past track (observed)" />
               <ColorRow color="#c0c0c0" label="Forecast cone" />
-              <div className="pt-1 mt-1 border-t border-sentinel-700" />
-              <div className="text-sentinel-300 text-[10px] mb-1">Watches / warnings</div>
+              <div className="pt-1 mt-1 border-t border-sentinel-200 dark:border-sentinel-700" />
+              <div className="text-sentinel-500 dark:text-sentinel-300 text-[10px] mb-1">Watches / warnings</div>
               <ColorRow color="#FF0000" label="Hurricane Warning" />
               <ColorRow color="#FF00FF" label="Hurricane Watch" />
               <ColorRow color="#FF8C00" label="Tropical Storm Warning" />
@@ -466,7 +409,7 @@ const Legend = memo(function Legend({
             {layers.floodHazard && (
               <Section title="FEMA Flood Hazard">
                 {FLOOD_HAZARD_SCALE.map(row => <ColorRow key={row.label} {...row} />)}
-                <div className="text-sentinel-400 text-[10px] pt-1 mt-1 border-t border-sentinel-700 leading-snug">
+                <div className="text-sentinel-500 dark:text-sentinel-400 text-[10px] pt-1 mt-1 border-t border-sentinel-200 dark:border-sentinel-700 leading-snug">
                   Zoomed out: shaded areas have digital FEMA flood maps. Unshaded areas have no digital map (paper FIRM or unmapped).
                 </div>
                 <div className="text-sentinel-500 text-[9px] leading-snug">{FLOOD_ATTRIBUTION}</div>
@@ -478,7 +421,7 @@ const Legend = memo(function Legend({
                 <IconRow key={key} src={hazardPinDataUrl(key)} label={label} />
               ))}
             </Section>
-    </LegendFrame>
+    </>
   );
 });
 export default Legend;

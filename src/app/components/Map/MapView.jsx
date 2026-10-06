@@ -26,9 +26,10 @@ import { FLOOD_CATEGORY_META, floodCategoryLabel } from '../../api/noaaWaterGaug
 import FireHotspotsLayer  from './layers/FireHotspotsLayer';
 import NgfsDetectionsLayer from './layers/NgfsDetectionsLayer';
 import FirePerimetersLayer from './layers/FirePerimetersLayer';
-import FireIncidentsLayer  from './layers/FireIncidentsLayer';
+import { perimeterCentroids } from './layers/perimeterCentroids';
 import FireBehaviorModelingLayer from './layers/FireBehaviorModelingLayer';
 import IncidentLocationsLayer from './layers/IncidentLocationsLayer';
+import StateBoundariesLayer from './layers/StateBoundariesLayer';
 import AQILayer           from './layers/AQILayer';
 import WeatherAlertsLayer from './layers/WeatherAlertsLayer';
 import SmokeLayer         from './layers/SmokeLayer';
@@ -1469,6 +1470,15 @@ export default function MapView({
   const [hoverFeatures, setHoverFeatures] = useState(null);
   const [hoverLngLat,   setHoverLngLat]   = useState(null);
 
+  // All fire points share one clustered source (IncidentLocationsLayer), so
+  // perimeter centroid dots are derived here rather than inside FirePerimetersLayer.
+  const showFireIncidents  = (isWildfireTab || isAllHazardTab) && Boolean(layers.incidentLocations);
+  const showFirePerimeters = (isWildfireTab || isAllHazardTab) && Boolean(layers.firePerimeters);
+  const perimeterCentroidsGeoJSON = useMemo(
+    () => (showFirePerimeters ? perimeterCentroids(perimetersGeoJSON) : null),
+    [showFirePerimeters, perimetersGeoJSON],
+  );
+
   /** NDGD smoke: which forecast hour (index into sorted unique `todate` values) */
   const [ndgdSmokeHourIndex, setNdgdSmokeHourIndex] = useState(0);
 
@@ -1555,9 +1565,14 @@ export default function MapView({
       ids.push('fire-perimeters-fill');
       ids.push('fire-perimeter-centroids-circle');
     }
-    if ((isWildfireTab || isAllHazardTab) && layers.incidentLocations && incidentsGeoJSON) {
+    if ((isWildfireTab || isAllHazardTab) && (layers.incidentLocations || layers.firePerimeters)) {
       ids.push('incident-locations-cluster');
+    }
+    if ((isWildfireTab || isAllHazardTab) && layers.incidentLocations && incidentsGeoJSON) {
       ids.push('incident-locations-circle');
+    }
+    if ((isWildfireTab || isAllHazardTab) && layers.incidentLocations && incidentDotsGeoJSON) {
+      ids.push('fire-incidents-circle');
     }
     if ((isWildfireTab || isAllHazardTab) && layers.incidentLocations && userReportsGeoJSON)  ids.push('user-reports-circle');
     if (isAllHazardTab && layers.aqi && aqiGeoJSON)                                           ids.push('aqi-stations-circle');
@@ -1621,7 +1636,7 @@ export default function MapView({
       layers.rawsStations, layers.airNowMonitors, layers.droughtOutlook, layers.ndgdSmokeForecast, layers.fireWeatherOutlooks,
       layers.damageAssessment,
       layers.ngfsDetections, ngfsGeoJSON,
-      hotspotsGeoJSON, perimetersGeoJSON, incidentsGeoJSON, aqiGeoJSON, alertsGeoJSON, spcOutlooksGeoJSON,
+      hotspotsGeoJSON, perimetersGeoJSON, incidentsGeoJSON, incidentDotsGeoJSON, aqiGeoJSON, alertsGeoJSON, spcOutlooksGeoJSON,
       stormReportsGeoJSON, userReportsGeoJSON, evacZonesGeoJSON,
       damageAssessmentPointsGeoJSON, damageAssessmentLinesGeoJSON, damageAssessmentPolygonsGeoJSON,
       rawsGeoJSON, airNowMonitorsGeoJSON, droughtOutlookGeoJSON, ndgdSmokeFilteredGeoJSON, fireWeatherOutlooksGeoJSON,
@@ -1893,7 +1908,9 @@ export default function MapView({
         {...viewport}
         mapboxAccessToken={HAS_MAPBOX_TOKEN ? MAPBOX_TOKEN : undefined}
         mapStyle={MAP_STYLES[mapType] ?? MAP_STYLES.satellite}
-        style={{ width: '100%', height: '100%', background: '#0a0c0e' }}
+        // Extends past the bottom by --viewport-bleed so the map, not the page
+        // background, shows behind mobile browser toolbars (see index.css).
+        style={{ width: '100%', height: 'calc(100% + var(--viewport-bleed, 0px))', background: '#0a0c0e' }}
         interactiveLayerIds={interactiveLayerIds}
         onClick={handleClick}
         onMouseMove={handleMouseMove}
@@ -1961,10 +1978,11 @@ export default function MapView({
           visible={(isWeatherTab || isAllHazardTab) && layers.spcWeatherOutlooks}
         />
 
-        {/* Fire perimeter polygons */}
+        {/* Fire perimeter polygons (their dots cluster in IncidentLocationsLayer) */}
         <FirePerimetersLayer
           geoJSON={perimetersGeoJSON}
-          visible={(isWildfireTab || isAllHazardTab) && layers.firePerimeters}
+          visible={showFirePerimeters}
+          centroidDots={false}
         />
 
         {/* AQI heatmap + stations — all-hazard tab only */}
@@ -1987,16 +2005,14 @@ export default function MapView({
           polygonsGeoJSON={damageAssessmentPolygonsGeoJSON}
           visible={(isWeatherTab || isAllHazardTab) && layers.damageAssessment}
         />
-        {/* WFIGS incident location markers – above evacuation fills */}
+        {/* Every fire point — WFIGS incident locations, perimeter centroid dots
+            and incident dots with no perimeter — clustered together; above
+            evacuation fills */}
         <IncidentLocationsLayer
-          geoJSON={incidentsGeoJSON}
-          visible={(isWildfireTab || isAllHazardTab) && layers.incidentLocations}
-        />
-
-        {/* Incident dot markers – fires with no matching perimeter; above evacuation fills */}
-        <FireIncidentsLayer
-          geoJSON={incidentDotsGeoJSON}
-          visible={(isWildfireTab || isAllHazardTab) && layers.incidentLocations}
+          geoJSON={showFireIncidents ? incidentsGeoJSON : null}
+          fireDotsGeoJSON={showFireIncidents ? incidentDotsGeoJSON : null}
+          perimeterCentroidsGeoJSON={perimeterCentroidsGeoJSON}
+          visible={showFireIncidents || showFirePerimeters}
         />
 
         {/* Evacuation zones and markers — above incident dots for clear identification */}
@@ -2229,6 +2245,10 @@ export default function MapView({
             opacity={displayPrefs.spotlightOpacity / 100}
           />
         )}
+
+        {/* State, international and shoreline borders — kept above every data
+            layer (see StateBoundariesLayer) so they show through all of them */}
+        {HAS_MAPBOX_TOKEN && <StateBoundariesLayer />}
 
         {/* Multi-feature popup — shown when a click hits more than one stacked feature */}
         {featurePopup && (

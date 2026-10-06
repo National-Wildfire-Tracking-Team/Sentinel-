@@ -14,7 +14,6 @@ import { trackSentinelUse } from '../../../shared/utils/analytics';
 import LayerPanelSection from './LayerPanelSection';
 import ModelLayerPanel from '../WeatherModels/ModelLayerPanel';
 import MrmsControls from './MrmsControls';
-import SatelliteRowControls from './SatelliteRowControls';
 import { MRMS_URL } from '../../api/mrms';
 
 /** Layer row definitions — grouped under tab-specific sections below */
@@ -442,7 +441,7 @@ const LayerControl = memo(function LayerControl({
                         w-[92vw] max-w-[380px] sm:w-full sm:max-w-none
                         bg-sentinel-900 backdrop-blur-md border border-sentinel-600
                         rounded-2xl shadow-2xl shadow-black/60 overflow-hidden
-                        origin-bottom animate-slide-up-panel"
+                        animate-dock-rise"
           style={dockedPanelClearance ? { marginBottom: `${dockedPanelClearance}px` } : undefined}
         >
           <div className={`px-3 pt-3 pb-2 border-b border-sentinel-700 bg-gradient-to-b ${tabAccent}`}>
@@ -559,7 +558,6 @@ const LayerControl = memo(function LayerControl({
                               />
 
                               {layerKey === 'mrms' && <MrmsControls />}
-                              {layerKey === 'satellite' && <SatelliteRowControls />}
                               {layerKey === 'fireRiskOutlook' && (
                                 <FireRiskDaySelector />
                               )}

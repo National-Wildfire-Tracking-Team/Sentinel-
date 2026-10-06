@@ -144,6 +144,11 @@ export function SatelliteProvider({ active, panelOpen = false, onPanelOpenChange
     applySelection(next, { zoom: !getRegion(selection.region)?.satellites.includes(id) });
   }, [selection, applySelection]);
   const setRegion = useCallback((id) => applySelection({ ...selection, region: id }, { zoom: true }), [selection, applySelection]);
+  // The panel's combined Satellite · Region picker sets both in one step.
+  const setSatelliteRegion = useCallback(
+    (satelliteId, regionId) => applySelection({ ...selection, satellite: satelliteId, region: regionId }, { zoom: true }),
+    [selection, applySelection],
+  );
   const setProduct = useCallback((id) => applySelection({ ...selection, product: id }), [selection, applySelection]);
   const dismissNotice = useCallback(() => setNotice(null), []);
 
@@ -178,6 +183,7 @@ export function SatelliteProvider({ active, panelOpen = false, onPanelOpenChange
     regions: regionsFor(satellite),
     setSatellite,
     setRegion,
+    setSatelliteRegion,
     setProduct,
     notice,
     dismissNotice,
@@ -207,7 +213,7 @@ export function SatelliteProvider({ active, panelOpen = false, onPanelOpenChange
     panelOpen: active && panelOpen,
     openPanel,
     closePanel,
-  }), [active, selection, satellite, regionDef, productDef, setSatellite, setRegion, setProduct, notice, dismissNotice,
+  }), [active, selection, satellite, regionDef, productDef, setSatellite, setRegion, setSatelliteRegion, setProduct, notice, dismissNotice,
     source, imageTime, metaLoading, tilesLoading, error, reportTileError, retry, reloadKey, canLoop, loopHours, frames,
     frame, index, live, playing, setFrame, goLive, togglePlaying, step, opacity, focus, panelOpen, openPanel, closePanel]);
 

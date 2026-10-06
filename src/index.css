@@ -65,8 +65,8 @@
 }
 
 /* Scale control — scoped to MapScaleBar's host so it outranks mapbox-gl.css
-   (loaded later, white with a #333 border). Same surface and border as the
-   legend box it hangs from: an open-topped tab whose width is the distance. */
+   (loaded later, white with a #333 border). Same dark surface as the other map
+   chrome: an open-topped ruler whose width is the distance. */
 .sentinel-scale .mapboxgl-ctrl-scale {
   @apply text-sentinel-100 bg-sentinel-900/95 border-sentinel-700 text-[10px] font-medium tracking-wide;
   backdrop-filter: blur(4px);
@@ -140,6 +140,54 @@ body {
   background: #0a0c0e;
   color: #f1f5f9;
   -webkit-tap-highlight-color: transparent;
+}
+
+/* Live map: how far the large viewport (browser toolbars retracted) reaches
+   below the dynamic one the page is laid out in. The map canvas alone extends
+   by this much, so the strip behind a mobile browser's bottom toolbar (iOS
+   Safari's floating, see-through one in particular) shows map, not the black
+   page background, while every control stays clear of the toolbar. */
+.viewport-bleed {
+  --viewport-bleed: 0px;
+}
+
+@supports (height: 100lvh) {
+  .viewport-bleed {
+    --viewport-bleed: calc(100lvh - 100dvh);
+  }
+}
+
+/* Panels that dock above the bottom bar (layer controls, outlook selectors,
+   timelines) rise out of the bar: the panel slides up while clipped at its
+   resting bottom edge, so it appears to scroll up from behind the bar. Uses
+   the standalone `translate` property, which composes with the
+   -translate-x-1/2 centering transform instead of overriding it (animating
+   `transform` dropped the centering mid-animation, so panels jumped in from
+   the right). Critically damped curve, no overshoot. */
+@keyframes dockRise {
+  from {
+    translate: 0 100%;
+    clip-path: inset(0 0 100% 0);
+  }
+  to {
+    translate: 0 0;
+    clip-path: inset(0 0 0 0);
+  }
+}
+
+.animate-dock-rise {
+  animation: dockRise 0.34s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-dock-rise {
+    animation: dockFade 0.2s ease-out;
+  }
+}
+
+@keyframes dockFade {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 /* Match map background to sidebar (sentinel-900) */

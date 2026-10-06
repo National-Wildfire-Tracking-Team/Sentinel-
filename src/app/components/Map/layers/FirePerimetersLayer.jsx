@@ -3,58 +3,23 @@
  * Renders NIFC fire perimeter polygons with fill and outline,
  * plus a centroid dot at the center of each perimeter.
  * Layer stays mounted; visibility is controlled via layout property.
+ *
+ * On the live map (centroidDots={false}) the active fires' dots and labels
+ * are drawn by IncidentLocationsLayer instead, from perimeterCentroids(), so
+ * they cluster with every other fire point; this layer then only labels the
+ * greyed-out perimeters, which have no dot.
  */
 
 import { useMemo, memo } from 'react';
 import { Source, Layer } from 'react-map-gl';
-import { polygonCentroid } from '../../../utils/geoUtils';
-import { getFireMatchKey } from '../../../hooks/useMergedFireData';
+import { perimeterCentroids } from './perimeterCentroids';
 
 const EMPTY_GEOJSON = { type: 'FeatureCollection', features: [] };
 
-const FirePerimetersLayer = memo(function FirePerimetersLayer({ geoJSON, visible }) {
+const FirePerimetersLayer = memo(function FirePerimetersLayer({ geoJSON, visible, centroidDots = true }) {
   const vis = visible ? 'visible' : 'none';
 
-  // Derive a Point FeatureCollection of perimeter centroids for the center dots
-  // and name labels. A single fire can arrive as several separate polygon
-  // fragments sharing one name (e.g. FIRIS "Heat Perimeter" chunks) — all
-  // fragments still get drawn as fill/line, but only the largest fragment per
-  // fire contributes a dot + label so each fire shows once.
-  // Perimeters with HideFromCentroid=true have their centroid dot suppressed
-  // because a repositioned IRWIN incident dot already covers that location.
-  const centroidGeoJSON = useMemo(() => {
-    if (!geoJSON?.features?.length) return EMPTY_GEOJSON;
-
-    const candidates = geoJSON.features.filter(f => !f.properties?.HideFromCentroid);
-    // Prefer the active record over historical ones for the dot/label.
-    candidates.sort((a, b) => {
-      const histDelta = (a.properties?.isHistoricalMapping ? 1 : 0) - (b.properties?.isHistoricalMapping ? 1 : 0);
-      if (histDelta !== 0) return histDelta;
-      return (b.properties?.GISAcres || 0) - (a.properties?.GISAcres || 0);
-    });
-
-    const seen = new Set();
-    const features = [];
-    for (const f of candidates) {
-      const key =
-        getFireMatchKey(f.properties?.IncidentName) ||
-        f.properties?.UniqueFireIdentifier ||
-        f.properties?.IncidentManagementOrganization;
-      if (key) {
-        if (seen.has(key)) continue;
-        seen.add(key);
-      }
-      const center = polygonCentroid(f.geometry);
-      if (center) {
-        features.push({
-          type: 'Feature',
-          geometry: { type: 'Point', coordinates: center },
-          properties: f.properties,
-        });
-      }
-    }
-    return { type: 'FeatureCollection', features };
-  }, [geoJSON]);
+  const centroidGeoJSON = useMemo(() => perimeterCentroids(geoJSON), [geoJSON]);
 
   // Grey out fully contained, stale (isStaleFire), or historically re-mapped
   // (isHistoricalMapping) perimeters; active fires keep their normal color.
@@ -124,8 +89,9 @@ const FirePerimetersLayer = memo(function FirePerimetersLayer({ geoJSON, visible
         />
       </Source>
 
-      {/* Centroid dot + name label, once per fire (deduped in centroidGeoJSON above) */}
+      {/* Centroid dot + name label, once per fire (deduped in perimeterCentroids) */}
       <Source id="fire-perimeter-centroids" type="geojson" data={centroidGeoJSON}>
+        {centroidDots && (
         <Layer
           id="fire-perimeter-centroids-glow"
           type="circle"
@@ -139,6 +105,8 @@ const FirePerimetersLayer = memo(function FirePerimetersLayer({ geoJSON, visible
             'circle-stroke-width': 0,
           }}
         />
+        )}
+        {centroidDots && (
         <Layer
           id="fire-perimeter-centroids-circle"
           type="circle"
@@ -153,10 +121,12 @@ const FirePerimetersLayer = memo(function FirePerimetersLayer({ geoJSON, visible
             'circle-stroke-width': 1.5,
           }}
         />
+        )}
         <Layer
           id="fire-perimeters-label"
           type="symbol"
           source="fire-perimeter-centroids"
+          filter={centroidDots ? undefined : isGreyedOut}
           minzoom={7}
           layout={{
             visibility: vis,

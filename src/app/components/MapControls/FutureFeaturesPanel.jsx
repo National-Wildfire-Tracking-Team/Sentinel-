@@ -1,13 +1,14 @@
 /**
  * FutureFeaturesPanel.jsx
  * App menu slide-in panel — opened from the top-left hamburger corner button.
- * Map style, Help, membership/donation links, saved places, and appearance.
+ * Map style, the map legend, Help, membership/donation links, saved places,
+ * and appearance.
  */
 
-import { memo } from 'react';
+import { memo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  Home, Map as MapIcon, HelpCircle, Award, HeartHandshake, MapPin, Satellite, Mountain,
+  Home, Map as MapIcon, HelpCircle, Award, HeartHandshake, MapPin, Satellite, Mountain, Info, ChevronDown,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { useTheme } from '../../context/ThemeContext';
@@ -17,7 +18,7 @@ import { getMainOrigin } from '../../../shared/utils/getAppOrigin';
 
 const DONATE_URL = 'https://givebutter.com/national-wildfire-tracking-team-dvi6jx';
 
-function MenuRow({ icon: Icon, iconClassName, label, sublabel, onClick, href, sameTab, to, trailing }) {
+function MenuRow({ icon: Icon, iconClassName, label, sublabel, onClick, href, sameTab, to, trailing, ariaExpanded }) {
   const className =
     'w-full flex items-center gap-3 px-4 py-3 text-left transition-colors ' +
     'hover:bg-sentinel-100 dark:hover:bg-sentinel-800/60';
@@ -54,7 +55,7 @@ function MenuRow({ icon: Icon, iconClassName, label, sublabel, onClick, href, sa
     );
   }
   return (
-    <button type="button" onClick={onClick} className={className}>
+    <button type="button" onClick={onClick} className={className} aria-expanded={ariaExpanded}>
       {content}
     </button>
   );
@@ -145,7 +146,38 @@ function PrefSlider({ value, onChange, disabled }) {
   );
 }
 
-const FutureFeaturesPanel = memo(function FutureFeaturesPanel({ mapType = 'satellite', onMapTypeChange }) {
+/**
+ * The map legend as a disclosure row: collapsed by default so the rest of the
+ * menu stays in reach, expanding in place to the active layers' color keys.
+ */
+function LegendDisclosure({ children }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div>
+      <MenuRow
+        icon={Info}
+        label="Legend"
+        sublabel="Colors and symbols for the layers on the map"
+        onClick={() => setOpen((o) => !o)}
+        ariaExpanded={open}
+        trailing={(
+          <ChevronDown
+            size={18}
+            aria-hidden
+            className={`shrink-0 text-sentinel-400 transition-transform duration-200 ${open ? 'rotate-180' : ''}`}
+          />
+        )}
+      />
+      {open && (
+        <div className="mx-4 mb-2 rounded-xl border border-sentinel-200 dark:border-sentinel-700 bg-black/[0.03] dark:bg-sentinel-800/60 p-3 space-y-3 animate-fade-in">
+          {children}
+        </div>
+      )}
+    </div>
+  );
+}
+
+const FutureFeaturesPanel = memo(function FutureFeaturesPanel({ mapType = 'satellite', onMapTypeChange, legend = null }) {
   const { futurePanelOpen, toggleFuturePanel } = useApp();
   const { theme, setTheme } = useTheme();
   const { prefs, updatePrefs } = usePreferences();
@@ -190,6 +222,7 @@ const FutureFeaturesPanel = memo(function FutureFeaturesPanel({ mapType = 'satel
           sublabel={isPitched ? 'On' : 'Off'}
           onClick={toggleTerrainTilt}
         />
+        {legend && <LegendDisclosure>{legend}</LegendDisclosure>}
         <MenuRow icon={HelpCircle} label="Help" href={`${getMainOrigin()}/about`} sameTab onClick={closePanel} />
 
         <SectionLabel>Support Our Mission</SectionLabel>

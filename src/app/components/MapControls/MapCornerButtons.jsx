@@ -43,7 +43,7 @@ function CornerButton({ active, onClick, ariaLabel, children }) {
   );
 }
 
-const MapCornerButtons = memo(function MapCornerButtons() {
+const MapCornerButtons = memo(function MapCornerButtons({ onReopenBanner }) {
   const {
     sidebarOpen, toggleSidebar,
     futurePanelOpen, toggleFuturePanel,
@@ -157,7 +157,12 @@ const MapCornerButtons = memo(function MapCornerButtons() {
         <Menu size={19} />
       </CornerButton>
 
-      <CornerButton active={sidebarOpen} onClick={toggleSidebar} ariaLabel="Open incident sidebar">
+      {/* Also brings back the alert banner under the header if it was dismissed. */}
+      <CornerButton
+        active={sidebarOpen}
+        onClick={() => { toggleSidebar(); onReopenBanner?.(); }}
+        ariaLabel="Open incident sidebar"
+      >
         <span className="text-lg font-black leading-none">!</span>
       </CornerButton>
 

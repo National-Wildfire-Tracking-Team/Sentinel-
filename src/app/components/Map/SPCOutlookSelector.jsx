@@ -123,7 +123,7 @@ const SPCOutlookSelector = memo(forwardRef(function SPCOutlookSelector({
       aria-label="SPC outlook selector"
       className="absolute bottom-20 left-1/2 -translate-x-1/2 z-20 w-[min(34rem,calc(100vw-2rem))]
                     bg-sentinel-900 border border-sentinel-600 rounded-t-2xl shadow-2xl shadow-black/60 ring-1 ring-white/10
-                    overflow-hidden"
+                    overflow-hidden animate-dock-rise"
       style={{
         width: bottomBarWidth ? `${bottomBarWidth}px` : undefined,
         bottom: bottomBarHeight ? `${bottomBarHeight + 16}px` : undefined,
