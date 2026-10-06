@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { Eye, EyeOff, Flame, X, Loader2 } from 'lucide-react';
 import { useAuth } from '../../../shared/context/AuthContext';
+import { isEmailNotConfirmedError, isExistingAccountSignUp } from '../../../shared/utils/authEmail';
+import ResendConfirmation from './ResendConfirmation';
 
 export default function LoginModal({ onClose, onLoginSuccess }) {
   const { signIn, signUp, isSupabaseConfigured } = useAuth();
@@ -12,17 +14,26 @@ export default function LoginModal({ onClose, onLoginSuccess }) {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
+  const [showResend, setShowResend] = useState(false);
 
   const handleLogin = async (e) => {
     e.preventDefault();
     if (!email.trim() || !password) return;
     setError('');
+    setNotice('');
+    setShowResend(false);
     setLoading(true);
     try {
       const { error: err } = await signIn(email.trim(), password, true);
       if (err) throw err;
       onLoginSuccess?.();
     } catch (err) {
+      if (isEmailNotConfirmedError(err)) {
+        setShowResend(true);
+        setError('Confirm your email address first — click the link we emailed you (check spam too).');
+        return;
+      }
       setError(err.message || 'Login failed. Check your credentials and try again.');
     } finally {
       setLoading(false);
@@ -45,10 +56,19 @@ export default function LoginModal({ onClose, onLoginSuccess }) {
     try {
       const { data, error: err } = await signUp(email.trim(), password);
       if (err) throw err;
+      if (isExistingAccountSignUp(data)) {
+        setError('An account with this email already exists. Sign in instead.');
+        return;
+      }
       if (data?.session) {
         onLoginSuccess?.();
       } else {
+        // Email confirmation is on: no session until they click the link.
         setMode('login');
+        setPassword('');
+        setConfirmPassword('');
+        setShowResend(true);
+        setNotice(`We sent a confirmation link to ${email.trim()}. Click it to activate your account, then sign in.`);
       }
     } catch (err) {
       setError(err.message || 'Registration failed. Please try again.');
@@ -75,11 +95,9 @@ export default function LoginModal({ onClose, onLoginSuccess }) {
             <div className="flex items-center justify-center gap-2 mb-3">
               <div className="relative">
                 <Flame size={28} className="text-fire-500" />
-                <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-fire-500 rounded-full animate-pulse" />
               </div>
               <span className="text-2xl font-bold text-white tracking-tight">
                 Sentinel
-                <span className="text-[0.45em] font-bold tracking-wider text-fire-400 align-super ml-0.5">BETA</span>
               </span>
             </div>
             <p className="text-sentinel-400 text-sm">All Hazard Intelligence Platform</p>
@@ -162,10 +180,18 @@ export default function LoginModal({ onClose, onLoginSuccess }) {
                     </p>
                   )}
 
+                  {notice && (
+                    <p className="text-xs text-green-300 bg-green-950/40 border border-green-700/40 rounded-lg px-3 py-2">
+                      {notice}
+                    </p>
+                  )}
+
+                  {showResend && <ResendConfirmation email={email} />}
+
                   <button
                     type="submit"
                     disabled={loading || !isSupabaseConfigured}
-                    className="w-full rounded-lg bg-fire-600 hover:bg-fire-500 disabled:opacity-50 disabled:cursor-not-allowed px-4 py-2.5 text-sm font-semibold text-white transition-colors flex items-center justify-center gap-2"
+                    className="btn-glass-fire w-full rounded-lg disabled:opacity-50 disabled:cursor-not-allowed px-4 py-2.5 text-sm font-semibold flex items-center justify-center gap-2"
                   >
                     {loading && <Loader2 size={15} className="animate-spin" />}
                     {mode === 'login' ? 'Sign In' : 'Create Account'}
@@ -177,7 +203,7 @@ export default function LoginModal({ onClose, onLoginSuccess }) {
                     <>
                       Don&apos;t have an account?{' '}
                       <button
-                        onClick={() => { setMode('register'); setError(''); }}
+                        onClick={() => { setMode('register'); setError(''); setNotice(''); setShowResend(false); }}
                         className="text-fire-400 hover:text-fire-300 font-medium transition-colors"
                       >
                         Create Account
@@ -187,7 +213,7 @@ export default function LoginModal({ onClose, onLoginSuccess }) {
                     <>
                       Already have an account?{' '}
                       <button
-                        onClick={() => { setMode('login'); setError(''); }}
+                        onClick={() => { setMode('login'); setError(''); setNotice(''); setShowResend(false); }}
                         className="text-fire-400 hover:text-fire-300 font-medium transition-colors"
                       >
                         Sign In

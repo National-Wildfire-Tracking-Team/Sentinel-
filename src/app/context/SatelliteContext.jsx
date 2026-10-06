@@ -20,7 +20,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import {
   DEFAULT_SELECTION, LOOP_HOURS, fetchGibsFrameTimes, fetchIemScanTime, getProduct, getRegion,
   getSatellite, iemScanTimeUrl, loopAvailable, loopFrames, normalizeSelection, parseSatelliteQuery,
-  regionsFor, resolveSource, writeSatelliteQuery,
+  regionsFor, resolveSource, stormSatelliteView, writeSatelliteQuery,
 } from '../api/goesSatellite';
 import { useFramePlayback } from '../hooks/useFramePlayback';
 
@@ -139,11 +139,29 @@ export function SatelliteProvider({ active, panelOpen = false, onPanelOpenChange
     }
   }, [clearChoice]);
 
+  /** Zoom the map to `[west, south, east, north]` — e.g. the active tropical systems. */
+  const focusBounds = useCallback((bounds) => {
+    if (bounds) setFocus({ bounds, seq: (focusSeq.current += 1) });
+  }, []);
+
+  /** Point the layer at a storm: see stormSatelliteView. */
+  const focusOnStorm = useCallback(({ lng, lat }) => {
+    const view = stormSatelliteView(lng, lat);
+    if (!view) return;
+    applySelection(view.selection);
+    setFocus({ bounds: view.bounds, seq: (focusSeq.current += 1) });
+  }, [applySelection]);
+
   const setSatellite = useCallback((id) => {
     const next = { ...selection, satellite: id };
     applySelection(next, { zoom: !getRegion(selection.region)?.satellites.includes(id) });
   }, [selection, applySelection]);
   const setRegion = useCallback((id) => applySelection({ ...selection, region: id }, { zoom: true }), [selection, applySelection]);
+  // The panel's combined Satellite · Region picker sets both in one step.
+  const setSatelliteRegion = useCallback(
+    (satelliteId, regionId) => applySelection({ ...selection, satellite: satelliteId, region: regionId }, { zoom: true }),
+    [selection, applySelection],
+  );
   const setProduct = useCallback((id) => applySelection({ ...selection, product: id }), [selection, applySelection]);
   const dismissNotice = useCallback(() => setNotice(null), []);
 
@@ -178,6 +196,7 @@ export function SatelliteProvider({ active, panelOpen = false, onPanelOpenChange
     regions: regionsFor(satellite),
     setSatellite,
     setRegion,
+    setSatelliteRegion,
     setProduct,
     notice,
     dismissNotice,
@@ -204,12 +223,14 @@ export function SatelliteProvider({ active, panelOpen = false, onPanelOpenChange
     opacity,
     setOpacity,
     focus,
+    focusBounds,
+    focusOnStorm,
     panelOpen: active && panelOpen,
     openPanel,
     closePanel,
-  }), [active, selection, satellite, regionDef, productDef, setSatellite, setRegion, setProduct, notice, dismissNotice,
+  }), [active, selection, satellite, regionDef, productDef, setSatellite, setRegion, setSatelliteRegion, setProduct, notice, dismissNotice,
     source, imageTime, metaLoading, tilesLoading, error, reportTileError, retry, reloadKey, canLoop, loopHours, frames,
-    frame, index, live, playing, setFrame, goLive, togglePlaying, step, opacity, focus, panelOpen, openPanel, closePanel]);
+    frame, index, live, playing, setFrame, goLive, togglePlaying, step, opacity, focus, focusBounds, focusOnStorm, panelOpen, openPanel, closePanel]);
 
   return <SatelliteContext.Provider value={value}>{children}</SatelliteContext.Provider>;
 }

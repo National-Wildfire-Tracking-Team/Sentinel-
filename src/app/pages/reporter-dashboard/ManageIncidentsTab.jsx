@@ -9,7 +9,7 @@
 import { useState, useRef } from 'react';
 import {
   MapPin, ChevronDown, ChevronUp, Clock, Activity, Pencil, Trash2,
-  RefreshCw, Send, AlertCircle, CheckCircle2, User, Search, Loader2, RotateCcw,
+  RefreshCw, Send, AlertCircle, CheckCircle2, User, Search, Loader2, RotateCcw, Siren,
 } from 'lucide-react';
 
 import {
@@ -23,6 +23,8 @@ import { uploadIncidentPhotos } from '../../api/incidentPhotos';
 import { acquireSlot } from '../../utils/mapboxRateLimiter';
 import PhotoPickerButton from '../../components/PhotoAttachments/PhotoPickerButton';
 import IncidentLocationPicker from '../../components/Map/IncidentLocationPicker';
+import { POSTABLE_UPDATE_TYPES, UPDATE_TYPE_LABELS } from '../../components/FireDetailPanel/incidentDetailModel';
+import IncidentEvacShelterEditor from './IncidentEvacShelterEditor';
 import {
   INPUT_CLS, LABEL_CLS, SECTION_CLS, StatusBadge, MAPBOX_TOKEN, geocodeViaDirect,
   reverseGeocodeViaDirect,
@@ -78,7 +80,7 @@ function toCoordinate(value) {
 
 function IncidentCard({ report, profile, userId, onRefresh }) {
   const [expanded, setExpanded] = useState(false);
-  const [mode, setMode] = useState('view'); // 'view' | 'edit' | 'update' | 'confirm-delete'
+  const [mode, setMode] = useState('view'); // 'view' | 'edit' | 'update' | 'evac' | 'confirm-delete'
 
   const isOwn = report.user_id === userId;
 
@@ -109,6 +111,7 @@ function IncidentCard({ report, profile, userId, onRefresh }) {
   const [updateAcreage, setUpdateAcreage] = useState('');
   const [updateContainment, setUpdateContainment] = useState('');
   const [updateNotes, setUpdateNotes]     = useState('');
+  const [updateType, setUpdateType]       = useState('field_report');
   const [updateBusy, setUpdateBusy]       = useState(false);
   const [updateFeedback, setUpdateFeedback] = useState(null);
   const updatePhotos = useImageAttachments();
@@ -297,6 +300,7 @@ function IncidentCard({ report, profile, userId, onRefresh }) {
             content: `Incident location updated to ${where}.`,
             sourceName: profile?.email?.split('@')[0] || 'Reporter',
             userId,
+            updateType: 'location',
           });
         } catch (err) {
           // The move itself saved; a missing timeline entry shouldn't fail it.
@@ -356,8 +360,10 @@ function IncidentCard({ report, profile, userId, onRefresh }) {
         sourceName: profile?.email?.split('@')[0] || 'Reporter',
         userId,
         photoUrls,
+        updateType,
       });
 
+      setUpdateType('field_report');
       setUpdateAcreage('');
       setUpdateContainment('');
       setUpdateNotes('');
@@ -430,6 +436,15 @@ function IncidentCard({ report, profile, userId, onRefresh }) {
           >
             <Activity size={14} />
             <span className="hidden sm:inline">Update</span>
+          </button>
+          <button
+            onClick={() => { setMode(mode === 'evac' ? 'view' : 'evac'); setExpanded(true); }}
+            title="Evacuations & Shelters"
+            className={`p-2 rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5
+              ${mode === 'evac' ? 'bg-red-500/15 text-red-400 border border-red-500/30' : 'text-sentinel-300 hover:text-white hover:bg-sentinel-700'}`}
+          >
+            <Siren size={14} />
+            <span className="hidden sm:inline">Evac</span>
           </button>
           <button
             onClick={() => {
@@ -608,7 +623,7 @@ function IncidentCard({ report, profile, userId, onRefresh }) {
                   type="button"
                   onClick={handleEditSave}
                   disabled={editBusy}
-                  className="flex-1 py-2 rounded-lg text-sm font-medium text-white bg-fire-600 hover:bg-fire-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+                  className="btn-glass-fire flex-1 py-2 rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 >
                   {editBusy ? <><RefreshCw size={13} className="animate-spin" /> Saving…</> : 'Save Changes'}
                 </button>
@@ -619,6 +634,17 @@ function IncidentCard({ report, profile, userId, onRefresh }) {
           {/* UPDATE MODE — append acreage/notes */}
           {mode === 'update' && (
             <div className="space-y-4">
+              <div>
+                <label className={LABEL_CLS}>Update Type</label>
+                <select value={updateType} onChange={(e) => setUpdateType(e.target.value)} className={INPUT_CLS}>
+                  {POSTABLE_UPDATE_TYPES.map((t) => (
+                    <option key={t} value={t}>{UPDATE_TYPE_LABELS[t]}</option>
+                  ))}
+                </select>
+                <p className="mt-1 text-xs text-sentinel-500">
+                  Fire Growth, Threat and Evacuation set the incident&apos;s current situation on the map.
+                </p>
+              </div>
               <div>
                 <label className={LABEL_CLS}>Acreage</label>
                 <input
@@ -684,12 +710,17 @@ function IncidentCard({ report, profile, userId, onRefresh }) {
                   type="button"
                   onClick={handlePostUpdate}
                   disabled={updateBusy}
-                  className="flex-1 py-2 rounded-lg text-sm font-medium text-white bg-fire-600 hover:bg-fire-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+                  className="btn-glass-fire flex-1 py-2 rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 >
                   {updateBusy ? <><RefreshCw size={13} className="animate-spin" /> Posting…</> : <><Send size={13} /> Post Update</>}
                 </button>
               </div>
             </div>
+          )}
+
+          {/* EVACUATIONS & SHELTERS */}
+          {mode === 'evac' && (
+            <IncidentEvacShelterEditor incidentId={report.id} profile={profile} userId={userId} />
           )}
 
           {/* CONFIRM DELETE */}

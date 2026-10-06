@@ -22,6 +22,7 @@ import { getMainOrigin } from '../../shared/utils/getAppOrigin';
 import { useIncidents } from '../hooks/useIncidents';
 import { useCalFireIncidents } from '../hooks/useCalFireIncidents';
 import { mergeIrwinAndCalFireIncidents } from '../utils/mergeIncidents';
+import { incidentIdsFor } from '../utils/incidentAliases';
 import {
   formatAcres, formatContainment, formatPersonnel, formatDate,
   formatDateTime, formatRelativeTime,
@@ -63,7 +64,7 @@ export default function FireIncidentPage() {
   const loading = incidentsLoading || calFireLoading;
 
   const merged = mergeIrwinAndCalFireIncidents(incidents, calFireIncidents);
-  const fire = merged.find((inc) => String(inc.id) === id);
+  const fire = merged.find((inc) => incidentIdsFor(inc).includes(id));
 
   if (!loading && !fire) {
     return (
@@ -83,7 +84,7 @@ export default function FireIncidentPage() {
           </p>
           <Link
             to="/"
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-fire-600 text-white font-semibold hover:bg-fire-500 transition-colors"
+            className="btn-glass-fire inline-flex items-center gap-2 px-5 py-2.5 rounded-xl font-semibold"
           >
             <MapIcon size={16} />
             View All Active Fires
@@ -219,7 +220,7 @@ export default function FireIncidentPage() {
         <div className="flex flex-wrap gap-3">
           <Link
             to={`/?incident=${encodeURIComponent(fire.id)}`}
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-fire-600 text-white text-sm font-semibold hover:bg-fire-500 transition-colors"
+            className="btn-glass-fire inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold"
           >
             <MapIcon size={15} />
             View Live on the Map

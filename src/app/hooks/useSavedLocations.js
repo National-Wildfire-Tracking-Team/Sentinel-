@@ -1,17 +1,38 @@
 /**
  * useSavedLocations.js
- * Manages saved locations for the current user (free tier: max 4).
- * Persists to Supabase; falls back gracefully when not configured.
+ * Manages the current user's saved locations: persistent monitoring targets
+ * (name, point, notification radius, notification switches) that
+ * notification-sync evaluates every 5 minutes. Separate from "Go to my
+ * current location", which only moves the map.
+ *
+ * The plan limit comes from PLANS (usePlan.js); the database trigger
+ * enforce_saved_location_limit is the authoritative check.
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase, isSupabaseConfigured } from '../../shared/api/supabaseClient';
 import { useAuth } from '../../shared/context/AuthContext';
 import { fetchAlertsByPoint } from '../api/noaaWeather';
-import { usePlan } from '../../shared/hooks/usePlan';
+import { usePlan, PLANS } from '../../shared/hooks/usePlan';
+import {
+  DEFAULT_RADIUS_MILES,
+  validateSavedLocationFields,
+} from '../../../supabase/functions/_shared/savedLocationAlerts.js';
 
 /** Kept for backwards-compat — components that import this constant still work */
-export const FREE_LOCATION_LIMIT = 4;
+export const FREE_LOCATION_LIMIT = PLANS.free.savedLocationsLimit;
+
+/** Columns a user may change; ownership and timestamps are database-managed. */
+const EDITABLE_FIELDS = [
+  'name', 'address', 'latitude', 'longitude',
+  'notify_radius_miles', 'alerts_enabled', 'notify_new_fires',
+];
+
+function pickEditable(updates) {
+  return Object.fromEntries(
+    Object.entries(updates || {}).filter(([key]) => EDITABLE_FIELDS.includes(key)),
+  );
+}
 
 export function useSavedLocations() {
   const { user, isAuthenticated } = useAuth();
@@ -77,15 +98,35 @@ export function useSavedLocations() {
     };
   }, [isAuthenticated, user?.id, load]);
 
-  const addLocation = useCallback(async ({ name, address, latitude, longitude }) => {
+  const addLocation = useCallback(async ({
+    name,
+    address = '',
+    latitude,
+    longitude,
+    notifyRadiusMiles = DEFAULT_RADIUS_MILES,
+    alertsEnabled = true,
+  }) => {
     if (!isAuthenticated || !isSupabaseConfigured) throw new Error('Sign in to save locations');
     if (locations.length >= locationLimit) {
       throw new Error(`Your plan allows up to ${locationLimit} saved locations. Upgrade to add more.`);
     }
 
+    const row = {
+      user_id: user.id,
+      name: String(name ?? '').trim(),
+      address: address || '',
+      latitude,
+      longitude,
+      notify_radius_miles: notifyRadiusMiles,
+      alerts_enabled: alertsEnabled,
+      notify_new_fires: true,
+    };
+    const invalid = validateSavedLocationFields(row);
+    if (invalid) throw new Error(invalid);
+
     const { data, error: err } = await supabase
       .from('saved_locations')
-      .insert({ user_id: user.id, name, address, latitude, longitude, notify_new_fires: true })
+      .insert(row)
       .select()
       .single();
 
@@ -104,9 +145,15 @@ export function useSavedLocations() {
   }, []);
 
   const updateLocation = useCallback(async (id, updates) => {
+    const changes = pickEditable(updates);
+    if ('name' in changes) changes.name = String(changes.name ?? '').trim();
+    const invalid = validateSavedLocationFields(changes);
+    if (invalid) throw new Error(invalid);
+
+    // RLS ("saved_locations own") limits this to the signed-in user's rows.
     const { data, error: err } = await supabase
       .from('saved_locations')
-      .update(updates)
+      .update(changes)
       .eq('id', id)
       .select()
       .single();

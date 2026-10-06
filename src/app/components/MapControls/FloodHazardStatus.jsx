@@ -15,11 +15,8 @@ import { FLOOD_ATTRIBUTION } from '../../utils/floodHazard';
 
 function statusMessage({ loading, error, belowMinZoom, data }) {
   if (error) return { tone: 'error', text: error };
-  if (belowMinZoom) return { tone: 'info', text: 'Zoom in to view flood hazard data' };
+  if (belowMinZoom) return { tone: 'info', text: 'Zoom in to about 1 mile to view flood risk areas' };
   if (loading && !data?.level) return { tone: 'loading', text: 'Loading flood hazard data…' };
-  if (data?.level === 'overview') {
-    return { tone: loading ? 'loading' : 'info', text: 'Showing where FEMA flood maps exist — zoom in for flood zones' };
-  }
   if (data?.level && !data.zones.features.length && !data.panels.features.length) {
     return { tone: 'info', text: 'No digital FEMA flood map for this area (paper FIRM only or unmapped)' };
   }

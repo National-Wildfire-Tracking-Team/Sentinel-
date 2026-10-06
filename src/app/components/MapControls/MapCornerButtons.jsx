@@ -34,7 +34,7 @@ function CornerButton({ active, onClick, ariaLabel, children }) {
       aria-pressed={active}
       className={`flex items-center justify-center w-11 h-11 rounded-full border shadow-xl backdrop-blur-sm transition-colors ${
         active
-          ? 'bg-fire-600 border-fire-500 text-white'
+          ? 'btn-glass-fire btn-glass-fire-adaptive border-fire-500'
           : 'bg-white/90 dark:bg-sentinel-900/90 border-sentinel-200 dark:border-sentinel-600 text-sentinel-700 dark:text-white hover:bg-sentinel-100 dark:hover:bg-sentinel-700'
       }`}
     >
@@ -43,7 +43,7 @@ function CornerButton({ active, onClick, ariaLabel, children }) {
   );
 }
 
-const MapCornerButtons = memo(function MapCornerButtons() {
+const MapCornerButtons = memo(function MapCornerButtons({ onReopenBanner }) {
   const {
     sidebarOpen, toggleSidebar,
     futurePanelOpen, toggleFuturePanel,
@@ -157,7 +157,12 @@ const MapCornerButtons = memo(function MapCornerButtons() {
         <Menu size={19} />
       </CornerButton>
 
-      <CornerButton active={sidebarOpen} onClick={toggleSidebar} ariaLabel="Open incident sidebar">
+      {/* Also brings back the alert banner under the header if it was dismissed. */}
+      <CornerButton
+        active={sidebarOpen}
+        onClick={() => { toggleSidebar(); onReopenBanner?.(); }}
+        ariaLabel="Open incident sidebar"
+      >
         <span className="text-lg font-black leading-none">!</span>
       </CornerButton>
 
@@ -201,7 +206,7 @@ const MapCornerButtons = memo(function MapCornerButtons() {
             <button
               type="button"
               onClick={handleOpenHomeSetup}
-              className="mt-2.5 w-full rounded-md bg-fire-600 hover:bg-fire-500 px-3 py-1.5 text-xs font-semibold text-white transition-colors"
+              className="btn-glass-fire btn-glass-fire-adaptive mt-2.5 w-full rounded-md px-3 py-1.5 text-xs font-semibold"
             >
               Set Up Home
             </button>

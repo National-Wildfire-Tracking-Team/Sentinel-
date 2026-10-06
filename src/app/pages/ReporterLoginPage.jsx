@@ -13,6 +13,8 @@ import {
 } from 'lucide-react';
 
 import { useAuth } from '../../shared/context/AuthContext';
+import { isEmailNotConfirmedError } from '../../shared/utils/authEmail';
+import ResendConfirmation from '../components/Auth/ResendConfirmation';
 import { supabase } from '../../shared/api/supabaseClient';
 
 /** Fetch the profile role for a user id immediately after sign-in. */
@@ -26,7 +28,7 @@ async function fetchRole(userId) {
 }
 
 export default function ReporterLoginPage() {
-  const { signIn, isSupabaseConfigured } = useAuth();
+  const { signIn, requestPasswordReset, isSupabaseConfigured } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -36,6 +38,7 @@ export default function ReporterLoginPage() {
   const [rememberMe,   setRememberMe]   = useState(false);
   const [error,        setError]        = useState(null);
   const [busy,         setBusy]         = useState(false);
+  const [unconfirmed,  setUnconfirmed]  = useState(false);
 
   const [forgotMode, setForgotMode] = useState(false);
   const [resetEmail, setResetEmail] = useState('');
@@ -46,6 +49,7 @@ export default function ReporterLoginPage() {
   async function handleSignIn(e) {
     e.preventDefault();
     setError(null);
+    setUnconfirmed(false);
     setBusy(true);
     try {
       const { data, error: err } = await signIn(email, password, rememberMe);
@@ -67,14 +71,14 @@ export default function ReporterLoginPage() {
       navigate(redirectTo, { replace: true });
     } catch (err) {
       const msg = err?.message || '';
-      // Supabase returns "Invalid login credentials" for both wrong password
-      // AND unconfirmed email. Provide a more helpful hint in either case.
-      if (
-        msg.toLowerCase().includes('invalid login credentials') ||
-        msg.toLowerCase().includes('email not confirmed')
-      ) {
+      if (isEmailNotConfirmedError(err)) {
+        setUnconfirmed(true);
         setError(
-          'Invalid credentials. If you just registered, please confirm your email address first — check your inbox (and spam folder) for the confirmation link.'
+          'Your email address hasn\'t been confirmed yet. Click the link we emailed you (check spam too), or resend it below.'
+        );
+      } else if (msg.toLowerCase().includes('invalid login credentials')) {
+        setError(
+          'Invalid email or password. If you just registered, confirm your email address first — check your inbox (and spam folder) for the confirmation link.'
         );
       } else {
         setError(msg || 'Authentication failed');
@@ -90,7 +94,7 @@ export default function ReporterLoginPage() {
     setBusy(true);
     try {
       const addr = resetEmail.trim() || email.trim();
-      const { error: err } = await supabase.auth.resetPasswordForEmail(addr);
+      const { error: err } = await requestPasswordReset(addr);
       if (err) throw err;
       setResetSent(true);
     } catch (err) {
@@ -201,12 +205,13 @@ export default function ReporterLoginPage() {
                     <span>{error}</span>
                   </div>
                 )}
+                {unconfirmed && <ResendConfirmation email={email} />}
 
                 <button
                   type="submit"
                   disabled={busy || !isSupabaseConfigured}
-                  className="w-full py-3 rounded-lg font-semibold text-sm text-white bg-fire-600 hover:bg-fire-700
-                             disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                  className="btn-glass-fire w-full py-3 rounded-lg font-semibold text-sm
+                             disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {busy ? 'Signing in…' : 'Sign In'}
                 </button>
@@ -261,8 +266,8 @@ export default function ReporterLoginPage() {
                   <button
                     type="submit"
                     disabled={busy}
-                    className="w-full py-3 rounded-lg font-semibold text-sm text-white bg-fire-600 hover:bg-fire-700
-                               disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                    className="btn-glass-fire w-full py-3 rounded-lg font-semibold text-sm
+                               disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {busy ? 'Sending…' : 'Send Reset Link'}
                   </button>

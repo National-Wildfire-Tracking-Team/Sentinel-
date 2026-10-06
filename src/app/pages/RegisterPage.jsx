@@ -11,6 +11,8 @@ import {
 } from 'lucide-react';
 
 import { useAuth } from '../../shared/context/AuthContext';
+import { isExistingAccountSignUp } from '../../shared/utils/authEmail';
+import ResendConfirmation from '../components/Auth/ResendConfirmation';
 
 export default function RegisterPage() {
   const { signUp, isSupabaseConfigured } = useAuth();
@@ -46,6 +48,10 @@ export default function RegisterPage() {
     try {
       const { data, error: err } = await signUp(email, password);
       if (err) throw err;
+      if (isExistingAccountSignUp(data)) {
+        setError('An account with this email already exists. Sign in instead, or use "Forgot password" to reset it.');
+        return;
+      }
 
       // When email confirmation is enabled, signUp returns no session.
       // Show a confirmation prompt instead of navigating blindly.
@@ -86,9 +92,10 @@ export default function RegisterPage() {
                 <strong>Important:</strong> You must confirm your email before signing in.
                 If you don&apos;t see the email, check your spam or junk folder.
               </div>
+              <ResendConfirmation email={email} />
               <Link
                 to="/login"
-                className="mt-2 w-full py-3 rounded-lg font-bold text-sm tracking-widest uppercase text-white bg-fire-600 hover:bg-fire-500 transition-all block"
+                className="btn-glass-fire mt-2 w-full py-3 rounded-lg font-bold text-sm tracking-widest uppercase block"
               >
                 Go to Sign In
               </Link>
@@ -274,9 +281,8 @@ export default function RegisterPage() {
                 <button
                   type="submit"
                   disabled={busy || !isSupabaseConfigured}
-                  className="w-full py-3 rounded-lg font-bold text-sm tracking-widest uppercase text-white
-                             bg-fire-600 hover:bg-fire-500 disabled:opacity-50 disabled:cursor-not-allowed
-                             transition-all"
+                  className="btn-glass-fire w-full py-3 rounded-lg font-bold text-sm tracking-widest uppercase
+                             disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {busy ? 'Creating account…' : 'Create Account'}
                 </button>

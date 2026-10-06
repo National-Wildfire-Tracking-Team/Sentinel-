@@ -10,42 +10,45 @@
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import {
-  Search, RefreshCw, MapPin, Activity, AlertCircle, CheckCircle2, Send, Globe,
+  Search, RefreshCw, MapPin, Activity, AlertCircle, CheckCircle2, Send, Globe, Siren,
 } from 'lucide-react';
 
 import { fetchIncidents } from '../../api/inciweb';
 import { fetchCalFireGeoJsonList, normalizeCalFireIncidents } from '../../api/calFire';
-import { getFireMatchKey } from '../../hooks/useMergedFireData';
+import { mergeIrwinAndCalFireIncidents } from '../../utils/mergeIncidents';
 import { insertReporterUpdate } from '../../hooks/useIncidentUpdates';
 import { useImageAttachments } from '../../hooks/useImageAttachments';
 import { uploadIncidentPhotos } from '../../api/incidentPhotos';
 import PhotoPickerButton from '../../components/PhotoAttachments/PhotoPickerButton';
+import { POSTABLE_UPDATE_TYPES, UPDATE_TYPE_LABELS } from '../../components/FireDetailPanel/incidentDetailModel';
+import IncidentEvacShelterEditor from './IncidentEvacShelterEditor';
 import { INPUT_CLS, LABEL_CLS, SECTION_CLS } from './shared';
 
-/** Merge IRWIN/WFIGS + CAL FIRE incidents, keeping IRWIN on a name match (same rule as the map). */
+/**
+ * Merge IRWIN/WFIGS + CAL FIRE incidents with the same rule and inputs as the
+ * live map (CAL FIRE wins a name match; inactive CAL FIRE incidents
+ * included), so a reporter's updates, evacuations and shelters land on the
+ * same incident id the map opens. The other source's id rides along as an
+ * alias.
+ */
 async function loadMergedExternalIncidents() {
   const [irwinIncidents, calFireGeoJSON] = await Promise.all([
     fetchIncidents({ minAcres: 0.1 }),
-    fetchCalFireGeoJsonList({}).catch(() => ({ type: 'FeatureCollection', features: [] })),
+    fetchCalFireGeoJsonList({ includeInactive: true }).catch(() => ({ type: 'FeatureCollection', features: [] })),
   ]);
-  const calFireIncidents = normalizeCalFireIncidents(calFireGeoJSON);
-
-  const seen = new Set();
-  const merged = [];
-  for (const inc of [...irwinIncidents, ...calFireIncidents]) {
-    const key = getFireMatchKey(inc.name);
-    if (key) {
-      if (seen.has(key)) continue;
-      seen.add(key);
-    }
-    merged.push(inc);
-  }
-  return merged.sort((a, b) => (b.acres || 0) - (a.acres || 0));
+  // Same 30-day staleness cut as the live map's incident feed (LiveTrackerPage).
+  const cutoff = Date.now() - 30 * 24 * 60 * 60 * 1000;
+  return mergeIrwinAndCalFireIncidents(irwinIncidents, normalizeCalFireIncidents(calFireGeoJSON))
+    .filter((inc) => {
+      const t = new Date(inc.updated).getTime();
+      return !Number.isFinite(t) || t > cutoff;
+    });
 }
 
 function ExternalIncidentUpdatePanel({ incident, profile, userId, onDone }) {
   const [acreage, setAcreage] = useState('');
   const [notes, setNotes]     = useState('');
+  const [updateType, setUpdateType] = useState('field_report');
   const [busy, setBusy]       = useState(false);
   const [feedback, setFeedback] = useState(null);
   const photos = useImageAttachments();
@@ -73,8 +76,10 @@ function ExternalIncidentUpdatePanel({ incident, profile, userId, onDone }) {
         sourceName: profile?.email?.split('@')[0] || 'Reporter',
         userId,
         photoUrls,
+        updateType,
       });
 
+      setUpdateType('field_report');
       setAcreage('');
       setNotes('');
       photos.reset();
@@ -89,6 +94,14 @@ function ExternalIncidentUpdatePanel({ incident, profile, userId, onDone }) {
 
   return (
     <div className="mt-4 border-t border-sentinel-700 pt-4 space-y-3">
+      <div>
+        <label className={LABEL_CLS}>Update Type</label>
+        <select value={updateType} onChange={(e) => setUpdateType(e.target.value)} className={INPUT_CLS}>
+          {POSTABLE_UPDATE_TYPES.map((t) => (
+            <option key={t} value={t}>{UPDATE_TYPE_LABELS[t]}</option>
+          ))}
+        </select>
+      </div>
       <div>
         <label className={LABEL_CLS}>Acreage</label>
         <input
@@ -143,7 +156,7 @@ function ExternalIncidentUpdatePanel({ incident, profile, userId, onDone }) {
           type="button"
           onClick={handlePost}
           disabled={busy}
-          className="flex-1 py-2 rounded-lg text-sm font-medium text-white bg-fire-600 hover:bg-fire-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+          className="btn-glass-fire flex-1 py-2 rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
         >
           {busy ? <><RefreshCw size={13} className="animate-spin" /> Posting…</> : <><Send size={13} /> Post Update</>}
         </button>
@@ -153,7 +166,8 @@ function ExternalIncidentUpdatePanel({ incident, profile, userId, onDone }) {
 }
 
 function ExternalIncidentCard({ incident, profile, userId }) {
-  const [expanded, setExpanded] = useState(false);
+  const [panel, setPanel] = useState(null); // null | 'update' | 'evac'
+  const toggle = (next) => setPanel((p) => (p === next ? null : next));
 
   const acres = incident.acres != null
     ? Number(incident.acres).toLocaleString('en-US', { maximumFractionDigits: 1 })
@@ -184,25 +198,43 @@ function ExternalIncidentCard({ incident, profile, userId }) {
           </div>
         </div>
 
-        <button
-          onClick={() => setExpanded((v) => !v)}
-          className={`p-2 rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5 shrink-0
-            ${expanded
-              ? 'bg-fire-600/20 text-fire-400 border border-fire-600/30'
-              : 'text-sentinel-300 hover:text-white hover:bg-sentinel-700'}`}
-        >
-          <Activity size={14} />
-          <span className="hidden sm:inline">Post Update</span>
-        </button>
+        <div className="flex items-center gap-1 shrink-0">
+          <button
+            onClick={() => toggle('evac')}
+            title="Evacuations & Shelters"
+            className={`p-2 rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5
+              ${panel === 'evac'
+                ? 'bg-red-500/15 text-red-400 border border-red-500/30'
+                : 'text-sentinel-300 hover:text-white hover:bg-sentinel-700'}`}
+          >
+            <Siren size={14} />
+            <span className="hidden sm:inline">Evac</span>
+          </button>
+          <button
+            onClick={() => toggle('update')}
+            className={`p-2 rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5
+              ${panel === 'update'
+                ? 'bg-fire-600/20 text-fire-400 border border-fire-600/30'
+                : 'text-sentinel-300 hover:text-white hover:bg-sentinel-700'}`}
+          >
+            <Activity size={14} />
+            <span className="hidden sm:inline">Post Update</span>
+          </button>
+        </div>
       </div>
 
-      {expanded && (
+      {panel === 'update' && (
         <ExternalIncidentUpdatePanel
           incident={incident}
           profile={profile}
           userId={userId}
-          onDone={() => setExpanded(false)}
+          onDone={() => setPanel(null)}
         />
+      )}
+      {panel === 'evac' && (
+        <div className="mt-4 border-t border-sentinel-700 pt-4">
+          <IncidentEvacShelterEditor incidentId={incident.id} aliasIds={incident.aliasIds} profile={profile} userId={userId} />
+        </div>
       )}
     </div>
   );

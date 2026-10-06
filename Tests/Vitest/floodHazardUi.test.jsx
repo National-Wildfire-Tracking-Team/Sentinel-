@@ -36,7 +36,6 @@ const DATA = {
   level: 'detail',
   zones: { type: 'FeatureCollection', features: [{ type: 'Feature', geometry: null, properties: { id: 1, category: 'pct_1', zone: 'AE' } }] },
   panels: EMPTY,
-  availability: EMPTY,
 };
 
 describe('floodHazard utils', () => {
@@ -81,13 +80,11 @@ describe('floodHazard utils', () => {
 });
 
 describe('FloodHazardLayer', () => {
-  it('renders zones, panels, and availability layers with FEMA attribution on every source', () => {
+  it('renders only zone layers plus an invisible panel hit layer, with FEMA attribution on every source', () => {
     render(<FloodHazardLayer data={DATA} visible />);
     const ids = layerProps.map((l) => l.id);
-    expect(ids).toEqual(expect.arrayContaining([
-      FLOOD_ZONES_FILL_ID, 'flood-hazard-zones-line', FLOOD_PANELS_FILL_ID, 'flood-hazard-panels-line',
-      'flood-hazard-availability-fill', 'flood-hazard-availability-line',
-    ]));
+    expect(ids.sort()).toEqual([FLOOD_PANELS_FILL_ID, FLOOD_ZONES_FILL_ID, 'flood-hazard-zones-line'].sort());
+    expect(layerProps.find((l) => l.id === FLOOD_PANELS_FILL_ID).paint['fill-opacity']).toBe(0);
     for (const s of sourceProps) expect(s.attribution).toBe(FLOOD_ATTRIBUTION);
     expect(layerProps.every((l) => l.layout.visibility === 'visible')).toBe(true);
   });
@@ -102,8 +99,6 @@ describe('FloodHazardLayer', () => {
     const zoneFill = layerProps.find((l) => l.id === FLOOD_ZONES_FILL_ID);
     const stops = zoneFill.paint['fill-opacity'].filter((v) => typeof v === 'number').filter((_, i) => i % 2 === 1);
     expect(Math.max(...stops)).toBeLessThanOrEqual(0.35);
-    const availability = layerProps.find((l) => l.id === 'flood-hazard-availability-fill');
-    expect(availability.paint['fill-opacity']).toBeLessThanOrEqual(0.2);
   });
 
   it('draws floodways above the wider 1% floodplain', () => {
@@ -125,7 +120,7 @@ describe('MapView layer ordering', () => {
     return i;
   };
 
-  it.each(['WeatherAlertsLayer', 'FirePerimetersLayer', 'IncidentLocationsLayer', 'FireIncidentsLayer', 'EvacuationZonesLayer'])(
+  it.each(['WeatherAlertsLayer', 'FirePerimetersLayer', 'IncidentLocationsLayer', 'EvacuationZonesLayer'])(
     'renders beneath %s',
     (tag) => {
       expect(pos('FloodHazardLayer')).toBeLessThan(pos(tag));
@@ -148,9 +143,9 @@ describe('FloodHazardStatus', () => {
     expect(screen.getByRole('status').className).toMatch(/pointer-events-none/);
   });
 
-  it('prompts to zoom in below the minimum zoom', () => {
+  it('prompts to zoom in to about 1 mile below the minimum zoom', () => {
     render(<FloodHazardStatus loading={false} error={null} belowMinZoom data={{ ...DATA, level: null }} />);
-    expect(screen.getByText(/zoom in to view flood hazard data/i)).toBeInTheDocument();
+    expect(screen.getByText(/zoom in to about 1 mile to view flood risk areas/i)).toBeInTheDocument();
   });
 
   it('explains an empty result as no digital FEMA flood map', () => {
@@ -163,8 +158,4 @@ describe('FloodHazardStatus', () => {
     expect(screen.getByText(/loading flood hazard data/i)).toBeInTheDocument();
   });
 
-  it('hints at zooming in for zones at overview level', () => {
-    render(<FloodHazardStatus loading={false} error={null} belowMinZoom={false} data={{ ...DATA, level: 'overview' }} />);
-    expect(screen.getByText(/zoom in for flood zones/i)).toBeInTheDocument();
-  });
 });

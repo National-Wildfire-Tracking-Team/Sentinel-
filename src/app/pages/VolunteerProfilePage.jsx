@@ -226,7 +226,7 @@ export default function VolunteerProfilePage() {
               <button
                 type="submit"
                 disabled={saving}
-                className="px-6 py-2.5 rounded-xl bg-fire-600 text-white font-semibold text-sm hover:bg-fire-500 disabled:opacity-50 transition-colors"
+                className="btn-glass-fire px-6 py-2.5 rounded-xl font-semibold text-sm disabled:opacity-50"
               >
                 {saving ? 'Saving…' : 'Save Profile'}
               </button>

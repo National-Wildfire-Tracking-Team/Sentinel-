@@ -434,7 +434,7 @@ export default function EventReportsTab({ events, userId, onRefresh }) {
           <button
             type="submit"
             disabled={busy}
-            className="w-full py-2.5 rounded-lg text-sm font-semibold text-white bg-fire-600 hover:bg-fire-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+            className="btn-glass-fire w-full py-2.5 rounded-lg text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
           >
             {busy ? <><RefreshCw size={13} className="animate-spin" /> Submitting…</> : <><Send size={13} /> Submit Event</>}
           </button>

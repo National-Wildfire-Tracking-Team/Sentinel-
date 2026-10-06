@@ -2,12 +2,9 @@
  * FloodHazardLayer.jsx
  * FEMA National Flood Hazard Layer (NFHL), via cloud/fema-nfhl-proxy.
  *
- *   overview (zoom 7–12): NFHL availability — where FEMA has digital flood
- *                         maps. Unshaded areas have no digital FIRM (paper
- *                         maps only, or unmapped).
- *   detail   (zoom 12+):  flood hazard zones by FEMA category, plus FIRM
- *                         panel outlines (panels carry the effective date
- *                         and panel number shown on click).
+ * Shows flood risk zones by FEMA category from zoom 12 (about a 1-mile map
+ * scale) in. FIRM panels are loaded too but drawn invisibly — they're only
+ * there so a click can report the panel number and effective date.
  *
  * Contextual hazard information: mounted in MapView directly above the base
  * imagery and below weather alerts, perimeters, incidents, and evacuation
@@ -37,52 +34,18 @@ const FloodHazardLayer = memo(function FloodHazardLayer({ data, visible }) {
   const vis = visible ? 'visible' : 'none';
   const zones = data?.zones || EMPTY_GEOJSON;
   const panels = data?.panels || EMPTY_GEOJSON;
-  const availability = data?.availability || EMPTY_GEOJSON;
 
   return (
     <>
-      <Source id="flood-hazard-availability" type="geojson" data={availability} attribution={FLOOD_ATTRIBUTION}>
-        <Layer
-          id="flood-hazard-availability-fill"
-          type="fill"
-          source="flood-hazard-availability"
-          layout={{ visibility: vis }}
-          paint={{ 'fill-color': '#00c8f0', 'fill-opacity': 0.12 }}
-        />
-        <Layer
-          id="flood-hazard-availability-line"
-          type="line"
-          source="flood-hazard-availability"
-          layout={{ visibility: vis }}
-          paint={{ 'line-color': '#7dd3fc', 'line-opacity': 0.5, 'line-width': 0.8 }}
-        />
-      </Source>
-
       <Source id="flood-hazard-panels" type="geojson" data={panels} attribution={FLOOD_ATTRIBUTION}>
-        {/* Transparent everywhere except unmapped communities — kept as a
-            fill so a click anywhere inside a panel can report its panel
-            number and effective date. */}
+        {/* Fully transparent — kept as a fill so a click anywhere inside a
+            panel can report its panel number and effective date. */}
         <Layer
           id={FLOOD_PANELS_FILL_ID}
           type="fill"
           source="flood-hazard-panels"
           layout={{ visibility: vis }}
-          paint={{
-            'fill-color': '#71717a',
-            'fill-opacity': ['case', ['==', ['get', 'unmapped'], true], 0.25, 0],
-          }}
-        />
-        <Layer
-          id="flood-hazard-panels-line"
-          type="line"
-          source="flood-hazard-panels"
-          layout={{ visibility: vis }}
-          paint={{
-            'line-color': '#e4e4e7',
-            'line-opacity': 0.35,
-            'line-width': 0.75,
-            'line-dasharray': [3, 3],
-          }}
+          paint={{ 'fill-color': '#71717a', 'fill-opacity': 0 }}
         />
       </Source>
 

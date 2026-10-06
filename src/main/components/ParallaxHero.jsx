@@ -30,7 +30,7 @@ export default function ParallaxHero({
   focal = '50%',
   focalX = 'center',
   className = '',
-  overlayClassName = 'bg-gradient-to-b from-sentinel-900/70 via-sentinel-900/50 to-sentinel-900/40',
+  overlayClassName = 'bg-sentinel-900/55',
   // Shallower depth pulls the crop back towards the bar, which matters when the
   // subject sits near an edge of the photo and would otherwise drift out of view.
   overhang = OVERHANG,
@@ -86,6 +86,7 @@ export default function ParallaxHero({
     <section
       ref={barRef}
       data-parallax-hero
+      data-theme-dark
       className={`relative -mt-16 pt-16 overflow-hidden bg-sentinel-900 ${className}`}
     >
       <div

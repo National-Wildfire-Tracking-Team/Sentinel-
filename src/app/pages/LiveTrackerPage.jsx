@@ -18,7 +18,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, lazy, Suspense } fro
 // Data hooks
 import { useFireHotspots } from '../hooks/useFireHotspots';
 import { useNgfsDetections } from '../hooks/useNgfsDetections';
-import { useMergedFireData, getFireMatchKey, pointInGeometry } from '../hooks/useMergedFireData';
+import { useMergedFireData, getFireMatchKey, pointInGeometry, pointNearGeometry } from '../hooks/useMergedFireData';
 import { useAQIData } from '../hooks/useAQIData';
 import { useWeatherAlerts } from '../hooks/useWeatherAlerts';
 import { useIncidents } from '../hooks/useIncidents';
@@ -43,6 +43,7 @@ import { useWpcWssi } from '../hooks/useWpcWssi';
 import { useWpcQpf } from '../hooks/useWpcQpf';
 import { useWpcFronts } from '../hooks/useWpcFronts';
 import { useNhcTropicalWeather } from '../hooks/useNhcTropicalWeather';
+import { useNhcWindHazards } from '../hooks/useNhcWindHazards';
 import { useCriticalInfrastructure } from '../hooks/useCriticalInfrastructure';
 import { useNationalMapColleges } from '../hooks/useNationalMapColleges';
 import { useCaliforniaLandOwnership, isWithinLandOwnershipRange } from '../hooks/useCaliforniaLandOwnership';
@@ -54,9 +55,10 @@ import { useCaliforniaCameras } from '../hooks/useCaliforniaCameras';
 import { useCalFirePerimeters } from '../hooks/useCalFirePerimeters';
 import { useNearbyOutlooks } from '../hooks/useNearbyOutlooks';
 import { filterByRadius, filterFeatureCollectionByRadius, circlePolygon } from '../utils/radiusFilter';
-import { polygonCentroid } from '../utils/geoUtils';
+import { featureCollectionsBounds, polygonCentroid } from '../utils/geoUtils';
 import { incidentsToGeoJSON } from '../api/inciweb';
 import { mergeIrwinAndCalFireIncidents } from '../utils/mergeIncidents';
+import { incidentIdsFor, joinAliasIds, parseAliasIds } from '../utils/incidentAliases';
 
 // Components
 import Header from '../components/Header/Header';
@@ -80,9 +82,12 @@ import FutureFeaturesPanel from '../components/MapControls/FutureFeaturesPanel';
 import AccountButton from '../components/MapControls/AccountButton';
 import AccountPanel from '../components/AccountPanel/AccountPanel';
 import Legend from '../components/Legend/Legend';
+import { MapScaleDock } from '../components/Map/MapScaleBar';
+import { APP_VERSION } from '../version';
 import FloodHazardStatus from '../components/MapControls/FloodHazardStatus';
 import MrmsStatus from '../components/MapControls/MrmsStatus';
-import SatellitePanel from '../components/Map/SatellitePanel';
+import SatellitePanel, { SatelliteShowControlsPill } from '../components/Map/SatellitePanel';
+import SatelliteStormFocus from '../components/Map/SatelliteStormFocus';
 // Lazy-loaded: each only ever mounts once the user has actually selected the
 // corresponding fire/gauge/camera, so their code shouldn't ship in
 // the initial bundle for sessions that never open one.
@@ -195,6 +200,10 @@ function filterStaleContainedGeoJSON(geoJSON, containedKey, updatedKey) {
 
 const ONE_MONTH_MS = 30 * 24 * 60 * 60 * 1000;
 
+// How far (degrees) a same-named community report may sit outside a
+// perimeter and still be treated as that fire (~5.5 km).
+const REPORT_PERIMETER_BUFFER_DEG = 0.05;
+
 /**
  * Returns true if a timestamp is older than maxAgeMs. Missing or unparseable
  * timestamps are treated as not-stale (kept), matching isStaleContained's
@@ -252,12 +261,19 @@ function filterActiveFiresGeoJSON(geoJSON, { containedKey }) {
   };
 }
 
+// Page freshness (see "Keep the page from going stale" below): refresh on
+// return once data is a minute old, and force one if no feed has refreshed
+// in longer than a poll cycle (feeds poll every 5 minutes).
+const RESUME_REFRESH_AFTER_MS = 60 * 1000;
+const STALE_AFTER_MS = 6 * 60 * 1000;
+const STALE_CHECK_MS = 30 * 1000;
+
 // RAWS stations load once the map is zoomed in to roughly county scale
 const RAWS_MIN_ZOOM = 9;
 
 export default function LiveTrackerPage() {
-  const { layers, setLayer, feedFilter, selectedGauge, selectGauge, selectedFire, selectFire, selectedCamera, selectCamera, wpcOutlookDay, closeLayerPanel } = useApp();
-  const { setRefreshed, setLoading, alerts, userLocation } = useAppStatus();
+  const { layers, setLayer, feedFilter, selectedGauge, selectGauge, selectedFire, selectFire, selectedCamera, selectCamera, wpcOutlookDay, nhcWindProbKt, closeLayerPanel } = useApp();
+  const { setRefreshed, setLoading, alerts, userLocation, lastRefreshed } = useAppStatus();
   const { home, nearbyActive } = useHomeSetup();
   const { viewport, setViewport, flyToFire } = useViewport();
   const { prefs } = usePreferences();
@@ -271,6 +287,7 @@ export default function LiveTrackerPage() {
   const [mapType, setMapType] = useState('satellite');
   const [weatherAlertFilter, setWeatherAlertFilter] = useState('all');
   const [bannerDismissed, setBannerDismissed] = useState(false);
+  const reopenBanner = useCallback(() => setBannerDismissed(false), []);
   const [measureActive, setMeasureActive] = useState(false);
   const [measureMode, setMeasureMode] = useState('distance');
 
@@ -300,6 +317,15 @@ export default function LiveTrackerPage() {
       setLayer('landOwnership', false);
     }
   }, [criticalInfraEntitled, layers.landOwnership, setLayer]);
+
+  // The map canvas bleeds below the page (see .viewport-bleed), so the
+  // document itself must not scroll while this full-screen page is mounted.
+  useEffect(() => {
+    const els = [document.documentElement, document.body];
+    const prev = els.map((el) => [el.style.overflow, el.style.overscrollBehavior]);
+    els.forEach((el) => { el.style.overflow = 'hidden'; el.style.overscrollBehavior = 'none'; });
+    return () => els.forEach((el, i) => { [el.style.overflow, el.style.overscrollBehavior] = prev[i]; });
+  }, []);
 
   // Wildfire, weather, and all-hazard tabs all default to satellite view.
   useEffect(() => {
@@ -379,7 +405,7 @@ export default function LiveTrackerPage() {
   // community-submitted overlays — is deferred a further step, kicked off
   // only once the browser is idle after the map is ready.
   const [mapReady, setMapReady] = useState(false);
-  // The live map instance, for the distance scale drawn under the legends.
+  // The live map instance, for the distance scale beside the bottom bar.
   const [mapInstance, setMapInstance] = useState(null);
   const handleMapLoad = useCallback((e) => {
     setMapReady(true);
@@ -672,9 +698,17 @@ export default function LiveTrackerPage() {
     refresh: refreshWpcMpd,
   } = useWpcMesoscaleDiscussion(weatherDataEnabled && layers.weatherAlerts);
 
-  // Permanent layer (not user-toggleable) — fetches whenever the weather, all-hazard or models tab is active.
-  const nhcTropicalWeatherEnabled = weatherDataEnabled || (activeMapTab === MAP_TABS.models && mapReady);
+  // Fetches on the weather, all-hazard and models tabs while any Tropical (NHC)
+  // switch is on — the sidebar's Tropical feed reads the same data.
+  // The wind/surge layers need the active storm slots, so they count too.
+  const nhcAnyLayerOn = Boolean(layers.nhcTropical && (layers.nhcCone || layers.nhcTrack || layers.nhcWatchWarning
+    || layers.nhcOutlook || layers.nhcWindProb || layers.nhcWindRadii || layers.nhcArrival || layers.nhcSurge));
+  const nhcTropicalWeatherEnabled = nhcAnyLayerOn
+    && (weatherDataEnabled || (activeMapTab === MAP_TABS.models && mapReady));
   const {
+    cyclones: nhcCyclones,
+    invests: nhcInvests,
+    loading: nhcLoading,
     forecastPointsGeoJSON: nhcForecastPointsGeoJSON,
     forecastTrackGeoJSON: nhcForecastTrackGeoJSON,
     coneGeoJSON: nhcConeGeoJSON,
@@ -686,6 +720,16 @@ export default function LiveTrackerPage() {
     stormLabelsGeoJSON: nhcStormLabelsGeoJSON,
     refresh: refreshNhcTropicalWeather,
   } = useNhcTropicalWeather(nhcTropicalWeatherEnabled);
+
+  const nhcSlots = useMemo(() => nhcCyclones.map((c) => c.slot), [nhcCyclones]);
+  const nhcWindHazards = useNhcWindHazards({
+    enabled: nhcTropicalWeatherEnabled,
+    slots: nhcSlots,
+    probKt: layers.nhcTropical && layers.nhcWindProb ? nhcWindProbKt : null,
+    radii: Boolean(layers.nhcTropical && layers.nhcWindRadii),
+    arrival: Boolean(layers.nhcTropical && layers.nhcArrival),
+    surge: Boolean(layers.nhcTropical && layers.nhcSurge),
+  });
 
   // NOAA NWPS water gauges
   const {
@@ -722,11 +766,6 @@ export default function LiveTrackerPage() {
     }
     return [...byKey.values(), ...unkeyed];
   }, [activeMapTab, approvedReports]);
-  const userReportsGeoJSON = useMemo(
-    () => reportsToGeoJSON(reporterReports),
-    [reporterReports]
-  );
-
   // Community-submitted hazard events – wildfire, hazmat, hazard, flooding.
   // Tertiary tier: a supplemental overlay, not needed for first paint.
   const { events: activeHazardEvents } = useHazardEvents('active', tertiaryReady);
@@ -751,24 +790,37 @@ export default function LiveTrackerPage() {
     return tagStaleFire(containedFiltered, 'ModifiedOnDateTime', ONE_MONTH_MS);
   }, [perimetersGeoJSON]);
 
-  // Perimeters whose upstream name is a blank-data placeholder ("Unknown
-  // Fire"/"Unnamed") borrow a name from a community report that falls inside
-  // their polygon, so the map doesn't show an unhelpful placeholder when
-  // reporters have already identified the fire.
+  // Link community reports to the perimeter of the fire they describe: a
+  // nameless perimeter ("Unknown Fire"/"Unnamed") borrows the name of a
+  // report inside its polygon; a named one claims a same-named report near
+  // it. The report id joins the perimeter's aliases (so evacuations/updates
+  // a reporter entered on the report show in its panel) and `_reportId`
+  // lets the map drop the report's own dot in favour of the perimeter's.
   const namedPerimetersGeoJSON = useMemo(() => {
     if (!freshPerimetersGeoJSON?.features?.length || !reporterReports.length)
       return freshPerimetersGeoJSON;
     return {
       ...freshPerimetersGeoJSON,
       features: freshPerimetersGeoJSON.features.map(f => {
-        if (getFireMatchKey(f.properties.IncidentName)) return f;
+        const key = getFireMatchKey(f.properties.IncidentName);
         const match = reporterReports.find(r => {
           const lng = Number(r.longitude);
           const lat = Number(r.latitude);
-          return Number.isFinite(lng) && Number.isFinite(lat) && pointInGeometry([lng, lat], f.geometry);
+          if (!Number.isFinite(lng) || !Number.isFinite(lat)) return false;
+          if (!key) return pointInGeometry([lng, lat], f.geometry);
+          return getFireMatchKey(r.title) === key
+            && pointNearGeometry([lng, lat], f.geometry, REPORT_PERIMETER_BUFFER_DEG);
         });
         if (!match) return f;
-        return { ...f, properties: { ...f.properties, IncidentName: match.title } };
+        return {
+          ...f,
+          properties: {
+            ...f.properties,
+            IncidentName: key ? f.properties.IncidentName : match.title,
+            _aliasIds: joinAliasIds(f.properties.UniqueFireIdentifier, f.properties._aliasIds, match.id),
+            _reportId: match.id,
+          },
+        };
       }),
     };
   }, [freshPerimetersGeoJSON, reporterReports]);
@@ -793,6 +845,21 @@ export default function LiveTrackerPage() {
       ? filterActiveFiresGeoJSON(namedPerimetersGeoJSON, { containedKey: 'PercentContained' })
       : namedPerimetersGeoJSON
   ), [isFocused, namedPerimetersGeoJSON]);
+
+  // One dot per fire: a report already represented by a perimeter's centroid
+  // dot (see namedPerimetersGeoJSON) isn't drawn again. Perimeters without a
+  // centroid dot (historical, stale or fully contained) don't claim it.
+  const userReportsGeoJSON = useMemo(() => {
+    const coveredReportIds = new Set();
+    (filteredPerimetersGeoJSON?.features || []).forEach(f => {
+      const p = f.properties;
+      if (p._reportId && !p.isHistoricalMapping && !p.isStaleFire && !p.HideFromCentroid
+        && (Number(p.PercentContained) || 0) < 100) {
+        coveredReportIds.add(p._reportId);
+      }
+    });
+    return reportsToGeoJSON(reporterReports.filter(r => !coveredReportIds.has(r.id)));
+  }, [reporterReports, filteredPerimetersGeoJSON]);
 
   // ── Perimeter-only incidents for sidebar ──
   // Some fires have perimeter polygons (NIFC/WFIGS) but no matching
@@ -893,6 +960,8 @@ export default function LiveTrackerPage() {
         // Attach reporter metadata so downstream components can reference it.
         hasReporterData: true,
         reportId: report.id,
+        // Evacuations/updates a reporter entered on their own report belong to this fire too.
+        aliasIds: parseAliasIds([...(inc.aliasIds || []), report.id]),
         reportDescription: report.description,
         reportedAt: report.created_at,
       };
@@ -934,7 +1003,9 @@ export default function LiveTrackerPage() {
       return;
     }
 
-    const incidentMatch = mergedIncidents.find((inc) => String(inc.id) === incidentId);
+    // Links may carry any id the fire is known by (e.g. an email sent before
+    // CAL FIRE picked the fire up and replaced the IRWIN record).
+    const incidentMatch = mergedIncidents.find((inc) => incidentIdsFor(inc).includes(incidentId));
     if (incidentMatch) {
       selectFire({ type: 'incident', ...incidentMatch });
       flyToFire(incidentMatch);
@@ -968,6 +1039,7 @@ export default function LiveTrackerPage() {
 
     const perimeterFeature = namedPerimetersGeoJSON?.features?.find(
       (f) => String(f.properties?.UniqueFireIdentifier) === incidentId
+        || parseAliasIds(f.properties?._aliasIds).includes(incidentId)
     );
     if (perimeterFeature) {
       const p = perimeterFeature.properties;
@@ -989,7 +1061,9 @@ export default function LiveTrackerPage() {
         updated: p.ModifiedOnDateTime,
         orgType: p.IncidentManagementOrganization,
         cause: p.FireCause || null,
-        source: p.Source || null,
+        source: p._source || p.Source || null,
+        historical: Boolean(p.isHistoricalMapping),
+        aliasIds: parseAliasIds(p._aliasIds),
       };
       selectFire(record);
       flyToFire(record);
@@ -1213,7 +1287,10 @@ export default function LiveTrackerPage() {
     deduplicatedIncidentsGeoJSON, finalIncidentDotsGeoJSON, filteredAlertsGeoJSON]);
 
   // ── Global loading state ──
-  const anyLoading = hotspotsLoading || ngfsLoading || perimetersLoading || incidentsLoading || calFireLoading;
+  // Weather alerts count too: they're the live feed on the Weather tab, where
+  // the wildfire feeds are switched off, so without them "Updated …" would
+  // stop moving there.
+  const anyLoading = hotspotsLoading || ngfsLoading || perimetersLoading || incidentsLoading || calFireLoading || alertsLoading;
   useEffect(() => { setLoading(anyLoading); }, [anyLoading, setLoading]);
   useEffect(() => {
     if (!anyLoading) setRefreshed(new Date());
@@ -1279,6 +1356,44 @@ export default function LiveTrackerPage() {
     floodHazardEnabled,
   ]);
 
+  // ── Keep the page from going stale ──
+  // Feeds poll on their own timers, but browsers pause or throttle timers in
+  // background tabs and on locked phones, so a page left open can come back
+  // showing data (and an "Updated" time) from long ago. Refresh everything as
+  // soon as the page is visible again or back online, and as a backstop
+  // whenever nothing has refreshed for longer than one poll cycle.
+  const handleRefreshRef = useRef(handleRefresh);
+  const lastRefreshedRef = useRef(lastRefreshed);
+  useEffect(() => {
+    handleRefreshRef.current = handleRefresh;
+    lastRefreshedRef.current = lastRefreshed;
+  }, [handleRefresh, lastRefreshed]);
+
+  useEffect(() => {
+    if (!mapReady) return undefined;
+    const ageMs = () => {
+      const t = lastRefreshedRef.current ? new Date(lastRefreshedRef.current).getTime() : 0;
+      return Date.now() - t;
+    };
+    const refreshIfOlderThan = (maxAgeMs) => {
+      if (document.visibilityState === 'hidden') return;
+      if (ageMs() >= maxAgeMs) handleRefreshRef.current();
+    };
+    const onVisible = () => refreshIfOlderThan(RESUME_REFRESH_AFTER_MS);
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('focus', onVisible);
+    window.addEventListener('online', onVisible);
+    window.addEventListener('pageshow', onVisible);
+    const watchdog = window.setInterval(() => refreshIfOlderThan(STALE_AFTER_MS), STALE_CHECK_MS);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('focus', onVisible);
+      window.removeEventListener('online', onVisible);
+      window.removeEventListener('pageshow', onVisible);
+      window.clearInterval(watchdog);
+    };
+  }, [mapReady]);
+
   // Measures the bottom bar's own rendered size so the outlook selectors
   // docked on top of it (rendered separately, inside MapView) can match its
   // width and sit flush against it, instead of guessing a fixed size.
@@ -1312,6 +1427,29 @@ export default function LiveTrackerPage() {
   }, [layers]);
   const satelliteActive = Boolean(layers.satellite) && activeMapTab !== MAP_TABS.models;
   const satelliteDocked = satelliteActive && satellitePanelOpen;
+
+  // What the satellite panel reports as drawn over the imagery.
+  const alertsOnThisTab = activeMapTab === MAP_TABS.wildfire || activeMapTab === MAP_TABS.weather
+    || activeMapTab === MAP_TABS.allhazard;
+  const satelliteOverlays = useMemo(() => {
+    if (!satelliteActive) return null;
+    const alerts = alertsOnThisTab
+      ? {
+        on: Boolean(layers.weatherAlerts),
+        count: (filteredAlertsGeoJSON?.features ?? []).filter((f) => f?.geometry).length,
+        onToggle: () => setLayer('weatherAlerts', !layers.weatherAlerts),
+      }
+      : null;
+    const tropical = nhcTropicalWeatherEnabled
+      ? {
+        storms: nhcStormLabelsGeoJSON?.features?.length ?? 0,
+        areas: nhcDisturbanceAreasGeoJSON?.features?.length ?? 0,
+        bounds: featureCollectionsBounds(nhcConeGeoJSON, nhcForecastPointsGeoJSON, nhcDisturbanceAreasGeoJSON, nhcDisturbancePointsGeoJSON),
+      }
+      : null;
+    return { alerts, tropical };
+  }, [satelliteActive, alertsOnThisTab, layers.weatherAlerts, filteredAlertsGeoJSON, setLayer, nhcTropicalWeatherEnabled,
+    nhcStormLabelsGeoJSON, nhcDisturbanceAreasGeoJSON, nhcConeGeoJSON, nhcForecastPointsGeoJSON, nhcDisturbancePointsGeoJSON]);
   const satellitePanelRef = useRef(null);
   const [satellitePanelHeight, setSatellitePanelHeight] = useState(0);
 
@@ -1398,7 +1536,9 @@ export default function LiveTrackerPage() {
   const layerPanelDockClearance = totalDockedHeight ? totalDockedHeight + 8 : 0;
 
   return (
-    <div className="h-screen supports-[height:100dvh]:h-dvh w-screen flex flex-col bg-sentinel-900 text-white overflow-hidden select-none">
+    // overflow-x-clip (not overflow-hidden) so the map canvas can bleed below
+    // the page into the large viewport — see .viewport-bleed in index.css.
+    <div className="viewport-bleed h-screen supports-[height:100dvh]:h-dvh w-screen flex flex-col bg-sentinel-900 text-white overflow-x-clip select-none">
       <Seo
         title="Live Wildfire Map & Tracker | Sentinel by NWTT"
         description="Track active wildfires in real time with satellite hotspot detection, fire perimeters, containment status, red flag warnings, and air quality — free, from the National Wildfire Tracking Team."
@@ -1417,7 +1557,7 @@ export default function LiveTrackerPage() {
       <MrmsProvider active={activeMapTab === MAP_TABS.weather && Boolean(layers.mrms)}>
       <SatelliteProvider active={satelliteActive} panelOpen={satellitePanelOpen} onPanelOpenChange={setSatellitePanelOpen}>
       <div
-        className={`flex-1 relative overflow-hidden ${MODEL_COLOR_VARS}`}
+        className={`flex-1 relative overflow-x-clip ${MODEL_COLOR_VARS}`}
         style={{ '--map-bottom-stack': `${mapBottomBarSize.height + totalDockedHeight + 24}px` }}
       >
         <MapView
@@ -1463,6 +1603,7 @@ export default function LiveTrackerPage() {
             landOwnershipVisible={landOwnershipEnabled}
             floodHazardData={floodHazardData}
             floodHazardVisible={floodHazardEnabled}
+            satelliteImageryOn={satelliteActive}
             nhcForecastPointsGeoJSON={nhcForecastPointsGeoJSON}
             nhcForecastTrackGeoJSON={nhcForecastTrackGeoJSON}
             nhcConeGeoJSON={nhcConeGeoJSON}
@@ -1472,6 +1613,7 @@ export default function LiveTrackerPage() {
             nhcDisturbancePointsGeoJSON={nhcDisturbancePointsGeoJSON}
             nhcDisturbanceAreasGeoJSON={nhcDisturbanceAreasGeoJSON}
             nhcStormLabelsGeoJSON={nhcStormLabelsGeoJSON}
+            nhcWindHazards={nhcWindHazards}
             fireWeatherOutlooksGeoJSON={fireWeatherOutlooksGeoJSON}
             fireWxOutlookType={fireWxOutlookType}
             fireWxActiveDay={fireWxActiveDay}
@@ -1499,7 +1641,7 @@ export default function LiveTrackerPage() {
             modelOverlay={activeMapTab === MAP_TABS.models ? (p) => <WeatherModelsMapLayer {...p} /> : null}
           />
 
-          <MapCornerButtons />
+          <MapCornerButtons onReopenBanner={reopenBanner} />
 
           {floodHazardEnabled && (
             <FloodHazardStatus
@@ -1521,14 +1663,28 @@ export default function LiveTrackerPage() {
             activeMapTab={activeMapTab}
             weatherAlertsLoading={alertsLoading}
             weatherAlertsError={alertsError}
-            onReopenBanner={() => setBannerDismissed(false)}
+            onReopenBanner={reopenBanner}
             weatherAlertFilter={weatherAlertFilter}
             onWeatherAlertFilterChange={setWeatherAlertFilter}
             onWeatherAlertsRefresh={refreshAlerts}
+            nhcCyclones={nhcCyclones}
+            nhcInvests={nhcInvests}
+            nhcLoading={nhcLoading}
+            nhcEnabled={nhcTropicalWeatherEnabled}
             modelsPanel={<WeatherModelsPanel />}
           />
 
-          <FutureFeaturesPanel mapType={mapType} onMapTypeChange={setMapType} />
+          {/* The legend lives in the app menu; the Models tab swaps in its own,
+              since it turns the operational layers off. */}
+          <FutureFeaturesPanel
+            mapType={mapType}
+            onMapTypeChange={setMapType}
+            legend={activeMapTab === MAP_TABS.models ? (
+              <ModelLegend />
+            ) : (
+              <Legend spcOutlookType={spcOutlookType} fireWxOutlookType={fireWxOutlookType} />
+            )}
+          />
           {/* Hidden while the full-height water gauge panel is open, whose close button sits in the same corner. */}
           {!selectedGauge && <AccountButton />}
           <AccountPanel />
@@ -1551,12 +1707,15 @@ export default function LiveTrackerPage() {
             ref={satellitePanelRef}
             bottomBarWidth={mapBottomBarSize.width}
             bottomBarHeight={mapBottomBarSize.height}
+            overlays={satelliteOverlays}
           />
+          <SatelliteStormFocus selected={selectedFire} />
+          {/* bottom-4 bar + anything docked on it + an 8px gap */}
+          <SatelliteShowControlsPill bottomOffset={16 + mapBottomBarSize.height + totalDockedHeight + 8} />
 
           {activeMapTab === MAP_TABS.models && (
             <>
               <ModelFieldLegend />
-              <ModelLegend map={mapInstance} />
               <ModelFieldTimeline
                 ref={modelsTimelineRef}
                 bottomBarWidth={mapBottomBarSize.width}
@@ -1565,16 +1724,15 @@ export default function LiveTrackerPage() {
             </>
           )}
 
-          {/* The legend explains operational layers, which the Models tab turns off
-              (it gets ModelLegend in the same spot instead). */}
-          {activeMapTab !== MAP_TABS.models && (
-            <Legend
-              map={mapInstance}
-              spcOutlookType={spcOutlookType}
-              spcActiveDay={spcActiveDay}
-              fireWxOutlookType={fireWxOutlookType}
-            />
-          )}
+          <MapScaleDock
+            map={mapInstance}
+            bottomBarWidth={mapBottomBarSize.width}
+            bottomBarHeight={mapBottomBarSize.height}
+          />
+
+          <span className="absolute bottom-0.5 right-1.5 z-20 pointer-events-none select-none text-[10px] leading-none font-medium tabular-nums text-white/70 [text-shadow:0_1px_2px_rgba(0,0,0,0.8)]">
+            v{APP_VERSION}
+          </span>
           <Suspense fallback={null}>
             {selectedFire && <FireDetailPanel />}
             {selectedGauge && (

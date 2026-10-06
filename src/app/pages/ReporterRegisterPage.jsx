@@ -13,6 +13,8 @@ import {
 } from 'lucide-react';
 
 import { useAuth } from '../../shared/context/AuthContext';
+import { isExistingAccountSignUp } from '../../shared/utils/authEmail';
+import ResendConfirmation from '../components/Auth/ResendConfirmation';
 
 export default function ReporterRegisterPage() {
   const { signUp, isSupabaseConfigured } = useAuth();
@@ -60,6 +62,10 @@ export default function ReporterRegisterPage() {
 
       const { data, error: err } = await signUp(email, password, metadata);
       if (err) throw err;
+      if (isExistingAccountSignUp(data)) {
+        setError('An account with this email already exists. Sign in instead, or use "Forgot password" to reset it.');
+        return;
+      }
 
       // When Supabase has email confirmation enabled, signUp returns a user but
       // no active session. Detect this and show a confirmation prompt instead of
@@ -105,9 +111,10 @@ export default function ReporterRegisterPage() {
                 <strong>Important:</strong> You must confirm your email before you can sign in.
                 If you don&apos;t see the email, check your spam or junk folder.
               </div>
+              <ResendConfirmation email={email} />
               <Link
                 to="/login"
-                className="mt-2 w-full py-3 rounded-lg font-semibold text-sm text-white bg-fire-600 hover:bg-fire-700 transition-all text-center block"
+                className="btn-glass-fire mt-2 w-full py-3 rounded-lg font-semibold text-sm text-center block"
               >
                 Go to Sign In
               </Link>
@@ -272,8 +279,8 @@ export default function ReporterRegisterPage() {
             <button
               type="submit"
               disabled={busy || !isSupabaseConfigured}
-              className="w-full py-3 rounded-lg font-semibold text-sm text-white bg-fire-600 hover:bg-fire-700
-                         disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+              className="btn-glass-fire w-full py-3 rounded-lg font-semibold text-sm
+                         disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {busy ? 'Creating account…' : 'Create Account'}
             </button>

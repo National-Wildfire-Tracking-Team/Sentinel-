@@ -5,7 +5,7 @@
  * pulling in the tracker app's map/theme/viewport providers, which the
  * reporter dashboard never uses.
  *
- * Routes are un-prefixed (/, /login, /register) since the subdomain itself
+ * Routes are un-prefixed (/, /login, /register, /auth/callback) since the subdomain itself
  * already scopes them to the reporter portal.
  */
 
@@ -16,6 +16,7 @@ import Seo from '../shared/components/Seo';
 const ReporterDashboardPage = lazy(() => import('./pages/reporter-dashboard'));
 const ReporterLoginPage = lazy(() => import('./pages/ReporterLoginPage'));
 const ReporterRegisterPage = lazy(() => import('./pages/ReporterRegisterPage'));
+const AuthCallbackPage = lazy(() => import('./pages/AuthCallbackPage'));
 
 function ScrollToTop() {
   const { pathname } = useLocation();
@@ -43,6 +44,7 @@ export default function ReporterTree() {
           <Route path="/" element={<><Seo title="Reporter Dashboard | Sentinel" noindex /><ReporterDashboardPage /></>} />
           <Route path="/login" element={<><Seo title="Reporter Sign In | Sentinel" noindex /><ReporterLoginPage /></>} />
           <Route path="/register" element={<><Seo title="Reporter Registration | Sentinel" noindex /><ReporterRegisterPage /></>} />
+          <Route path="/auth/callback" element={<><Seo title="Reporter Account | Sentinel" noindex /><AuthCallbackPage /></>} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Suspense>
