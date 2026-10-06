@@ -2,118 +2,108 @@
  * IncidentTimeline.jsx
  * Live update feed for an incident. Displays reporter and automated updates
  * in reverse-chronological order with realtime subscription via Supabase.
+ * Updates that arrive live are briefly highlighted and tagged "New".
  */
 
 import { useState, useMemo } from 'react';
-import {
-  MessageSquare, Bot, Send, Pencil, Trash2, Check, X, Loader2,
-} from 'lucide-react';
+import { BadgeCheck, Send, Pencil, Trash2, Check, X, Loader2 } from 'lucide-react';
 import { useIncidentUpdates } from '../../hooks/useIncidentUpdates';
 import { useImageAttachments } from '../../hooks/useImageAttachments';
 import { uploadIncidentPhotos } from '../../api/incidentPhotos';
 import { useAuth } from '../../../shared/context/AuthContext';
+import { formatClockTime } from '../../utils/formatUtils';
+import {
+  POSTABLE_UPDATE_TYPES, UPDATE_TYPE_LABELS, updateMessage, updateTypeLabel,
+} from '../FireDetailPanel/incidentDetailModel';
 import PhotoPickerButton from '../PhotoAttachments/PhotoPickerButton';
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
+// ─── Single update entry ─────────────────────────────────────────────────────
 
-/** Short, all-caps badge label for the update's source (e.g. "CAL FIRE"). */
-function sourceBadgeLabel(sourceName) {
-  const name = (sourceName || '').trim();
-  if (!name) return 'UPDATE';
-  if (/cal\s*fire/i.test(name)) return 'CAL FIRE';
-  return name.toUpperCase();
-}
-
-/** "Data Updated" for field-diff automated content, "Status Update" otherwise. */
-function updateTitle(update) {
-  if (update.source_type !== 'automated') return 'Field Report';
-  return update.content?.includes('→') ? 'Data Updated' : 'Status Update';
-}
-
-/** Multi-line diff content ("Acres: ...\nContainment: ...") joins with " · ". */
-function updateDescription(update) {
-  const lines = (update.content || '').split('\n').filter(Boolean);
-  return lines.length > 1 ? lines.join(' · ') : (update.content || '');
-}
-
-/** Splits a timestamp into stacked { date, time } strings for card headers. */
-function splitTimestamp(iso) {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return { date: '—', time: '' };
-  return {
-    date: d.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' }),
-    time: d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
-  };
-}
-
-// ─── Single update card ──────────────────────────────────────────────────────
-
-function UpdateCard({ update, isLatest, currentUserId, onEdit, onDelete }) {
+function UpdateEntry({ update, fresh, padX, currentUserId, onEdit, onDelete }) {
   const isOwn = currentUserId && update.user_id === currentUserId;
   const isAutomated = update.source_type === 'automated';
-  const badge = sourceBadgeLabel(update.source_name);
-  const { date, time } = splitTimestamp(update.created_at);
-
-  const badgeClasses = isAutomated
-    ? 'bg-red-950/60 text-red-400 border-red-800/50'
-    : 'bg-amber-950/40 text-amber-300 border-amber-800/40';
+  const photos = Array.isArray(update.photo_urls) ? update.photo_urls : [];
 
   return (
-    <div className="rounded-xl border border-sentinel-700 bg-sentinel-800/40 p-3 group">
-      <div className="flex items-start justify-between gap-2 mb-2.5">
-        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border ${badgeClasses}`}>
-          {isAutomated ? <Bot size={10} /> : null}
-          {badge}
-        </span>
-        <div className="flex items-start gap-1.5 shrink-0">
-          <div className="text-right">
-            <div className="text-[11px] text-sentinel-500 leading-tight">{date}</div>
-            <div className="text-[11px] text-sentinel-500 leading-tight">{time}</div>
+    <article
+      className={`group py-4 border-b border-sentinel-700 transition-colors duration-1000 ${padX}
+        ${fresh ? 'bg-[rgba(255,90,0,0.08)]' : 'bg-transparent'}`}
+    >
+      <div className="flex items-center gap-1.5 text-[13px] leading-5">
+        <time dateTime={update.created_at} className="text-sentinel-200 tabular-nums">
+          {formatClockTime(update.created_at)}
+        </time>
+        <span className="text-sentinel-200" aria-hidden>·</span>
+        <span className="text-white font-semibold">{updateTypeLabel(update)}</span>
+        {fresh && (
+          <span className="ml-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-fire-400">New</span>
+        )}
+        {isOwn && (
+          <div className="ml-auto -my-3 -mr-3 flex opacity-60 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
+            <button
+              type="button"
+              onClick={() => onEdit(update)}
+              className="w-11 h-11 inline-flex items-center justify-center text-sentinel-200 hover:text-white"
+              aria-label="Edit update"
+            >
+              <Pencil size={13} />
+            </button>
+            <button
+              type="button"
+              onClick={() => onDelete(update.id)}
+              className="w-11 h-11 inline-flex items-center justify-center text-sentinel-200 hover:text-red-400"
+              aria-label="Delete update"
+            >
+              <Trash2 size={13} />
+            </button>
           </div>
-          {isOwn && (
-            <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-              <button
-                onClick={() => onEdit(update)}
-                className="p-0.5 text-sentinel-500 hover:text-sentinel-200 transition-colors"
-                title="Edit update"
-              >
-                <Pencil size={10} />
-              </button>
-              <button
-                onClick={() => onDelete(update.id)}
-                className="p-0.5 text-sentinel-500 hover:text-red-400 transition-colors"
-                title="Delete update"
-              >
-                <Trash2 size={10} />
-              </button>
-            </div>
-          )}
-        </div>
+        )}
       </div>
 
-      <p className="text-white font-bold text-sm leading-tight mb-1">{updateTitle(update)}</p>
-      <p className="text-sentinel-300 text-xs leading-relaxed whitespace-pre-wrap">
-        {updateDescription(update)}
-      </p>
+      {update.content && (
+        <p className="mt-1.5 text-[15px] leading-[1.55] text-sentinel-100 whitespace-pre-wrap break-words">
+          {updateMessage(update)}
+        </p>
+      )}
 
-      {Array.isArray(update.photo_urls) && update.photo_urls.length > 0 && (
-        <div className="flex flex-wrap gap-1.5 mt-2">
-          {update.photo_urls.map((url, i) => (
-            <a key={url} href={url} target="_blank" rel="noopener noreferrer" className="shrink-0">
-              <img
-                src={url}
-                alt={`Attachment ${i + 1}`}
-                className="w-14 h-14 object-cover rounded-md border border-sentinel-700 hover:opacity-80 transition-opacity"
-              />
+      {photos[0] && (
+        <a href={photos[0]} target="_blank" rel="noopener noreferrer" className="block mt-3">
+          <img
+            src={photos[0]}
+            alt="Photo attached to this update"
+            loading="lazy"
+            className="w-full max-h-80 object-cover rounded-lg border border-sentinel-700"
+          />
+        </a>
+      )}
+      {photos.length > 1 && (
+        <div className="mt-1 flex flex-wrap gap-x-3">
+          {photos.slice(1).map((url, i) => (
+            <a
+              key={url}
+              href={url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center min-h-[44px] text-xs text-sentinel-200 hover:text-white"
+            >
+              Photo {i + 2}
             </a>
           ))}
         </div>
       )}
 
-      {isLatest && (
-        <p className="text-sentinel-500 text-[11px] italic mt-2">Updated by: {badge}</p>
-      )}
-    </div>
+      <p className="mt-2 flex items-center gap-1 text-xs text-sentinel-200">
+        <span className="text-sentinel-100 font-medium">{update.source_name || 'Reporter'}</span>
+        {isAutomated ? (
+          <span>· Automated feed</span>
+        ) : (
+          <>
+            <BadgeCheck size={13} className="text-sentinel-100" aria-label="Verified reporter" />
+            <span>NWTT Reporter</span>
+          </>
+        )}
+      </p>
+    </article>
   );
 }
 
@@ -121,6 +111,7 @@ function UpdateCard({ update, isLatest, currentUserId, onEdit, onDelete }) {
 
 function ComposeBox({ onSubmit, disabled }) {
   const [text, setText] = useState('');
+  const [updateType, setUpdateType] = useState('field_report');
   const [submitting, setSubmitting] = useState(false);
   const photos = useImageAttachments();
 
@@ -130,7 +121,7 @@ function ComposeBox({ onSubmit, disabled }) {
     if ((!trimmed && photos.images.length === 0) || submitting) return;
     setSubmitting(true);
     try {
-      await onSubmit({ content: trimmed, files: photos.images.map((img) => img.file) });
+      await onSubmit({ content: trimmed, updateType, files: photos.images.map((img) => img.file) });
       setText('');
       photos.reset();
     } finally {
@@ -140,6 +131,18 @@ function ComposeBox({ onSubmit, disabled }) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-2">
+      <select
+        value={updateType}
+        onChange={(e) => setUpdateType(e.target.value)}
+        disabled={disabled || submitting}
+        aria-label="Update type"
+        className="w-full min-h-[44px] bg-sentinel-900 border border-sentinel-500 rounded-lg px-3
+                   text-sm text-slate-100 focus:outline-none focus:border-fire-600"
+      >
+        {POSTABLE_UPDATE_TYPES.map((t) => (
+          <option key={t} value={t}>{UPDATE_TYPE_LABELS[t]}</option>
+        ))}
+      </select>
       <div className="flex gap-2 items-end">
         <textarea
           value={text}
@@ -147,10 +150,9 @@ function ComposeBox({ onSubmit, disabled }) {
           placeholder="Post an update..."
           disabled={disabled || submitting}
           rows={2}
-          className="flex-1 bg-sentinel-800/80 border border-sentinel-700 rounded-lg px-3 py-2
-                     text-xs text-sentinel-200 placeholder:text-sentinel-600
-                     focus:outline-none focus:border-fire-500/50 focus:ring-1 focus:ring-fire-500/20
-                     resize-none disabled:opacity-50"
+          className="flex-1 bg-sentinel-900 border border-sentinel-500 rounded-lg px-3 py-2
+                     text-sm text-slate-100 placeholder:text-sentinel-300
+                     focus:outline-none focus:border-fire-600 resize-none disabled:opacity-50"
           onKeyDown={(e) => {
             if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) handleSubmit(e);
           }}
@@ -158,11 +160,12 @@ function ComposeBox({ onSubmit, disabled }) {
         <button
           type="submit"
           disabled={(!text.trim() && photos.images.length === 0) || disabled || submitting}
-          className="p-2 bg-fire-600/80 hover:bg-fire-600 text-white rounded-lg
-                     transition-colors disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
+          className="w-11 h-11 inline-flex items-center justify-center bg-fire-600 hover:bg-fire-500
+                     text-sentinel-900 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
+          aria-label="Post update"
           title="Post update (Ctrl+Enter)"
         >
-          {submitting ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
+          {submitting ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
         </button>
       </div>
       <PhotoPickerButton {...photos} label="Add Photos" />
@@ -170,9 +173,9 @@ function ComposeBox({ onSubmit, disabled }) {
   );
 }
 
-// ─── Edit modal (inline) ─────────────────────────────────────────────────────
+// ─── Inline edit ─────────────────────────────────────────────────────────────
 
-function EditBox({ update, onSave, onCancel }) {
+function EditBox({ update, padX, onSave, onCancel }) {
   const [text, setText] = useState(update.content);
   const [saving, setSaving] = useState(false);
 
@@ -189,32 +192,32 @@ function EditBox({ update, onSave, onCancel }) {
   };
 
   return (
-    <div className="bg-sentinel-800/80 border border-fire-500/30 rounded-lg p-3 space-y-2">
+    <div className={`py-4 border-b border-sentinel-700 space-y-2 ${padX}`}>
       <textarea
         value={text}
         onChange={(e) => setText(e.target.value)}
         rows={3}
-        className="w-full bg-sentinel-900/60 border border-sentinel-700 rounded px-2 py-1.5
-                   text-xs text-sentinel-200 focus:outline-none focus:border-fire-500/50
-                   resize-none"
+        className="w-full bg-sentinel-900 border border-sentinel-500 rounded-lg px-3 py-2
+                   text-sm text-slate-100 focus:outline-none focus:border-fire-600 resize-none"
         autoFocus
       />
-      <div className="flex justify-end gap-1.5">
+      <div className="flex justify-end gap-2">
         <button
+          type="button"
           onClick={onCancel}
           disabled={saving}
-          className="flex items-center gap-1 px-2 py-1 text-[10px] text-sentinel-400
-                     hover:text-sentinel-200 transition-colors"
+          className="inline-flex items-center gap-1 min-h-[44px] px-3 text-sm text-sentinel-100 hover:text-white"
         >
-          <X size={10} /> Cancel
+          <X size={14} /> Cancel
         </button>
         <button
+          type="button"
           onClick={handleSave}
           disabled={!text.trim() || saving}
-          className="flex items-center gap-1 px-2 py-1 text-[10px] bg-fire-600/60
-                     hover:bg-fire-600 text-white rounded transition-colors disabled:opacity-40"
+          className="inline-flex items-center gap-1 min-h-[44px] px-4 text-sm font-semibold rounded-lg
+                     bg-fire-600 hover:bg-fire-500 text-sentinel-900 disabled:opacity-40"
         >
-          {saving ? <Loader2 size={10} className="animate-spin" /> : <Check size={10} />}
+          {saving ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
           Save
         </button>
       </div>
@@ -226,6 +229,9 @@ function EditBox({ update, onSave, onCancel }) {
 
 /**
  * @param {string}  incidentId   Incident identifier used to query updates.
+ * @param {object}  [feed]       Result of useIncidentUpdates(incidentId) when the
+ *                               parent already subscribes (the incident detail
+ *                               panel); otherwise this component subscribes itself.
  * @param {boolean} allowPost    Show the compose box (reporter portal only).
  * @param {string}  dataSource   Fallback source label shown in the automated-only
  *                               notice when there are no updates at all (e.g. "NIFC / IRWIN").
@@ -236,37 +242,37 @@ function EditBox({ update, onSave, onCancel }) {
  *                               before the timeline was seeded).
  * @param {string} [legacySubmittedAt]       ISO timestamp for the synthetic update
  *                               (e.g. fire_reports.created_at).
+ * @param {boolean} [bleed]      Entries span the container edge to edge with their
+ *                               own horizontal padding (incident detail panel).
+ * @param {boolean} [showHeading] Show the "Updates" heading (off inside tabs).
  */
 export default function IncidentTimeline({
   incidentId,
+  feed,
   allowPost = false,
   dataSource = 'NIFC / IRWIN',
   sourceVariant = 'fed',
   legacyInitialSubmission = '',
   legacySubmittedAt = null,
+  bleed = false,
+  showHeading = true,
 }) {
-  const { updates, loading, error, addUpdate, editUpdate, deleteUpdate } = useIncidentUpdates(incidentId);
+  const ownFeed = useIncidentUpdates(feed ? null : incidentId);
+  const { updates, loading, error, freshIds, addUpdate, editUpdate, deleteUpdate } = feed || ownFeed;
   const { user, profile, isAuthenticated, isReporter, isAdmin } = useAuth();
   const [editing, setEditing] = useState(null);
+  const padX = bleed ? 'px-5' : '';
 
   // Reporters and admins can post to any incident timeline they can view.
   // Explicit allowPost prop also enables posting (e.g. from reporter dashboard).
   const canPost = isAuthenticated && (allowPost || isReporter || isAdmin);
 
-  const handleAdd = async ({ content, files }) => {
+  const handleAdd = async ({ content, files, updateType }) => {
     const sourceName = profile?.email?.split('@')[0] || 'Reporter';
     const photoUrls = files?.length
       ? await uploadIncidentPhotos(files, { userId: user.id, incidentId })
       : [];
-    await addUpdate({ content, sourceName, userId: user.id, photoUrls });
-  };
-
-  const handleEdit = async (updateId, newContent) => {
-    await editUpdate(updateId, newContent);
-  };
-
-  const handleDelete = async (updateId) => {
-    await deleteUpdate(updateId);
+    await addUpdate({ content, sourceName, userId: user.id, photoUrls, updateType });
   };
 
   const legacyTrimmed = (legacyInitialSubmission || '').trim();
@@ -280,6 +286,7 @@ export default function IncidentTimeline({
             content: legacyTrimmed,
             source_type: 'reporter',
             source_name: 'NWTT Reporter',
+            update_type: 'field_report',
             user_id: null,
             created_at: legacySubmittedAt || new Date(0).toISOString(),
           }]
@@ -303,94 +310,67 @@ export default function IncidentTimeline({
 
   if (!incidentId) return null;
 
-  const latest = displayUpdates[0];
-  const { date: latestDate, time: latestTime } = latest
-    ? splitTimestamp(latest.created_at)
-    : { date: '', time: '' };
-
   return (
-    <div className="mt-4">
-      <div className="text-[10px] font-bold text-sentinel-500 uppercase tracking-widest mb-3">
-        Updates
-      </div>
-
-      {/* Last-updated summary, mirrors the top card below */}
-      {latest && !loading && (
-        <div className="mb-3">
-          <p className="text-white font-bold text-sm leading-tight">Last Updated</p>
-          <p className="text-fire-300 font-bold text-sm leading-tight mb-1.5">
-            {latestDate} {latestTime}
-          </p>
-          <p className="text-sentinel-300 text-sm leading-snug">{updateDescription(latest)}</p>
+    <div className={showHeading ? 'mt-4' : ''}>
+      {showHeading && (
+        <div className="text-[12px] font-semibold text-sentinel-200 uppercase tracking-[0.1em] mb-1">
+          Updates
         </div>
       )}
 
-      {/* Compose area (reporter portal only) */}
       {canPost && (
-        <div className="mb-4">
+        <div className={`py-4 border-b border-sentinel-700 ${padX}`}>
           <ComposeBox onSubmit={handleAdd} disabled={!incidentId} />
         </div>
       )}
 
-      {/* Loading state */}
-      {loading && (
-        <div className="flex items-center justify-center py-6">
-          <Loader2 size={16} className="animate-spin text-sentinel-500" />
-          <span className="ml-2 text-xs text-sentinel-500">Loading updates...</span>
-        </div>
-      )}
-
-      {/* Error state */}
-      {error && !loading && (
-        <div className="text-xs text-red-400/80 bg-red-950/30 border border-red-900/40 rounded-lg p-2 mb-3">
-          Failed to load updates. {error.message}
-        </div>
-      )}
-
-      {/* Automated-only notice — shown whenever there are no reporter updates */}
       {automatedOnly && (
-        <div className="mb-4 p-3 rounded-lg bg-blue-950/30 border border-blue-800/40 flex items-start gap-2.5">
-          <Bot size={14} className="text-blue-400 shrink-0 mt-0.5" />
-          <p className="text-[11px] text-blue-200/80 leading-relaxed">
-            All updates for this incident are automated and provided by:{' '}
-            <span className="font-semibold text-blue-300">{automatedSourceLabel}</span>.
-            NWTT reporters are not monitoring this incident at this time.
-          </p>
+        <p className={`py-3 border-b border-sentinel-700 text-[13px] leading-relaxed text-sentinel-200 ${padX}`}>
+          Updates for this incident come automatically from{' '}
+          <span className="text-sentinel-100 font-medium">{automatedSourceLabel}</span>.
+          NWTT reporters are not monitoring it right now.
+        </p>
+      )}
+
+      {loading && (
+        <div className={`flex items-center gap-2 py-6 text-sm text-sentinel-200 ${padX}`}>
+          <Loader2 size={16} className="animate-spin" />
+          Loading updates…
         </div>
       )}
 
-      {/* Empty state (no updates at all) */}
+      {error && !loading && (
+        <p className={`py-4 text-sm text-red-400 ${padX}`}>
+          Couldn&apos;t load updates. {error.message}
+        </p>
+      )}
+
       {!loading && !error && displayUpdates.length === 0 && (
-        <div className="text-center py-4">
-          <MessageSquare size={18} className="mx-auto text-sentinel-600 mb-2" />
-          <p className="text-xs text-sentinel-500">No updates yet.</p>
-          {canPost && (
-            <p className="text-[10px] text-sentinel-600 mt-1">
-              Be the first to post an update for this incident.
-            </p>
-          )}
-        </div>
+        <p className={`py-6 text-sm text-sentinel-200 ${padX}`}>
+          No updates yet.{canPost && ' Be the first to post one for this incident.'}
+        </p>
       )}
 
-      {/* Update feed */}
       {!loading && displayUpdates.length > 0 && (
-        <div className="space-y-3">
-          {displayUpdates.map((u, i) =>
+        <div>
+          {displayUpdates.map((u) =>
             editing?.id === u.id ? (
               <EditBox
                 key={u.id}
                 update={u}
-                onSave={handleEdit}
+                padX={padX}
+                onSave={editUpdate}
                 onCancel={() => setEditing(null)}
               />
             ) : (
-              <UpdateCard
+              <UpdateEntry
                 key={u.id}
                 update={u}
-                isLatest={i === 0}
+                fresh={freshIds?.has(u.id)}
+                padX={padX}
                 currentUserId={user?.id}
                 onEdit={setEditing}
-                onDelete={handleDelete}
+                onDelete={deleteUpdate}
               />
             )
           )}

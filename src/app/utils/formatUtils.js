@@ -87,6 +87,20 @@ export function setTimeFormatPreference(format) {
 }
 
 /**
+ * Clock time ("3:12 PM"), prefixed with the date ("Oct 4, 3:12 PM") when it
+ * isn't today. Honors the Time Format preference like formatDateTime.
+ * @param {string|Date} dateInput
+ * @returns {string}
+ */
+export function formatClockTime(dateInput) {
+  const date = new Date(dateInput);
+  if (!dateInput || Number.isNaN(date.getTime())) return '';
+  const time = date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: hour12Preference });
+  if (date.toDateString() === new Date().toDateString()) return time;
+  return `${date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}, ${time}`;
+}
+
+/**
  * Format a date for display in the detail panel
  * @param {string|Date} dateInput
  * @returns {string}

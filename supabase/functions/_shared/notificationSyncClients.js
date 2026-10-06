@@ -129,6 +129,16 @@ export function createNotificationSyncClients(config) {
       if (!resp.ok) throw new HttpError(`notification_log release failed: ${resp.status}`, resp.status);
     },
 
+    /** Followed incidents with unsent updates (see incidentFollowAlerts.js). */
+    fetchFollowDigests: () => rpc('get_pending_follow_digests'),
+
+    /** Dedup claim for a follow digest: the log row id, or null if already sent. */
+    claimFollowNotification: ({ user_id, subject_key, title }) =>
+      rpc('claim_follow_notification', { p_user_id: user_id, p_subject_key: subject_key, p_title: title }),
+
+    markFollowNotified: ({ user_id, incident_id, through }) =>
+      rpc('mark_follow_notified', { p_user_id: user_id, p_incident_id: incident_id, p_through: through }),
+
     async sendEmail({ to, subject, html }) {
       const resp = await fetch('https://api.resend.com/emails', {
         method: 'POST',

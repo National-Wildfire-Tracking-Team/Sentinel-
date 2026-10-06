@@ -1,6 +1,7 @@
 /**
  * notification-sync.mjs
- * Manual fallback runner for the saved-location notification pipeline. The
+ * Manual fallback runner for the saved-location and incident-follow
+ * notification pipelines. The
  * scheduled path is the notification-sync Supabase Edge Function (pg_cron,
  * every 5 minutes); this runs the exact same pipeline from Node via
  * workflow_dispatch in .github/workflows/incident-notification-sync.yml.
@@ -11,6 +12,7 @@
  */
 
 import { runNotificationSync } from '../supabase/functions/_shared/savedLocationAlerts.js';
+import { runFollowNotifications } from '../supabase/functions/_shared/incidentFollowAlerts.js';
 import {
   createNotificationSyncClients,
   createStructuredLogger,
@@ -48,6 +50,11 @@ async function main() {
   }
   try {
     await runNotificationSync({ ...clients, log, appUrl: APP_URL, now: Date.now() });
+    try {
+      await runFollowNotifications({ ...clients, log, appUrl: APP_URL });
+    } catch (err) {
+      log('follow_pass_failed', { error: err?.message || String(err) });
+    }
     await clients.releaseJob(true);
   } catch (err) {
     await clients.releaseJob(false, err?.message || String(err)).catch(() => {});

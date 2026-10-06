@@ -64,6 +64,7 @@ import CalFirePerimetersLayer from './layers/CalFirePerimetersLayer';
 import HazardEventsLayer, { HAZARD_CATEGORY_LABELS } from './layers/HazardEventsLayer';
 import DamageAssessmentLayer from './layers/DamageAssessmentLayer';
 import MrmsLayer from './layers/MrmsLayer';
+import { parseAliasIds } from '../../utils/incidentAliases';
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN || '';
 const HAS_MAPBOX_TOKEN = Boolean(MAPBOX_TOKEN.trim());
@@ -198,8 +199,9 @@ function buildFeatureRecord(feature, lngLat, alerts, { floodPanel = null } = {})
         updated:     p.ModifiedOnDateTime,
         orgType:     p.IncidentManagementOrganization,
         cause:       p.FireCause || null,
-        source:      p.Source || null,
+        source:      p._source || p.Source || null,
         historical:  Boolean(p.isHistoricalMapping),
+        aliasIds:    parseAliasIds(p._aliasIds),
       };
 
     case 'fire-incidents-circle':
@@ -221,6 +223,10 @@ function buildFeatureRecord(feature, lngLat, alerts, { floodPanel = null } = {})
         updated:    p.ModifiedOnDateTime
                       ? new Date(p.ModifiedOnDateTime).toISOString()
                       : null,
+        // CAL FIRE dots won the IRWIN/CAL FIRE merge (useMergedFireData).
+        source:     p._source || null,
+        url:        p._detailUrl || null,
+        aliasIds:   parseAliasIds(p._aliasIds),
       };
 
     case 'incident-locations-circle': {
@@ -262,6 +268,7 @@ function buildFeatureRecord(feature, lngLat, alerts, { floodPanel = null } = {})
         evacuation_warnings: num(p.evacuation_warnings) || 0,
         evacuation_order_lines: evacuationLines,
         updates,
+        aliasIds: parseAliasIds(p.alias_ids),
       };
     }
 
@@ -1414,6 +1421,8 @@ export default function MapView({
   onMapLoad,
   mapBottomBarWidth,
   mapBottomBarHeight,
+  // The satellite panel holds the dock above the bottom bar: other layers' docked controls step aside.
+  satelliteDocked = false,
   spcOutlookPanelRef,
   fireWxOutlookPanelRef,
   onModelPick,
@@ -1842,7 +1851,7 @@ export default function MapView({
     <div className="absolute inset-0 bg-sentinel-900">
       {/* Wildfire tab: fire weather outlook selector only (convective uses combined control on weather tab) —
           docks flush above MapBottomBar, same as the SPC outlook selector on the Weather/All Hazards tabs. */}
-      {isWildfireTab && layers.fireWeatherOutlooks && (
+      {isWildfireTab && layers.fireWeatherOutlooks && !satelliteDocked && (
         <FireWeatherOutlookSelector
           ref={fireWxOutlookPanelRef}
           outlookType={fireWxOutlookType}
@@ -1854,7 +1863,7 @@ export default function MapView({
         />
       )}
 
-      {isWildfireTab && layers.ndgdSmokeForecast && (
+      {isWildfireTab && layers.ndgdSmokeForecast && !satelliteDocked && (
         <NdgdSmokeTimeSlider
           forecastHoursMs={ndgdForecastHoursMs}
           valueIndex={ndgdSmokeHourIndex}
@@ -1864,7 +1873,7 @@ export default function MapView({
 
       {/* Weather + All Hazards tabs: SPC convective outlook selector — docks
           flush above MapBottomBar. */}
-      {(isWeatherTab || isAllHazardTab) && layers.spcWeatherOutlooks && (
+      {(isWeatherTab || isAllHazardTab) && layers.spcWeatherOutlooks && !satelliteDocked && (
         <SPCOutlookSelector
           ref={spcOutlookPanelRef}
           outlookType={spcOutlookType}
@@ -1917,14 +1926,9 @@ export default function MapView({
 
 
 
-        {/* GOES satellite imagery – visible/weather bands on weather tab;
-            ABI-L2-MCMIP Day Land Cloud Fire RGB on wildfire tab */}
-        <GOESLayer
-          eastVisible={(isWeatherTab || isAllHazardTab) && layers.goesEast}
-          westVisible={(isWeatherTab || isAllHazardTab) && layers.goesWest}
-          fire16Visible={(isWildfireTab || isAllHazardTab) && layers.goesFire16}
-          fire18Visible={(isWildfireTab || isAllHazardTab) && layers.goesFire18}
-        />
+        {/* NOAA GOES satellite imagery. Satellite, region, product and frame come
+            from SatelliteContext, which is active only while the layer is on. */}
+        <GOESLayer />
 
         {/* NOAA MRMS radar (Weather tab). Visibility, product and frame come
             from MrmsContext, which is active only on the Weather tab with the layer on. */}

@@ -5,7 +5,6 @@
  */
 
 import { memo, useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
 import {
   X, Flame, MapPin, Users, Home, Calendar, Thermometer,
   AlertTriangle, Wind, ExternalLink, TrendingUp, ShieldAlert,
@@ -15,14 +14,13 @@ import {
 import { useApp } from '../../context/AppContext';
 import { useAppStatus } from '../../context/AppStatusContext';
 import {
-  formatAcres, formatContainment, formatFRP, formatDateTime,
+  formatAcres, formatContainment, formatFRP,
   formatDate, formatPersonnel, formatRelativeTime,
-  parseLatestAcreage, parseLatestContainment,
 } from '../../utils/formatUtils';
 import { frpToLabel, containmentToColor, getAQICategory } from '../../utils/colorUtils';
 import { nwsAlertColor } from '../../utils/nwsColors';
 import IncidentTimeline from '../IncidentTimeline/IncidentTimeline';
-import ModelForecastSummary from '../WeatherModels/ModelForecastSummary';
+import IncidentSidebar from './IncidentSidebar';
 import { HAZARD_CATEGORY_COLORS } from '../Map/layers/HazardEventsLayer';
 import { normalizeHazardCategory } from '../../hooks/useHazardEvents';
 import { trackSentinelUse } from '../../../shared/utils/analytics';
@@ -32,6 +30,14 @@ import { fetchSpcMdText, fetchWpcMpdText } from '../../api/mesoscaleDiscussionTe
 // Fire-related detail types that represent a user opening a tracked wildfire
 // incident (as opposed to AQI stations, weather alerts, evac zones, etc).
 const INCIDENT_OPEN_TYPES = ['incident', 'hotspot', 'perimeter'];
+
+// Wildfire incidents get the full incident sidebar (IncidentSidebar.jsx).
+// Perimeters too: when a fire has a perimeter the map hides its incident dot,
+// so the perimeter is how most users open a mapped fire. Historical mapping
+// captures keep the plain perimeter view.
+const INCIDENT_SIDEBAR_TYPES = ['incident', 'user-report'];
+const usesIncidentSidebar = (fire) =>
+  INCIDENT_SIDEBAR_TYPES.includes(fire.type) || (fire.type === 'perimeter' && !fire.historical && fire.id);
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -214,213 +220,6 @@ function PerimeterDetail({ fire }) {
         incidentId={fire.id || fire.name}
         dataSource={fire._source === 'FIRIS' ? 'NIFC / FIRIS CA' : 'NIFC / IRWIN'}
       />
-    </>
-  );
-}
-
-function IncidentDetail({ fire }) {
-  const [tab, setTab] = useState('updates');
-  const containment = Number(fire.contained) || 0;
-  const containColor = containmentToColor(containment);
-  const statusLabel = fire.status ? String(fire.status) : (containment >= 100 ? 'Controlled' : 'Active');
-  const isActive = containment < 100 && (fire.status ?? '').toLowerCase() !== 'controlled';
-  const createdAt = fire.started || fire.createdAt;
-  const evacuationOrderLines = Array.isArray(fire.evacuation_order_lines) ? fire.evacuation_order_lines : [];
-  const locationLine = fire.location_description || `${fire.county || 'Unknown County'} County, ${fire.state || ''}`.trim();
-  const isCalFire = fire.source === 'CAL_FIRE';
-  const dataSourceLine = isCalFire
-    ? 'CAL FIRE (fire.ca.gov)'
-    : 'NIFC / IRWIN';
-
-  return (
-    <>
-      {/* Title block */}
-      <div className="mb-4">
-        <h3 className="font-bold text-white text-lg leading-tight">{fire.name}</h3>
-        <p className="text-sentinel-500 text-[11px] mt-0.5">Source: {dataSourceLine}</p>
-        <p className="text-sentinel-300 text-xs mt-1 leading-relaxed">{locationLine}</p>
-        <p className="text-sentinel-400 text-[11px] mt-0.5">{fire.county} County, {fire.state}</p>
-      </div>
-
-      {/* Acres | Containment stat row */}
-      <div className="flex items-stretch mb-4 bg-sentinel-800/50 border border-sentinel-700 rounded-xl overflow-hidden">
-        <div className="flex-1 flex flex-col items-center justify-center py-4 px-2">
-          <span className="text-[10px] font-bold text-sentinel-400 uppercase tracking-widest mb-1">Acres</span>
-          <span className="text-2xl font-black text-white leading-none">
-            {fire.acres != null ? Number(fire.acres).toLocaleString('en-US', { maximumFractionDigits: 1 }) : '—'}
-          </span>
-        </div>
-        <div className="w-px bg-sentinel-700 my-3" />
-        <div className="flex-1 flex flex-col items-center justify-center py-4 px-2">
-          <span className="text-[10px] font-bold text-sentinel-400 uppercase tracking-widest mb-1">Containment</span>
-          <span className="text-2xl font-black leading-none" style={{ color: containColor }}>
-            {formatContainment(containment)}
-          </span>
-        </div>
-      </div>
-
-      {/* Containment bar */}
-      <div className="mb-4 h-1.5 w-full bg-sentinel-700 rounded-full overflow-hidden">
-        <div
-          className="h-full rounded-full transition-all duration-700"
-          style={{ width: `${containment}%`, backgroundColor: containColor }}
-        />
-      </div>
-
-      {/* Status + updated line */}
-      <div className="flex items-center gap-1.5 mb-0.5">
-        <span className={`text-xs font-semibold ${isActive ? 'text-red-400' : 'text-emerald-400'}`}>
-          {statusLabel}
-        </span>
-        {fire.updated && (
-          <>
-            <span className="text-sentinel-600 text-xs">•</span>
-            <span className="text-xs text-sentinel-400">
-              Updated <span className="font-semibold text-sentinel-300">{formatRelativeTime(fire.updated)}</span>
-            </span>
-          </>
-        )}
-      </div>
-      <p className="text-[11px] text-sentinel-500 mb-4">
-        {isCalFire ? (
-          <>Official incident data from <span className="font-semibold text-sentinel-400">CAL FIRE</span>
-            {createdAt ? <> · Reported start {formatDateTime(createdAt)}</> : ''}
-          </>
-        ) : (
-          <>
-            Created by <span className="font-semibold text-sentinel-400">National Wildfire Tracking Team</span>
-            {createdAt ? <> • {formatDateTime(createdAt)}</> : ''}
-          </>
-        )}
-      </p>
-
-      {/* Evacuation notice */}
-      {(fire.evacuation_orders > 0 || fire.evacuation_warnings > 0 || evacuationOrderLines.length > 0) && (
-        <div className="mb-4 p-3 bg-red-950/40 border border-red-800/60 rounded-lg">
-          <div className="flex items-start gap-2 mb-2">
-            <AlertTriangle size={14} className="text-red-400 shrink-0 mt-0.5" />
-            <div className="text-xs text-red-200">
-              <p className="font-semibold">
-                {fire.evacuation_title || (
-                  fire.evacuation_orders > 0
-                    ? `Evacuation Order${fire.evacuation_orders > 1 ? 's' : ''} - Level 3 - Go`
-                    : 'Evacuation Warning'
-                )}
-              </p>
-              {fire.evacuation_summary && (
-                <p className="text-red-200/80 mt-1">{fire.evacuation_summary}</p>
-              )}
-            </div>
-          </div>
-          {evacuationOrderLines.length > 0 && (
-            <ul className="space-y-1 pl-5 list-disc text-xs text-red-100/95">
-              {evacuationOrderLines.map((line, idx) => <li key={idx}>{line}</li>)}
-            </ul>
-          )}
-        </div>
-      )}
-
-      {/* HRRR/GFS summary; the full model experience is /weather-models */}
-      <ModelForecastSummary lat={fire.lat} lon={fire.lng} place={fire.name} />
-
-      {/* UPDATES / INFO tabs */}
-      <div className="border-b border-sentinel-700 mb-4 flex gap-0">
-        {['updates', 'info'].map((t) => (
-          <button
-            key={t}
-            type="button"
-            onClick={() => setTab(t)}
-            className={`px-4 py-2 text-[11px] font-bold uppercase tracking-widest border-b-2 transition-colors
-              ${tab === t
-                ? 'border-fire-500 text-white'
-                : 'border-transparent text-sentinel-500 hover:text-sentinel-300'}`}
-          >
-            {t}
-          </button>
-        ))}
-      </div>
-
-      {tab === 'updates' && (
-        <IncidentTimeline
-          incidentId={fire.id}
-          dataSource={dataSourceLine}
-        />
-      )}
-
-      {tab === 'info' && (
-        <div className="space-y-2 text-xs text-sentinel-400">
-          {fire.acres != null && (
-            <div className="flex justify-between">
-              <span>Size</span>
-              <span className="text-white font-semibold">{formatAcres(fire.acres)}</span>
-            </div>
-          )}
-          {fire.personnel && (
-            <div className="flex justify-between">
-              <span>Personnel</span>
-              <span className="text-white font-semibold">{formatPersonnel(fire.personnel)}</span>
-            </div>
-          )}
-          {fire.cause && (
-            <div className="flex justify-between">
-              <span>Cause</span>
-              <span className="text-white font-semibold">{fire.cause}</span>
-            </div>
-          )}
-          {fire.destroyed > 0 && (
-            <div className="flex justify-between">
-              <span>Structures Destroyed</span>
-              <span className="text-red-400 font-semibold">{fire.destroyed}</span>
-            </div>
-          )}
-          {fire.damaged > 0 && (
-            <div className="flex justify-between">
-              <span>Structures Damaged</span>
-              <span className="text-orange-400 font-semibold">{fire.damaged}</span>
-            </div>
-          )}
-          {fire.discovered && (
-            <div className="flex justify-between">
-              <span>Discovered</span>
-              <span className="text-white font-semibold">{formatDate(fire.discovered)}</span>
-            </div>
-          )}
-          {fire.orgType && (
-            <div className="flex justify-between">
-              <span>Management</span>
-              <span className="text-white font-semibold">{fire.orgType}</span>
-            </div>
-          )}
-          <div className="flex justify-between">
-            <span>Coordinates</span>
-            <span className="text-white font-semibold">{fire.lat?.toFixed(4)}°, {fire.lng?.toFixed(4)}°</span>
-          </div>
-          {fire.id && (
-            <Link
-              to={`/fire/${fire.id}`}
-              className="flex items-center justify-center gap-2 w-full mt-3 py-2 bg-sentinel-700/60
-                         border border-sentinel-600 rounded-lg text-sentinel-200 text-sm font-medium
-                         hover:bg-sentinel-700 transition-colors"
-            >
-              <FileText size={13} />
-              Open Full Incident Page
-            </Link>
-          )}
-          {fire.url && (
-            <a
-              href={fire.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center justify-center gap-2 w-full mt-3 py-2 bg-fire-600/20
-                         border border-fire-700/50 rounded-lg text-fire-400 text-sm font-medium
-                         hover:bg-fire-600/30 hover:text-fire-300 transition-colors"
-            >
-              <ExternalLink size={13} />
-              {fire.source === 'CAL_FIRE' ? 'View on fire.ca.gov' : 'View on InciWeb'}
-            </a>
-          )}
-        </div>
-      )}
     </>
   );
 }
@@ -785,165 +584,6 @@ function MesoscaleDiscussionModal({ fire, onClose }) {
         )}
       </div>
     </div>
-  );
-}
-
-/** Text after "INCIDENT NOTES:" in a community fire_reports description (initial submit). */
-function extractIncidentNotesFromDescription(description) {
-  if (!description || typeof description !== 'string') return '';
-  const m = description.match(/\nINCIDENT NOTES:\n([\s\S]*)$/);
-  if (!m) return '';
-  let body = m[1].trim();
-  const internalIdx = body.search(/\nINTERNAL NOTES:\n/);
-  if (internalIdx >= 0) body = body.slice(0, internalIdx).trim();
-  return body;
-}
-
-function UserReportDetail({ fire }) {
-  const [tab, setTab] = useState('updates');
-
-  const acres = parseLatestAcreage(fire.description);
-  const containmentParsed = parseLatestContainment(fire.description);
-  const hasContainment = containmentParsed !== null;
-  const containment = containmentParsed ?? 0;
-  const containColor = containmentToColor(containment);
-  const incidentNotesPreview = extractIncidentNotesFromDescription(fire.description);
-
-  // Extract a clean location from the structured description if present
-  const locationMatch = fire.description?.match(/^ADDRESS:\s*(.+)$/m);
-  const locationLine = locationMatch ? locationMatch[1].trim() : null;
-
-  return (
-    <>
-      {/* Title block */}
-      <div className="mb-4">
-        <h3 className="font-bold text-white text-lg leading-tight">{fire.title}</h3>
-        <p className="text-sentinel-500 text-[11px] mt-0.5">Source: NWTT</p>
-        {locationLine && (
-          <p className="text-sentinel-300 text-xs mt-1 leading-relaxed">{locationLine}</p>
-        )}
-      </div>
-
-      {/* Acres | Containment stat row */}
-      <div className="flex items-stretch mb-4 bg-sentinel-800/50 border border-sentinel-700 rounded-xl overflow-hidden">
-        <div className="flex-1 flex flex-col items-center justify-center py-4 px-2">
-          <span className="text-[10px] font-bold text-sentinel-400 uppercase tracking-widest mb-1">Acres</span>
-          <span className="text-2xl font-black text-white leading-none">
-            {acres != null ? acres.toLocaleString('en-US', { maximumFractionDigits: 1 }) : '—'}
-          </span>
-        </div>
-        <div className="w-px bg-sentinel-700 my-3" />
-        <div className="flex-1 flex flex-col items-center justify-center py-4 px-2">
-          <span className="text-[10px] font-bold text-sentinel-400 uppercase tracking-widest mb-1">Containment</span>
-          <span className="text-2xl font-black leading-none" style={{ color: containColor }}>
-            {hasContainment ? `${containment}%` : '—'}
-          </span>
-        </div>
-      </div>
-
-      {/* Containment bar when containment was reported (including 0%) */}
-      {hasContainment && (
-        <div className="mb-4 h-1.5 w-full bg-sentinel-700 rounded-full overflow-hidden">
-          <div
-            className="h-full rounded-full transition-all duration-700"
-            style={{ width: `${containment}%`, backgroundColor: containColor }}
-          />
-        </div>
-      )}
-
-      {/* Status + submitted line */}
-      <div className="flex items-center gap-1.5 mb-0.5">
-        <span className="text-xs font-semibold text-red-400">Active</span>
-        {fire.created_at && (
-          <>
-            <span className="text-sentinel-600 text-xs">•</span>
-            <span className="text-xs text-sentinel-400">
-              Updated <span className="font-semibold text-sentinel-300">{formatRelativeTime(fire.created_at)}</span>
-            </span>
-          </>
-        )}
-      </div>
-      <p className="text-[11px] text-sentinel-500 mb-4">
-        Submitted by <span className="font-semibold text-sentinel-400">NWTT Reporter</span>
-        {fire.created_at ? <> • {formatDateTime(fire.created_at)}</> : ''}
-      </p>
-
-      {/* UPDATES / INFO tabs */}
-      <div className="border-b border-sentinel-700 mb-4 flex gap-0">
-        {['updates', 'info'].map((t) => (
-          <button
-            key={t}
-            type="button"
-            onClick={() => setTab(t)}
-            className={`px-4 py-2 text-[11px] font-bold uppercase tracking-widest border-b-2 transition-colors
-              ${tab === t
-                ? 'border-fire-500 text-white'
-                : 'border-transparent text-sentinel-500 hover:text-sentinel-300'}`}
-          >
-            {t}
-          </button>
-        ))}
-      </div>
-
-      {tab === 'updates' && (
-        <IncidentTimeline
-          incidentId={fire.id}
-          dataSource="NWTT reporter"
-          sourceVariant="community"
-          legacyInitialSubmission={incidentNotesPreview}
-          legacySubmittedAt={fire.created_at}
-        />
-      )}
-
-      {tab === 'info' && (
-        <div className="space-y-2 text-xs text-sentinel-400">
-          {acres != null && (
-            <div className="flex justify-between gap-2">
-              <span className="shrink-0">Acres (reporter)</span>
-              <span className="text-white font-semibold text-right">
-                {acres.toLocaleString('en-US', { maximumFractionDigits: 1 })}
-              </span>
-            </div>
-          )}
-          {hasContainment && (
-            <div className="flex justify-between gap-2">
-              <span className="shrink-0">Containment (reporter)</span>
-              <span className="text-white font-semibold">{containment}%</span>
-            </div>
-          )}
-          {incidentNotesPreview && (
-            <div>
-              <p className="text-[10px] font-bold text-sentinel-500 uppercase tracking-widest mb-1.5">
-                Incident notes
-              </p>
-              <p className="text-sentinel-200 leading-relaxed whitespace-pre-wrap">{incidentNotesPreview}</p>
-            </div>
-          )}
-          {locationLine && (
-            <div className="flex justify-between gap-2">
-              <span className="shrink-0">Address</span>
-              <span className="text-white font-semibold text-right">{locationLine}</span>
-            </div>
-          )}
-          <div className="flex justify-between">
-            <span>Coordinates</span>
-            <span className="text-white font-semibold">{fire.lat?.toFixed(4)}°, {fire.lng?.toFixed(4)}°</span>
-          </div>
-          {fire.created_at && (
-            <div className="flex justify-between">
-              <span>Submitted</span>
-              <span className="text-white font-semibold">{formatDateTime(fire.created_at)}</span>
-            </div>
-          )}
-          <div className="mt-4 p-3 bg-sentinel-800/50 border border-sentinel-700 rounded-lg">
-            <p className="text-xs text-sentinel-300 leading-relaxed">
-              This incident was submitted by an NWTT reporter. Verify with
-              official sources before taking action.
-            </p>
-          </div>
-        </div>
-      )}
-    </>
   );
 }
 
@@ -1824,6 +1464,18 @@ const FireDetailPanel = memo(function FireDetailPanel() {
     return <MesoscaleDiscussionModal fire={selectedFire} onClose={clearSelected} />;
   }
 
+  if (usesIncidentSidebar(selectedFire)) {
+    return (
+      <IncidentSidebar
+        key={`${selectedFire.type}:${selectedFire.id}`}
+        fire={selectedFire}
+        onClose={clearSelected}
+        onShare={handleShare}
+        shareStatus={shareStatus}
+      />
+    );
+  }
+
   return (
     <>
       {/* Backdrop (mobile) */}
@@ -1841,10 +1493,8 @@ const FireDetailPanel = memo(function FireDetailPanel() {
         <div className="flex items-center justify-between px-4 py-3 border-b border-sentinel-700 shrink-0">
           <span className="text-xs font-bold text-sentinel-400 uppercase tracking-widest">
             {selectedFire.type === 'hotspot'         ? 'Hotspot Detail' :
-             selectedFire.type === 'incident'        ? 'Incident Detail' :
              selectedFire.type === 'aqi'             ? 'Air Quality' :
              selectedFire.type === 'weather-alert'   ? 'Weather Alert' :
-             selectedFire.type === 'user-report'     ? 'Incident Detail' :
              selectedFire.type === 'evacuation-zone'          ? (selectedFire.source === 'ipaws' ? 'IPAWS alert' : 'Evacuation Zone') :
              selectedFire.type === 'reporter-evacuation-zone' ? 'Reporter Evac Zone' :
              selectedFire.type === 'transmission-line'        ? 'Critical Infrastructure' :
@@ -1885,10 +1535,8 @@ const FireDetailPanel = memo(function FireDetailPanel() {
         <div className="flex-1 overflow-y-auto p-4">
           {selectedFire.type === 'hotspot'         && <HotspotDetail   fire={selectedFire} />}
           {selectedFire.type === 'perimeter'       && <PerimeterDetail  fire={selectedFire} />}
-          {selectedFire.type === 'incident'        && <IncidentDetail   fire={selectedFire} />}
           {selectedFire.type === 'aqi'             && <AQIDetail        fire={selectedFire} />}
           {selectedFire.type === 'weather-alert'   && <AlertDetail      fire={selectedFire} alerts={alerts} />}
-          {selectedFire.type === 'user-report'     && <UserReportDetail fire={selectedFire} />}
           {selectedFire.type === 'evacuation-zone'          && <EvacZoneDetail         fire={selectedFire} />}
           {selectedFire.type === 'reporter-evacuation-zone' && <ReporterEvacZoneDetail  fire={selectedFire} />}
           {selectedFire.type === 'transmission-line'       && <TransmissionLineDetail fire={selectedFire} />}
