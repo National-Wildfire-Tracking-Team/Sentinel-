@@ -9,14 +9,16 @@
  * the popup be dragged aside to see the map underneath).
  */
 
-import { memo, useState, useEffect, useRef, useCallback } from 'react';
+import { memo, useState, useEffect, useRef } from 'react';
 import { Popup } from 'react-map-gl';
 import { Grip, ChevronRight, X } from 'lucide-react';
 import { getGeometryCenter } from '../../utils/mapGeometry';
 import { nwsAlertColor } from '../../utils/nwsColors';
+import { categoryColor } from '../../api/nhcTropicalWeather';
 import SpotlightMaskLayer from './layers/SpotlightMaskLayer';
+import { useDragOffset } from './usePopupDrag';
 
-const CARD_BG = '#101d3a';
+export const CARD_BG = '#101d3a';
 const DEFAULT_ACCENT = '#ff5a00';
 
 const TYPE_LABELS = {
@@ -33,6 +35,7 @@ const TYPE_LABELS = {
   'gas-pipeline': 'Gas pipeline',
   'national-map-college': 'School / university',
   'flood-hazard': 'FEMA flood hazard',
+  'nhc-storm': 'Tropical cyclone',
 };
 
 function getTitle(item) {
@@ -45,6 +48,7 @@ const HISTORICAL_ACCENT = '#6b7280';
 function getAccentColor(item) {
   if (item.historical) return HISTORICAL_ACCENT;
   if (item.type === 'weather-alert') return nwsAlertColor(item.eventType);
+  if (item.type === 'nhc-storm') return categoryColor(item.category);
   return DEFAULT_ACCENT;
 }
 
@@ -71,34 +75,6 @@ function getSubtitle(item) {
   const typeLabel = TYPE_LABELS[item.type] || 'Item';
   if (getTitle(item) !== typeLabel) return { prefix: typeLabel, bold: null };
   return null;
-}
-
-/** Tracks a pointer-drag delta, reset whenever `resetKey` changes. */
-function useDragOffset(resetKey) {
-  const [offset, setOffset] = useState({ x: 0, y: 0 });
-  const dragRef = useRef(null);
-
-  useEffect(() => {
-    setOffset({ x: 0, y: 0 });
-  }, [resetKey]);
-
-  const onPointerDown = useCallback((e) => {
-    e.currentTarget.setPointerCapture?.(e.pointerId);
-    dragRef.current = { startX: e.clientX, startY: e.clientY, originX: offset.x, originY: offset.y };
-  }, [offset]);
-
-  const onPointerMove = useCallback((e) => {
-    if (!dragRef.current) return;
-    const { startX, startY, originX, originY } = dragRef.current;
-    setOffset({ x: originX + (e.clientX - startX), y: originY + (e.clientY - startY) });
-  }, []);
-
-  const onPointerUp = useCallback((e) => {
-    dragRef.current = null;
-    e.currentTarget.releasePointerCapture?.(e.pointerId);
-  }, []);
-
-  return { offset, onPointerDown, onPointerMove, onPointerUp };
 }
 
 function ItemHeader({ item }) {
@@ -200,7 +176,7 @@ function SingleCarousel({ items, onSelect }) {
   );
 }
 
-function PopupFooter({ dragEnabled, dragHandlers, onClose }) {
+export function PopupFooter({ dragEnabled, dragHandlers, onClose }) {
   return (
     <div className="flex items-center gap-2 px-3 py-2">
       {dragEnabled && (

@@ -12,6 +12,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "prerender": "node scripts/prerender.mjs",
+    "data:county-population": "node --env-file-if-exists=.env scripts/build-county-population.mjs",
     "ipaws-server": "node server/ipaws-server.js",
     "test": "vitest run",
     "test:watch": "vitest",
