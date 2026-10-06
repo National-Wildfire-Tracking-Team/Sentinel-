@@ -86,7 +86,7 @@ import { MapScaleDock } from '../components/Map/MapScaleBar';
 import { APP_VERSION } from '../version';
 import FloodHazardStatus from '../components/MapControls/FloodHazardStatus';
 import MrmsStatus from '../components/MapControls/MrmsStatus';
-import SatellitePanel from '../components/Map/SatellitePanel';
+import SatellitePanel, { SatelliteShowControlsPill } from '../components/Map/SatellitePanel';
 import SatelliteStormFocus from '../components/Map/SatelliteStormFocus';
 // Lazy-loaded: each only ever mounts once the user has actually selected the
 // corresponding fire/gauge/camera, so their code shouldn't ship in
@@ -273,7 +273,7 @@ const RAWS_MIN_ZOOM = 9;
 
 export default function LiveTrackerPage() {
   const { layers, setLayer, feedFilter, selectedGauge, selectGauge, selectedFire, selectFire, selectedCamera, selectCamera, wpcOutlookDay, nhcWindProbKt, closeLayerPanel } = useApp();
-  const { setRefreshed, setLoading, alerts, userLocation } = useAppStatus();
+  const { setRefreshed, setLoading, alerts, userLocation, lastRefreshed } = useAppStatus();
   const { home, nearbyActive } = useHomeSetup();
   const { viewport, setViewport, flyToFire } = useViewport();
   const { prefs } = usePreferences();
@@ -1710,6 +1710,8 @@ export default function LiveTrackerPage() {
             overlays={satelliteOverlays}
           />
           <SatelliteStormFocus selected={selectedFire} />
+          {/* bottom-4 bar + anything docked on it + an 8px gap */}
+          <SatelliteShowControlsPill bottomOffset={16 + mapBottomBarSize.height + totalDockedHeight + 8} />
 
           {activeMapTab === MAP_TABS.models && (
             <>

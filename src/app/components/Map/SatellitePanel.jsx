@@ -14,7 +14,7 @@
  */
 
 import { memo, forwardRef } from 'react';
-import { AlertTriangle, Crosshair, Loader2, RotateCw, Satellite, Wind, X } from 'lucide-react';
+import { AlertTriangle, Crosshair, EyeOff, Loader2, RotateCw, Satellite, SlidersHorizontal, Wind, X } from 'lucide-react';
 import { useSatelliteContext } from '../../context/SatelliteContext';
 import {
   LOOP_HOURS, PRODUCTS, PRODUCT_GROUPS, SATELLITES, productAvailability, regionsFor,
@@ -37,6 +37,9 @@ function HideControlsButton({ onClick }) {
     </button>
   );
 }
+
+// One option value per satellite + scan sector, e.g. "goes-west:alaska".
+const pairValue = (satelliteId, regionId) => `${satelliteId}:${regionId}`;
 
 const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
 
@@ -97,8 +100,8 @@ const SatellitePanel = memo(forwardRef(function SatellitePanel({ bottomBarWidth,
   const sat = useSatelliteContext();
   if (!sat?.panelOpen) return null;
   const {
-    selection, satellite, region, product, regions, setSatellite, setRegion, setProduct, notice, dismissNotice,
-    source, imageTime, loading, error, retry, canLoop, loopHours, setLoopHours, frames, frame, index, live,
+    selection, region, setSatelliteRegion, setProduct, notice, dismissNotice,
+    source, loading, error, retry, canLoop, loopHours, setLoopHours, frames, frame, index, live,
     playing, setFrame, goLive, togglePlaying, step, opacity, setOpacity, closePanel, focusBounds,
   } = sat;
 
