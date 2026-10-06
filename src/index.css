@@ -3,6 +3,81 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ─── Theme palette ──────────────────────────────────────────────────────────
+   Sentinel grays as RGB channels (Tailwind adds the alpha). Dark is the
+   default everywhere. Only the marketing site (html.site-theme, set in
+   index.html) switches to the light set, following the theme chosen in the
+   tracker app. [data-theme-dark] pins a region dark — photo heroes and the
+   navbar while it floats over one — so white type there stays legible. */
+:root,
+[data-theme-dark] {
+  --sentinel-900: 10 12 14;
+  --sentinel-850: 13 16 19;
+  --sentinel-800: 17 20 24;
+  --sentinel-700: 26 31 38;
+  --sentinel-600: 34 40 48;
+  --sentinel-500: 45 53 64;
+  --sentinel-400: 61 74 88;
+  --sentinel-300: 90 106 122;
+  --sentinel-200: 138 154 176;
+  --sentinel-100: 192 202 214;
+  --sentinel-text-100: 212 220 229;
+  --sentinel-text-200: 169 182 200;
+  --sentinel-text-300: 134 149 166;
+  --sentinel-text-400: 102 117 138;
+  --sentinel-text-500: 79 91 107;
+  --on-surface: 255 255 255;
+  --fire-text: 255 153 56;      /* fire-400 */
+  --fire-text-soft: 255 193 113; /* fire-300 */
+}
+
+html.site-theme:not(.dark) {
+  color-scheme: light;
+  --sentinel-900: 255 255 255;
+  --sentinel-850: 245 245 247;
+  --sentinel-800: 242 242 245;
+  --sentinel-700: 229 229 234;
+  --sentinel-600: 209 209 214;
+  --sentinel-500: 174 174 178;
+  --sentinel-400: 142 142 147;
+  --sentinel-300: 99 99 102;
+  --sentinel-200: 72 72 74;
+  --sentinel-100: 58 58 60;
+  --sentinel-text-100: 29 29 31;
+  --sentinel-text-200: 58 58 60;
+  --sentinel-text-300: 81 81 84;
+  --sentinel-text-400: 110 110 115;
+  --sentinel-text-500: 142 142 147;
+  --on-surface: 29 29 31;
+  --fire-text: 204 61 2;         /* fire-700 — fire-400 is too faint on white */
+  --fire-text-soft: 161 49 9;    /* fire-800 */
+}
+
+/* The marketing markup is written dark-first with literal white type and
+   fire-400 accents; in light mode route those through the palette above.
+   Solid orange/red buttons keep white labels. */
+html.site-theme:not(.dark) .text-white,
+html.site-theme:not(.dark) .hover\:text-white:hover,
+html.site-theme:not(.dark) .group:hover .group-hover\:text-white {
+  color: rgb(var(--on-surface));
+}
+html.site-theme:not(.dark) .text-white:is([class~="bg-fire-600"], [class~="bg-red-600"]) {
+  color: #fff;
+}
+html.site-theme:not(.dark) .text-fire-400,
+html.site-theme:not(.dark) .hover\:text-fire-400:hover,
+html.site-theme:not(.dark) .group:hover .group-hover\:text-fire-400 {
+  color: rgb(var(--fire-text));
+}
+html.site-theme:not(.dark) .text-amber-400,
+html.site-theme:not(.dark) .text-amber-300 {
+  color: #b45309; /* amber-700 — amber-300/400 wash out on white */
+}
+html.site-theme:not(.dark) .text-fire-300,
+html.site-theme:not(.dark) .hover\:text-fire-300:hover {
+  color: rgb(var(--fire-text-soft));
+}
+
 /* ─── Mapbox GL overrides ───────────────────────────────────────────────────*/
 
 /* Remove default attribution clutter (we use custom) */
@@ -67,15 +142,18 @@
 /* Scale control — scoped to MapScaleBar's host so it outranks mapbox-gl.css
    (loaded later, white with a #333 border). Same dark surface as the other map
    chrome: an open-topped ruler whose width is the distance. */
+/* A full rounded rectangle like the zoom buttons beside it (rounded-lg,
+   sentinel-600 border, translucent sentinel-900, blur), not Mapbox's open
+   ruler bracket. Its width is still the scale length. */
 .sentinel-scale .mapboxgl-ctrl-scale {
-  @apply text-sentinel-100 bg-sentinel-900/95 border-sentinel-700 text-[10px] font-medium tracking-wide;
+  @apply text-sentinel-100 bg-sentinel-900/90 border-sentinel-600 text-[10px] font-medium tracking-wide text-center;
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
   border-style: solid;
-  border-width: 0 1px 1px;
-  padding: 2px 8px 3px;
-  border-radius: 0 0 10px 10px;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+  border-width: 1px;
+  padding: 2px 8px;
+  border-radius: 0.5rem;
+  box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1);
 }
 
 /* ─── Mapbox popup override ─────────────────────────────────────────────────*/
@@ -142,19 +220,39 @@ body {
   -webkit-tap-highlight-color: transparent;
 }
 
-/* Live map: how far the large viewport (browser toolbars retracted) reaches
-   below the dynamic one the page is laid out in. The map canvas alone extends
-   by this much, so the strip behind a mobile browser's bottom toolbar (iOS
-   Safari's floating, see-through one in particular) shows map, not the black
-   page background, while every control stays clear of the toolbar. */
+/* Live map page. With viewport-fit=cover (index.html) iOS lets the page draw
+   into the bottom safe area behind Safari's address bar and home indicator.
+   The page itself stops short of that area, so every control stays clear of
+   it, while the map canvas alone extends below by --viewport-bleed: the safe
+   area plus how far the large viewport (toolbars retracted) reaches past the
+   dynamic one. So the strip behind the toolbar shows map, not a black bar.
+   Side/top insets pad the page (landscape notch, home-screen web app). */
 .viewport-bleed {
-  --viewport-bleed: 0px;
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --viewport-bleed: var(--safe-bottom);
+  height: calc(100vh - var(--safe-bottom));
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-left: env(safe-area-inset-left, 0px);
+  padding-right: env(safe-area-inset-right, 0px);
+}
+
+@supports (height: 100dvh) {
+  .viewport-bleed {
+    height: calc(100dvh - var(--safe-bottom));
+  }
 }
 
 @supports (height: 100lvh) {
   .viewport-bleed {
-    --viewport-bleed: calc(100lvh - 100dvh);
+    --viewport-bleed: calc(100lvh - 100dvh + var(--safe-bottom));
   }
+}
+
+/* viewport-fit=cover also lets every other page draw under a landscape
+   notch; keep their content clear of it. */
+body:not(:has(.viewport-bleed)) {
+  padding-left: env(safe-area-inset-left, 0px);
+  padding-right: env(safe-area-inset-right, 0px);
 }
 
 /* Panels that dock above the bottom bar (layer controls, outlook selectors,
@@ -214,4 +312,48 @@ body {
 /* Models tab inspect popup: the content draws its own dark card. */
 .wm-inspect .mapboxgl-popup-content { background: transparent; padding: 0; box-shadow: 0 10px 25px rgba(0, 0, 0, 0.45); border-radius: 0.375rem; }
 .wm-inspect .mapboxgl-popup-tip { border-top-color: #0a0c0e; }
-.wm-inspect .mapboxgl-popup-close-button { color: #8a9ab0; right: 2px; top: 0; }
+.wm-inspect .mapboxgl-popup-close-button { color: #a9b6c8; right: 2px; top: 0; }
+
+/* ─── Glass fire button (Sentinel CTA) ───────────────────────────────────────
+   Same semi-transparent tint as the active nav pill (fire-600 at 15%), flat
+   with no gradient, so the two always read as the same color. */
+.btn-glass-fire {
+  background-color: rgba(255, 90, 0, 0.15);
+  border: 1px solid rgba(255, 90, 0, 0.3);
+  color: rgb(var(--sentinel-text-200)); /* same as the nav links */
+  letter-spacing: 0.01em;
+  transition: transform 100ms ease-out, background-color 150ms ease, color 150ms ease;
+}
+.btn-glass-fire:hover {
+  background-color: rgba(255, 90, 0, 0.25);
+  color: rgb(var(--on-surface));
+}
+.btn-glass-fire:active {
+  transform: scale(0.97);
+}
+/* In the tracker app the sentinel palette never flips; panels that turn white
+   in its light mode opt into dark label text with this modifier. */
+html:not(.dark):not(.site-theme) .btn-glass-fire-adaptive {
+  color: #3a3a3c;
+}
+html:not(.dark):not(.site-theme) .btn-glass-fire-adaptive:hover {
+  color: #1d1d1f;
+}
+@media (prefers-reduced-transparency: reduce) {
+  .btn-glass-fire {
+    background-color: #2f180c; /* fire-600 at 15% over sentinel-900, made solid */
+  }
+  html.site-theme:not(.dark) .btn-glass-fire {
+    background-color: #ffe6d9; /* same tint over the light page */
+  }
+}
+@media (prefers-contrast: more) {
+  .btn-glass-fire {
+    background-color: #cc3d02;
+    border-color: #fff;
+    color: #fff;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .btn-glass-fire:active { transform: none; }
+}

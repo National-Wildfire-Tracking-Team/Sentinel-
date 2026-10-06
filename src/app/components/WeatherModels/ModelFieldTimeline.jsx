@@ -16,10 +16,12 @@ import { useWeatherModelsContext } from '../../context/WeatherModelsContext';
 import { hourAt } from '../../api/modelFields';
 import { localTime, nowIndex, zulu } from './modelTheme';
 import { jumpTargets } from '../../utils/modelFieldSelection';
+import { useTimeFormat } from '../../hooks/useTimeFormat';
 
 const FRAME_MS = 650;
 
 const ModelFieldTimeline = forwardRef(function ModelFieldTimeline({ bottomBarWidth, bottomBarHeight }, ref) {
+  useTimeFormat();
   const wm = useWeatherModelsContext();
   const { timeline = [], validTime, setValidTime, playing, setPlaying, manifest, mode } = wm ?? {};
 

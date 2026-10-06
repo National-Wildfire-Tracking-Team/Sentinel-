@@ -28,6 +28,7 @@ import {
   formatDateTime, formatRelativeTime,
 } from '../utils/formatUtils';
 import { containmentToColor } from '../utils/colorUtils';
+import { useTimeFormat } from '../hooks/useTimeFormat';
 
 function StatTile({ label, value, icon: Icon, color }) {
   return (
@@ -57,6 +58,7 @@ function PageChrome({ children }) {
 }
 
 export default function FireIncidentPage() {
+  useTimeFormat();
   const { id } = useParams();
 
   const { incidents, loading: incidentsLoading } = useIncidents(0.1, true);
@@ -84,7 +86,7 @@ export default function FireIncidentPage() {
           </p>
           <Link
             to="/"
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-fire-600 text-white font-semibold hover:bg-fire-500 transition-colors"
+            className="btn-glass-fire inline-flex items-center gap-2 px-5 py-2.5 rounded-xl font-semibold"
           >
             <MapIcon size={16} />
             View All Active Fires
@@ -220,7 +222,7 @@ export default function FireIncidentPage() {
         <div className="flex flex-wrap gap-3">
           <Link
             to={`/?incident=${encodeURIComponent(fire.id)}`}
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-fire-600 text-white text-sm font-semibold hover:bg-fire-500 transition-colors"
+            className="btn-glass-fire inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold"
           >
             <MapIcon size={15} />
             View Live on the Map

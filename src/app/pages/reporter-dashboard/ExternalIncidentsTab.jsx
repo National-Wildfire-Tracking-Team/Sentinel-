@@ -156,7 +156,7 @@ function ExternalIncidentUpdatePanel({ incident, profile, userId, onDone }) {
           type="button"
           onClick={handlePost}
           disabled={busy}
-          className="flex-1 py-2 rounded-lg text-sm font-medium text-white bg-fire-600 hover:bg-fire-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+          className="btn-glass-fire flex-1 py-2 rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
         >
           {busy ? <><RefreshCw size={13} className="animate-spin" /> Posting…</> : <><Send size={13} /> Post Update</>}
         </button>
@@ -214,7 +214,7 @@ function ExternalIncidentCard({ incident, profile, userId }) {
             onClick={() => toggle('update')}
             className={`p-2 rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5
               ${panel === 'update'
-                ? 'bg-fire-600/20 text-fire-400 border border-fire-600/30'
+                ? 'bg-fire-600/25 text-fire-400 border border-fire-600/50'
                 : 'text-sentinel-300 hover:text-white hover:bg-sentinel-700'}`}
           >
             <Activity size={14} />

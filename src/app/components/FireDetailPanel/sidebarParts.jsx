@@ -204,8 +204,8 @@ export const ShareFollowFooter = forwardRef(function ShareFollowFooter({ follow,
         className={`min-h-[48px] inline-flex items-center justify-center gap-2 rounded-xl text-[15px] font-semibold
           transition-colors disabled:opacity-60
           ${follow.following
-            ? 'border border-fire-600 text-fire-400 hover:bg-fire-600/10'
-            : 'bg-fire-600 text-sentinel-900 hover:bg-fire-500'}`}
+            ? 'border border-sentinel-600 text-sentinel-200 hover:bg-sentinel-700'
+            : 'bg-fire-600/25 border border-fire-600/50 text-white hover:bg-fire-600/35'}`}
       >
         {follow.following && <Check size={16} aria-hidden />}
         {follow.following ? 'Following' : `Follow ${noun}`}

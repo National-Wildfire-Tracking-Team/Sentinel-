@@ -13,10 +13,7 @@ import {
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { useAppStatus } from '../../context/AppStatusContext';
-import {
-  formatAcres, formatContainment, formatFRP,
-  formatDate, formatPersonnel, formatRelativeTime,
-} from '../../utils/formatUtils';
+import { formatAcres, formatContainment, formatFRP, formatDate, formatPersonnel, formatRelativeTime, withClock } from '../../utils/formatUtils';
 import { frpToLabel, containmentToColor, getAQICategory } from '../../utils/colorUtils';
 import { nwsAlertColor } from '../../utils/nwsColors';
 import IncidentTimeline from '../IncidentTimeline/IncidentTimeline';
@@ -30,6 +27,7 @@ import { trackSentinelUse } from '../../../shared/utils/analytics';
 import { FLOOD_ATTRIBUTION, floodCategoryMeta, floodZoneDescription, floodZoneRows } from '../../utils/floodHazard';
 import { fetchSpcMdText, fetchWpcMpdText } from '../../api/mesoscaleDiscussionText';
 import { DISTURBANCE_COLORS, WATCH_WARNING_COLORS } from '../../api/nhcTropicalWeather';
+import { useTimeFormat } from '../../hooks/useTimeFormat';
 
 // Fire-related detail types that represent a user opening a tracked wildfire
 // incident (as opposed to AQI stations, weather alerts, evac zones, etc).
@@ -635,6 +633,7 @@ function AQIDetail({ fire }) {
 // ─── Official Evacuation Zone Detail ─────────────────────────────────────────
 
 function EvacZoneDetail({ fire }) {
+  useTimeFormat();
   const isIpaws = fire.source === 'ipaws';
 
   if (isIpaws) {
@@ -668,13 +667,13 @@ function EvacZoneDetail({ fire }) {
         {fire.ipawsSent && (
           <div className="mb-2 text-xs text-sentinel-400">
             Effective / sent:{' '}
-            <span className="text-sentinel-200">{new Date(fire.ipawsSent).toLocaleString()}</span>
+            <span className="text-sentinel-200">{new Date(fire.ipawsSent).toLocaleString(undefined, withClock())}</span>
           </div>
         )}
 
         {fire.ipawsExpires && (
           <div className="mb-3 text-xs text-sentinel-400">
-            Expires: <span className="text-sentinel-200">{new Date(fire.ipawsExpires).toLocaleString()}</span>
+            Expires: <span className="text-sentinel-200">{new Date(fire.ipawsExpires).toLocaleString(undefined, withClock())}</span>
           </div>
         )}
 
@@ -742,13 +741,13 @@ function EvacZoneDetail({ fire }) {
 
       {fire.effectiveDate && (
         <div className="mb-2 text-xs text-sentinel-400">
-          Effective: <span className="text-sentinel-200">{new Date(fire.effectiveDate).toLocaleString()}</span>
+          Effective: <span className="text-sentinel-200">{new Date(fire.effectiveDate).toLocaleString(undefined, withClock())}</span>
         </div>
       )}
 
       {fire.expirationDate && (
         <div className="mb-3 text-xs text-sentinel-400">
-          Expires: <span className="text-sentinel-200">{new Date(fire.expirationDate).toLocaleString()}</span>
+          Expires: <span className="text-sentinel-200">{new Date(fire.expirationDate).toLocaleString(undefined, withClock())}</span>
         </div>
       )}
 
@@ -784,6 +783,7 @@ function EvacZoneDetail({ fire }) {
 // ─── Reporter Evacuation Zone Detail ─────────────────────────────────────────
 
 function ReporterEvacZoneDetail({ fire }) {
+  useTimeFormat();
   const ZONE_TYPE_COLOR = {
     'Evacuation Order':   '#ef4444',
     'Evacuation Warning': '#f97316',
@@ -823,13 +823,13 @@ function ReporterEvacZoneDetail({ fire }) {
 
       {fire.effective_at && (
         <div className="mb-2 text-xs text-sentinel-400">
-          Effective: <span className="text-sentinel-200">{new Date(fire.effective_at).toLocaleString()}</span>
+          Effective: <span className="text-sentinel-200">{new Date(fire.effective_at).toLocaleString(undefined, withClock())}</span>
         </div>
       )}
 
       {fire.expires_at && (
         <div className="mb-3 text-xs text-sentinel-400">
-          Expires: <span className="text-sentinel-200">{new Date(fire.expires_at).toLocaleString()}</span>
+          Expires: <span className="text-sentinel-200">{new Date(fire.expires_at).toLocaleString(undefined, withClock())}</span>
         </div>
       )}
 

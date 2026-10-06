@@ -22,14 +22,16 @@ export const DEFAULT_DISPLAY_PREFERENCES = {
 
 function fromRow(row) {
   if (!row) return DEFAULT_DISPLAY_PREFERENCES;
+  const d = DEFAULT_DISPLAY_PREFERENCES;
+  // Empty columns fall back to the defaults (e.g. the picker stays on Center).
   return {
-    dataPickerAnchor: row.data_picker_anchor,
-    timeFormat: row.time_format,
-    mapPopupMode: row.map_popup_mode,
-    popupSpotlight: row.popup_spotlight,
-    spotlightOpacity: row.spotlight_opacity,
-    popupDragHandle: row.popup_drag_handle,
-    stormMotionVectors: row.storm_motion_vectors,
+    dataPickerAnchor: row.data_picker_anchor ?? d.dataPickerAnchor,
+    timeFormat: row.time_format ?? d.timeFormat,
+    mapPopupMode: row.map_popup_mode ?? d.mapPopupMode,
+    popupSpotlight: row.popup_spotlight ?? d.popupSpotlight,
+    spotlightOpacity: row.spotlight_opacity ?? d.spotlightOpacity,
+    popupDragHandle: row.popup_drag_handle ?? d.popupDragHandle,
+    stormMotionVectors: row.storm_motion_vectors ?? d.stormMotionVectors,
   };
 }
 

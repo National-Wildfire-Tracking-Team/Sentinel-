@@ -7,7 +7,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { supabase, isSupabaseConfigured } from '../../shared/api/supabaseClient';
-import { parseLatestContainment } from '../utils/formatUtils';
+import { parseLatestContainment, withClock } from '../utils/formatUtils';
 
 /**
  * Subscribes to reports matching a given status filter.
@@ -182,7 +182,7 @@ export async function createNIFCFireUpdate({
     throw new Error('Please provide acreage or notes for the update.');
   }
 
-  const timestamp = new Date().toLocaleString();
+  const timestamp = new Date().toLocaleString(undefined, withClock());
   const description = [
     `SOURCE: NIFC${nifcId ? ` (${nifcId})` : ''}`,
     '',
@@ -268,7 +268,7 @@ export async function createExternalFireUpdate({
     throw new Error('Please provide acreage or notes for the update.');
   }
 
-  const timestamp = new Date().toLocaleString();
+  const timestamp = new Date().toLocaleString(undefined, withClock());
   const description = [
     `SOURCE: ${source}${externalId ? ` (${externalId})` : ''}`,
     '',
@@ -312,7 +312,7 @@ export async function appendFireReportUpdate({ id, description, acreage, notes, 
     throw new Error('Please provide acreage, containment, or notes for the update.');
   }
 
-  const timestamp = new Date().toLocaleString();
+  const timestamp = new Date().toLocaleString(undefined, withClock());
   const updateBlock = [
     `UPDATE (${timestamp})`,
     acreageLine,

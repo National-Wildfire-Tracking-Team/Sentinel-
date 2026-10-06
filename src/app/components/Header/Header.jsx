@@ -11,7 +11,7 @@ import { Flame, RefreshCw } from 'lucide-react';
 
 const ONE_MINUTE_MS = 60_000;
 const JUST_NOW_VISIBLE_MS = 5_000;
-const GIVEBUTTER_WIDGET_ID = 'j1X43O';
+const DONATE_URL = 'https://givebutter.com/national-wildfire-tracking-team-dvi6jx';
 
 const Header = memo(function Header({ onRefresh }) {
   const { lastRefreshed, isLoading } = useAppStatus();
@@ -23,17 +23,6 @@ const Header = memo(function Header({ onRefresh }) {
   useEffect(() => {
     const intervalId = window.setInterval(() => setNowMs(Date.now()), 1000);
     return () => window.clearInterval(intervalId);
-  }, []);
-
-  useEffect(() => {
-    const existingScript = document.querySelector('script[src*="givebutter.com"]');
-    if (existingScript) return;
-
-    const script = document.createElement('script');
-    script.src = 'https://widgets.givebutter.com/latest.umd.cjs?acct=Or6BK2q5Cpxxn9Xl&p=other';
-    script.async = true;
-    script.defer = true;
-    document.body.appendChild(script);
   }, []);
 
   useEffect(() => {
@@ -99,8 +88,6 @@ const Header = memo(function Header({ onRefresh }) {
           <div className="flex items-center gap-2">
             <div className="relative">
               <Flame size={22} className="text-fire-600" />
-              {/* pulsing dot for active status */}
-              <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-fire-500 rounded-full animate-pulse" />
             </div>
             <span className="inline-flex items-center font-bold text-sentinel-900 dark:text-white text-lg tracking-tight">
               Sentinel
@@ -113,11 +100,20 @@ const Header = memo(function Header({ onRefresh }) {
 
         {/* Right – Status indicators */}
         <div className="flex items-center gap-2 sm:gap-3">
-          {/* Donation widget — Givebutter's button is a fixed 48px inside its shadow
-              DOM, so zoom it to 42px: 75% of the 56px (h-14) header. */}
-          <div className="hidden sm:block">
-            <givebutter-widget id={GIVEBUTTER_WIDGET_ID} style={{ zoom: 0.875 }}></givebutter-widget>
-          </div>
+          {/* Donate — our own button (Givebutter's widget can't drop its heart
+              icon from code), in the Sentinel button's tint pattern but green:
+              15% fill, 30% border. Opens the donation page. */}
+          <a
+            href={DONATE_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hidden sm:inline-flex px-4 py-1.5 rounded-lg text-sm font-semibold
+                       bg-green-600/15 border border-green-600/30 hover:bg-green-600/25
+                       text-sentinel-800 dark:text-sentinel-100 hover:text-sentinel-900 dark:hover:text-white
+                       active:scale-[0.97] transition-[transform,background-color,color] duration-100"
+          >
+            Donate
+          </a>
 
           {/* Last updated */}
           <span

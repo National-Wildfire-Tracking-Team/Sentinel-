@@ -235,9 +235,8 @@ export default function LoginPage() {
                 <button
                   type="submit"
                   disabled={busy || !isSupabaseConfigured}
-                  className="w-full py-3 rounded-lg font-bold text-sm tracking-widest uppercase text-white
-                             bg-fire-600 hover:bg-fire-500 disabled:opacity-50 disabled:cursor-not-allowed
-                             transition-all"
+                  className="btn-glass-fire w-full py-3 rounded-lg font-bold text-sm tracking-widest uppercase
+                             disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {busy ? 'Signing in…' : 'Log In'}
                 </button>
@@ -284,9 +283,8 @@ export default function LoginPage() {
                   <button
                     type="submit"
                     disabled={busy}
-                    className="w-full py-3 rounded-lg font-bold text-sm tracking-widest uppercase text-white
-                               bg-fire-600 hover:bg-fire-500 disabled:opacity-50 disabled:cursor-not-allowed
-                               transition-all"
+                    className="btn-glass-fire w-full py-3 rounded-lg font-bold text-sm tracking-widest uppercase
+                               disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {busy ? 'Sending…' : 'Send Reset Link'}
                   </button>

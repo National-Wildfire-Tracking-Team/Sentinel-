@@ -33,6 +33,8 @@ import {
   extractAddressFromDescription, stripAddressFromDescription, replaceAddressInDescription,
   isValidCoordinate, formatCoordinates, hasLocationChanged,
 } from './incidentLocation';
+import { withClock } from '../../utils/formatUtils';
+import { useTimeFormat } from '../../hooks/useTimeFormat';
 
 /* Address search via the edge function, falling back to direct Mapbox.
  * Returns an array of features, or null when both are unavailable. */
@@ -79,6 +81,7 @@ function toCoordinate(value) {
 }
 
 function IncidentCard({ report, profile, userId, onRefresh }) {
+  useTimeFormat();
   const [expanded, setExpanded] = useState(false);
   const [mode, setMode] = useState('view'); // 'view' | 'edit' | 'update' | 'evac' | 'confirm-delete'
 
@@ -393,10 +396,10 @@ function IncidentCard({ report, profile, userId, onRefresh }) {
 
   const formattedDate = (() => {
     try {
-      return new Date(report.created_at).toLocaleDateString('en-US', {
+      return new Date(report.created_at).toLocaleDateString('en-US', withClock({
         month: 'short', day: 'numeric', year: 'numeric',
         hour: '2-digit', minute: '2-digit',
-      });
+      }));
     } catch {
       return report.created_at;
     }
@@ -432,7 +435,7 @@ function IncidentCard({ report, profile, userId, onRefresh }) {
             onClick={() => { setMode(mode === 'update' ? 'view' : 'update'); setExpanded(true); setEditFeedback(null); setUpdateFeedback(null); }}
             title="Post Update"
             className={`p-2 rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5
-              ${mode === 'update' ? 'bg-fire-600/20 text-fire-400 border border-fire-600/30' : 'text-sentinel-300 hover:text-white hover:bg-sentinel-700'}`}
+              ${mode === 'update' ? 'bg-fire-600/25 text-fire-400 border border-fire-600/50' : 'text-sentinel-300 hover:text-white hover:bg-sentinel-700'}`}
           >
             <Activity size={14} />
             <span className="hidden sm:inline">Update</span>
@@ -623,7 +626,7 @@ function IncidentCard({ report, profile, userId, onRefresh }) {
                   type="button"
                   onClick={handleEditSave}
                   disabled={editBusy}
-                  className="flex-1 py-2 rounded-lg text-sm font-medium text-white bg-fire-600 hover:bg-fire-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+                  className="btn-glass-fire flex-1 py-2 rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 >
                   {editBusy ? <><RefreshCw size={13} className="animate-spin" /> Saving…</> : 'Save Changes'}
                 </button>
@@ -710,7 +713,7 @@ function IncidentCard({ report, profile, userId, onRefresh }) {
                   type="button"
                   onClick={handlePostUpdate}
                   disabled={updateBusy}
-                  className="flex-1 py-2 rounded-lg text-sm font-medium text-white bg-fire-600 hover:bg-fire-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+                  className="btn-glass-fire flex-1 py-2 rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 >
                   {updateBusy ? <><RefreshCw size={13} className="animate-spin" /> Posting…</> : <><Send size={13} /> Post Update</>}
                 </button>
