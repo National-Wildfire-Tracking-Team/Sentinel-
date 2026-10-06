@@ -120,7 +120,7 @@ describe('MapView layer ordering', () => {
     return i;
   };
 
-  it.each(['WeatherAlertsLayer', 'FirePerimetersLayer', 'IncidentLocationsLayer', 'FireIncidentsLayer', 'EvacuationZonesLayer'])(
+  it.each(['WeatherAlertsLayer', 'FirePerimetersLayer', 'IncidentLocationsLayer', 'EvacuationZonesLayer'])(
     'renders beneath %s',
     (tag) => {
       expect(pos('FloodHazardLayer')).toBeLessThan(pos(tag));

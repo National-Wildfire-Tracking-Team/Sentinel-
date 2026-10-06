@@ -32,7 +32,7 @@ const NdgdSmokeTimeSlider = memo(function NdgdSmokeTimeSlider({
   return (
     <div
       className="absolute bottom-20 left-1/2 -translate-x-1/2 z-20 pointer-events-auto
-                 w-[min(22rem,calc(100vw-8rem))] animate-fade-in"
+                 w-[min(22rem,calc(100vw-8rem))] animate-dock-rise"
     >
       <div className="bg-sentinel-900/95 backdrop-blur-md border border-sentinel-700/80 rounded-xl shadow-2xl px-3 py-2">
         <div className="flex items-center justify-between gap-2 mb-1.5">

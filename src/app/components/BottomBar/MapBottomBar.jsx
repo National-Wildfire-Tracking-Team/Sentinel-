@@ -43,6 +43,7 @@ const MapBottomBar = memo(forwardRef(function MapBottomBar({
 
       <button
         type="button"
+        aria-label="All Hazards"
         onClick={() => onTabChange?.('allhazard')}
         className={`inline-flex items-center gap-1.5 px-3 py-2 whitespace-nowrap text-sm font-bold rounded-xl transition-all duration-200 ${
           isAllHazardTab
@@ -57,6 +58,7 @@ const MapBottomBar = memo(forwardRef(function MapBottomBar({
 
       <button
         type="button"
+        aria-label="Wildfire"
         onClick={() => onTabChange?.('wildfire')}
         className={`inline-flex items-center gap-1.5 px-3 py-2 whitespace-nowrap text-sm font-semibold rounded-xl transition-colors ${
           activeMapTab === 'wildfire'
@@ -71,6 +73,7 @@ const MapBottomBar = memo(forwardRef(function MapBottomBar({
 
       <button
         type="button"
+        aria-label="Weather"
         onClick={() => onTabChange?.('weather')}
         className={`inline-flex items-center gap-1.5 px-3 py-2 whitespace-nowrap text-sm font-semibold rounded-xl transition-colors ${
           activeMapTab === 'weather'
@@ -86,6 +89,7 @@ const MapBottomBar = memo(forwardRef(function MapBottomBar({
       {/* HRRR/GFS numerical model forecasts — model output, kept apart from alerts and observations */}
       <button
         type="button"
+        aria-label="Models"
         onClick={() => onTabChange?.('models')}
         // Hover, focus or the start of a tap: fetch the first frame before the click lands.
         onPointerEnter={onModelsIntent}

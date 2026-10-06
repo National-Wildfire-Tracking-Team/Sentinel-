@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { useEffect, useRef, useState } from 'react';
 import { SatelliteProvider, satellitePanelOpenAfter, useSatelliteContext } from '../../src/app/context/SatelliteContext';
-import SatellitePanel from '../../src/app/components/Map/SatellitePanel';
+import SatellitePanel, { SatelliteShowControlsPill } from '../../src/app/components/Map/SatellitePanel';
 import GOESLayer from '../../src/app/components/Map/layers/GOESLayer';
 import SatelliteStormFocus from '../../src/app/components/Map/SatelliteStormFocus';
 import { SatelliteLegendSection } from '../../src/app/components/Legend/Legend';
@@ -75,11 +75,29 @@ describe('Satellite panel', () => {
 
     rerender(<Page layers={{ satellite: true }} />);
     expect(screen.getByRole('group', { name: 'Satellite controls' })).toBeInTheDocument();
-    expect(screen.getByLabelText('Satellite')).toHaveValue('goes-east');
-    expect(screen.getByLabelText('Region')).toHaveValue('conus');
+    expect(screen.getByLabelText('Satellite and region')).toHaveValue('goes-east:conus');
     expect(screen.getByLabelText('Band')).toHaveValue('visible');
     expect(liveTiles()).toContain('LAYERS=conus_ch02');
-    await waitFor(() => expect(screen.getByText(/^Latest: /)).toHaveTextContent(/Latest: .*(AM|PM)/));
+    await waitFor(() => expect(screen.queryByLabelText('Loading imagery')).toBeNull());
+    // The pickers are the header; there's no separate summary or scan-time row.
+    expect(screen.queryByText(/^Latest: /)).toBeNull();
+    expect(screen.queryByText(/GOES-East · CONUS · Visible/)).toBeNull();
+  });
+
+  it('hides its controls from beside Recent loop, and a pill brings them back', async () => {
+    mockSources();
+    const { rerender } = render(<Page layers={{ satellite: false }} />);
+    rerender(<Page layers={{ satellite: true }} />);
+    expect(screen.queryByRole('button', { name: 'Show controls' })).toBeNull();
+    await waitFor(() => expect(screen.getByText('Recent loop')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole('button', { name: 'Hide controls' }));
+    expect(screen.queryByRole('group', { name: 'Satellite controls' })).toBeNull();
+    expect(sources()).toHaveLength(1); // imagery stays on
+
+    fireEvent.click(screen.getByRole('button', { name: 'Show controls' }));
+    expect(screen.getByRole('group', { name: 'Satellite controls' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Show controls' })).toBeNull();
   });
 
   it('closes when another layer with controls is selected, leaving the imagery on', () => {
@@ -99,11 +117,11 @@ describe('Satellite panel', () => {
     fireEvent.change(screen.getByLabelText('Band'), { target: { value: 'clean-ir' } });
     expect(liveTiles()).toContain('LAYERS=conus_ch13');
 
-    fireEvent.change(screen.getByLabelText('Satellite'), { target: { value: 'goes-west' } });
-    expect(screen.getByLabelText('Region')).toHaveValue('pacus');
+    fireEvent.change(screen.getByLabelText('Satellite and region'), { target: { value: 'goes-west:pacus' } });
+    expect(screen.getByLabelText('Satellite and region')).toHaveValue('goes-west:pacus');
     expect(liveTiles()).toContain('goes_west.cgi');
 
-    fireEvent.change(screen.getByLabelText('Region'), { target: { value: 'alaska' } });
+    fireEvent.change(screen.getByLabelText('Satellite and region'), { target: { value: 'goes-west:alaska' } });
     expect(liveTiles()).toContain('LAYERS=alaska_ch13');
 
     fireEvent.change(screen.getByLabelText('Band'), { target: { value: 'true-color' } });
@@ -115,16 +133,18 @@ describe('Satellite panel', () => {
     expect(window.location.search).toBe('?sat=goes-west&sat_region=alaska&sat_product=true-color');
   });
 
-  it('lists only the regions the selected satellite covers', () => {
+  it('lists every GOES-East scan sector, then every GOES-West one, and no zoom-to areas', () => {
     mockSources();
     const { rerender } = render(<Page layers={{}} />);
     rerender(<Page layers={{ satellite: true }} />);
-    const regionOptions = () => within(screen.getByLabelText('Region')).getAllByRole('option').map((o) => o.value);
-    expect(regionOptions()).toContain('gulf');
-    expect(regionOptions()).not.toContain('alaska');
-    fireEvent.change(screen.getByLabelText('Satellite'), { target: { value: 'goes-west' } });
-    expect(regionOptions()).toContain('alaska');
-    expect(regionOptions()).not.toContain('gulf');
+    const picker = screen.getByLabelText('Satellite and region');
+    const groups = within(picker).getAllByRole('group').map((g) => g.getAttribute('label'));
+    expect(groups).toEqual(['GOES-East (GOES-19)', 'GOES-West (GOES-18)']);
+    const values = within(picker).getAllByRole('option').map((o) => o.value);
+    expect(values).toEqual([
+      'goes-east:conus', 'goes-east:fulldisk', 'goes-east:meso1', 'goes-east:meso2', 'goes-east:puerto-rico',
+      'goes-west:pacus', 'goes-west:fulldisk', 'goes-west:meso1', 'goes-west:meso2', 'goes-west:alaska', 'goes-west:hawaii',
+    ]);
   });
 
   it('disables products a region does not have, and explains a forced change', () => {
@@ -132,7 +152,7 @@ describe('Satellite panel', () => {
     const { rerender } = render(<Page layers={{}} />);
     rerender(<Page layers={{ satellite: true }} />);
     fireEvent.change(screen.getByLabelText('Band'), { target: { value: 'true-color' } });
-    fireEvent.change(screen.getByLabelText('Region'), { target: { value: 'meso1' } });
+    fireEvent.change(screen.getByLabelText('Satellite and region'), { target: { value: 'goes-east:meso1' } });
     expect(screen.getByLabelText('Band')).toHaveValue('visible');
     expect(screen.getByText(/True Color isn't available for Mesoscale 1/)).toBeInTheDocument();
     const trueColor = within(screen.getByLabelText('Band')).getByRole('option', { name: /True Color/ });
@@ -201,10 +221,17 @@ describe('Satellite panel', () => {
     window.history.replaceState(null, '', '/?sat=goes-west&sat_region=gulf&sat_product=clean-ir');
     const { rerender } = render(<Page layers={{}} />);
     rerender(<Page layers={{ satellite: true }} />);
-    expect(screen.getByLabelText('Satellite')).toHaveValue('goes-west');
+    expect(screen.getByLabelText('Satellite and region')).toHaveValue('goes-west:pacus');
     expect(screen.getByLabelText('Band')).toHaveValue('clean-ir');
-    expect(screen.getByLabelText('Region')).toHaveValue('pacus');
     expect(screen.getByText(/Gulf of America isn't available from GOES-West/)).toBeInTheDocument();
+  });
+
+  it('still shows a zoom-to area a shared link opened on', () => {
+    mockSources();
+    window.history.replaceState(null, '', '/?sat=goes-east&sat_region=gulf&sat_product=visible');
+    const { rerender } = render(<Page layers={{}} />);
+    rerender(<Page layers={{ satellite: true }} />);
+    expect(screen.getByLabelText('Satellite and region')).toHaveValue('goes-east:gulf');
   });
 
   it('removes its URL keys and imagery when the layer is switched off', () => {

@@ -42,7 +42,7 @@ const ModelFieldTimeline = forwardRef(function ModelFieldTimeline({ bottomBarWid
       aria-label="Model forecast time"
       className="dark absolute bottom-20 left-1/2 -translate-x-1/2 z-20 w-[min(34rem,calc(100vw-2rem))]
                  bg-sentinel-900 border border-sentinel-600 rounded-t-2xl shadow-2xl shadow-black/60 ring-1 ring-white/10
-                 overflow-hidden text-white"
+                 overflow-hidden text-white animate-dock-rise"
       style={{
         width: bottomBarWidth ? `${bottomBarWidth}px` : undefined,
         bottom: bottomBarHeight ? `${bottomBarHeight + 16}px` : undefined,

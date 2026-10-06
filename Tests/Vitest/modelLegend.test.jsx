@@ -1,11 +1,9 @@
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import ModelLegend from '../../src/app/components/WeatherModels/ModelLegend';
 
 let wm = null;
 vi.mock('../../src/app/context/WeatherModelsContext', () => ({ useWeatherModelsContext: () => wm }));
-vi.mock('../../src/app/context/AppContext', () => ({ useApp: () => ({ legendOpen: true, layerPanelOpen: false }) }));
-vi.mock('../../src/app/components/Map/MapScaleBar', () => ({ default: () => <div data-testid="scale" /> }));
 
 const MANIFEST = {
   variables: {
@@ -22,24 +20,20 @@ const MANIFEST = {
 };
 
 const base = { manifest: MANIFEST, validTime: '2026-10-01T00:00:00Z', mode: 'hrrr', compareView: 'swipe', units: 'si', particles: false };
-const open = () => fireEvent.click(screen.getByRole('button', { name: /legend/i }));
 
 beforeEach(() => { wm = { ...base, variable: 'temperature' }; });
 
 describe('ModelLegend', () => {
   it("shows the selected variable's colour stops in display units", () => {
     render(<ModelLegend />);
-    open();
     expect(screen.getByText('Temperature')).toBeTruthy();
     expect(screen.getByText('-40 °C')).toBeTruthy();
     expect(screen.getByText('50 °C')).toBeTruthy();
     expect(screen.getByText('Air temperature at 2 m.')).toBeTruthy();
-    expect(screen.getByTestId('scale')).toBeTruthy();
   });
 
   it('follows a variable switch, skipping see-through stops', () => {
     const { rerender } = render(<ModelLegend />);
-    open();
     wm = { ...base, variable: 'precipitationRate' };
     rerender(<ModelLegend />);
     expect(screen.queryByText('Temperature')).toBeNull();
@@ -51,25 +45,19 @@ describe('ModelLegend', () => {
   it('shows the difference scale with signs in the difference view', () => {
     wm = { ...base, variable: 'temperature', mode: 'compare', compareView: 'difference' };
     render(<ModelLegend />);
-    open();
     expect(screen.getByText('-10 °C')).toBeTruthy();
     expect(screen.getByText('+10 °C')).toBeTruthy();
   });
 
-  it('keeps the button but does not open when there is nothing to show', () => {
+  it('renders nothing when there is nothing to show', () => {
     wm = { ...base, manifest: null };
-    render(<ModelLegend />);
-    const button = screen.getByRole('button', { name: /legend/i });
-    expect(button.getAttribute('aria-expanded')).toBeNull();
-    fireEvent.click(button);
-    expect(screen.queryByText('Temperature')).toBeNull();
-    expect(screen.getByTestId('scale')).toBeTruthy();
+    const { container } = render(<ModelLegend />);
+    expect(container.innerHTML).toBe('');
   });
 
   it('notes the wind particles only when they are drawn', () => {
     wm = { ...base, variable: 'temperature', particles: true };
     const { rerender } = render(<ModelLegend />);
-    open();
     expect(screen.getByText('Wind particles')).toBeTruthy();
     wm = { ...wm, mode: 'compare' };
     rerender(<ModelLegend />);
