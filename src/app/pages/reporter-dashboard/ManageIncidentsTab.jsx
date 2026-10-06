@@ -623,7 +623,7 @@ function IncidentCard({ report, profile, userId, onRefresh }) {
                   type="button"
                   onClick={handleEditSave}
                   disabled={editBusy}
-                  className="flex-1 py-2 rounded-lg text-sm font-medium text-white bg-fire-600 hover:bg-fire-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+                  className="btn-glass-fire flex-1 py-2 rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 >
                   {editBusy ? <><RefreshCw size={13} className="animate-spin" /> Saving…</> : 'Save Changes'}
                 </button>
@@ -710,7 +710,7 @@ function IncidentCard({ report, profile, userId, onRefresh }) {
                   type="button"
                   onClick={handlePostUpdate}
                   disabled={updateBusy}
-                  className="flex-1 py-2 rounded-lg text-sm font-medium text-white bg-fire-600 hover:bg-fire-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+                  className="btn-glass-fire flex-1 py-2 rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 >
                   {updateBusy ? <><RefreshCw size={13} className="animate-spin" /> Posting…</> : <><Send size={13} /> Post Update</>}
                 </button>

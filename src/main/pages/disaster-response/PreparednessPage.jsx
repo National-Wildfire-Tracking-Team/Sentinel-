@@ -1,36 +1,25 @@
 import { Link } from 'react-router-dom';
 import Seo from '../../../shared/components/Seo';
-import {
-  CloudLightning,
-  ArrowRight,
-  Radar,
-  Satellite,
-  GraduationCap,
-  ClipboardList,
-} from 'lucide-react';
+import { CloudLightning, ArrowRight } from 'lucide-react';
 import PageHeader from './PageHeader';
 
 const capabilities = [
   {
-    icon: Radar,
     title: 'WXIntel Activation',
     description:
       'Weather intelligence monitoring that flags rising fire weather, storm, and flood risk so response teams can be staged before conditions turn critical.',
   },
   {
-    icon: Satellite,
     title: 'OSINT Activation',
     description:
       'Open-source intelligence gathering that cross-references scanner traffic, agency releases, and public reports into a single verified picture.',
   },
   {
-    icon: GraduationCap,
     title: 'Certified Training',
     description:
       'Volunteers complete required and role-based training in emergency response and disaster management before they take a deployment.',
   },
   {
-    icon: ClipboardList,
     title: 'Preparedness Planning',
     description:
       'Ongoing planning work that keeps branch readiness, equipment checks, and staging procedures current ahead of the next activation.',
@@ -64,21 +53,15 @@ export default function PreparednessPage() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {capabilities.map((cap) => {
-              const Icon = cap.icon;
-              return (
-                <div
-                  key={cap.title}
-                  className="group p-6 rounded-2xl bg-sentinel-800/60 border border-sentinel-700 hover:border-fire-600/40 transition-all duration-300"
-                >
-                  <div className="w-12 h-12 rounded-xl bg-fire-600/10 border border-fire-600/20 flex items-center justify-center mb-4 group-hover:bg-fire-600/20 transition-colors">
-                    <Icon size={22} className="text-fire-400" />
-                  </div>
-                  <h3 className="text-lg font-semibold text-white mb-2">{cap.title}</h3>
-                  <p className="text-sentinel-300 text-sm leading-relaxed">{cap.description}</p>
-                </div>
-              );
-            })}
+            {capabilities.map((cap) => (
+              <div
+                key={cap.title}
+                className="group p-6 rounded-2xl bg-sentinel-800/60 border border-sentinel-700 hover:border-fire-600/40 transition-all duration-300"
+              >
+                <h3 className="text-lg font-semibold text-white mb-2">{cap.title}</h3>
+                <p className="text-sentinel-300 text-sm leading-relaxed">{cap.description}</p>
+              </div>
+            ))}
           </div>
         </div>
       </section>
@@ -86,7 +69,7 @@ export default function PreparednessPage() {
       {/* ── CTA ── */}
       <section className="bg-sentinel-850 py-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center rounded-3xl bg-gradient-to-br from-fire-600/15 via-sentinel-900 to-sentinel-900 border border-fire-600/20 p-10 sm:p-14">
+          <div className="text-center rounded-3xl bg-sentinel-800 border border-fire-600/20 p-10 sm:p-14">
             <h2 className="text-2xl sm:text-3xl font-bold text-white mb-4">
               Get Ready to Deploy
             </h2>
@@ -96,7 +79,7 @@ export default function PreparednessPage() {
             </p>
             <Link
               to="/disaster-response/get-involved"
-              className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-fire-600 text-white font-semibold hover:bg-fire-500 transition-colors shadow-lg shadow-fire-600/25"
+              className="btn-glass-fire inline-flex items-center gap-2 px-6 py-3 rounded-xl font-semibold"
             >
               Get Involved
               <ArrowRight size={18} />

@@ -114,7 +114,7 @@ export default function ReporterRegisterPage() {
               <ResendConfirmation email={email} />
               <Link
                 to="/login"
-                className="mt-2 w-full py-3 rounded-lg font-semibold text-sm text-white bg-fire-600 hover:bg-fire-700 transition-all text-center block"
+                className="btn-glass-fire mt-2 w-full py-3 rounded-lg font-semibold text-sm text-center block"
               >
                 Go to Sign In
               </Link>
@@ -279,8 +279,8 @@ export default function ReporterRegisterPage() {
             <button
               type="submit"
               disabled={busy || !isSupabaseConfigured}
-              className="w-full py-3 rounded-lg font-semibold text-sm text-white bg-fire-600 hover:bg-fire-700
-                         disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+              className="btn-glass-fire w-full py-3 rounded-lg font-semibold text-sm
+                         disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {busy ? 'Creating account…' : 'Create Account'}
             </button>

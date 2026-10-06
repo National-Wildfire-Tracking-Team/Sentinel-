@@ -95,7 +95,7 @@ export default function RegisterPage() {
               <ResendConfirmation email={email} />
               <Link
                 to="/login"
-                className="mt-2 w-full py-3 rounded-lg font-bold text-sm tracking-widest uppercase text-white bg-fire-600 hover:bg-fire-500 transition-all block"
+                className="btn-glass-fire mt-2 w-full py-3 rounded-lg font-bold text-sm tracking-widest uppercase block"
               >
                 Go to Sign In
               </Link>
@@ -281,9 +281,8 @@ export default function RegisterPage() {
                 <button
                   type="submit"
                   disabled={busy || !isSupabaseConfigured}
-                  className="w-full py-3 rounded-lg font-bold text-sm tracking-widest uppercase text-white
-                             bg-fire-600 hover:bg-fire-500 disabled:opacity-50 disabled:cursor-not-allowed
-                             transition-all"
+                  className="btn-glass-fire w-full py-3 rounded-lg font-bold text-sm tracking-widest uppercase
+                             disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {busy ? 'Creating account…' : 'Create Account'}
                 </button>

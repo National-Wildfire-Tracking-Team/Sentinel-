@@ -214,8 +214,8 @@ function EditBox({ update, padX, onSave, onCancel }) {
           type="button"
           onClick={handleSave}
           disabled={!text.trim() || saving}
-          className="inline-flex items-center gap-1 min-h-[44px] px-4 text-sm font-semibold rounded-lg
-                     bg-fire-600 hover:bg-fire-500 text-sentinel-900 disabled:opacity-40"
+          className="btn-glass-fire inline-flex items-center gap-1 min-h-[44px] px-4 text-sm font-semibold rounded-lg
+                     disabled:opacity-40"
         >
           {saving ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
           Save

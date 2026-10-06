@@ -46,10 +46,10 @@ describe('Footer', () => {
     expect(screen.getByText(new RegExp(`${year}`))).toBeInTheDocument();
   });
 
-  it('renders Terms of Service links in Quick Links and bottom bar', () => {
+  it('renders a single Terms of Service link, in the bottom bar', () => {
     renderWithRouter(<Footer />);
     const links = screen.getAllByRole('link', { name: /Terms of Service/i });
-    expect(links).toHaveLength(2);
-    links.forEach((link) => expect(link).toHaveAttribute('href', '/terms'));
+    expect(links).toHaveLength(1);
+    expect(links[0]).toHaveAttribute('href', '/terms');
   });
 });

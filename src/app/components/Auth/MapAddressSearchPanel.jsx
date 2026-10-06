@@ -90,7 +90,7 @@ function ZipSearch({ onResult, autoFocus = false, compact = false }) {
         <button
           type="submit"
           disabled={busy || !input.trim()}
-          className={`flex items-center justify-center gap-1.5 px-4 ${compact ? 'py-2' : 'py-2.5'} rounded-xl bg-fire-600 hover:bg-fire-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium text-sm transition-colors whitespace-nowrap`}
+          className={`btn-glass-fire flex items-center justify-center gap-1.5 px-4 ${compact ? 'py-2' : 'py-2.5'} rounded-xl disabled:opacity-50 disabled:cursor-not-allowed font-medium text-sm whitespace-nowrap`}
         >
           {busy ? <Loader2 size={14} className="animate-spin" /> : <Search size={14} />}
           Search
@@ -284,7 +284,7 @@ function SavedLocationRow({ loc, onUpdate, onRemove }) {
               type="button"
               onClick={save}
               disabled={busy}
-              className="flex-1 flex items-center justify-center gap-2 rounded-lg bg-fire-600 hover:bg-fire-500 disabled:opacity-50 px-3 py-2 text-sm font-semibold text-white transition-colors"
+              className="btn-glass-fire flex-1 flex items-center justify-center gap-2 rounded-lg disabled:opacity-50 px-3 py-2 text-sm font-semibold"
             >
               {busy ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle size={14} />}
               Save changes
@@ -400,7 +400,7 @@ export default function MapAddressSearchPanel({ onClose, asPage = false }) {
               <button
                 onClick={handleSave}
                 disabled={saving}
-                className="w-full flex items-center justify-center gap-2 rounded-lg bg-fire-600 hover:bg-fire-500 disabled:opacity-50 disabled:cursor-not-allowed px-3 py-2 text-sm font-semibold text-white transition-colors"
+                className="btn-glass-fire w-full flex items-center justify-center gap-2 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed px-3 py-2 text-sm font-semibold"
               >
                 {saving ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle size={14} />}
                 Save &amp; Mark on Map

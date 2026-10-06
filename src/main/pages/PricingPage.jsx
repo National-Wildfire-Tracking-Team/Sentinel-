@@ -161,27 +161,21 @@ export default function PricingPage() {
   const alreadyPaid = isAuthenticated && (currentPlanId === 'plus' || currentPlanId === 'pro' || currentPlanId === 'team');
 
   return (
-    <div className="bg-[#0a0c0e] text-white min-h-screen">
+    <div className="bg-sentinel-900 text-white min-h-screen">
       <Seo
         title="Pricing & Plans | Sentinel Wildfire Tracker"
         description="Compare Sentinel's Free, Plus, and Pro plans for wildfire tracking: satellite hotspots, fire perimeters, radar, alerts, and more from the National Wildfire Tracking Team."
         path="/pricing"
       />
 
-      {/* ── Hero + plan cards, over a shared ember glow ── */}
+      {/* ── Hero + plan cards ── */}
       <div className="relative overflow-hidden">
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_75%_80%_at_50%_45%,_rgba(255,90,0,0.20),_transparent_75%)]"
-        />
 
       {/* ── Hero ── */}
       <section className="relative max-w-4xl mx-auto px-4 sm:px-6 pt-20 pb-14 text-center">
         <h1 className="text-4xl sm:text-5xl font-extrabold text-white tracking-tight mb-4">
           The Right{' '}
-          <span className="text-transparent bg-clip-text bg-gradient-to-r from-fire-500 to-fire-300">
-            Information
-          </span>
+          Information
           <br className="hidden sm:block" /> for Every Situation
         </h1>
         <p className="text-sentinel-300 text-lg max-w-xl mx-auto">
@@ -276,11 +270,6 @@ export default function PricingPage() {
           {/* ── Pro card ── */}
           <div className="relative flex flex-col rounded-2xl border border-fire-500
                           bg-sentinel-900/80 ring-1 ring-fire-500/25 p-7">
-            <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-4 py-1
-                            rounded-full bg-fire-600 text-white text-xs font-bold whitespace-nowrap">
-              Most Popular
-            </div>
-
             <span className="text-xs font-bold uppercase tracking-widest text-fire-400 mb-2">
               Sentinel Pro
             </span>
@@ -322,8 +311,7 @@ export default function PricingPage() {
             </p>
             <a
               href={`${getAppOrigin()}/account`}
-              className="inline-flex px-5 py-2.5 rounded-xl text-sm font-semibold
-                         bg-fire-600 hover:bg-fire-500 text-white transition-colors"
+              className="btn-glass-fire inline-flex px-5 py-2.5 rounded-xl text-sm font-semibold"
             >
               Manage Plan
             </a>
@@ -344,8 +332,7 @@ export default function PricingPage() {
             </p>
             <a
               href={`${getAppOrigin()}/register`}
-              className="inline-flex px-5 py-2.5 rounded-xl text-sm font-semibold
-                         bg-fire-600 hover:bg-fire-500 text-white transition-colors"
+              className="btn-glass-fire inline-flex px-5 py-2.5 rounded-xl text-sm font-semibold"
             >
               Create Free Account
             </a>
@@ -442,7 +429,7 @@ function CellValue({ val, freeCol }) {
     );
   }
   if (val === false) {
-    return <X size={14} className="inline text-sentinel-700" />;
+    return <X size={14} className="inline text-sentinel-500" />;
   }
   if (val === '🔜') {
     return (

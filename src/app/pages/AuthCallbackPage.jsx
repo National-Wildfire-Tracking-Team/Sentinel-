@@ -26,7 +26,7 @@ const inputBase =
   'focus:outline-none focus:border-fire-500 focus:ring-1 focus:ring-fire-500/40 transition-colors text-sm';
 
 const primaryButton =
-  'w-full py-3 rounded-lg font-semibold text-sm text-white bg-fire-600 hover:bg-fire-500 ' +
+  'btn-glass-fire w-full py-3 rounded-lg font-semibold text-sm ' +
   'disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2';
 
 function Shell({ title, subtitle, children }) {

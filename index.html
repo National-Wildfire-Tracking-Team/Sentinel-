@@ -3,14 +3,21 @@
   <head>
     <script>
       // Apply the stored theme before paint to avoid a flash of the wrong theme.
-      // Defaults to dark (this app's original, and still primary, look).
+      // Defaults to dark (this app's original, and still primary, look). The
+      // parent-domain cookie carries the app's choice to the marketing site;
+      // mirrors shared/utils/sharedTheme.js.
       (function () {
-        try {
-          var stored = localStorage.getItem('nwtt-theme');
-          if (stored !== 'light') document.documentElement.classList.add('dark');
-        } catch (e) {
-          document.documentElement.classList.add('dark');
+        var root = document.documentElement;
+        var host = location.hostname;
+        if (host.indexOf('app.') !== 0 && host.indexOf('reporter.') !== 0) {
+          root.classList.add('site-theme');
         }
+        var stored = null;
+        try {
+          var m = document.cookie.match(/(?:^|; )nwtt-theme=([^;]*)/);
+          stored = m ? m[1] : localStorage.getItem('nwtt-theme');
+        } catch (e) {}
+        if (stored !== 'light') root.classList.add('dark');
       })();
     </script>
     <meta charset="UTF-8" />

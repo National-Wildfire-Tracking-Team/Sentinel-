@@ -503,7 +503,7 @@ export default function AddIncidentTab({ userId, profile, onSubmitted }) {
         <button
           type="submit"
           disabled={busy || !isSupabaseConfigured}
-          className="flex items-center gap-2 px-8 py-2.5 rounded-lg font-bold text-sm text-white bg-fire-600 hover:bg-fire-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+          className="btn-glass-fire flex items-center gap-2 px-8 py-2.5 rounded-lg font-bold text-sm disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {busy ? (
             <><RefreshCw size={15} className="animate-spin" /> Submitting…</>

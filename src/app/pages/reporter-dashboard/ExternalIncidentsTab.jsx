@@ -156,7 +156,7 @@ function ExternalIncidentUpdatePanel({ incident, profile, userId, onDone }) {
           type="button"
           onClick={handlePost}
           disabled={busy}
-          className="flex-1 py-2 rounded-lg text-sm font-medium text-white bg-fire-600 hover:bg-fire-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+          className="btn-glass-fire flex-1 py-2 rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
         >
           {busy ? <><RefreshCw size={13} className="animate-spin" /> Posting…</> : <><Send size={13} /> Post Update</>}
         </button>

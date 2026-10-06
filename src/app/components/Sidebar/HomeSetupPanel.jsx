@@ -161,7 +161,7 @@ export default function HomeSetupPanel() {
               onClick={() => setRadiusMiles(miles)}
               className={`px-1 py-1.5 rounded-md border text-xs font-semibold transition-colors ${
                 radiusMiles === miles
-                  ? 'bg-fire-600 border-fire-500 text-white'
+                  ? 'btn-glass-fire border-fire-500'
                   : 'border-sentinel-600 text-sentinel-200 hover:bg-sentinel-700'
               }`}
             >
@@ -185,7 +185,7 @@ export default function HomeSetupPanel() {
           type="button"
           onClick={handleSave}
           disabled={!canSave}
-          className="flex-1 px-3 py-2 bg-fire-600 hover:bg-fire-500 disabled:bg-sentinel-700 disabled:text-sentinel-400 text-white text-sm font-semibold rounded-md transition-colors"
+          className="btn-glass-fire disabled:opacity-50 flex-1 px-3 py-2 text-sm font-semibold rounded-md"
         >
           {busy === 'save' ? <Loader2 size={14} className="animate-spin mx-auto" /> : 'Save Home'}
         </button>

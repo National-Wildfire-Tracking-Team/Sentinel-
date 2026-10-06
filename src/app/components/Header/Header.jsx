@@ -99,8 +99,6 @@ const Header = memo(function Header({ onRefresh }) {
           <div className="flex items-center gap-2">
             <div className="relative">
               <Flame size={22} className="text-fire-600" />
-              {/* pulsing dot for active status */}
-              <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-fire-500 rounded-full animate-pulse" />
             </div>
             <span className="inline-flex items-center font-bold text-sentinel-900 dark:text-white text-lg tracking-tight">
               Sentinel

@@ -99,7 +99,7 @@ const AccountPanel = memo(function AccountPanel() {
           <div className="p-2">
             <button
               onClick={() => setShowLoginModal(true)}
-              className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium bg-fire-600 hover:bg-fire-500 text-white transition-colors"
+              className="btn-glass-fire w-full flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium"
             >
               <User size={13} />
               <span>Sign In</span>
