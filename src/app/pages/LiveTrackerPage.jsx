@@ -18,7 +18,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, lazy, Suspense } fro
 // Data hooks
 import { useFireHotspots } from '../hooks/useFireHotspots';
 import { useNgfsDetections } from '../hooks/useNgfsDetections';
-import { useMergedFireData, getFireMatchKey, pointInGeometry } from '../hooks/useMergedFireData';
+import { useMergedFireData, getFireMatchKey, pointInGeometry, pointNearGeometry } from '../hooks/useMergedFireData';
 import { useAQIData } from '../hooks/useAQIData';
 import { useWeatherAlerts } from '../hooks/useWeatherAlerts';
 import { useIncidents } from '../hooks/useIncidents';
@@ -57,7 +57,7 @@ import { filterByRadius, filterFeatureCollectionByRadius, circlePolygon } from '
 import { polygonCentroid } from '../utils/geoUtils';
 import { incidentsToGeoJSON } from '../api/inciweb';
 import { mergeIrwinAndCalFireIncidents } from '../utils/mergeIncidents';
-import { incidentIdsFor, parseAliasIds } from '../utils/incidentAliases';
+import { incidentIdsFor, joinAliasIds, parseAliasIds } from '../utils/incidentAliases';
 
 // Components
 import Header from '../components/Header/Header';
@@ -195,6 +195,10 @@ function filterStaleContainedGeoJSON(geoJSON, containedKey, updatedKey) {
 }
 
 const ONE_MONTH_MS = 30 * 24 * 60 * 60 * 1000;
+
+// How far (degrees) a same-named community report may sit outside a
+// perimeter and still be treated as that fire (~5.5 km).
+const REPORT_PERIMETER_BUFFER_DEG = 0.05;
 
 /**
  * Returns true if a timestamp is older than maxAgeMs. Missing or unparseable
@@ -723,11 +727,6 @@ export default function LiveTrackerPage() {
     }
     return [...byKey.values(), ...unkeyed];
   }, [activeMapTab, approvedReports]);
-  const userReportsGeoJSON = useMemo(
-    () => reportsToGeoJSON(reporterReports),
-    [reporterReports]
-  );
-
   // Community-submitted hazard events – wildfire, hazmat, hazard, flooding.
   // Tertiary tier: a supplemental overlay, not needed for first paint.
   const { events: activeHazardEvents } = useHazardEvents('active', tertiaryReady);
@@ -752,24 +751,37 @@ export default function LiveTrackerPage() {
     return tagStaleFire(containedFiltered, 'ModifiedOnDateTime', ONE_MONTH_MS);
   }, [perimetersGeoJSON]);
 
-  // Perimeters whose upstream name is a blank-data placeholder ("Unknown
-  // Fire"/"Unnamed") borrow a name from a community report that falls inside
-  // their polygon, so the map doesn't show an unhelpful placeholder when
-  // reporters have already identified the fire.
+  // Link community reports to the perimeter of the fire they describe: a
+  // nameless perimeter ("Unknown Fire"/"Unnamed") borrows the name of a
+  // report inside its polygon; a named one claims a same-named report near
+  // it. The report id joins the perimeter's aliases (so evacuations/updates
+  // a reporter entered on the report show in its panel) and `_reportId`
+  // lets the map drop the report's own dot in favour of the perimeter's.
   const namedPerimetersGeoJSON = useMemo(() => {
     if (!freshPerimetersGeoJSON?.features?.length || !reporterReports.length)
       return freshPerimetersGeoJSON;
     return {
       ...freshPerimetersGeoJSON,
       features: freshPerimetersGeoJSON.features.map(f => {
-        if (getFireMatchKey(f.properties.IncidentName)) return f;
+        const key = getFireMatchKey(f.properties.IncidentName);
         const match = reporterReports.find(r => {
           const lng = Number(r.longitude);
           const lat = Number(r.latitude);
-          return Number.isFinite(lng) && Number.isFinite(lat) && pointInGeometry([lng, lat], f.geometry);
+          if (!Number.isFinite(lng) || !Number.isFinite(lat)) return false;
+          if (!key) return pointInGeometry([lng, lat], f.geometry);
+          return getFireMatchKey(r.title) === key
+            && pointNearGeometry([lng, lat], f.geometry, REPORT_PERIMETER_BUFFER_DEG);
         });
         if (!match) return f;
-        return { ...f, properties: { ...f.properties, IncidentName: match.title } };
+        return {
+          ...f,
+          properties: {
+            ...f.properties,
+            IncidentName: key ? f.properties.IncidentName : match.title,
+            _aliasIds: joinAliasIds(f.properties.UniqueFireIdentifier, f.properties._aliasIds, match.id),
+            _reportId: match.id,
+          },
+        };
       }),
     };
   }, [freshPerimetersGeoJSON, reporterReports]);
@@ -794,6 +806,21 @@ export default function LiveTrackerPage() {
       ? filterActiveFiresGeoJSON(namedPerimetersGeoJSON, { containedKey: 'PercentContained' })
       : namedPerimetersGeoJSON
   ), [isFocused, namedPerimetersGeoJSON]);
+
+  // One dot per fire: a report already represented by a perimeter's centroid
+  // dot (see namedPerimetersGeoJSON) isn't drawn again. Perimeters without a
+  // centroid dot (historical, stale or fully contained) don't claim it.
+  const userReportsGeoJSON = useMemo(() => {
+    const coveredReportIds = new Set();
+    (filteredPerimetersGeoJSON?.features || []).forEach(f => {
+      const p = f.properties;
+      if (p._reportId && !p.isHistoricalMapping && !p.isStaleFire && !p.HideFromCentroid
+        && (Number(p.PercentContained) || 0) < 100) {
+        coveredReportIds.add(p._reportId);
+      }
+    });
+    return reportsToGeoJSON(reporterReports.filter(r => !coveredReportIds.has(r.id)));
+  }, [reporterReports, filteredPerimetersGeoJSON]);
 
   // ── Perimeter-only incidents for sidebar ──
   // Some fires have perimeter polygons (NIFC/WFIGS) but no matching

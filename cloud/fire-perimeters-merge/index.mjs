@@ -410,14 +410,17 @@ function tagHistoricalMappings(perimeters) {
   if (!features?.length || features.length < 2) return perimeters;
 
   const n = features.length;
-  const bboxes = features.map((f) => geometryBBox(f.geometry));
+  const bboxes = features.map(f => geometryBBox(f.geometry));
   const uf = new UnionFind(n);
+
   for (let i = 0; i < n; i++) {
     const idI = features[i].properties?.UniqueFireIdentifier;
     for (let j = i + 1; j < n; j++) {
       const idJ = features[j].properties?.UniqueFireIdentifier;
       const sameId = Boolean(idI) && idI === idJ;
-      if (sameId || bboxIoU(bboxes[i], bboxes[j]) >= DUPLICATE_MAPPING_IOU_THRESHOLD) uf.union(i, j);
+      if (sameId || bboxIoU(bboxes[i], bboxes[j]) >= DUPLICATE_MAPPING_IOU_THRESHOLD) {
+        uf.union(i, j);
+      }
     }
   }
 
@@ -428,27 +431,39 @@ function tagHistoricalMappings(perimeters) {
     groups.get(root).push(i);
   }
 
-  const mappingTime = (f) => {
+  const mappingTime = f => {
     const t = new Date(f.properties.ModifiedOnDateTime || f.properties.FireDiscoveryDateTime || 0).getTime();
     return Number.isNaN(t) ? 0 : t;
   };
 
+  // A capture's own name field is sometimes blank (e.g. a FIRIS mission's
+  // later heat-perimeter capture drops incident_name); inherit the most
+  // recently known real name from elsewhere in the cluster so the active
+  // record doesn't fall back to a placeholder like "Unknown Fire" when a
+  // sibling capture already carries the fire's real name.
+  // Every member of a multi-record group is also stamped `_mappingGroup`, so
+  // mergeFireData can share a name it only learns later (from a CAL FIRE /
+  // IRWIN point) across the whole group.
   const historicalIdx = new Set();
   const inheritedName = new Map();
-  groups.forEach((idxs) => {
+  const groupOf = new Map();
+  groups.forEach((idxs, root) => {
     if (idxs.length < 2) return;
-    const maxTime = Math.max(...idxs.map((idx) => mappingTime(features[idx])));
-    idxs.forEach((idx) => {
+    idxs.forEach(idx => groupOf.set(idx, String(root)));
+    const maxTime = Math.max(...idxs.map(idx => mappingTime(features[idx])));
+    idxs.forEach(idx => {
       if (mappingTime(features[idx]) < maxTime) historicalIdx.add(idx);
     });
 
     let bestNamedIdx = null;
-    idxs.forEach((idx) => {
+    idxs.forEach(idx => {
       if (!getFireMatchKey(features[idx].properties.IncidentName)) return;
-      if (bestNamedIdx === null || mappingTime(features[idx]) > mappingTime(features[bestNamedIdx])) bestNamedIdx = idx;
+      if (bestNamedIdx === null || mappingTime(features[idx]) > mappingTime(features[bestNamedIdx])) {
+        bestNamedIdx = idx;
+      }
     });
     if (bestNamedIdx !== null) {
-      idxs.forEach((idx) => {
+      idxs.forEach(idx => {
         if (!getFireMatchKey(features[idx].properties.IncidentName)) {
           inheritedName.set(idx, features[bestNamedIdx].properties.IncidentName);
         }
@@ -456,16 +471,17 @@ function tagHistoricalMappings(perimeters) {
     }
   });
 
-  if (historicalIdx.size === 0 && inheritedName.size === 0) return perimeters;
+  if (groupOf.size === 0) return perimeters;
 
   return {
     ...perimeters,
     features: features.map((f, idx) => {
-      if (!historicalIdx.has(idx) && !inheritedName.has(idx)) return f;
+      if (!groupOf.has(idx)) return f;
       return {
         ...f,
         properties: {
           ...f.properties,
+          _mappingGroup: groupOf.get(idx),
           ...(inheritedName.has(idx) ? { IncidentName: inheritedName.get(idx) } : null),
           ...(historicalIdx.has(idx) ? { isHistoricalMapping: true } : null),
         },
@@ -500,7 +516,99 @@ function joinAliasIds(primaryId, ...sources) {
   return [...new Set(ids)].join(',');
 }
 
+/**
+ * Stats a perimeter takes from its matched incident. CAL FIRE and IRWIN
+ * update size, containment and their timestamp far more often than a
+ * perimeter is re-flown, so the larger figure and the later time win.
+ */
+function incidentStats(props, inc) {
+  const time = v => {
+    const t = new Date(v || 0).getTime();
+    return Number.isNaN(t) ? 0 : t;
+  };
+  return {
+    FireCause: props.FireCause || inc.FireCause || 'Undetermined',
+    GISAcres: Math.max(props.GISAcres || 0, inc.GISAcres || 0),
+    PercentContained: Math.max(props.PercentContained || 0, inc.PercentContained || 0),
+    TotalIncidentPersonnel: props.TotalIncidentPersonnel || inc.TotalIncidentPersonnel || 0,
+    ModifiedOnDateTime: time(inc.ModifiedOnDateTime) > time(props.ModifiedOnDateTime)
+      ? inc.ModifiedOnDateTime
+      : props.ModifiedOnDateTime,
+  };
+}
+
+/**
+ * Proximity matching for perimeters that are still nameless (common for
+ * FIRIS / USFS heat-perimeter captures): adopt the incident whose point
+ * `isNear` the perimeter.
+ *
+ * A fire flown several times leaves several nameless captures around the
+ * same point (see tagHistoricalMappings). Captures are visited current-first,
+ * so the one drawn as the live fire gets the incident's name, id and stats
+ * rather than an older greyed-out capture. Captures sharing a
+ * `_mappingGroup` are tested against every geometry in the group, and may
+ * adopt an incident another capture of the same fire already claimed.
+ */
+function adoptNearbyIncidents(features, incidentFeatures, usedKeys, isNear) {
+  const groupGeometries = new Map();
+  features.forEach(f => {
+    const group = f.properties._mappingGroup;
+    if (!group) return;
+    if (!groupGeometries.has(group)) groupGeometries.set(group, []);
+    groupGeometries.get(group).push(f.geometry);
+  });
+
+  const time = f => {
+    const t = new Date(f.properties.ModifiedOnDateTime || 0).getTime();
+    return Number.isNaN(t) ? 0 : t;
+  };
+  const order = features.map((_, idx) => idx).sort((a, b) => {
+    const histDelta = (features[a].properties.isHistoricalMapping ? 1 : 0)
+      - (features[b].properties.isHistoricalMapping ? 1 : 0);
+    return histDelta !== 0 ? histDelta : time(features[b]) - time(features[a]);
+  });
+
+  const out = features.slice();
+  for (const idx of order) {
+    const f = out[idx];
+    if (getFireMatchKey(f.properties.IncidentName) !== null) continue;
+    const group = f.properties._mappingGroup || null;
+    const geometries = group ? groupGeometries.get(group) : [f.geometry];
+
+    const match = incidentFeatures.find(dot => {
+      const dotKey = getFireMatchKey(dot.properties.IncidentName);
+      if (!dotKey) return false;
+      if (usedKeys.has(dotKey) && (!group || usedKeys.get(dotKey) !== group)) return false;
+      const coords = dot.geometry?.coordinates;
+      return Array.isArray(coords) && geometries.some(g => isNear([coords[0], coords[1]], g));
+    });
+    if (!match) continue;
+
+    const matchKey = getFireMatchKey(match.properties.IncidentName);
+    if (!usedKeys.has(matchKey)) usedKeys.set(matchKey, group);
+    const inc = match.properties;
+    out[idx] = {
+      ...f,
+      properties: {
+        ...f.properties,
+        IncidentName: inc.IncidentName,
+        UniqueFireIdentifier: inc.UniqueFireIdentifier || f.properties.UniqueFireIdentifier,
+        // The perimeter's own id (often a capture-specific one) stays reachable.
+        _aliasIds: joinAliasIds(
+          inc.UniqueFireIdentifier || f.properties.UniqueFireIdentifier,
+          f.properties.UniqueFireIdentifier, f.properties._aliasIds, inc._aliasIds,
+        ),
+        ...incidentStats(f.properties, inc),
+      },
+    };
+  }
+  return out;
+}
+
 function mergeFireData(perimeters, incidents, calFireDotsGeoJSON = null) {
+  // CAL FIRE features for California — the originating state agency, and
+  // (per direct comparison against IRWIN on live fires) typically more
+  // current, so it's treated as authoritative for CA fires below.
   const calFeatures = calFireDotsGeoJSON?.features?.length
     ? calFireDotsGeoJSON.features.map((f, i) => {
         const inc = calFireFeatureToIncident(f, i);
@@ -525,16 +633,22 @@ function mergeFireData(perimeters, incidents, calFireDotsGeoJSON = null) {
       })
     : [];
 
-  const incidentTime = (props) => {
+  const incidentTime = props => {
     const t = new Date(props.ModifiedOnDateTime || props.FireDiscoveryDateTime || 0).getTime();
     return Number.isNaN(t) ? 0 : t;
   };
 
-  // The losing record's id is kept on the winner as `_aliasIds`.
+  // Index incidents by match key: when IRWIN and CAL FIRE both report the
+  // same CA fire, CAL FIRE's record wins; within the same source, keep the
+  // more recently modified one rather than whichever happens to come last
+  // in the API's result order.
+  // The losing record's id (and anything it had absorbed) is kept on the
+  // winner as `_aliasIds`, so data stored under either id stays reachable —
+  // see src/app/utils/incidentAliases.js.
   const featuresByKey = new Map();
   const aliasesByKey = new Map();
   const noKeyFeatures = [];
-  const considerIncident = (f) => {
+  const considerIncident = f => {
     const key = getFireMatchKey(f.properties.IncidentName);
     if (!key) { noKeyFeatures.push(f); return; }
     const existing = featuresByKey.get(key);
@@ -556,122 +670,93 @@ function mergeFireData(perimeters, incidents, calFireDotsGeoJSON = null) {
     if (aliases) featuresByKey.set(key, { ...f, properties: { ...f.properties, _aliasIds: aliases } });
   }
 
-  const mergedIncidents = { ...incidents, features: [...featuresByKey.values(), ...noKeyFeatures] };
+  const mergedIncidents = {
+    ...incidents,
+    features: [...featuresByKey.values(), ...noKeyFeatures],
+  };
+
   const incidentsByKey = new Map();
   featuresByKey.forEach((f, key) => incidentsByKey.set(key, f.properties));
 
-  const usedKeys = new Set();
+  // Match key → the `_mappingGroup` of the perimeter that claimed it (null
+  // when ungrouped). Other captures of that same fire may still adopt it.
+  const usedKeys = new Map();
 
+  // Pass 0: ID-based matching — WFIGS Perimeters and Incident Locations both
+  // carry the same canonical UniqueFireIdentifier for a given real-world
+  // fire. This is more reliable than name/geometry matching: it still links
+  // a perimeter to its incident even when the incident's point sits outside
+  // the (possibly still-growing) perimeter polygon, or the two services
+  // report slightly different name strings.
   const incidentsById = new Map();
-  mergedIncidents.features.forEach((f) => {
+  mergedIncidents.features.forEach(f => {
     const id = f.properties.UniqueFireIdentifier;
     if (id) incidentsById.set(id, f.properties);
   });
 
-  const idMatchedFeatures = perimeters.features.map((f) => {
+  const idMatchedFeatures = perimeters.features.map(f => {
     const id = f.properties.UniqueFireIdentifier;
     const inc = id ? incidentsById.get(id) : null;
     if (!inc) return f;
     const incKey = getFireMatchKey(inc.IncidentName);
-    if (incKey) usedKeys.add(incKey);
+    if (incKey) usedKeys.set(incKey, f.properties._mappingGroup || null);
     return {
       ...f,
       properties: {
         ...f.properties,
         _aliasIds: joinAliasIds(id, f.properties._aliasIds, inc._aliasIds),
         IncidentName: getFireMatchKey(f.properties.IncidentName) ? f.properties.IncidentName : inc.IncidentName,
-        FireCause: f.properties.FireCause || inc.FireCause || 'Undetermined',
-        GISAcres: Math.max(f.properties.GISAcres || 0, inc.GISAcres || 0),
-        PercentContained: Math.max(f.properties.PercentContained || 0, inc.PercentContained || 0),
-        TotalIncidentPersonnel: f.properties.TotalIncidentPersonnel || inc.TotalIncidentPersonnel || 0,
+        ...incidentStats(f.properties, inc),
       },
     };
   });
 
-  const enrichedFeatures = idMatchedFeatures.map((f) => {
+  // Pass 1: name-based matching. Also adopts the incident's canonical
+  // UniqueFireIdentifier — a name-only match means Pass 0's ID lookup didn't
+  // find this incident, so the perimeter's own id is source-specific (e.g. a
+  // FIRIS capture's GlobalID) rather than the real fire's id, and features
+  // downstream (incident update history, community reports) are keyed off
+  // the canonical id.
+  const enrichedFeatures = idMatchedFeatures.map(f => {
     const key = getFireMatchKey(f.properties.IncidentName);
     if (key && incidentsByKey.has(key)) {
-      usedKeys.add(key);
+      usedKeys.set(key, f.properties._mappingGroup || null);
       const inc = incidentsByKey.get(key);
       return {
         ...f,
         properties: {
           ...f.properties,
           UniqueFireIdentifier: inc.UniqueFireIdentifier || f.properties.UniqueFireIdentifier,
+          // The perimeter's own id (often a capture-specific one) stays reachable.
           _aliasIds: joinAliasIds(
             inc.UniqueFireIdentifier || f.properties.UniqueFireIdentifier,
             f.properties.UniqueFireIdentifier, f.properties._aliasIds, inc._aliasIds,
           ),
-          FireCause: f.properties.FireCause || inc.FireCause || 'Undetermined',
-          GISAcres: Math.max(f.properties.GISAcres || 0, inc.GISAcres || 0),
-          PercentContained: Math.max(f.properties.PercentContained || 0, inc.PercentContained || 0),
-          TotalIncidentPersonnel: f.properties.TotalIncidentPersonnel || inc.TotalIncidentPersonnel || 0,
+          ...incidentStats(f.properties, inc),
         },
       };
     }
     return f;
   });
 
-  const finalFeatures = enrichedFeatures.map((f) => {
-    if (getFireMatchKey(f.properties.IncidentName) !== null) return f;
-    const match = mergedIncidents.features.find((dot) => {
-      const dotKey = getFireMatchKey(dot.properties.IncidentName);
-      if (!dotKey || usedKeys.has(dotKey)) return false;
-      const coords = dot.geometry?.coordinates;
-      return Array.isArray(coords) && pointInGeometry([coords[0], coords[1]], f.geometry);
-    });
-    if (!match) return f;
-    const matchKey = getFireMatchKey(match.properties.IncidentName);
-    usedKeys.add(matchKey);
-    const inc = match.properties;
-    return {
-      ...f,
-      properties: {
-        ...f.properties,
-        IncidentName: inc.IncidentName,
-        UniqueFireIdentifier: inc.UniqueFireIdentifier || f.properties.UniqueFireIdentifier,
-        _aliasIds: joinAliasIds(
-          inc.UniqueFireIdentifier || f.properties.UniqueFireIdentifier,
-          f.properties.UniqueFireIdentifier, f.properties._aliasIds, inc._aliasIds,
-        ),
-        FireCause: f.properties.FireCause || inc.FireCause || 'Undetermined',
-        GISAcres: Math.max(f.properties.GISAcres || 0, inc.GISAcres || 0),
-        TotalIncidentPersonnel: f.properties.TotalIncidentPersonnel || inc.TotalIncidentPersonnel || 0,
-      },
-    };
-  });
+  // Pass 2: proximity fallback — nameless perimeters adopt the name of any
+  // unmatched incident dot whose point falls inside the perimeter polygon.
+  // Pass 3: extended proximity fallback — for perimeters still unnamed after
+  // exact containment matching, adopt the name of a nearby unmatched incident
+  // dot whose point falls within a small buffer around the perimeter's
+  // bounding box, rather than strictly inside it.
+  const PROXIMITY_BUFFER_DEG = 0.05; // ~5.5km at the equator — CONUS-appropriate approximation
+  const finalFeatures = adoptNearbyIncidents(
+    enrichedFeatures, mergedIncidents.features, usedKeys,
+    (point, geometry) => pointInGeometry(point, geometry),
+  );
+  const proximityFeatures = adoptNearbyIncidents(
+    finalFeatures, mergedIncidents.features, usedKeys,
+    (point, geometry) => pointNearGeometry(point, geometry, PROXIMITY_BUFFER_DEG),
+  );
 
-  const PROXIMITY_BUFFER_DEG = 0.05;
-  const proximityFeatures = finalFeatures.map((f) => {
-    if (getFireMatchKey(f.properties.IncidentName) !== null) return f;
-    const match = mergedIncidents.features.find((dot) => {
-      const dotKey = getFireMatchKey(dot.properties.IncidentName);
-      if (!dotKey || usedKeys.has(dotKey)) return false;
-      const coords = dot.geometry?.coordinates;
-      return Array.isArray(coords) && pointNearGeometry(coords, f.geometry, PROXIMITY_BUFFER_DEG);
-    });
-    if (!match) return f;
-    const matchKey = getFireMatchKey(match.properties.IncidentName);
-    usedKeys.add(matchKey);
-    const inc = match.properties;
-    return {
-      ...f,
-      properties: {
-        ...f.properties,
-        IncidentName: inc.IncidentName,
-        UniqueFireIdentifier: inc.UniqueFireIdentifier || f.properties.UniqueFireIdentifier,
-        _aliasIds: joinAliasIds(
-          inc.UniqueFireIdentifier || f.properties.UniqueFireIdentifier,
-          f.properties.UniqueFireIdentifier, f.properties._aliasIds, inc._aliasIds,
-        ),
-        FireCause: f.properties.FireCause || inc.FireCause || 'Undetermined',
-        GISAcres: Math.max(f.properties.GISAcres || 0, inc.GISAcres || 0),
-        TotalIncidentPersonnel: f.properties.TotalIncidentPersonnel || inc.TotalIncidentPersonnel || 0,
-      },
-    };
-  });
-
-  const dotFeatures = mergedIncidents.features.filter((f) => {
+  // Dot markers: incidents that have no matching perimeter
+  const dotFeatures = mergedIncidents.features.filter(f => {
     const key = getFireMatchKey(f.properties.IncidentName);
     return key && !usedKeys.has(key);
   });
