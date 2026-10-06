@@ -3,6 +3,7 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import https from 'node:https';
 import { ROUTES as NWS_MAPSERVICE_ROUTES } from './netlify/edge-functions/nws-mapservices-proxy.js';
+import { ROUTES as WEATHER_GOV_ROUTES } from './netlify/edge-functions/weather-gov-proxy.js';
 
 // Dev/preview twin of netlify/edge-functions/nws-mapservices-proxy.js: one
 // proxy entry per route, so /api/nws/<key>/... reaches the same upstream
@@ -21,6 +22,22 @@ const nwsMapServiceProxy = Object.fromEntries(
       changeOrigin: true,
       secure: true,
       agent: noaaAgent,
+      rewrite: (path) => route.path + path.slice(prefix.length),
+    }];
+  })
+);
+
+// Dev/preview twin of netlify/edge-functions/weather-gov-proxy.js
+// (/api/wx/<route>/... → api.weather.gov), which asks for a User-Agent.
+const weatherGovProxy = Object.fromEntries(
+  Object.entries(WEATHER_GOV_ROUTES).map(([key, route]) => {
+    const prefix = `/api/wx/${key}`;
+    return [`^${prefix}(/|\\?|$)`, {
+      target: 'https://api.weather.gov',
+      changeOrigin: true,
+      secure: true,
+      agent: noaaAgent,
+      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; SentinelWildfireTracker/1.0)' },
       rewrite: (path) => route.path + path.slice(prefix.length),
     }];
   })
@@ -132,6 +149,7 @@ export default defineConfig({
         rewrite: () => '/static/rest/services/nws_reference_maps/nws_reference_map/FeatureServer/5/query?where=1%3D1&outFields=id&outSR=4326&f=geojson',
       },
       ...nwsMapServiceProxy,
+      ...weatherGovProxy,
       // NWPS – api.water.noaa.gov lacks CORS headers; dev server proxies same paths as Netlify edge fn
       '/api/nwps': {
         target: 'https://api.water.noaa.gov/nwps/v1',
@@ -226,6 +244,7 @@ export default defineConfig({
         rewrite: () => '/static/rest/services/nws_reference_maps/nws_reference_map/FeatureServer/5/query?where=1%3D1&outFields=id&outSR=4326&f=geojson',
       },
       ...nwsMapServiceProxy,
+      ...weatherGovProxy,
       '/api/nwps': {
         target: 'https://api.water.noaa.gov/nwps/v1',
         changeOrigin: true,

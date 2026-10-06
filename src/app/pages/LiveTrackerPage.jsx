@@ -756,6 +756,14 @@ export default function LiveTrackerPage() {
     arrival: Boolean(layers.nhcTropical && layers.nhcArrival),
     surge: Boolean(layers.nhcTropical && layers.nhcSurge),
   });
+  // What the hurricane detail panel reads (FireDetailPanel → HurricaneSidebar).
+  const nhcPanelData = useMemo(() => ({
+    cyclones: nhcCyclones,
+    forecastPointsGeoJSON: nhcForecastPointsGeoJSON,
+    pastPointsGeoJSON: nhcPastPointsGeoJSON,
+    watchWarningGeoJSON: nhcWatchWarningGeoJSON,
+    windHazards: nhcWindHazards,
+  }), [nhcCyclones, nhcForecastPointsGeoJSON, nhcPastPointsGeoJSON, nhcWatchWarningGeoJSON, nhcWindHazards]);
 
   // NOAA NWPS water gauges
   const {
@@ -1121,12 +1129,20 @@ export default function LiveTrackerPage() {
       selectFire(record);
       flyToFire(record);
       sharedLinkResolvedRef.current = true;
+      return;
+    }
+
+    const stormMatch = nhcCyclones.find((c) => c.id === incidentId);
+    if (stormMatch) {
+      selectFire({ ...stormMatch, type: 'nhc-storm' });
+      setViewport({ longitude: stormMatch.lng, latitude: stormMatch.lat, zoom: 6 });
+      sharedLinkResolvedRef.current = true;
     }
     // Not found in anything loaded so far — leave unresolved and retry as
     // more data comes in, until the give-up timeout below fires.
   }, [
     mapReady, alerts, mergedIncidents, hotspotsGeoJSON, namedPerimetersGeoJSON, approvedReports,
-    activeHazardEvents, selectFire, flyToFire, setViewport,
+    activeHazardEvents, nhcCyclones, selectFire, flyToFire, setViewport,
   ]);
 
   useEffect(() => {
@@ -1800,7 +1816,7 @@ export default function LiveTrackerPage() {
             v{APP_VERSION}
           </span>
           <Suspense fallback={null}>
-            {selectedFire && <FireDetailPanel />}
+            {selectedFire && <FireDetailPanel nhc={nhcPanelData} />}
             {selectedGauge && (
               <WaterGaugePanel
                 gauge={selectedGauge}

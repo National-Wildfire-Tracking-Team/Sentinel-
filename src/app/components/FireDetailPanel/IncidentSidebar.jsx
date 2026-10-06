@@ -6,9 +6,9 @@
  * Docked right over the map on desktop; a draggable bottom sheet on mobile.
  */
 
-import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Check, X } from 'lucide-react';
+import { useCallback, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
+import { X } from 'lucide-react';
 import { useIncidentUpdates } from '../../hooks/useIncidentUpdates';
 import { useIncidentEvacuations, useIncidentFollow, useIncidentShelters } from '../../hooks/useIncidentDetails';
 import {
@@ -16,143 +16,13 @@ import {
 } from '../../utils/formatUtils';
 import IncidentTimeline from '../IncidentTimeline/IncidentTimeline';
 import ModelForecastSummary from '../WeatherModels/ModelForecastSummary';
+import { buildEvacuations, deriveSituation, incidentSummary } from './incidentDetailModel';
 import {
-  SHELTER_KIND_LABELS, buildEvacuations, deriveSituation, directionsUrl, incidentSummary,
-} from './incidentDetailModel';
+  EvacuationCard, EvacuationNotes, InfoGroup, ShareFollowFooter, SheetHandle, ShelterList, TabButton,
+  infoLink,
+} from './sidebarParts';
+import { useBottomSheet, useEscapeToClose, useIsDesktop, useNow } from './useSidebar';
 import { useTimeFormat } from '../../hooks/useTimeFormat';
-
-// ─── Small hooks ─────────────────────────────────────────────────────────────
-
-/** Re-render on an interval so relative times ("Updated 3m ago") stay current. */
-function useNow(intervalMs) {
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), intervalMs);
-    return () => clearInterval(id);
-  }, [intervalMs]);
-  return now;
-}
-
-const DESKTOP_QUERY = '(min-width: 768px)';
-
-function subscribeDesktop(onChange) {
-  const mql = window.matchMedia(DESKTOP_QUERY);
-  mql.addEventListener('change', onChange);
-  return () => mql.removeEventListener('change', onChange);
-}
-
-/** Tailwind `md` and up: docked panel; below: bottom sheet. */
-function useIsDesktop() {
-  return useSyncExternalStore(
-    subscribeDesktop,
-    () => window.matchMedia(DESKTOP_QUERY).matches,
-    () => true,
-  );
-}
-
-// Space left above the expanded sheet so the map (and the selected marker
-// edge) stays visible and the sheet reads as dismissible.
-const SHEET_TOP_GAP = 56;
-const SHEET_MAX_PEEK_RATIO = 0.7;
-const DRAG_SLOP = 6;
-
-/**
- * Bottom-sheet state for mobile. Peek shows everything above the tabs
- * (header through evacuations) plus the footer; dragging the handle (or the
- * peek content) up expands to full height, dragging below peek closes.
- */
-function useBottomSheet({ enabled, onClose, scrollRef, sheetRef, handleRef, peekRef, footerRef }) {
-  const [expanded, setExpanded] = useState(false);
-  const [dragHeight, setDragHeight] = useState(null);
-  const [parts, setParts] = useState({ handle: 0, peek: 0, footer: 0 });
-  const drag = useRef(null);
-  const suppressClick = useRef(false);
-
-  useEffect(() => {
-    if (!enabled) return undefined;
-    const measure = () => setParts({
-      handle: handleRef.current?.offsetHeight ?? 0,
-      peek: peekRef.current?.offsetHeight ?? 0,
-      footer: footerRef.current?.offsetHeight ?? 0,
-    });
-    const observer = new ResizeObserver(measure);
-    [handleRef, peekRef, footerRef].forEach((r) => r.current && observer.observe(r.current));
-    return () => observer.disconnect();
-  }, [enabled, handleRef, peekRef, footerRef]);
-
-  const fullPx = () => window.innerHeight - SHEET_TOP_GAP;
-  const peekPx = parts.peek
-    ? Math.min(parts.handle + parts.peek + parts.footer, window.innerHeight * SHEET_MAX_PEEK_RATIO)
-    : window.innerHeight * 0.45;
-
-  const setSheetExpanded = useCallback((next) => {
-    setExpanded(next);
-    // Collapsing always returns to the top so the peek shows the header.
-    if (!next && scrollRef.current) scrollRef.current.scrollTop = 0;
-  }, [scrollRef]);
-
-  const onPointerDown = (e) => {
-    if (e.pointerType === 'mouse' && e.button !== 0) return;
-    suppressClick.current = false;
-    drag.current = {
-      startY: e.clientY,
-      startH: sheetRef.current?.getBoundingClientRect().height ?? peekPx,
-      moved: false,
-      target: e.currentTarget,
-      pointerId: e.pointerId,
-    };
-  };
-
-  const onPointerMove = (e) => {
-    const d = drag.current;
-    if (!d) return;
-    const dy = e.clientY - d.startY;
-    if (!d.moved && Math.abs(dy) < DRAG_SLOP) return;
-    if (!d.moved) {
-      d.moved = true;
-      d.target.setPointerCapture?.(d.pointerId);
-    }
-    setDragHeight(Math.max(80, Math.min(fullPx(), d.startH - dy)));
-  };
-
-  const onPointerUp = (e) => {
-    const d = drag.current;
-    drag.current = null;
-    if (!d?.moved) return;
-    suppressClick.current = true;
-    const h = d.startH - (e.clientY - d.startY);
-    setDragHeight(null);
-    if (h < peekPx * 0.6) onClose();
-    else setSheetExpanded(h > (peekPx + fullPx()) / 2);
-  };
-
-  const dragProps = {
-    onPointerDown,
-    onPointerMove,
-    onPointerUp,
-    onPointerCancel: () => { drag.current = null; setDragHeight(null); },
-    // A drag that ends over a link must not also follow it.
-    onClickCapture: (e) => {
-      if (suppressClick.current) {
-        suppressClick.current = false;
-        e.preventDefault();
-        e.stopPropagation();
-      }
-    },
-  };
-
-  const height = dragHeight != null ? `${dragHeight}px`
-    : expanded ? `calc(100dvh - ${SHEET_TOP_GAP}px)`
-    : `${peekPx}px`;
-
-  return {
-    expanded,
-    dragging: dragHeight != null,
-    height,
-    toggle: () => setSheetExpanded(!expanded),
-    dragProps,
-  };
-}
 
 // ─── Pieces ──────────────────────────────────────────────────────────────────
 
@@ -161,139 +31,6 @@ const SITUATION_TONE_CLASS = {
   amber: 'text-amber-400',
   orange: 'text-orange-400',
 };
-
-const EVAC_LEVELS = {
-  order: {
-    title: 'Evacuation Order · Level 3 · Go',
-    card: 'bg-[rgba(248,113,113,0.14)]',
-    dot: 'bg-red-400',
-  },
-  warning: {
-    title: 'Evacuation Warning · Level 2 · Set',
-    card: 'bg-[rgba(251,191,36,0.11)]',
-    dot: 'bg-amber-400',
-  },
-};
-
-function EvacuationCard({ level, data }) {
-  const meta = EVAC_LEVELS[level];
-  return (
-    <div className={`rounded-[10px] px-4 py-3 ${meta.card}`}>
-      <p className="flex items-center gap-2.5 text-[15px] font-semibold text-white">
-        <span className={`h-2 w-2 shrink-0 rounded-full ${meta.dot}`} aria-hidden />
-        {meta.title}
-      </p>
-      {data.zones.length > 0 && (
-        <p className="mt-1 text-sm leading-relaxed text-sentinel-100">{data.zones.join(', ')}</p>
-      )}
-      {data.lines.length > 0 && (
-        <ul className="mt-1 space-y-1 text-sm leading-relaxed text-sentinel-100">
-          {data.lines.map((line, i) => <li key={i}>{line}</li>)}
-        </ul>
-      )}
-    </div>
-  );
-}
-
-function EvacuationNotes({ notes, links }) {
-  if (!notes && links.length === 0) return null;
-  return (
-    <div className="rounded-[10px] bg-[#161a20] px-4 py-3">
-      <p className="text-[15px] font-semibold text-white">Evacuation notes</p>
-      {notes && (
-        <p className="mt-1 text-sm leading-relaxed text-sentinel-100 whitespace-pre-wrap">{notes}</p>
-      )}
-      {links.length > 0 && (
-        <div className="mt-1.5 flex flex-wrap gap-x-5">
-          {links.map((link) => (
-            <a
-              key={link.url}
-              href={link.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center min-h-[44px] -my-2 text-sm font-semibold text-fire-400 hover:text-fire-300"
-            >
-              {link.label}
-            </a>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function TabButton({ active, onClick, children, id, panelId }) {
-  return (
-    <button
-      type="button"
-      role="tab"
-      id={id}
-      aria-selected={active}
-      aria-controls={panelId}
-      onClick={onClick}
-      className={`relative inline-flex items-center gap-2 min-h-[44px] text-[12px] font-semibold uppercase tracking-[0.1em]
-        border-b-2 transition-colors
-        ${active ? 'text-white border-fire-600' : 'text-sentinel-200 border-transparent hover:text-sentinel-100'}`}
-    >
-      {children}
-    </button>
-  );
-}
-
-function ShelterList({ shelters }) {
-  return (
-    <ul>
-      {shelters.map((s) => {
-        const url = directionsUrl(s);
-        const isCenter = s.kind === 'evacuation_center';
-        return (
-          <li key={s.id} className="px-5 py-4 border-b border-sentinel-700">
-            <p className={`text-[12px] font-semibold uppercase tracking-[0.1em] ${isCenter ? 'text-fire-400' : 'text-sentinel-200'}`}>
-              {SHELTER_KIND_LABELS[s.kind] || SHELTER_KIND_LABELS.other}
-            </p>
-            <p className="mt-1 text-[15px] font-semibold text-white">{s.name}</p>
-            {s.address && <p className="mt-0.5 text-sm text-sentinel-100">{s.address}</p>}
-            {(url || s.status_note) && (
-              <div className="mt-1 flex items-center gap-3 text-[13px]">
-                {url && (
-                  <a
-                    href={url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center min-h-[44px] -my-2.5 font-semibold text-fire-400 hover:text-fire-300"
-                  >
-                    Directions
-                  </a>
-                )}
-                {s.status_note && <span className="text-sentinel-200">{s.status_note}</span>}
-              </div>
-            )}
-          </li>
-        );
-      })}
-    </ul>
-  );
-}
-
-function InfoGroup({ title, rows }) {
-  const visible = rows.filter(([, value]) => value != null && value !== '' && value !== false);
-  if (visible.length === 0) return null;
-  return (
-    <section className="px-5 py-4 border-b border-sentinel-700">
-      <h3 className="mb-1.5 text-[12px] font-semibold uppercase tracking-[0.1em] text-sentinel-200">{title}</h3>
-      <dl>
-        {visible.map(([label, value]) => (
-          <div key={label} className="grid grid-cols-[128px_1fr] gap-3 py-1.5 text-sm leading-relaxed">
-            <dt className="text-sentinel-200">{label}</dt>
-            <dd className="text-slate-100 break-words whitespace-pre-wrap">{value}</dd>
-          </div>
-        ))}
-      </dl>
-    </section>
-  );
-}
-
-const infoLink = 'inline-flex items-center min-h-[44px] -my-3 font-semibold text-fire-400 hover:text-fire-300';
 
 function InfoTab({ fire, summary, updatedAt }) {
   useTimeFormat();
@@ -374,8 +111,6 @@ function InfoTab({ fire, summary, updatedAt }) {
 export default function IncidentSidebar({ fire, onClose, onShare, shareStatus }) {
   useTimeFormat();
   useNow(30_000);
-  const navigate = useNavigate();
-  const location = useLocation();
 
   const summary = incidentSummary(fire);
   // Data stored under any id this fire is known by (utils/incidentAliases.js).
@@ -418,19 +153,7 @@ export default function IncidentSidebar({ fire, onClose, onShare, shareStatus })
     if (scroller && anchor && scroller.scrollTop > anchor.offsetTop) scroller.scrollTop = anchor.offsetTop;
   }, [activeTab, feed.lastInsertAt]);
 
-  useEffect(() => {
-    const onKey = (e) => { if (e.key === 'Escape') onClose(); };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
-
-  const handleFollow = () => {
-    if (!follow.canFollow) {
-      navigate('/login', { state: { from: `${location.pathname}${location.search}` } });
-      return;
-    }
-    follow.toggle();
-  };
+  useEscapeToClose(onClose);
 
   // Briefly tint the values a live update may have changed.
   const tint = (base) => `transition-colors duration-1000 ${hasFresh ? 'text-fire-400' : base}`;
@@ -449,23 +172,7 @@ export default function IncidentSidebar({ fire, onClose, onShare, shareStatus })
           : `fixed inset-x-0 bottom-0 rounded-t-2xl border-t animate-slide-up-panel
              ${sheet.dragging ? '' : 'transition-[height] duration-300 ease-out'}`}`}
     >
-      {!isDesktop && (
-        <div
-          ref={handleRef}
-          role="button"
-          tabIndex={0}
-          aria-expanded={sheet.expanded}
-          aria-label={sheet.expanded ? 'Collapse incident details' : 'Expand incident details'}
-          onClick={sheet.toggle}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); sheet.toggle(); }
-          }}
-          {...sheet.dragProps}
-          className="shrink-0 flex h-6 cursor-grab touch-none items-center justify-center active:cursor-grabbing"
-        >
-          <span className="h-1 w-9 rounded-full bg-sentinel-500" aria-hidden />
-        </div>
-      )}
+      {!isDesktop && <SheetHandle ref={handleRef} sheet={sheet} label="incident details" />}
 
       <div
         ref={scrollRef}
@@ -601,31 +308,7 @@ export default function IncidentSidebar({ fire, onClose, onShare, shareStatus })
       </div>
 
       {/* ── Footer ── */}
-      <footer ref={footerRef} className="shrink-0 grid grid-cols-2 gap-3 border-t border-sentinel-700 bg-sentinel-800 p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
-        <button
-          type="button"
-          onClick={onShare}
-          className="min-h-[48px] rounded-xl border border-sentinel-500 text-[15px] font-semibold text-slate-100
-                     hover:bg-sentinel-700 transition-colors"
-          aria-live="polite"
-        >
-          {shareStatus || 'Share Incident'}
-        </button>
-        <button
-          type="button"
-          onClick={handleFollow}
-          disabled={follow.pending}
-          aria-pressed={follow.following}
-          className={`min-h-[48px] inline-flex items-center justify-center gap-2 rounded-xl text-[15px] font-semibold
-            transition-colors disabled:opacity-60
-            ${follow.following
-              ? 'border border-sentinel-600 text-sentinel-200 hover:bg-sentinel-700'
-              : 'bg-fire-600/25 border border-fire-600/50 text-white hover:bg-fire-600/35'}`}
-        >
-          {follow.following && <Check size={16} aria-hidden />}
-          {follow.following ? 'Following' : 'Follow Incident'}
-        </button>
-      </footer>
+      <ShareFollowFooter ref={footerRef} follow={follow} onShare={onShare} shareStatus={shareStatus} />
     </aside>
   );
 }

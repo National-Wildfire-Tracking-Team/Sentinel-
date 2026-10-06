@@ -16,7 +16,10 @@ export const EMPTY_WIND_HAZARDS = Object.freeze({
   windProbGeoJSON: EMPTY_FC,
   windRadiiGeoJSON: EMPTY_FC,
   arrivalGeoJSON: EMPTY_FC,
+  earliestArrivalGeoJSON: EMPTY_FC,
   surgeImageLayerIds: [],
+  surgeSlots: [],
+  fetched: { probKt: null, radii: false, arrival: false, surge: false },
 });
 
 /**

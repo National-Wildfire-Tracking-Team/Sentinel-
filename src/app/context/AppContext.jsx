@@ -75,6 +75,8 @@ const initialState = {
   },
   // Wind-speed probability threshold shown by nhcWindProb: 34 | 50 | 64 (kt)
   nhcWindProbKt: 34,
+  // Spaghetti model tracks on the map: { atcfId: 'EP182026' | 'AL922026', group } or null
+  nhcModelTracks: null,
   // Currently selected 7-day fire risk forecast (1-7)
   fireRiskDay: 1,
   // Active day ('day1'|'day2'|'day3') per WPC outlook layer
@@ -108,6 +110,7 @@ const A = {
   SET_FIRE_RISK_DAY:  'SET_FIRE_RISK_DAY',
   SET_WPC_OUTLOOK_DAY: 'SET_WPC_OUTLOOK_DAY',
   SET_NHC_WIND_PROB_KT: 'SET_NHC_WIND_PROB_KT',
+  SET_NHC_MODEL_TRACKS: 'SET_NHC_MODEL_TRACKS',
   SELECT_FIRE:        'SELECT_FIRE',
   CLEAR_SELECTED:     'CLEAR_SELECTED',
   SELECT_GAUGE:       'SELECT_GAUGE',
@@ -145,6 +148,8 @@ function reducer(state, action) {
       };
     case A.SET_NHC_WIND_PROB_KT:
       return { ...state, nhcWindProbKt: [34, 50, 64].includes(action.kt) ? action.kt : 34 };
+    case A.SET_NHC_MODEL_TRACKS:
+      return { ...state, nhcModelTracks: action.value?.atcfId ? { atcfId: action.value.atcfId, group: action.value.group || 'all' } : null };
     case A.SELECT_FIRE:
       return { ...state, selectedFire: action.fire, selectedGauge: null, selectedCamera: null };
     case A.CLEAR_SELECTED:
@@ -193,6 +198,7 @@ export function AppProvider({ children }) {
   const setFireRiskDay     = useCallback((day) => dispatch({ type: A.SET_FIRE_RISK_DAY, day }), [] );
   const setWpcOutlookDay = useCallback((product, day) => dispatch({ type: A.SET_WPC_OUTLOOK_DAY, product, day }), []);
   const setNhcWindProbKt = useCallback((kt) => dispatch({ type: A.SET_NHC_WIND_PROB_KT, kt }), []);
+  const setNhcModelTracks = useCallback((value) => dispatch({ type: A.SET_NHC_MODEL_TRACKS, value }), []);
   const selectFire       = useCallback((fire) => dispatch({ type: A.SELECT_FIRE, fire }), []);
   const clearSelected    = useCallback(() => dispatch({ type: A.CLEAR_SELECTED }), []);
   const selectGauge      = useCallback((gauge) => dispatch({ type: A.SELECT_GAUGE, gauge }), []);
@@ -218,6 +224,7 @@ export function AppProvider({ children }) {
     setFireRiskDay,
     setWpcOutlookDay,
     setNhcWindProbKt,
+    setNhcModelTracks,
     selectFire,
     clearSelected,
     selectGauge,
@@ -238,6 +245,7 @@ export function AppProvider({ children }) {
     setFireRiskDay,
     setWpcOutlookDay,
     setNhcWindProbKt,
+    setNhcModelTracks,
     selectFire,
     clearSelected,
     selectGauge,

@@ -18,12 +18,15 @@ import { frpToLabel, containmentToColor, getAQICategory } from '../../utils/colo
 import { nwsAlertColor } from '../../utils/nwsColors';
 import IncidentTimeline from '../IncidentTimeline/IncidentTimeline';
 import IncidentSidebar from './IncidentSidebar';
+import HurricaneSidebar from './HurricaneSidebar';
+import SpaghettiModelsButton from '../Map/SpaghettiModelsButton';
+import { useInvestModelRun } from '../../hooks/useInvestModelRun';
 import { HAZARD_CATEGORY_COLORS } from '../Map/layers/HazardEventsLayer';
 import { normalizeHazardCategory } from '../../hooks/useHazardEvents';
 import { trackSentinelUse } from '../../../shared/utils/analytics';
 import { FLOOD_ATTRIBUTION, floodCategoryMeta, floodZoneDescription, floodZoneRows } from '../../utils/floodHazard';
 import { fetchSpcMdText, fetchWpcMpdText } from '../../api/mesoscaleDiscussionText';
-import { DISTURBANCE_COLORS, WATCH_WARNING_COLORS, categoryColor, categoryLabel } from '../../api/nhcTropicalWeather';
+import { DISTURBANCE_COLORS, WATCH_WARNING_COLORS } from '../../api/nhcTropicalWeather';
 import { useTimeFormat } from '../../hooks/useTimeFormat';
 
 // Fire-related detail types that represent a user opening a tracked wildfire
@@ -1194,6 +1197,16 @@ function ViewOnSatelliteButton() {
   );
 }
 
+/** Model tracks for an outlook system, from the invest NHC files them under. */
+function InvestSpaghetti({ fire }) {
+  const run = useInvestModelRun(fire);
+  return (
+    <div className="mb-4">
+      <SpaghettiModelsButton atcfId={run.atcfId} finding={run.status === 'searching'} menuClassName="bg-sentinel-900" />
+    </div>
+  );
+}
+
 function NhcInvestDetail({ fire }) {
   const chanceColor = DISTURBANCE_COLORS[fire.formationChance]?.fill || '#94a3b8';
 
@@ -1210,6 +1223,7 @@ function NhcInvestDetail({ fire }) {
       </div>
 
       <ViewOnSatelliteButton />
+      <InvestSpaghetti fire={fire} />
 
       {(fire.day2Percent != null || fire.day7Percent != null) && (
         <div className="flex items-stretch mb-4 bg-sentinel-800/50 border border-sentinel-700 rounded-xl overflow-hidden">
@@ -1279,73 +1293,6 @@ function NhcInvestDetail({ fire }) {
   );
 }
 
-function NhcStormDetail({ fire }) {
-  const color = categoryColor(fire.category);
-
-  return (
-    <>
-      <div className="flex items-center gap-2 mb-4">
-        <div className="p-2 rounded-lg" style={{ backgroundColor: `${color}30` }}>
-          <Waves size={18} style={{ color }} />
-        </div>
-        <div>
-          <h3 className="font-bold text-white text-base">{fire.name}</h3>
-          <p className="text-xs font-medium" style={{ color }}>
-            {categoryLabel(fire.category)}{fire.basin ? ` · ${fire.basin}` : ''}
-          </p>
-        </div>
-      </div>
-
-      <ViewOnSatelliteButton />
-
-      <div className="grid grid-cols-2 gap-2 mb-4">
-        {fire.maxWindKt > 0 && (
-          <StatBlock label="Max Wind" value={`${fire.maxWindMph} mph (${fire.maxWindKt} kt)`} icon={Wind} />
-        )}
-        {fire.gustKt > 0 && (
-          <StatBlock label="Gusts" value={`${Math.round(fire.gustKt * 1.15078)} mph (${fire.gustKt} kt)`} icon={Wind} />
-        )}
-        {fire.mslp != null && (
-          <StatBlock label="Pressure" value={`${fire.mslp} mb`} />
-        )}
-        {fire.movement && (
-          <StatBlock label="Motion" value={fire.movement} icon={Navigation} />
-        )}
-        {fire.advisoryNum && (
-          <StatBlock label="Advisory" value={`#${fire.advisoryNum}`} icon={Info} />
-        )}
-      </div>
-
-      <div className="space-y-2 text-xs text-sentinel-400 mb-4">
-        {Number.isFinite(fire.lat) && Number.isFinite(fire.lng) && (
-          <div className="flex items-center gap-2">
-            <MapPin size={12} />
-            <span>
-              {Math.abs(fire.lat).toFixed(1)}°{fire.lat >= 0 ? 'N' : 'S'}, {Math.abs(fire.lng).toFixed(1)}°{fire.lng < 0 ? 'W' : 'E'}
-            </span>
-          </div>
-        )}
-        {fire.advisoryDate && (
-          <div className="flex items-center gap-2">
-            <Clock size={12} />
-            <span>Advisory issued {fire.advisoryDate}</span>
-          </div>
-        )}
-      </div>
-
-      <a
-        href={fire.advisoryUrl || 'https://www.nhc.noaa.gov/'}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="flex items-center gap-1.5 text-xs text-sky-400 hover:text-sky-300 transition-colors"
-      >
-        <ExternalLink size={12} />
-        Official NHC public advisory
-      </a>
-    </>
-  );
-}
-
 function NhcWatchWarningDetail({ fire }) {
   const color = WATCH_WARNING_COLORS[fire.wwType] || WATCH_WARNING_COLORS.Advisory;
   return (
@@ -1377,11 +1324,17 @@ function NhcWatchWarningDetail({ fire }) {
 
 // ─── Main Panel ───────────────────────────────────────────────────────────────
 
-const FireDetailPanel = memo(function FireDetailPanel() {
+/**
+ * @param {object} [nhc] Live NHC data for the hurricane panel:
+ *   { cyclones, forecastPointsGeoJSON, pastPointsGeoJSON, watchWarningGeoJSON, windHazards }
+ */
+const FireDetailPanel = memo(function FireDetailPanel({ nhc = null }) {
   const { selectedFire, clearSelected } = useApp();
   const { alerts } = useAppStatus();
   const [shareStatus, setShareStatus] = useState('');
-  const isShareableFireType = ['hotspot', 'perimeter', 'incident', 'user-report', 'weather-alert', 'hazard-event'].includes(selectedFire?.type);
+  // Selected NHC product per storm, kept while switching between storms.
+  const [stormProducts, setStormProducts] = useState({});
+  const isShareableFireType = ['hotspot', 'perimeter', 'incident', 'user-report', 'weather-alert', 'hazard-event', 'nhc-storm'].includes(selectedFire?.type);
 
   // Fires once per incident open (map click, sidebar card, or popup select
   // all funnel through selectedFire), not on every render or on close.
@@ -1428,6 +1381,7 @@ const FireDetailPanel = memo(function FireDetailPanel() {
     const payload =
       selectedFire.type === 'weather-alert' ? { title: 'NWTT Weather Alert', text: shareText, url: shareUrl } :
       selectedFire.type === 'hazard-event'  ? { title: 'Sentinel Event Report', text: `Track this event on Sentinel: ${shareText}`, url: shareUrl } :
+      selectedFire.type === 'nhc-storm'     ? { title: 'Sentinel Storm Tracker', text: `Track this storm on Sentinel: ${shareText}`, url: shareUrl } :
       { title: 'Sentinel Fire Tracker', text: `Track this fire on Sentinel: ${shareText}`, url: shareUrl };
 
     // Use the Web Share API only when the browser supports it AND can handle
@@ -1477,6 +1431,21 @@ const FireDetailPanel = memo(function FireDetailPanel() {
     return <MesoscaleDiscussionModal fire={selectedFire} onClose={clearSelected} />;
   }
 
+  if (selectedFire.type === 'nhc-storm') {
+    return (
+      <HurricaneSidebar
+        key={`${selectedFire.type}:${selectedFire.id}`}
+        fire={selectedFire}
+        nhc={nhc}
+        product={stormProducts[selectedFire.id]}
+        onProductChange={(key) => setStormProducts((prev) => ({ ...prev, [selectedFire.id]: key }))}
+        onClose={clearSelected}
+        onShare={handleShare}
+        shareStatus={shareStatus}
+      />
+    );
+  }
+
   if (usesIncidentSidebar(selectedFire)) {
     return (
       <IncidentSidebar
@@ -1516,7 +1485,6 @@ const FireDetailPanel = memo(function FireDetailPanel() {
              selectedFire.type === 'flood-hazard'            ? 'Flood Hazard' :
              selectedFire.type === 'hazard-event'            ? 'Event Report' :
              selectedFire.type === 'nhc-invest'              ? 'NHC Invest' :
-             selectedFire.type === 'nhc-storm'               ? 'NHC Tropical Cyclone' :
              selectedFire.type === 'nhc-watch-warning'        ? 'NHC Watch/Warning' :
              'Fire Detail'}
           </span>
@@ -1558,12 +1526,11 @@ const FireDetailPanel = memo(function FireDetailPanel() {
           {selectedFire.type === 'flood-hazard'            && <FloodHazardDetail       fire={selectedFire} />}
           {selectedFire.type === 'hazard-event'            && <HazardEventDetail       fire={selectedFire} />}
           {selectedFire.type === 'nhc-invest'              && <NhcInvestDetail        fire={selectedFire} />}
-          {selectedFire.type === 'nhc-storm'                && <NhcStormDetail         fire={selectedFire} />}
           {selectedFire.type === 'nhc-watch-warning'        && <NhcWatchWarningDetail  fire={selectedFire} />}
           {![
             'hotspot', 'perimeter', 'incident', 'aqi', 'weather-alert', 'user-report',
             'evacuation-zone', 'reporter-evacuation-zone', 'transmission-line',
-            'gas-pipeline', 'national-map-college', 'flood-hazard', 'hazard-event', 'nhc-invest', 'nhc-storm', 'nhc-watch-warning',
+            'gas-pipeline', 'national-map-college', 'flood-hazard', 'hazard-event', 'nhc-invest', 'nhc-watch-warning',
           ].includes(selectedFire.type) && (
             <div className="flex flex-col items-center justify-center py-10 text-center gap-3">
               <Info size={24} className="text-sentinel-600" />
