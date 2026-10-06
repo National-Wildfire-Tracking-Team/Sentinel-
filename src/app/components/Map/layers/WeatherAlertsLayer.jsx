@@ -4,6 +4,10 @@
  * in one control: NWS zones use WWA-aware styles where defined (see getNWSWWAStyle),
  * then the official NWS palette for color; SPC MDs use
  * the classic red-dash / white outline with no fill, matching the SPC map.
+ *
+ * `onImagery` (GOES satellite layer on): bright cloud tops wash out thin
+ * colored outlines, so each alert gets a dark casing under a bolder,
+ * fully opaque outline in its own NWS color.
  */
 
 import { memo, Fragment, useMemo } from 'react';
@@ -19,6 +23,9 @@ const COLOR_EXPR = nwsWwaAwareColorMatchExpression();
 const FILL_OPACITY_EXPR = nwsWwaStyleMatchExpression('fill');
 const LINE_OPACITY_EXPR = nwsWwaStyleMatchExpression('stroke');
 const LINE_WIDTH_EXPR = nwsWwaStyleMatchExpression('width');
+const IMAGERY_LINE_OPACITY_EXPR = ['min', 1, ['+', LINE_OPACITY_EXPR, 0.3]];
+const IMAGERY_LINE_WIDTH_EXPR = ['+', LINE_WIDTH_EXPR, 1];
+const CASING_WIDTH_EXPR = ['+', LINE_WIDTH_EXPR, 4];
 const ALERT_FEATURE_FILTER = ['==', ['get', '__sentinelLayerType'], 'nws-alert'];
 const MD_FEATURE_FILTER = ['==', ['get', '__sentinelLayerType'], 'spc-md'];
 
@@ -26,6 +33,7 @@ const WeatherAlertsLayer = memo(function WeatherAlertsLayer({
   geoJSON,
   spcMdGeoJSON,
   visible,
+  onImagery = false,
 }) {
   const vis = visible ? 'visible' : 'none';
   const combinedGeoJSON = useMemo(() => {
@@ -94,15 +102,28 @@ const WeatherAlertsLayer = memo(function WeatherAlertsLayer({
           }}
         />
         <Layer
+          id="weather-alerts-casing"
+          type="line"
+          source="weather-alerts"
+          filter={ALERT_FEATURE_FILTER}
+          layout={{ visibility: visible && onImagery ? 'visible' : 'none', 'line-join': 'round' }}
+          paint={{
+            'line-color': '#000000',
+            'line-width': CASING_WIDTH_EXPR,
+            'line-opacity': 0.55,
+            'line-blur': 1.5,
+          }}
+        />
+        <Layer
           id="weather-alerts-line"
           type="line"
           source="weather-alerts"
           filter={ALERT_FEATURE_FILTER}
-          layout={{ visibility: vis }}
+          layout={{ visibility: vis, 'line-join': 'round' }}
           paint={{
             'line-color': COLOR_EXPR,
-            'line-width': LINE_WIDTH_EXPR,
-            'line-opacity': LINE_OPACITY_EXPR,
+            'line-width': onImagery ? IMAGERY_LINE_WIDTH_EXPR : LINE_WIDTH_EXPR,
+            'line-opacity': onImagery ? IMAGERY_LINE_OPACITY_EXPR : LINE_OPACITY_EXPR,
           }}
         />
         <Layer
