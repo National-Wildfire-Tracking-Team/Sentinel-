@@ -57,6 +57,8 @@ function Page({ layers, overlays, selected = null }) {
 }
 
 let probe;
+// Test-only capture of the live context value so assertions can read it.
+// eslint-disable-next-line react-hooks/globals
 function Probe() { probe = useSatelliteContext(); return null; }
 
 const sources = () => screen.queryAllByTestId('source');
