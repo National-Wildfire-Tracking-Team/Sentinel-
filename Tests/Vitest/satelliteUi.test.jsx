@@ -47,6 +47,7 @@ function Page({ layers, overlays, selected = null }) {
   return (
     <SatelliteProvider active={Boolean(layers.satellite)} panelOpen={open} onPanelOpenChange={setOpen}>
       <SatellitePanel overlays={overlays} />
+      <SatelliteShowControlsPill />
       <SatelliteStormFocus selected={selected} />
       <GOESLayer />
       <SatelliteLegendSection />

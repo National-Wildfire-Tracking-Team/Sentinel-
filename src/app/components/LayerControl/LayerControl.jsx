@@ -14,7 +14,6 @@ import { trackSentinelUse } from '../../../shared/utils/analytics';
 import LayerPanelSection from './LayerPanelSection';
 import ModelLayerPanel from '../WeatherModels/ModelLayerPanel';
 import MrmsControls from './MrmsControls';
-import SatelliteRowControls from './SatelliteRowControls';
 import NhcTropicalControls from './NhcTropicalControls';
 import { MRMS_URL } from '../../api/mrms';
 
@@ -562,7 +561,6 @@ const LayerControl = memo(function LayerControl({
                               />
 
                               {layerKey === 'mrms' && <MrmsControls />}
-                              {layerKey === 'satellite' && <SatelliteRowControls />}
                               {layerKey === 'nhcTropical' && <NhcTropicalControls />}
                               {layerKey === 'fireRiskOutlook' && (
                                 <FireRiskDaySelector />
