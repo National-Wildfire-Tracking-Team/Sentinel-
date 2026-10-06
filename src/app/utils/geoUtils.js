@@ -64,3 +64,32 @@ export function polygonCentroid(geometry) {
   const ring = outerRing(geometry);
   return ring ? ringCentroid(ring) : null;
 }
+
+/**
+ * [west, south, east, north] covering every coordinate in the given
+ * FeatureCollections, or null when they hold no geometry. Naive min/max, so
+ * a set straddling the antimeridian comes back world-wide.
+ */
+export function featureCollectionsBounds(...collections) {
+  let west = Infinity;
+  let south = Infinity;
+  let east = -Infinity;
+  let north = -Infinity;
+  const visit = (coords) => {
+    if (typeof coords?.[0] === 'number') {
+      const [lng, lat] = coords;
+      if (Number.isFinite(lng) && Number.isFinite(lat)) {
+        west = Math.min(west, lng);
+        east = Math.max(east, lng);
+        south = Math.min(south, lat);
+        north = Math.max(north, lat);
+      }
+      return;
+    }
+    if (Array.isArray(coords)) coords.forEach(visit);
+  };
+  for (const fc of collections) {
+    for (const f of fc?.features ?? []) visit(f?.geometry?.coordinates);
+  }
+  return Number.isFinite(west) ? [west, south, east, north] : null;
+}

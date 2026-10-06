@@ -1,6 +1,6 @@
 /**
- * FEMA National Flood Hazard Layer (NFHL) — flood hazard zones, FIRM panels,
- * and NFHL availability for the current viewport.
+ * FEMA National Flood Hazard Layer (NFHL) — flood hazard zones and FIRM
+ * panels for the current viewport.
  *
  * Always served through Sentinel's own fema-nfhl-proxy Cloud Run service
  * (cloud/fema-nfhl-proxy) — the browser never calls FEMA directly, so there
@@ -16,7 +16,6 @@ export const EMPTY_FLOOD_DATA = Object.freeze({
   level: null,
   zones: { type: 'FeatureCollection', features: [] },
   panels: { type: 'FeatureCollection', features: [] },
-  availability: { type: 'FeatureCollection', features: [] },
   attribution: null,
   truncated: false,
 });
@@ -132,7 +131,6 @@ async function fetchFromProxy({ bbox }, zoom) {
     level: json.level ?? null,
     zones: json.zones?.features ? json.zones : EMPTY_FLOOD_DATA.zones,
     panels: json.panels?.features ? json.panels : EMPTY_FLOOD_DATA.panels,
-    availability: json.availability?.features ? json.availability : EMPTY_FLOOD_DATA.availability,
     attribution: json.attribution ?? null,
     truncated: Boolean(json.truncated),
     stale: Boolean(json.stale),

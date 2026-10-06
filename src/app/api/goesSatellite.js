@@ -67,7 +67,8 @@ export const REGIONS = [
   { id: 'southeast', label: 'Southeast', kind: 'view', sector: 'conus', satellites: ['goes-east'], bounds: [-92, 24, -75, 37] },
   { id: 'gulf', label: 'Gulf of America', kind: 'view', sector: 'conus', satellites: ['goes-east'], bounds: [-98, 18, -80, 31] },
   { id: 'caribbean', label: 'Caribbean', kind: 'view', sector: 'fulldisk', satellites: ['goes-east'], bounds: [-88, 9, -59, 25] },
-  { id: 'mexico', label: 'Mexico', kind: 'view', sector: 'fulldisk', satellites: ['goes-east'], bounds: [-118, 14, -86, 33] },
+  { id: 'mexico', label: 'Mexico', kind: 'view', sector: 'fulldisk', satellites: ['goes-east', 'goes-west'], bounds: [-118, 14, -86, 33] },
+  { id: 'east-pacific', label: 'Mexico & East Pacific', kind: 'view', sector: 'fulldisk', satellites: ['goes-west'], bounds: [-140, 5, -95, 33] },
   { id: 'central-america', label: 'Central America', kind: 'view', sector: 'fulldisk', satellites: ['goes-east'], bounds: [-93, 6, -76, 19] },
   { id: 'atlantic', label: 'Atlantic', kind: 'view', sector: 'fulldisk', satellites: ['goes-east'], bounds: [-80, 10, -20, 50] },
   { id: 'western-us', label: 'Western U.S.', kind: 'view', sector: 'conus', satellites: ['goes-west'], bounds: [-125, 31, -102, 49] },
@@ -75,6 +76,34 @@ export const REGIONS = [
   { id: 'pacific-southwest', label: 'Pacific Southwest', kind: 'view', sector: 'conus', satellites: ['goes-west'], bounds: [-124, 31, -109, 42] },
   { id: 'pacific', label: 'Pacific', kind: 'view', sector: 'fulldisk', satellites: ['goes-west'], bounds: [-180, 0, -115, 55] },
 ];
+
+/**
+ * Longitude west of which GOES-West has the better view: about halfway
+ * between GOES-East (75.2°W) and GOES-West (137.0°W), so East and Central
+ * Pacific storms go to West and Atlantic/Gulf/Caribbean ones to East.
+ */
+const WEST_OF_LNG = -106;
+const STORM_BOX_DEG = { lng: 9, lat: 6 };
+
+/**
+ * Selection and zoom for watching a storm at (lng, lat): the satellite that
+ * sees it best, the smallest full-disk view containing it (full-disk imagery
+ * covers open ocean that CONUS sectors miss), and GeoColor — infrared clouds
+ * at night, and loopable.
+ */
+export function stormSatelliteView(lng, lat) {
+  if (!Number.isFinite(lng) || !Number.isFinite(lat)) return null;
+  const satellite = lng < WEST_OF_LNG ? 'goes-west' : 'goes-east';
+  const inside = ([w, s, e, n]) => lng >= w && lng <= e && lat >= s && lat <= n;
+  const area = ([w, s, e, n]) => (e - w) * (n - s);
+  const views = REGIONS
+    .filter((r) => r.kind === 'view' && r.sector === 'fulldisk' && r.satellites.includes(satellite) && r.bounds && inside(r.bounds))
+    .sort((a, b) => area(a.bounds) - area(b.bounds));
+  return {
+    selection: { satellite, region: views[0]?.id ?? 'fulldisk', product: 'true-color' },
+    bounds: [lng - STORM_BOX_DEG.lng, lat - STORM_BOX_DEG.lat, lng + STORM_BOX_DEG.lng, lat + STORM_BOX_DEG.lat],
+  };
+}
 
 // ── Products ─────────────────────────────────────────────────────────────────
 // band: ABI band drawn from IEM (latest scan, any sector that carries it).

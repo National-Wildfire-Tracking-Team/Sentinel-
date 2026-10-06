@@ -1,20 +1,20 @@
 /**
  * ModelLegend.jsx
- * The Models tab's bottom-left legend, in the same spot and box as the other
- * tabs' legend. It follows what the map draws: the selected variable's colour
+ * The Models tab's legend, shown in the app menu in place of the other tabs'
+ * legend. It follows what the map draws: the selected variable's colour
  * stops in display units (or the HRRR − GFS difference scale), what the
  * variable is, the swipe view's model sides, and the wind particles.
  * With no field to describe (manifest loading, or the variable has no scale in
- * this view) the Legend header stays but doesn't open.
+ * this view) it renders nothing and the menu leaves its Legend row out.
  */
 
 import { useWeatherModelsContext } from '../../context/WeatherModelsContext';
 import { DISPLAY_UNITS, formatDisplay, toDisplay } from '../../api/modelFields';
 import { MODEL_STYLE } from './modelTheme';
-import { ColorRow, LegendFrame, Section } from '../Legend/Legend';
+import { ColorRow, Section } from '../Legend/Legend';
 
 function Note({ children }) {
-  return <div className="text-sentinel-400 text-[10px] leading-snug">{children}</div>;
+  return <div className="text-sentinel-500 dark:text-sentinel-400 text-[10px] leading-snug">{children}</div>;
 }
 
 function legendContent(wm) {
@@ -68,7 +68,6 @@ function legendContent(wm) {
   );
 }
 
-export default function ModelLegend({ map = null }) {
-  const wm = useWeatherModelsContext();
-  return <LegendFrame map={map}>{legendContent(wm)}</LegendFrame>;
+export default function ModelLegend() {
+  return legendContent(useWeatherModelsContext());
 }

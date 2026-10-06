@@ -49,6 +49,9 @@ const Sidebar = memo(function Sidebar({
   onWeatherAlertsRefresh,
   nhcInvests = [],
   nhcCyclones = [],
+  nhcLoading = false,
+  // False when every Tropical (NHC) layer switch is off, so nothing is fetched
+  nhcEnabled = true,
   // Near-me mode: alerts already filtered to the user's radius (null = off)
   nearbyAlerts = null,
   nearbyOutlooks = NO_OUTLOOKS,
@@ -247,7 +250,7 @@ const Sidebar = memo(function Sidebar({
             allHazardFeedTab === 'fires' ? (
               <IncidentFeed incidents={incidents} loading={loading} error={error} />
             ) : allHazardFeedTab === 'tropical' ? (
-              <TropicalWeatherFeed invests={nhcInvests} cyclones={nhcCyclones} />
+              <TropicalWeatherFeed invests={nhcInvests} cyclones={nhcCyclones} loading={nhcLoading} enabled={nhcEnabled} />
             ) : (
               <WeatherAlertsFeed
                 alerts={alerts}
@@ -260,7 +263,7 @@ const Sidebar = memo(function Sidebar({
             )
           ) : isWeatherTab ? (
             weatherFeedTab === 'tropical' ? (
-              <TropicalWeatherFeed invests={nhcInvests} cyclones={nhcCyclones} />
+              <TropicalWeatherFeed invests={nhcInvests} cyclones={nhcCyclones} loading={nhcLoading} enabled={nhcEnabled} />
             ) : (
               <WeatherAlertsFeed
                 alerts={alerts}

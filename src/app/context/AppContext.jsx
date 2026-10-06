@@ -59,7 +59,22 @@ const initialState = {
     wpcFronts: false,
     /** NOAA MRMS radar (Weather tab); product, frame and opacity live in MrmsContext */
     mrms: false,
+    /** NHC tropical layers (Weather, All-hazard and Models tabs): one panel
+     *  row (nhcTropical) turns the set on/off; the rest pick its parts. On by
+     *  default: storms were a permanent layer before they became switchable. */
+    nhcTropical: true,
+    nhcCone: true,
+    nhcTrack: true,
+    nhcWatchWarning: true,
+    nhcOutlook: true,
+    /** NHC wind & surge hazards — off by default (heavier, situational) */
+    nhcWindProb: false,
+    nhcWindRadii: false,
+    nhcArrival: false,
+    nhcSurge: false,
   },
+  // Wind-speed probability threshold shown by nhcWindProb: 34 | 50 | 64 (kt)
+  nhcWindProbKt: 34,
   // Currently selected 7-day fire risk forecast (1-7)
   fireRiskDay: 1,
   // Active day ('day1'|'day2'|'day3') per WPC outlook layer
@@ -92,6 +107,7 @@ const A = {
   SET_LAYER:          'SET_LAYER',
   SET_FIRE_RISK_DAY:  'SET_FIRE_RISK_DAY',
   SET_WPC_OUTLOOK_DAY: 'SET_WPC_OUTLOOK_DAY',
+  SET_NHC_WIND_PROB_KT: 'SET_NHC_WIND_PROB_KT',
   SELECT_FIRE:        'SELECT_FIRE',
   CLEAR_SELECTED:     'CLEAR_SELECTED',
   SELECT_GAUGE:       'SELECT_GAUGE',
@@ -127,6 +143,8 @@ function reducer(state, action) {
         ...state,
         wpcOutlookDay: { ...state.wpcOutlookDay, [action.product]: action.day },
       };
+    case A.SET_NHC_WIND_PROB_KT:
+      return { ...state, nhcWindProbKt: [34, 50, 64].includes(action.kt) ? action.kt : 34 };
     case A.SELECT_FIRE:
       return { ...state, selectedFire: action.fire, selectedGauge: null, selectedCamera: null };
     case A.CLEAR_SELECTED:
@@ -174,6 +192,7 @@ export function AppProvider({ children }) {
   const setLayer         = useCallback((layer, value) => dispatch({ type: A.SET_LAYER, layer, value }), []);
   const setFireRiskDay     = useCallback((day) => dispatch({ type: A.SET_FIRE_RISK_DAY, day }), [] );
   const setWpcOutlookDay = useCallback((product, day) => dispatch({ type: A.SET_WPC_OUTLOOK_DAY, product, day }), []);
+  const setNhcWindProbKt = useCallback((kt) => dispatch({ type: A.SET_NHC_WIND_PROB_KT, kt }), []);
   const selectFire       = useCallback((fire) => dispatch({ type: A.SELECT_FIRE, fire }), []);
   const clearSelected    = useCallback(() => dispatch({ type: A.CLEAR_SELECTED }), []);
   const selectGauge      = useCallback((gauge) => dispatch({ type: A.SELECT_GAUGE, gauge }), []);
@@ -198,6 +217,7 @@ export function AppProvider({ children }) {
     setLayer,
     setFireRiskDay,
     setWpcOutlookDay,
+    setNhcWindProbKt,
     selectFire,
     clearSelected,
     selectGauge,
@@ -217,6 +237,7 @@ export function AppProvider({ children }) {
     setLayer,
     setFireRiskDay,
     setWpcOutlookDay,
+    setNhcWindProbKt,
     selectFire,
     clearSelected,
     selectGauge,

@@ -12,19 +12,23 @@
 export const FLOOD_ATTRIBUTION = 'Flood hazard data: FEMA National Flood Hazard Layer (NFHL)';
 
 /**
- * Map zoom thresholds — mirrors LEVELS in cloud/fema-nfhl-proxy/nfhl.mjs.
- * The server is authoritative; these only drive the client's own hints and
- * its request-snapping cache key, so drift costs cache hits, not correctness.
+ * Map zoom thresholds — mirrors the detail/fine LEVELS in
+ * cloud/fema-nfhl-proxy/nfhl.mjs. The server is authoritative; these only
+ * drive the client's own hints and its request-snapping cache key, so drift
+ * costs cache hits, not correctness.
+ *
+ * The layer only shows flood risk zones, so it starts at the detail level
+ * (roughly a 1-mile map scale). The server's zoomed-out "overview" level —
+ * where FEMA has digital maps at all — is deliberately never requested.
  */
-export const FLOOD_MIN_ZOOM = 7;
 export const FLOOD_DETAIL_ZOOM = 12;
+export const FLOOD_MIN_ZOOM = FLOOD_DETAIL_ZOOM;
 export const FLOOD_FINE_ZOOM = 14;
 
 export function floodLevelForZoom(zoom) {
   if (!Number.isFinite(zoom) || zoom < FLOOD_MIN_ZOOM) return null;
   if (zoom >= FLOOD_FINE_ZOOM) return { name: 'fine', tileZoom: 14 };
-  if (zoom >= FLOOD_DETAIL_ZOOM) return { name: 'detail', tileZoom: 12 };
-  return { name: 'overview', tileZoom: 7 };
+  return { name: 'detail', tileZoom: 12 };
 }
 
 /**
