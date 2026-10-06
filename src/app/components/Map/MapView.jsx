@@ -58,7 +58,9 @@ import NationalMapCollegesLayer from './layers/NationalMapCollegesLayer';
 import CaliforniaLandOwnershipLayer from './layers/CaliforniaLandOwnershipLayer';
 import FloodHazardLayer, { FLOOD_ZONES_FILL_ID, FLOOD_PANELS_FILL_ID } from './layers/FloodHazardLayer';
 import { floodCategoryMeta } from '../../utils/floodHazard';
+import { WATCH_WARNING_COLORS } from '../../api/nhcTropicalWeather';
 import NHCTropicalWeatherLayer from './layers/NHCTropicalWeatherLayer';
+import NhcWindHazardsLayer from './layers/NhcWindHazardsLayer';
 import WaterGaugesLayer from './layers/WaterGaugesLayer';
 import CaliforniaCamerasLayer from './layers/CaliforniaCamerasLayer';
 import CalFirePerimetersLayer from './layers/CalFirePerimetersLayer';
@@ -429,7 +431,7 @@ const GLOBE_FOG = {
 /**
  * Tooltip shown on hover
  */
-const OUTLOOK_LAYER_IDS = new Set(['spc-outlook-fill', 'drought-outlook-fill', 'fire-weather-outlook-fill', 'nhc-disturbance-fill', 'nhc-disturbance-circle', 'nhc-track-circle', 'nhc-obs-circle', 'nhc-watch-warning-line', 'wpc-ero-fill', 'wpc-wssi-fill', 'wpc-qpf-fill', 'wpc-fronts-solid', 'wpc-fronts-dashed', 'wpc-fronts-stationary-line']);
+const OUTLOOK_LAYER_IDS = new Set(['spc-outlook-fill', 'drought-outlook-fill', 'fire-weather-outlook-fill', 'nhc-disturbance-fill', 'nhc-disturbance-circle', 'nhc-track-circle', 'nhc-obs-circle', 'nhc-watch-warning-line', 'nhc-wind-prob-fill', 'nhc-wind-radii-fill', 'wpc-ero-fill', 'wpc-wssi-fill', 'wpc-qpf-fill', 'wpc-fronts-solid', 'wpc-fronts-dashed', 'wpc-fronts-stationary-line']);
 
 // Warning and mesoscale-discussion hover boxes share one fixed width so they
 // line up cleanly when stacked together above the cursor.
@@ -1058,17 +1060,43 @@ function getHoverContent(feature) {
       );
       break;
     }
-    case 'nhc-watch-warning-line': {
-      const wwColors = {
-        'Hurricane Warning':      'text-red-400',
-        'Hurricane Watch':        'text-red-300',
-        'Tropical Storm Warning': 'text-blue-300',
-        'Tropical Storm Watch':   'text-yellow-300',
-      };
-      const wwClass = wwColors[p.wwType] || 'text-slate-300';
+    case 'nhc-wind-prob-fill': {
+      const kt = Number(p.thresholdKt) || 34;
       content = (
         <>
-          <div className={`font-semibold ${wwClass}`}>{p.wwType || 'Advisory'}</div>
+          <div className="font-semibold text-sky-300">NHC wind-speed probability</div>
+          <div className="text-white text-sm font-bold mt-0.5">{p.percentage} chance</div>
+          <div className="text-sentinel-200 text-xs mt-0.5">
+            of {kt}-kt ({Math.round(kt * 1.15078)} mph) or stronger sustained winds in the next 5 days
+          </div>
+        </>
+      );
+      break;
+    }
+    case 'nhc-wind-radii-fill': {
+      const kt = Number(p.radiiKt) || 34;
+      const quadrants = ['ne', 'se', 'sw', 'nw']
+        .filter((q) => Number.isFinite(Number(p[q])))
+        .map((q) => `${q.toUpperCase()} ${Number(p[q])} nm`);
+      content = (
+        <>
+          <div className="font-semibold text-sky-300">NHC wind field · now</div>
+          <div className="text-white text-xs font-semibold mt-0.5">
+            {kt}-kt ({Math.round(kt * 1.15078)} mph) sustained winds extend:
+          </div>
+          {quadrants.length > 0 && <div className="text-sentinel-200 text-xs mt-0.5">{quadrants.join(' · ')}</div>}
+        </>
+      );
+      break;
+    }
+    case 'nhc-watch-warning-line': {
+      const wwColor = WATCH_WARNING_COLORS[p.wwType] || WATCH_WARNING_COLORS.Advisory;
+      content = (
+        <>
+          <div className="font-semibold text-white flex items-center gap-1.5">
+            <span className="inline-block w-2.5 h-2.5 rounded-sm shrink-0" style={{ backgroundColor: wwColor }} />
+            {p.wwType || 'Advisory'}
+          </div>
           {p.stormName && (
             <div className="text-sentinel-200 text-xs mt-0.5">{p.stormName}</div>
           )}
@@ -1329,8 +1357,9 @@ function HoverTooltip({ features, lngLat }) {
  * @param {boolean}     [props.nationalMapCollegesVisible]
  * @param {object|null} props.landOwnershipGeoJSON
  * @param {boolean}     [props.landOwnershipVisible]
- * @param {object|null} props.floodHazardData - { zones, panels, availability } from useFloodHazards
+ * @param {object|null} props.floodHazardData - { zones, panels } from useFloodHazards
  * @param {boolean}     [props.floodHazardVisible]
+ * @param {boolean}     [props.satelliteImageryOn] - GOES layer drawn; alert/NHC layers switch to high-contrast styling
  * @param {object|null} props.nhcForecastPointsGeoJSON
  * @param {object|null} props.nhcForecastTrackGeoJSON
  * @param {object|null} props.nhcConeGeoJSON
@@ -1340,6 +1369,7 @@ function HoverTooltip({ features, lngLat }) {
  * @param {object|null} props.nhcDisturbancePointsGeoJSON
  * @param {object|null} props.nhcDisturbanceAreasGeoJSON
  * @param {object|null} props.nhcStormLabelsGeoJSON
+ * @param {object|null} [props.nhcWindHazards] - from useNhcWindHazards
  * @param {object|null} props.fireWeatherOutlooksGeoJSON
  * @param {string}      [props.fireWxOutlookType]
  * @param {string}      [props.fireWxActiveDay]
@@ -1392,6 +1422,7 @@ export default function MapView({
   landOwnershipVisible = false,
   floodHazardData,
   floodHazardVisible = false,
+  satelliteImageryOn = false,
   nhcForecastPointsGeoJSON,
   nhcForecastTrackGeoJSON,
   nhcConeGeoJSON,
@@ -1401,6 +1432,7 @@ export default function MapView({
   nhcDisturbancePointsGeoJSON,
   nhcDisturbanceAreasGeoJSON,
   nhcStormLabelsGeoJSON,
+  nhcWindHazards = null,
   fireWeatherOutlooksGeoJSON,
   fireWxOutlookType = 'winds_low_humidity',
   fireWxActiveDay = 'day1',
@@ -1481,6 +1513,20 @@ export default function MapView({
 
   /** NDGD smoke: which forecast hour (index into sorted unique `todate` values) */
   const [ndgdSmokeHourIndex, setNdgdSmokeHourIndex] = useState(0);
+
+  // Layer-panel Tropical switches → NHCTropicalWeatherLayer groups.
+  const nhcShow = useMemo(() => ({
+    cone: Boolean(layers.nhcTropical && layers.nhcCone),
+    track: Boolean(layers.nhcTropical && layers.nhcTrack),
+    watchWarning: Boolean(layers.nhcTropical && layers.nhcWatchWarning),
+    outlook: Boolean(layers.nhcTropical && layers.nhcOutlook),
+  }), [layers.nhcTropical, layers.nhcCone, layers.nhcTrack, layers.nhcWatchWarning, layers.nhcOutlook]);
+  const nhcHazardShow = useMemo(() => ({
+    prob: Boolean(layers.nhcTropical && layers.nhcWindProb),
+    radii: Boolean(layers.nhcTropical && layers.nhcWindRadii),
+    arrival: Boolean(layers.nhcTropical && layers.nhcArrival),
+    surge: Boolean(layers.nhcTropical && layers.nhcSurge),
+  }), [layers.nhcTropical, layers.nhcWindProb, layers.nhcWindRadii, layers.nhcArrival, layers.nhcSurge]);
 
   const ndgdForecastHoursMs = useMemo(() => {
     const feats = ndgdSmokeForecastGeoJSON?.features;
@@ -1617,6 +1663,8 @@ export default function MapView({
       if (nhcForecastPointsGeoJSON?.features?.length) ids.push('nhc-track-circle');
       if (nhcPastPointsGeoJSON?.features?.length) ids.push('nhc-obs-circle');
       if (nhcWatchWarningGeoJSON?.features?.length) ids.push('nhc-watch-warning-line');
+      if (nhcHazardShow.prob && nhcWindHazards?.windProbGeoJSON?.features?.length) ids.push('nhc-wind-prob-fill');
+      if (nhcHazardShow.radii && nhcWindHazards?.windRadiiGeoJSON?.features?.length) ids.push('nhc-wind-radii-fill');
     }
     if (layers.waterGauges && waterGaugesGeoJSON?.features?.length) {
       ids.push('water-gauges-circle-priority', 'water-gauges-circle-other');
@@ -1641,6 +1689,7 @@ export default function MapView({
       damageAssessmentPointsGeoJSON, damageAssessmentLinesGeoJSON, damageAssessmentPolygonsGeoJSON,
       rawsGeoJSON, airNowMonitorsGeoJSON, droughtOutlookGeoJSON, ndgdSmokeFilteredGeoJSON, fireWeatherOutlooksGeoJSON,
       nhcForecastPointsGeoJSON, nhcPastPointsGeoJSON, nhcDisturbanceAreasGeoJSON, nhcDisturbancePointsGeoJSON, nhcWatchWarningGeoJSON,
+      nhcHazardShow, nhcWindHazards,
       layers.wpcEro, layers.wpcWssi, layers.wpcQpf, layers.wpcFronts,
       wpcEroGeoJSON, wpcWssiGeoJSON, wpcQpfGeoJSON, wpcFrontsGeoJSON, wpcMpdGeoJSON,
       criticalInfrastructureVisible, criticalInfrastructureTransGeoJSON, criticalInfrastructureGasGeoJSON,
@@ -1963,6 +2012,7 @@ export default function MapView({
           geoJSON={alertsGeoJSON}
           spcMdGeoJSON={isWildfireTab ? null : spcMdGeoJSON}
           visible={(isWildfireTab || isWeatherTab || isAllHazardTab) && layers.weatherAlerts}
+          onImagery={satelliteImageryOn}
         />
 
         {/* Radar Settings: Storm Motion Vectors — a display preference, not
@@ -2105,8 +2155,17 @@ export default function MapView({
           visible={(isWeatherTab || isAllHazardTab) && layers.weatherAlerts}
         />
 
+        {/* NHC wind probabilities, wind radii, TS-wind arrival time and storm
+            surge flooding — beneath the cone and track they explain */}
+        <NhcWindHazardsLayer
+          data={nhcWindHazards}
+          show={nhcHazardShow}
+          visible={isWeatherTab || isAllHazardTab || activeMapTab === 'models'}
+        />
+
         {/* NHC hurricane tracks, cone, watch/warnings, and tropical weather outlook —
-            permanent layer, not user-toggleable; shows on the weather, all-hazard and models tabs */}
+            on the weather, all-hazard and models tabs; each part has its own
+            switch under "Tropical (NHC)" in the layer panel */}
         <NHCTropicalWeatherLayer
           forecastPointsGeoJSON={nhcForecastPointsGeoJSON}
           forecastTrackGeoJSON={nhcForecastTrackGeoJSON}
@@ -2118,6 +2177,8 @@ export default function MapView({
           disturbanceAreasGeoJSON={nhcDisturbanceAreasGeoJSON}
           stormLabelsGeoJSON={nhcStormLabelsGeoJSON}
           visible={isWeatherTab || isAllHazardTab || activeMapTab === 'models'}
+          show={nhcShow}
+          onImagery={satelliteImageryOn}
         />
 
         {/* Fire hotspot points – rendered last (top) */}

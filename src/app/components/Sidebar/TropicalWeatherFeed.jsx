@@ -10,25 +10,10 @@ import { Loader2, Waves, Wind, Navigation, ExternalLink } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { useViewport } from '../../context/ViewportContext';
 import { formatRelativeTime } from '../../utils/formatUtils';
-
-const CHANCE_COLOR = { HIGH: '#FF4444', MEDIUM: '#FFA040', LOW: '#FFE566' };
-
-const CATEGORY_COLOR = {
-  'Category 5 Hurricane': '#c026d3',
-  'Category 4 Hurricane': '#ef4444',
-  'Category 3 Hurricane': '#f97316',
-  'Category 2 Hurricane': '#eab308',
-  'Category 1 Hurricane': '#facc15',
-};
-
-function categoryColor(category) {
-  if (CATEGORY_COLOR[category]) return CATEGORY_COLOR[category];
-  if (String(category).toLowerCase().includes('storm')) return '#38bdf8';
-  return '#94a3b8';
-}
+import { DISTURBANCE_COLORS, categoryColor, categoryLabel } from '../../api/nhcTropicalWeather';
 
 function InvestCard({ invest, onSelect }) {
-  const chanceColor = CHANCE_COLOR[invest.formationChance] || '#94a3b8';
+  const chanceColor = DISTURBANCE_COLORS[invest.formationChance]?.fill || '#94a3b8';
   return (
     <button
       type="button"
@@ -37,7 +22,7 @@ function InvestCard({ invest, onSelect }) {
                  hover:bg-sentinel-800 hover:border-sentinel-600 transition-colors p-3"
     >
       <div className="flex items-center justify-between gap-2">
-        <span className="font-bold text-white text-sm">Invest {invest.investId || invest.name}</span>
+        <span className="font-bold text-white text-sm">{invest.investId ? `Invest ${invest.investId}` : invest.name}</span>
         {invest.formationChance && (
           <span
             className="text-[10px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full"
@@ -81,14 +66,15 @@ function CycloneCard({ storm, onSelect }) {
           className="text-[10px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full"
           style={{ backgroundColor: `${color}22`, color, border: `1px solid ${color}66` }}
         >
-          {storm.category}
+          {categoryLabel(storm.category)}
         </span>
       </div>
+      {storm.basin && <div className="text-[10px] text-sentinel-500 mt-0.5">{storm.basin}</div>}
       <div className="flex gap-3 mt-1.5 text-xs text-sentinel-300">
-        {storm.intensityMph > 0 && (
-          <span className="flex items-center gap-1"><Wind size={11} /> {storm.intensityMph} mph</span>
+        {storm.maxWindMph > 0 && (
+          <span className="flex items-center gap-1"><Wind size={11} /> {storm.maxWindMph} mph</span>
         )}
-        {storm.pressure && <span>{storm.pressure} mb</span>}
+        {storm.mslp != null && <span>{storm.mslp} mb</span>}
       </div>
       {storm.movement && (
         <div className="flex items-center gap-1 mt-1.5 text-[11px] text-sentinel-400">
@@ -96,10 +82,10 @@ function CycloneCard({ storm, onSelect }) {
           {storm.movement}
         </div>
       )}
-      {storm.advNum && (
+      {storm.advisoryNum && (
         <div className="flex items-center gap-1 mt-1 text-[10px] text-sky-400">
           <ExternalLink size={9} />
-          Advisory #{storm.advNum}
+          Advisory #{storm.advisoryNum}
         </div>
       )}
     </button>
@@ -110,6 +96,7 @@ const TropicalWeatherFeed = memo(function TropicalWeatherFeed({
   invests = [],
   cyclones = [],
   loading = false,
+  enabled = true,
 }) {
   const { selectFire } = useApp();
   const { setViewport } = useViewport();
@@ -127,6 +114,16 @@ const TropicalWeatherFeed = memo(function TropicalWeatherFeed({
       setViewport({ longitude: storm.lng, latitude: storm.lat, zoom: 6 });
     }
   };
+
+  if (!enabled) {
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center gap-2 text-center px-6 text-sentinel-400">
+        <Waves size={24} className="text-sentinel-600" />
+        <p className="text-sm">Tropical layers are off</p>
+        <p className="text-[11px] text-sentinel-500">Turn on NHC Tropical in the layer panel to load storms and areas of interest.</p>
+      </div>
+    );
+  }
 
   if (loading && !invests.length && !cyclones.length) {
     return (
@@ -164,7 +161,7 @@ const TropicalWeatherFeed = memo(function TropicalWeatherFeed({
       {invests.length > 0 && (
         <div>
           <div className="px-1 pb-1.5 text-[10px] font-semibold uppercase tracking-wider text-sentinel-500">
-            Active Invests ({invests.length})
+            Areas of interest ({invests.length})
           </div>
           <div className="space-y-2">
             {invests.map((invest) => (

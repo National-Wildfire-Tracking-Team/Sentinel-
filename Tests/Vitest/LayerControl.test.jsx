@@ -132,3 +132,46 @@ describe('LayerControl — Flood Hazard', () => {
     useApp.mockReset();
   });
 });
+
+describe('LayerControl — NHC Tropical', () => {
+  const withApp = (overrides) => {
+    const original = useApp.getMockImplementation();
+    const base = original();
+    useApp.mockImplementation(() => ({ ...base, ...overrides, layers: { ...base.layers, ...overrides.layers } }));
+    return () => useApp.mockImplementation(original);
+  };
+
+  it.each(['weather', 'allhazard'])('offers every NHC product under one row on the %s tab', (tab) => {
+    const restore = withApp({ layers: { nhcTropical: true, nhcTrack: true }, nhcWindProbKt: 34 });
+    renderPanel({ activeMapTab: tab });
+    expect(screen.getAllByRole('button', { name: /Toggle NHC/ })).toHaveLength(1);
+    expect(screen.queryByText('Tropical (NHC)')).not.toBeInTheDocument();
+    for (const name of ['Storm track', 'Forecast cone', 'Coastal watches & warnings', 'Areas of interest',
+      'Wind probabilities', 'Wind radii', 'Arrival of TS winds', 'Storm surge flooding']) {
+      expect(screen.getByRole('switch', { name: new RegExp(name) })).toBeInTheDocument();
+    }
+    expect(screen.getByRole('switch', { name: /Storm track/ })).toHaveAttribute('aria-checked', 'true');
+    expect(screen.getByRole('switch', { name: /Wind radii/ })).toHaveAttribute('aria-checked', 'false');
+    restore();
+  });
+
+  it('hides the parts while the row is off', () => {
+    const restore = withApp({ layers: { nhcTropical: false } });
+    renderPanel({ activeMapTab: 'weather' });
+    expect(screen.getByRole('button', { name: /Toggle NHC/ })).toBeInTheDocument();
+    expect(screen.queryByRole('switch', { name: /Storm track/ })).not.toBeInTheDocument();
+    restore();
+  });
+
+  it('toggles a part and picks the wind threshold', () => {
+    const toggleLayer = vi.fn();
+    const setNhcWindProbKt = vi.fn();
+    const restore = withApp({ layers: { nhcTropical: true, nhcWindProb: true }, nhcWindProbKt: 34, toggleLayer, setNhcWindProbKt });
+    renderPanel({ activeMapTab: 'weather' });
+    fireEvent.click(screen.getByRole('switch', { name: /Wind radii/ }));
+    expect(toggleLayer).toHaveBeenCalledWith('nhcWindRadii');
+    fireEvent.click(screen.getByRole('button', { name: /64 kt/ }));
+    expect(setNhcWindProbKt).toHaveBeenCalledWith(64);
+    restore();
+  });
+});

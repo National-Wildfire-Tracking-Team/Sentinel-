@@ -15,6 +15,9 @@ import {
   CLUSTER_CONTAINED_RING_COLOR,
 } from '../Map/layers/IncidentLocationsLayer';
 import { FLOOD_ATTRIBUTION, FLOOD_CATEGORIES } from '../../utils/floodHazard';
+import {
+  DISTURBANCE_COLORS, HURRICANE_CATEGORY_COLORS, SURGE_LEGEND, WATCH_WARNING_COLORS, WIND_PROB_BANDS, WIND_RADII_COLORS,
+} from '../../api/nhcTropicalWeather';
 import { useMrmsContext } from '../../context/MrmsContext';
 import { mrmsLegendRows } from '../../api/mrms';
 import { useSatelliteContext } from '../../context/SatelliteContext';
@@ -234,7 +237,7 @@ const Legend = memo(function Legend({
   spcOutlookType = 'categorical',
   fireWxOutlookType = 'winds_low_humidity',
 }) {
-  const { layers } = useApp();
+  const { layers, nhcWindProbKt } = useApp();
 
   // Incident report pins are a permanent (non-toggleable) layer, so the
   // legend is always reachable even if every toggleable layer is off.
@@ -341,30 +344,78 @@ const Legend = memo(function Legend({
               </Section>
             )}
 
-            <Section title="NHC Tropical Weather">
-              <div className="text-sentinel-500 dark:text-sentinel-300 text-[10px] mb-1">Invests · disturbance outlook (✕ marker)</div>
-              <ColorRow color="#FFE566" label="Low formation chance" />
-              <ColorRow color="#FFA040" label="Medium formation chance" />
-              <ColorRow color="#FF4444" label="High formation chance" />
-              <div className="pt-1 mt-1 border-t border-sentinel-200 dark:border-sentinel-700" />
-              <div className="text-sentinel-500 dark:text-sentinel-300 text-[10px] mb-1">Active storms (SSHWS)</div>
-              <ColorRow color="#a3e8f0" label="Tropical Depression" />
-              <ColorRow color="#4dffff" label="Tropical Storm" />
-              <ColorRow color="#ffffd9" label="Category 1" />
-              <ColorRow color="#ffd98c" label="Category 2" />
-              <ColorRow color="#ff9e59" label="Category 3" />
-              <ColorRow color="#ff738a" label="Category 4" />
-              <ColorRow color="#ff4d70" label="Category 5" />
-              <div className="pt-1 mt-1 border-t border-sentinel-200 dark:border-sentinel-700" />
-              <ColorRow color="#888888" label="Past track (observed)" />
-              <ColorRow color="#c0c0c0" label="Forecast cone" />
-              <div className="pt-1 mt-1 border-t border-sentinel-200 dark:border-sentinel-700" />
-              <div className="text-sentinel-500 dark:text-sentinel-300 text-[10px] mb-1">Watches / warnings</div>
-              <ColorRow color="#FF0000" label="Hurricane Warning" />
-              <ColorRow color="#FF00FF" label="Hurricane Watch" />
-              <ColorRow color="#FF8C00" label="Tropical Storm Warning" />
-              <ColorRow color="#F0E68C" label="Tropical Storm Watch" />
-            </Section>
+            {/* NHC Tropical: the layer-panel row gates every part below */}
+            {layers.nhcTropical && (
+              <>
+              {(layers.nhcOutlook || layers.nhcTrack || layers.nhcCone || layers.nhcWatchWarning) && (
+                <Section title="NHC Tropical Weather">
+                  {layers.nhcOutlook && (
+                    <>
+                      <div className="text-sentinel-300 text-[10px] mb-1">Areas of interest · formation chance</div>
+                      <ColorRow color={DISTURBANCE_COLORS.LOW.fill} label="Low formation chance" />
+                      <ColorRow color={DISTURBANCE_COLORS.MEDIUM.fill} label="Medium formation chance" />
+                      <ColorRow color={DISTURBANCE_COLORS.HIGH.fill} label="High formation chance" />
+                    </>
+                  )}
+                  {layers.nhcTrack && (
+                    <>
+                      <div className="pt-1 mt-1 border-t border-sentinel-700" />
+                      <div className="text-sentinel-300 text-[10px] mb-1">Active storms (SSHWS)</div>
+                      {Object.entries(HURRICANE_CATEGORY_COLORS).map(([label, c]) => (
+                        <ColorRow key={label} color={c.fill} label={label} />
+                      ))}
+                      <ColorRow color="#888888" label="Past track (observed)" />
+                    </>
+                  )}
+                  {layers.nhcCone && <ColorRow color="#c0c0c0" label="Forecast cone" />}
+                  {layers.nhcWatchWarning && (
+                    <>
+                      <div className="pt-1 mt-1 border-t border-sentinel-700" />
+                      <div className="text-sentinel-300 text-[10px] mb-1">Coastal watches / warnings</div>
+                      {['Hurricane Warning', 'Hurricane Watch', 'Tropical Storm Warning', 'Tropical Storm Watch'].map((label) => (
+                        <ColorRow key={label} color={WATCH_WARNING_COLORS[label]} label={label} />
+                      ))}
+                      <div className="text-sentinel-500 text-[9px] leading-snug mt-0.5">Storm surge watches/warnings appear with NWS alerts.</div>
+                    </>
+                  )}
+                </Section>
+              )}
+
+              {layers.nhcWindProb && (
+                <Section title={`NHC Wind Probability · ${nhcWindProbKt} kt`}>
+                  <div className="text-sentinel-300 text-[10px] mb-1">
+                    Chance of {nhcWindProbKt}-kt ({Math.round(nhcWindProbKt * 1.15078)} mph)+ winds, next 5 days
+                  </div>
+                  {WIND_PROB_BANDS.filter((b) => b.color).map((b) => <ColorRow key={b.value} color={b.color} label={b.value} />)}
+                </Section>
+              )}
+
+              {(layers.nhcWindRadii || layers.nhcArrival) && (
+                <Section title="NHC Wind Field">
+                  {layers.nhcWindRadii && (
+                    <>
+                      <ColorRow color={WIND_RADII_COLORS[34]} label="34 kt (39 mph) tropical-storm-force" />
+                      <ColorRow color={WIND_RADII_COLORS[50]} label="50 kt (58 mph)" />
+                      <ColorRow color={WIND_RADII_COLORS[64]} label="64 kt (74 mph) hurricane-force" />
+                      <div className="text-sentinel-500 text-[9px] leading-snug mt-0.5">Filled: now. Dashed: forecast.</div>
+                    </>
+                  )}
+                  {layers.nhcArrival && (
+                    <ColorRow color="#ffffff" label="Most likely arrival of tropical-storm-force winds" />
+                  )}
+                </Section>
+              )}
+
+              {layers.nhcSurge && (
+                <Section title="NHC Potential Storm Surge Flooding">
+                  {SURGE_LEGEND.map((row) => <ColorRow key={row.label} color={row.color} label={row.label} />)}
+                  <div className="text-sentinel-500 text-[9px] leading-snug mt-0.5">
+                    Issued only for storms threatening U.S. Gulf and Atlantic coasts; blank otherwise.
+                  </div>
+                </Section>
+              )}
+              </>
+            )}
 
             {layers.fireWeatherOutlooks && fireWxOutlookType === 'winds_low_humidity' && (
               <Section title="Fire Weather – Wind &amp; RH">
@@ -409,8 +460,8 @@ const Legend = memo(function Legend({
             {layers.floodHazard && (
               <Section title="FEMA Flood Hazard">
                 {FLOOD_HAZARD_SCALE.map(row => <ColorRow key={row.label} {...row} />)}
-                <div className="text-sentinel-500 dark:text-sentinel-400 text-[10px] pt-1 mt-1 border-t border-sentinel-200 dark:border-sentinel-700 leading-snug">
-                  Zoomed out: shaded areas have digital FEMA flood maps. Unshaded areas have no digital map (paper FIRM or unmapped).
+                <div className="text-sentinel-400 text-[10px] pt-1 mt-1 border-t border-sentinel-700 leading-snug">
+                  Risk areas appear when zoomed in to about 1 mile.
                 </div>
                 <div className="text-sentinel-500 text-[9px] leading-snug">{FLOOD_ATTRIBUTION}</div>
               </Section>

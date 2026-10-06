@@ -2,10 +2,12 @@
  * useNhcTropicalWeather.js
  * Loads NHC tropical cyclone + tropical weather outlook data from the NOAA
  * MapServer (see src/app/api/nhcTropicalWeather.js). Auto-refreshes every 5 minutes.
+ * Besides the map GeoJSON it returns `cyclones` and `invests` — one entry per
+ * active storm slot and per outlook system — for the sidebar's Tropical feed.
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { fetchNhcTropicalWeather, buildStormLabels } from '../api/nhcTropicalWeather';
+import { fetchNhcTropicalWeather, buildStormLabels, buildCyclones, buildOutlookSystems } from '../api/nhcTropicalWeather';
 
 const REFRESH_MS = 5 * 60 * 1000;
 
@@ -58,7 +60,15 @@ export function useNhcTropicalWeather(enabled = false) {
     [forecastPointsGeoJSON]
   );
 
+  const cyclones = useMemo(() => buildCyclones(forecastPointsGeoJSON), [forecastPointsGeoJSON]);
+  const invests = useMemo(
+    () => buildOutlookSystems(disturbancePointsGeoJSON, disturbanceAreasGeoJSON),
+    [disturbancePointsGeoJSON, disturbanceAreasGeoJSON]
+  );
+
   return {
+    cyclones,
+    invests,
     forecastPointsGeoJSON,
     forecastTrackGeoJSON,
     coneGeoJSON,

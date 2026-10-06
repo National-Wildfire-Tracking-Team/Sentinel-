@@ -7,13 +7,15 @@
 import { useState, memo, useMemo, useEffect } from 'react';
 import { getMainOrigin } from '../../../shared/utils/getAppOrigin';
 import {
-  Layers, Flame, MapPin, Wind, CloudRain, CloudLightning, Radar, AlertTriangle, Ruler, Hexagon, Satellite, Thermometer, Activity, Droplets, Zap, Lock, GraduationCap, History, TrendingUp, Camera, Snowflake, Landmark, Waves,
+  Layers, Flame, MapPin, Wind, CloudRain, CloudLightning, Radar, AlertTriangle, Ruler, Hexagon, Satellite, Thermometer, Activity, Droplets, Zap, Lock, GraduationCap, History, TrendingUp, Camera, Snowflake, Landmark, Waves, Waypoints,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { trackSentinelUse } from '../../../shared/utils/analytics';
 import LayerPanelSection from './LayerPanelSection';
 import ModelLayerPanel from '../WeatherModels/ModelLayerPanel';
 import MrmsControls from './MrmsControls';
+import SatelliteRowControls from './SatelliteRowControls';
+import NhcTropicalControls from './NhcTropicalControls';
 import { MRMS_URL } from '../../api/mrms';
 
 /** Layer row definitions — grouped under tab-specific sections below */
@@ -45,8 +47,10 @@ const LAYER_DEFS = {
   waterGauges:        { label: 'Water Gauges',        sublabel: 'NOAA NWPS river & coastal gauges', icon: Droplets, color: '#1e90ff' },
   floodHazard:        { label: 'Flood Hazard',        sublabel: 'FEMA National Flood Hazard Layer · zoom in for zones', icon: Waves, color: '#00c8f0' },
   wildfireCameras:   { label: 'Live CA Cameras',      sublabel: 'Caltrans District CCTV · click for live feed', icon: Camera, color: '#14b8a6' },
+  nhcTropical:      { label: 'NHC Tropical', sublabel: 'Storms, outlook, wind & surge · choose parts below', icon: Waypoints, color: '#4dffff' },
   fireBehaviorModeling: { label: 'Fire Behavior Modeling', sublabel: 'Spread projection · select a fire', icon: TrendingUp, color: '#ff3b1f' },
 };
+
 
 /**
  * Sections shown per map tab. Order matches visual stack top → bottom.
@@ -67,7 +71,7 @@ const TAB_SECTIONS = {
       title: 'Weather hazards',
       groups: [
         {
-          layers: ['weatherAlerts', 'stormReports', 'damageAssessment', 'waterGauges', 'floodHazard', 'spcWeatherOutlooks', 'fireWeatherOutlooks', 'fireRiskOutlook', 'wpcEro', 'wpcWssi', 'wpcQpf', 'wpcFronts'],
+          layers: ['weatherAlerts', 'nhcTropical', 'stormReports', 'damageAssessment', 'waterGauges', 'floodHazard', 'spcWeatherOutlooks', 'fireWeatherOutlooks', 'fireRiskOutlook', 'wpcEro', 'wpcWssi', 'wpcQpf', 'wpcFronts'],
         },
       ],
     },
@@ -135,7 +139,7 @@ const TAB_SECTIONS = {
       title: 'Weather hazards',
       groups: [
         {
-          layers: ['weatherAlerts', 'stormReports', 'damageAssessment', 'waterGauges', 'floodHazard', 'rawsStations'],
+          layers: ['weatherAlerts', 'nhcTropical', 'stormReports', 'damageAssessment', 'waterGauges', 'floodHazard', 'rawsStations'],
         },
       ],
     },
@@ -558,6 +562,8 @@ const LayerControl = memo(function LayerControl({
                               />
 
                               {layerKey === 'mrms' && <MrmsControls />}
+                              {layerKey === 'satellite' && <SatelliteRowControls />}
+                              {layerKey === 'nhcTropical' && <NhcTropicalControls />}
                               {layerKey === 'fireRiskOutlook' && (
                                 <FireRiskDaySelector />
                               )}

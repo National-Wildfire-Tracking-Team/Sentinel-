@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { SatelliteProvider, satellitePanelOpenAfter, useSatelliteContext } from '../../src/app/context/SatelliteContext';
 import SatellitePanel, { SatelliteShowControlsPill } from '../../src/app/components/Map/SatellitePanel';
 import GOESLayer from '../../src/app/components/Map/layers/GOESLayer';
+import SatelliteStormFocus from '../../src/app/components/Map/SatelliteStormFocus';
 import { SatelliteLegendSection } from '../../src/app/components/Legend/Legend';
 
 vi.mock('react-map-gl', () => ({
@@ -35,7 +36,7 @@ function mockSources({ iem = 'ok', gibs = 'ok' } = {}) {
 }
 
 /** The page's wiring: layer toggles drive whether the panel is open. */
-function Page({ layers }) {
+function Page({ layers, overlays, selected = null }) {
   const [open, setOpen] = useState(false);
   const prev = useRef({});
   useEffect(() => {
@@ -45,8 +46,8 @@ function Page({ layers }) {
   }, [layers]);
   return (
     <SatelliteProvider active={Boolean(layers.satellite)} panelOpen={open} onPanelOpenChange={setOpen}>
-      <SatellitePanel />
-      <SatelliteShowControlsPill />
+      <SatellitePanel overlays={overlays} />
+      <SatelliteStormFocus selected={selected} />
       <GOESLayer />
       <SatelliteLegendSection />
       <Probe />
@@ -241,5 +242,58 @@ describe('Satellite panel', () => {
     rerender(<Page layers={{ satellite: false }} />);
     expect(window.location.search).toBe('');
     expect(sources()).toHaveLength(0);
+  });
+
+  it('summarizes NWS alerts and NHC systems on the imagery, with alert toggle and zoom to tropics', () => {
+    mockSources();
+    const onToggle = vi.fn();
+    const overlays = {
+      alerts: { on: true, count: 12, onToggle },
+      tropical: { storms: 1, areas: 2, bounds: [-80, 10, -40, 30] },
+    };
+    const { rerender } = render(<Page layers={{}} overlays={overlays} />);
+    rerender(<Page layers={{ satellite: true }} overlays={overlays} />);
+
+    const alerts = screen.getByRole('button', { name: /NWS alerts · 12/ });
+    expect(alerts).toHaveAttribute('aria-pressed', 'true');
+    fireEvent.click(alerts);
+    expect(onToggle).toHaveBeenCalledTimes(1);
+
+    expect(screen.getByText('1 storm · 2 areas of interest')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /zoom to tropics/i }));
+    expect(probe.focus.bounds).toEqual([-80, 10, -40, 30]);
+  });
+
+  it('says when there are no tropical systems and hides the zoom button', () => {
+    mockSources();
+    const overlays = { alerts: null, tropical: { storms: 0, areas: 0, bounds: null } };
+    const { rerender } = render(<Page layers={{}} overlays={overlays} />);
+    rerender(<Page layers={{ satellite: true }} overlays={overlays} />);
+    expect(screen.getByText('No active tropical systems')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /zoom to tropics/i })).toBeNull();
+    expect(screen.queryByRole('button', { name: /NWS alerts/ })).toBeNull();
+  });
+
+  it('points the imagery at a selected storm: right satellite, view and GeoColor', () => {
+    mockSources();
+    const rachel = { id: 'nhc-storm-EP3', type: 'nhc-storm', lng: -119, lat: 20 };
+    const { rerender } = render(<Page layers={{}} selected={rachel} />);
+    expect(probe.selection.satellite).toBe('goes-east');
+
+    rerender(<Page layers={{ satellite: true }} selected={rachel} />);
+    expect(probe.selection).toEqual({ satellite: 'goes-west', region: 'east-pacific', product: 'true-color' });
+    expect(probe.focus.bounds[0]).toBeLessThan(-119);
+
+    // A manual change afterwards sticks while the same storm stays selected.
+    fireEvent.change(screen.getByLabelText('Band'), { target: { value: 'clean-ir' } });
+    rerender(<Page layers={{ satellite: true }} selected={{ ...rachel }} />);
+    expect(probe.selection.product).toBe('clean-ir');
+  });
+
+  it('ignores non-tropical selections', () => {
+    mockSources();
+    const { rerender } = render(<Page layers={{}} />);
+    rerender(<Page layers={{ satellite: true }} selected={{ id: 'f1', type: 'incident', lng: -119, lat: 37 }} />);
+    expect(probe.selection.satellite).toBe('goes-east');
   });
 });
