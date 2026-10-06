@@ -120,7 +120,7 @@ export default function ManageDeploymentsPage() {
         </div>
         <button
           onClick={() => setShowForm((v) => !v)}
-          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-fire-600 text-white text-sm font-semibold hover:bg-fire-500 transition-colors"
+          className="btn-glass-fire inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold"
         >
           <Plus size={15} /> New Deployment
         </button>
@@ -179,7 +179,7 @@ export default function ManageDeploymentsPage() {
           )}
 
           <div className="flex items-center gap-3">
-            <button type="submit" disabled={saving} className="px-5 py-2 rounded-lg bg-fire-600 text-white font-semibold text-sm hover:bg-fire-500 disabled:opacity-50 transition-colors">
+            <button type="submit" disabled={saving} className="btn-glass-fire px-5 py-2 rounded-lg font-semibold text-sm disabled:opacity-50">
               {saving ? 'Creating…' : 'Create Deployment'}
             </button>
             <button type="button" onClick={() => setShowForm(false)} className="text-sm text-sentinel-400 hover:text-white transition-colors">

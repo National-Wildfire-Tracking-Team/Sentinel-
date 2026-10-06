@@ -184,7 +184,7 @@ export default function DeploymentsPage() {
                         <button
                           onClick={() => handleSignUp(d.id)}
                           disabled={busyId === d.id}
-                          className="px-5 py-2 rounded-lg bg-fire-600 text-white font-semibold text-sm hover:bg-fire-500 disabled:opacity-50 transition-colors"
+                          className="btn-glass-fire px-5 py-2 rounded-lg font-semibold text-sm disabled:opacity-50"
                         >
                           {busyId === d.id ? 'Signing up…' : 'Confirm Sign-Up'}
                         </button>
@@ -199,7 +199,7 @@ export default function DeploymentsPage() {
                   ) : (
                     <button
                       onClick={() => openSignupForm(d.id)}
-                      className="px-5 py-2 rounded-lg bg-fire-600 text-white font-semibold text-sm hover:bg-fire-500 transition-colors"
+                      className="btn-glass-fire px-5 py-2 rounded-lg font-semibold text-sm"
                     >
                       Sign Up
                     </button>

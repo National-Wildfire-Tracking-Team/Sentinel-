@@ -226,7 +226,7 @@ export default function VolunteerProfilePage() {
               <button
                 type="submit"
                 disabled={saving}
-                className="px-6 py-2.5 rounded-xl bg-fire-600 text-white font-semibold text-sm hover:bg-fire-500 disabled:opacity-50 transition-colors"
+                className="btn-glass-fire px-6 py-2.5 rounded-xl font-semibold text-sm disabled:opacity-50"
               >
                 {saving ? 'Saving…' : 'Save Profile'}
               </button>
@@ -328,7 +328,7 @@ export default function VolunteerProfilePage() {
               </div>
             )}
 
-            <div className="mt-10 p-6 rounded-2xl bg-gradient-to-br from-fire-600/10 to-transparent border border-fire-600/20 flex items-center gap-4">
+            <div className="mt-10 p-6 rounded-2xl bg-fire-600/10 border border-fire-600/20 flex items-center gap-4">
               <HeartHandshake size={24} className="text-fire-400 shrink-0" />
               <p className="text-sentinel-200 text-sm">
                 Thank you for volunteering with NWTT Disaster Response. Your readiness helps

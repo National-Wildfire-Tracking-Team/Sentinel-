@@ -196,7 +196,7 @@ export default function EvacZonesTab({ zones, loading, userId, onRefresh }) {
         <button
           type="button"
           onClick={() => setShowDrawer(true)}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold text-white bg-fire-600 hover:bg-fire-700 transition-colors"
+          className="btn-glass-fire flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold"
         >
           <PenTool size={14} />
           Draw New Evacuation Zone

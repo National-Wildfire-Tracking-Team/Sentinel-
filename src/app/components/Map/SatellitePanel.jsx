@@ -3,8 +3,8 @@
  * Compact satellite controls that pop up from the bottom bar (where the
  * Layers button lives) while the Satellite layer is on: satellite, region
  * and product pickers, what is shown and when, the recent-imagery loop,
- * opacity, and what's drawn over the imagery (NWS alerts, NHC storms and
- * areas of interest).
+ * opacity, and what's drawn over the imagery (NHC storms and areas of
+ * interest).
  *
  * Docked flush above MapBottomBar and matched to its width, like the SPC
  * outlook selector, so it grows out of the same bar as every other layer's
@@ -44,44 +44,26 @@ const pairValue = (satelliteId, regionId) => `${satelliteId}:${regionId}`;
 const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
 
 /**
- * What's drawn over the imagery. `alerts`: { on, count, onToggle } for the
- * NWS alerts layer; `tropical`: { storms, areas, bounds } from NHC. Either is
- * null when the current tab doesn't show it.
+ * What's drawn over the imagery: `tropical`: { storms, areas, bounds } from
+ * NHC, or null when the current tab doesn't show it.
  */
-function OverlaysRow({ alerts, tropical, onFocus }) {
-  if (!alerts && !tropical) return null;
-  const tropicalCount = tropical ? tropical.storms + tropical.areas : 0;
+function OverlaysRow({ tropical, onFocus }) {
+  if (!tropical) return null;
+  const tropicalCount = tropical.storms + tropical.areas;
   return (
     <div className="space-y-1">
       <span className={LABEL_CLS}>On the imagery</span>
       <div className="flex flex-wrap items-center gap-1.5">
-        {alerts && (
-          <button
-            type="button"
-            aria-pressed={alerts.on}
-            onClick={alerts.onToggle}
-            title={alerts.on ? 'Hide NWS alerts' : 'Show NWS alerts'}
-            className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold transition-all ${
-              alerts.on
-                ? 'bg-amber-500/20 text-amber-100 border-amber-500/60'
-                : 'bg-sentinel-900 text-sentinel-400 border-sentinel-600 hover:bg-sentinel-700 hover:text-white'}`}
-          >
-            <AlertTriangle size={11} aria-hidden />
-            NWS alerts{alerts.on ? ` · ${alerts.count}` : ''}
-          </button>
-        )}
-        {tropical && (
-          <span className="inline-flex items-center gap-1 rounded-full border border-sky-500/50 bg-sky-500/15 px-2 py-0.5 text-[10px] font-semibold text-sky-100">
-            <Wind size={11} aria-hidden />
-            {tropicalCount
-              ? [
-                tropical.storms ? plural(tropical.storms, 'storm') : null,
-                tropical.areas ? plural(tropical.areas, 'area') + ' of interest' : null,
-              ].filter(Boolean).join(' · ')
-              : 'No active tropical systems'}
-          </span>
-        )}
-        {tropical?.bounds && tropicalCount > 0 && (
+        <span className="inline-flex items-center gap-1 rounded-full border border-sky-500/50 bg-sky-500/15 px-2 py-0.5 text-[10px] font-semibold text-sky-100">
+          <Wind size={11} aria-hidden />
+          {tropicalCount
+            ? [
+              tropical.storms ? plural(tropical.storms, 'storm') : null,
+              tropical.areas ? plural(tropical.areas, 'area') + ' of interest' : null,
+            ].filter(Boolean).join(' · ')
+            : 'No active tropical systems'}
+        </span>
+        {tropical.bounds && tropicalCount > 0 && (
           <button
             type="button"
             onClick={() => onFocus(tropical.bounds)}
@@ -128,7 +110,7 @@ const SatellitePanel = memo(forwardRef(function SatellitePanel({ bottomBarWidth,
         maxWidth: 'calc(100vw - 1rem)',
       }}
     >
-      <div className="flex items-center gap-2 px-3 pt-2.5 pb-2 border-b border-sentinel-700 bg-gradient-to-b from-violet-700/30 to-transparent">
+      <div className="flex items-center gap-2 px-3 pt-2.5 pb-2 border-b border-sentinel-700">
         <Satellite size={14} className="shrink-0 text-violet-300" aria-hidden />
         <select
           aria-label="Satellite and region"
@@ -240,7 +222,7 @@ const SatellitePanel = memo(forwardRef(function SatellitePanel({ bottomBarWidth,
           </div>
         )}
 
-        <OverlaysRow alerts={overlays?.alerts ?? null} tropical={overlays?.tropical ?? null} onFocus={focusBounds} />
+        <OverlaysRow tropical={overlays?.tropical ?? null} onFocus={focusBounds} />
 
         <label className="flex items-center gap-2 text-[10px] text-sentinel-300">
           <span className="font-semibold uppercase tracking-wider">Opacity</span>

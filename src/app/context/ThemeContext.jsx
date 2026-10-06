@@ -1,22 +1,17 @@
 /**
  * ThemeContext.jsx
- * App-wide light/dark theme. Persisted to localStorage; applied by toggling
- * the `dark` class on <html> (Tailwind's `darkMode: 'class'` reads this).
+ * App-wide light/dark theme. Persisted to localStorage and a parent-domain
+ * cookie (so the marketing site follows it too — see shared/utils/sharedTheme);
+ * applied by toggling the `dark` class on <html> (Tailwind's `darkMode: 'class'`
+ * reads this).
  */
 
 import { createContext, useContext, useCallback, useEffect, useState } from 'react';
-
-const STORAGE_KEY = 'nwtt-theme';
+import { readSharedTheme, writeSharedTheme, applyThemeClass } from '../../shared/utils/sharedTheme';
 
 function getInitialTheme() {
   if (typeof window === 'undefined') return 'dark';
-  try {
-    const stored = window.localStorage.getItem(STORAGE_KEY);
-    if (stored === 'light' || stored === 'dark') return stored;
-  } catch {
-    // localStorage unavailable (private mode, etc.) — fall through to default
-  }
-  return 'dark';
+  return readSharedTheme() ?? 'dark';
 }
 
 const ThemeContext = createContext(null);
@@ -25,12 +20,8 @@ export function ThemeProvider({ children }) {
   const [theme, setThemeState] = useState(getInitialTheme);
 
   useEffect(() => {
-    document.documentElement.classList.toggle('dark', theme === 'dark');
-    try {
-      window.localStorage.setItem(STORAGE_KEY, theme);
-    } catch {
-      // localStorage unavailable — theme still applies for this session
-    }
+    applyThemeClass(theme);
+    writeSharedTheme(theme);
   }, [theme]);
 
   const setTheme = useCallback((next) => {

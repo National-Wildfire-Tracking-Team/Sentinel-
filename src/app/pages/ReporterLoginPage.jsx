@@ -210,8 +210,8 @@ export default function ReporterLoginPage() {
                 <button
                   type="submit"
                   disabled={busy || !isSupabaseConfigured}
-                  className="w-full py-3 rounded-lg font-semibold text-sm text-white bg-fire-600 hover:bg-fire-700
-                             disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                  className="btn-glass-fire w-full py-3 rounded-lg font-semibold text-sm
+                             disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {busy ? 'Signing in…' : 'Sign In'}
                 </button>
@@ -266,8 +266,8 @@ export default function ReporterLoginPage() {
                   <button
                     type="submit"
                     disabled={busy}
-                    className="w-full py-3 rounded-lg font-semibold text-sm text-white bg-fire-600 hover:bg-fire-700
-                               disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                    className="btn-glass-fire w-full py-3 rounded-lg font-semibold text-sm
+                               disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {busy ? 'Sending…' : 'Send Reset Link'}
                   </button>

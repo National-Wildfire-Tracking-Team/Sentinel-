@@ -102,7 +102,7 @@ export default function ReporterDashboardPage() {
             <div className="flex flex-col gap-3">
               <a
                 href={getAppOrigin()}
-                className="w-full py-2.5 rounded-lg font-semibold text-sm text-white bg-fire-600 hover:bg-fire-700 transition-all text-center"
+                className="btn-glass-fire w-full py-2.5 rounded-lg font-semibold text-sm text-center"
               >
                 Go to Live Tracker
               </a>
@@ -185,7 +185,7 @@ export default function ReporterDashboardPage() {
             onClick={() => setActiveTab('add')}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold uppercase tracking-wider transition-colors
               ${activeTab === 'add'
-                ? 'bg-fire-600 text-white shadow'
+                ? 'btn-glass-fire shadow'
                 : 'text-sentinel-300 hover:text-white hover:bg-sentinel-700'}`}
           >
             <PlusCircle size={13} />
@@ -198,7 +198,7 @@ export default function ReporterDashboardPage() {
             onClick={() => { setActiveTab('manage'); refreshReports(); }}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold uppercase tracking-wider transition-colors
               ${activeTab === 'manage'
-                ? 'bg-fire-600 text-white shadow'
+                ? 'btn-glass-fire shadow'
                 : 'text-sentinel-300 hover:text-white hover:bg-sentinel-700'}`}
           >
             <Activity size={13} />
@@ -216,7 +216,7 @@ export default function ReporterDashboardPage() {
             onClick={() => setActiveTab('external')}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold uppercase tracking-wider transition-colors
               ${activeTab === 'external'
-                ? 'bg-fire-600 text-white shadow'
+                ? 'btn-glass-fire shadow'
                 : 'text-sentinel-300 hover:text-white hover:bg-sentinel-700'}`}
           >
             <Globe size={13} />

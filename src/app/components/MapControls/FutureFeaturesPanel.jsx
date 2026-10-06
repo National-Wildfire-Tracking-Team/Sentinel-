@@ -95,7 +95,7 @@ function SegmentedControl({ value, onChange, options }) {
           onClick={() => onChange(opt.value)}
           className={`px-2.5 py-1 text-xs font-semibold rounded-md transition-colors ${
             value === opt.value
-              ? 'bg-fire-600 text-white shadow-sm'
+              ? 'bg-fire-600/25 ring-1 ring-inset ring-fire-600/50 text-sentinel-900 dark:text-white'
               : 'text-sentinel-500 dark:text-sentinel-400 hover:text-sentinel-800 dark:hover:text-sentinel-200'
           }`}
         >
@@ -115,7 +115,7 @@ function PrefSwitch({ checked, onChange }) {
       aria-checked={checked}
       onClick={() => onChange(!checked)}
       className={`h-6 w-11 shrink-0 rounded-full p-0.5 transition-colors ${
-        checked ? 'bg-fire-600' : 'bg-sentinel-300 dark:bg-sentinel-700'
+        checked ? 'bg-fire-600/25 ring-1 ring-inset ring-fire-600/50' : 'bg-sentinel-300 dark:bg-sentinel-700'
       }`}
     >
       <span

@@ -22,6 +22,7 @@ import {
   infoLink,
 } from './sidebarParts';
 import { useBottomSheet, useEscapeToClose, useIsDesktop, useNow } from './useSidebar';
+import { useTimeFormat } from '../../hooks/useTimeFormat';
 
 // ─── Pieces ──────────────────────────────────────────────────────────────────
 
@@ -32,6 +33,7 @@ const SITUATION_TONE_CLASS = {
 };
 
 function InfoTab({ fire, summary, updatedAt }) {
+  useTimeFormat();
   const hasCoords = Number.isFinite(fire.lat) && Number.isFinite(fire.lng);
   return (
     <>
@@ -107,6 +109,7 @@ function InfoTab({ fire, summary, updatedAt }) {
  * @param {string}   shareStatus Transient share feedback ("Link copied")
  */
 export default function IncidentSidebar({ fire, onClose, onShare, shareStatus }) {
+  useTimeFormat();
   useNow(30_000);
 
   const summary = incidentSummary(fire);

@@ -21,17 +21,31 @@ export default {
           800: '#a13109',
           900: '#822a0c',
         },
+        // Sentinel grays resolve through CSS variables (defined in index.css)
+        // so the marketing site can swap in a light palette. The app keeps
+        // the dark defaults and themes itself with `dark:` variants.
         sentinel: {
-          900: '#0a0c0e',
-          850: '#0d1013', // marketing section backdrop — sits close to 900 so alternating bands read as one surface
-          800: '#111418',
-          700: '#1a1f26',
-          600: '#222830',
-          500: '#2d3540',
-          400: '#3d4a58',
-          300: '#5a6a7a',
-          200: '#8a9ab0',
-          100: '#c0cad6',
+          900: 'rgb(var(--sentinel-900) / <alpha-value>)',
+          850: 'rgb(var(--sentinel-850) / <alpha-value>)', // marketing section backdrop — sits close to 900 so alternating bands read as one surface
+          800: 'rgb(var(--sentinel-800) / <alpha-value>)',
+          700: 'rgb(var(--sentinel-700) / <alpha-value>)',
+          600: 'rgb(var(--sentinel-600) / <alpha-value>)',
+          500: 'rgb(var(--sentinel-500) / <alpha-value>)',
+          400: 'rgb(var(--sentinel-400) / <alpha-value>)',
+          300: 'rgb(var(--sentinel-300) / <alpha-value>)',
+          200: 'rgb(var(--sentinel-200) / <alpha-value>)',
+          100: 'rgb(var(--sentinel-100) / <alpha-value>)',
+        },
+      },
+      // Text-only shades of the sentinel grays, nudged toward white for
+      // legibility. Borders and surfaces keep the base palette above.
+      textColor: {
+        sentinel: {
+          100: 'rgb(var(--sentinel-text-100) / <alpha-value>)',
+          200: 'rgb(var(--sentinel-text-200) / <alpha-value>)',
+          300: 'rgb(var(--sentinel-text-300) / <alpha-value>)',
+          400: 'rgb(var(--sentinel-text-400) / <alpha-value>)',
+          500: 'rgb(var(--sentinel-text-500) / <alpha-value>)',
         },
       },
       fontFamily: {

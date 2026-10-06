@@ -47,7 +47,7 @@ const MapBottomBar = memo(forwardRef(function MapBottomBar({
         onClick={() => onTabChange?.('allhazard')}
         className={`inline-flex items-center gap-1.5 px-3 py-2 whitespace-nowrap text-sm font-bold rounded-xl transition-all duration-200 ${
           isAllHazardTab
-            ? 'bg-gradient-to-r from-fire-600 via-red-600 to-sky-700 text-white shadow-lg shadow-red-900/30'
+            ? 'bg-red-600 text-white'
             : 'text-sentinel-600 dark:text-sentinel-200 hover:text-sentinel-900 dark:hover:text-white hover:bg-sentinel-100 dark:hover:bg-sentinel-700'
         }`}
         aria-pressed={isAllHazardTab}
@@ -62,7 +62,7 @@ const MapBottomBar = memo(forwardRef(function MapBottomBar({
         onClick={() => onTabChange?.('wildfire')}
         className={`inline-flex items-center gap-1.5 px-3 py-2 whitespace-nowrap text-sm font-semibold rounded-xl transition-colors ${
           activeMapTab === 'wildfire'
-            ? 'bg-fire-600 text-white'
+            ? 'bg-fire-600/25 ring-1 ring-inset ring-fire-600/50 text-sentinel-900 dark:text-white'
             : 'text-sentinel-600 dark:text-sentinel-200 hover:text-sentinel-900 dark:hover:text-white hover:bg-sentinel-100 dark:hover:bg-sentinel-700'
         }`}
         aria-pressed={activeMapTab === 'wildfire'}

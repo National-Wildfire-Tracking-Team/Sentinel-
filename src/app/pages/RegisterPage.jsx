@@ -95,7 +95,7 @@ export default function RegisterPage() {
               <ResendConfirmation email={email} />
               <Link
                 to="/login"
-                className="mt-2 w-full py-3 rounded-lg font-bold text-sm tracking-widest uppercase text-white bg-fire-600 hover:bg-fire-500 transition-all block"
+                className="btn-glass-fire mt-2 w-full py-3 rounded-lg font-bold text-sm tracking-widest uppercase block"
               >
                 Go to Sign In
               </Link>
@@ -117,7 +117,7 @@ export default function RegisterPage() {
       {/* ══════════════════ LEFT PANEL — Branding ══════════════════ */}
       <div className="hidden lg:flex lg:w-1/2 relative flex-col items-center justify-center overflow-hidden">
 
-        <div className="absolute inset-0 bg-gradient-to-br from-[#07090c] via-[#0c1520] to-[#071020]" />
+        <div className="absolute inset-0 bg-[#07090c]" />
         <div
           className="absolute inset-0 opacity-[0.04]"
           style={{
@@ -127,7 +127,6 @@ export default function RegisterPage() {
             backgroundSize: '48px 48px',
           }}
         />
-        <div className="absolute bottom-0 left-0 right-0 h-64 bg-gradient-to-t from-orange-900/25 to-transparent" />
 
         <div className="relative z-10 text-center px-12 max-w-lg">
           <div className="flex items-center justify-center mb-8">
@@ -281,9 +280,8 @@ export default function RegisterPage() {
                 <button
                   type="submit"
                   disabled={busy || !isSupabaseConfigured}
-                  className="w-full py-3 rounded-lg font-bold text-sm tracking-widest uppercase text-white
-                             bg-fire-600 hover:bg-fire-500 disabled:opacity-50 disabled:cursor-not-allowed
-                             transition-all"
+                  className="btn-glass-fire w-full py-3 rounded-lg font-bold text-sm tracking-widest uppercase
+                             disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {busy ? 'Creating account…' : 'Create Account'}
                 </button>

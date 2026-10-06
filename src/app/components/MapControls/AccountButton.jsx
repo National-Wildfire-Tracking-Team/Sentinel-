@@ -22,7 +22,7 @@ const AccountButton = memo(function AccountButton() {
         aria-haspopup="dialog"
         className={`relative flex items-center justify-center w-11 h-11 rounded-full border shadow-xl backdrop-blur-sm transition-colors ${
           accountPanelOpen
-            ? 'bg-fire-600 border-fire-500 text-white'
+            ? 'bg-[#ffd6bf] dark:bg-[#47200b] border-fire-600/50 text-sentinel-900 dark:text-white' /* fire-600 at 25%, made solid so the map doesn't show through */
             : 'bg-white/90 dark:bg-sentinel-900/90 border-sentinel-200 dark:border-sentinel-600 text-sentinel-700 dark:text-white hover:bg-sentinel-100 dark:hover:bg-sentinel-700'
         }`}
       >

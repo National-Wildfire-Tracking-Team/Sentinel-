@@ -10,8 +10,11 @@ import { Flame, ShieldCheck, MapPin } from 'lucide-react';
 
 import { useAuth } from '../../shared/context/AuthContext';
 import { useFireReports } from '../hooks/useFireReports';
+import { withClock } from '../utils/formatUtils';
+import { useTimeFormat } from '../hooks/useTimeFormat';
 
 export default function AdminDashboardPage() {
+  useTimeFormat();
   const { isAdmin, loading, profileLoading, user } = useAuth();
 
   const { reports, loading: reportsLoading } = useFireReports('all');
@@ -83,7 +86,7 @@ export default function AdminDashboardPage() {
                   {formatCoordinate(r.latitude)}°, {formatCoordinate(r.longitude)}°
                 </span>
                 <span>
-                  Submitted {new Date(r.created_at).toLocaleString()}
+                  Submitted {new Date(r.created_at).toLocaleString(undefined, withClock())}
                 </span>
                 <span className="truncate">Reporter: {r.user_id?.slice(0, 8)}…</span>
               </div>

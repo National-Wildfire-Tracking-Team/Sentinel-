@@ -9,6 +9,23 @@ import { getFireMatchKey } from '../../../hooks/useMergedFireData';
 
 const EMPTY_GEOJSON = { type: 'FeatureCollection', features: [] };
 
+/** Fires smaller than this aren't drawn as dots or counted in fire groups. */
+export const MIN_FIRE_ACRES = 0.4;
+
+/**
+ * Whether a perimeter's centroid draws a fire dot on the live map: a current
+ * mapping (not stale, not historical), at least MIN_FIRE_ACRES, and not
+ * covered by a repositioned IRWIN dot (HideFromCentroid). Fully contained
+ * fires still draw (grey) until the page drops them as stale. Duplicate
+ * incident dots are only hidden in favour of perimeters that pass this.
+ */
+export function drawsCentroidDot(props = {}) {
+  return !props.HideFromCentroid
+    && !props.isStaleFire
+    && !props.isHistoricalMapping
+    && (Number(props.GISAcres) || 0) >= MIN_FIRE_ACRES;
+}
+
 /**
  * Derive a Point FeatureCollection of perimeter centroids for the center dots
  * and name labels. A single fire can arrive as several separate polygon

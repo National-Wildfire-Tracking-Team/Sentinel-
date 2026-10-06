@@ -1,6 +1,6 @@
 import { useRef, useState, useEffect } from 'react';
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
-import { Flame, Menu, X, Heart, Settings, LogOut, User } from 'lucide-react';
+import { Flame, Menu, X, Settings, LogOut, User } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useConfirmSignOut } from '../../hooks/useConfirmSignOut';
 import { getAppOrigin } from '../../utils/getAppOrigin';
@@ -79,6 +79,8 @@ export default function Navbar() {
 
   return (
     <nav
+      // Floating over a photo hero, the bar keeps its dark palette in light mode too.
+      data-theme-dark={clear ? '' : undefined}
       className={`sticky top-0 z-50 border-b transition-colors duration-300 ${
         clear
           ? 'bg-transparent border-transparent'
@@ -91,7 +93,6 @@ export default function Navbar() {
           <Link to="/" className="flex items-center gap-2.5 group">
             <div className="relative">
               <Flame size={26} className="text-fire-600 group-hover:text-fire-500 transition-colors" />
-              <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-fire-500 rounded-full animate-pulse" />
             </div>
             <div className="flex flex-col leading-tight">
               <span className="font-bold text-white text-lg tracking-tight">
@@ -104,7 +105,7 @@ export default function Navbar() {
           </Link>
 
           {/* Desktop links */}
-          <div className="hidden md:flex items-center gap-1">
+          <div className="hidden md:flex items-center gap-2">
             {navLinks.map((link) => (
               <NavLink
                 key={link.to}
@@ -125,14 +126,13 @@ export default function Navbar() {
               href="https://givebutter.com/national-wildfire-tracking-team-dvi6jx"
               target="_blank"
               rel="noopener noreferrer"
-              className="ml-2 inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold bg-pink-600 text-white hover:bg-pink-500 transition-colors"
+              className="px-4 py-2 rounded-lg text-sm font-medium text-sentinel-200 hover:text-white hover:bg-sentinel-700/60 transition-colors"
             >
-              <Heart size={15} />
               Donate
             </a>
             <a
               href={`${getAppOrigin()}/`}
-              className="ml-2 px-4 py-2 rounded-lg text-sm font-semibold bg-fire-600 text-white hover:bg-fire-500 transition-colors"
+              className="btn-glass-fire px-4 py-2 rounded-lg text-sm font-semibold"
             >
               Sentinel
             </a>
@@ -142,7 +142,7 @@ export default function Navbar() {
                 href={`${getAppOrigin()}/login?from=home`}
                 aria-label="Login"
                 title="Login"
-                className={`ml-2 flex items-center justify-center w-9 h-9 rounded-full border text-sentinel-200 hover:bg-sentinel-700 hover:text-white transition-colors ${
+                className={`flex items-center justify-center w-9 h-9 rounded-full border text-sentinel-200 hover:bg-sentinel-700 hover:text-white transition-colors ${
                   clear ? 'border-white/25 bg-white/10' : 'border-sentinel-600 bg-sentinel-800'
                 }`}
               >
@@ -152,10 +152,10 @@ export default function Navbar() {
 
             {/* User menu (logged-in only) */}
             {isAuthenticated && (
-              <div className="relative ml-2" ref={userMenuRef}>
+              <div className="relative" ref={userMenuRef}>
                 <button
                   onClick={() => setUserMenuOpen(v => !v)}
-                  className="flex items-center justify-center w-8 h-8 rounded-full bg-fire-600 hover:bg-fire-500 text-white text-xs font-bold transition-colors"
+                  className="btn-glass-fire flex items-center justify-center w-8 h-8 rounded-full text-xs font-bold"
                   aria-label="User menu"
                   title={user?.email}
                 >
@@ -190,14 +190,22 @@ export default function Navbar() {
             )}
           </div>
 
-          {/* Mobile toggle */}
-          <button
-            onClick={() => setMobileOpen(!mobileOpen)}
-            className="md:hidden p-2 rounded-md text-sentinel-300 hover:text-white hover:bg-sentinel-700 transition-colors"
-            aria-label="Toggle menu"
-          >
-            {mobileOpen ? <X size={22} /> : <Menu size={22} />}
-          </button>
+          {/* Mobile: Sentinel shortcut + menu toggle */}
+          <div className="md:hidden flex items-center gap-2">
+            <a
+              href={`${getAppOrigin()}/`}
+              className="btn-glass-fire px-4 py-2 rounded-lg text-sm font-semibold"
+            >
+              Sentinel
+            </a>
+            <button
+              onClick={() => setMobileOpen(!mobileOpen)}
+              className="p-2 rounded-md text-sentinel-300 hover:text-white hover:bg-sentinel-700 transition-colors"
+              aria-label="Toggle menu"
+            >
+              {mobileOpen ? <X size={22} /> : <Menu size={22} />}
+            </button>
+          </div>
         </div>
       </div>
 
@@ -228,9 +236,8 @@ export default function Navbar() {
               target="_blank"
               rel="noopener noreferrer"
               onClick={() => setMobileOpen(false)}
-              className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium text-pink-400 hover:text-white hover:bg-pink-600/20 transition-colors"
+              className="block px-4 py-2.5 rounded-lg text-sm font-medium text-sentinel-200 hover:text-white hover:bg-sentinel-700/60 transition-colors"
             >
-              <Heart size={15} />
               Donate
             </a>
             <a
@@ -239,13 +246,6 @@ export default function Navbar() {
               className="block px-4 py-2.5 rounded-lg text-sm font-medium text-sentinel-200 hover:text-white hover:bg-sentinel-700/60 transition-colors"
             >
               Login
-            </a>
-            <a
-              href={`${getAppOrigin()}/`}
-              onClick={() => setMobileOpen(false)}
-              className="block px-4 py-2.5 rounded-lg text-sm font-semibold bg-fire-600 text-white hover:bg-fire-500 transition-colors"
-            >
-              Sentinel
             </a>
 
             {isAuthenticated && (
