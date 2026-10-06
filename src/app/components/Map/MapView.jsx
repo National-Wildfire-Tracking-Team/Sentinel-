@@ -64,6 +64,7 @@ import CalFirePerimetersLayer from './layers/CalFirePerimetersLayer';
 import HazardEventsLayer, { HAZARD_CATEGORY_LABELS } from './layers/HazardEventsLayer';
 import DamageAssessmentLayer from './layers/DamageAssessmentLayer';
 import MrmsLayer from './layers/MrmsLayer';
+import { parseAliasIds } from '../../utils/incidentAliases';
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN || '';
 const HAS_MAPBOX_TOKEN = Boolean(MAPBOX_TOKEN.trim());
@@ -198,8 +199,9 @@ function buildFeatureRecord(feature, lngLat, alerts, { floodPanel = null } = {})
         updated:     p.ModifiedOnDateTime,
         orgType:     p.IncidentManagementOrganization,
         cause:       p.FireCause || null,
-        source:      p.Source || null,
+        source:      p._source || p.Source || null,
         historical:  Boolean(p.isHistoricalMapping),
+        aliasIds:    parseAliasIds(p._aliasIds),
       };
 
     case 'fire-incidents-circle':
@@ -221,6 +223,10 @@ function buildFeatureRecord(feature, lngLat, alerts, { floodPanel = null } = {})
         updated:    p.ModifiedOnDateTime
                       ? new Date(p.ModifiedOnDateTime).toISOString()
                       : null,
+        // CAL FIRE dots won the IRWIN/CAL FIRE merge (useMergedFireData).
+        source:     p._source || null,
+        url:        p._detailUrl || null,
+        aliasIds:   parseAliasIds(p._aliasIds),
       };
 
     case 'incident-locations-circle': {
@@ -262,6 +268,7 @@ function buildFeatureRecord(feature, lngLat, alerts, { floodPanel = null } = {})
         evacuation_warnings: num(p.evacuation_warnings) || 0,
         evacuation_order_lines: evacuationLines,
         updates,
+        aliasIds: parseAliasIds(p.alias_ids),
       };
     }
 

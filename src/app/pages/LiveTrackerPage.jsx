@@ -57,6 +57,7 @@ import { filterByRadius, filterFeatureCollectionByRadius, circlePolygon } from '
 import { polygonCentroid } from '../utils/geoUtils';
 import { incidentsToGeoJSON } from '../api/inciweb';
 import { mergeIrwinAndCalFireIncidents } from '../utils/mergeIncidents';
+import { incidentIdsFor, parseAliasIds } from '../utils/incidentAliases';
 
 // Components
 import Header from '../components/Header/Header';
@@ -893,6 +894,8 @@ export default function LiveTrackerPage() {
         // Attach reporter metadata so downstream components can reference it.
         hasReporterData: true,
         reportId: report.id,
+        // Evacuations/updates a reporter entered on their own report belong to this fire too.
+        aliasIds: parseAliasIds([...(inc.aliasIds || []), report.id]),
         reportDescription: report.description,
         reportedAt: report.created_at,
       };
@@ -934,7 +937,9 @@ export default function LiveTrackerPage() {
       return;
     }
 
-    const incidentMatch = mergedIncidents.find((inc) => String(inc.id) === incidentId);
+    // Links may carry any id the fire is known by (e.g. an email sent before
+    // CAL FIRE picked the fire up and replaced the IRWIN record).
+    const incidentMatch = mergedIncidents.find((inc) => incidentIdsFor(inc).includes(incidentId));
     if (incidentMatch) {
       selectFire({ type: 'incident', ...incidentMatch });
       flyToFire(incidentMatch);
@@ -968,6 +973,7 @@ export default function LiveTrackerPage() {
 
     const perimeterFeature = namedPerimetersGeoJSON?.features?.find(
       (f) => String(f.properties?.UniqueFireIdentifier) === incidentId
+        || parseAliasIds(f.properties?._aliasIds).includes(incidentId)
     );
     if (perimeterFeature) {
       const p = perimeterFeature.properties;
@@ -989,7 +995,9 @@ export default function LiveTrackerPage() {
         updated: p.ModifiedOnDateTime,
         orgType: p.IncidentManagementOrganization,
         cause: p.FireCause || null,
-        source: p.Source || null,
+        source: p._source || p.Source || null,
+        historical: Boolean(p.isHistoricalMapping),
+        aliasIds: parseAliasIds(p._aliasIds),
       };
       selectFire(record);
       flyToFire(record);
