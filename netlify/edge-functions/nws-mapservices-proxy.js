@@ -57,6 +57,11 @@ export const ROUTES = {
     path: '/arcgis/rest/services/nws_damageassessmenttoolkit/DamageViewer/MapServer',
     tier: 'active',
   },
+
+  // Not ArcGIS: NHC's public ATCF model guidance files ("a-decks", gzipped
+  // text) for the spaghetti-model tracks. Same host-allowlisted passthrough;
+  // the upstream sends no CORS headers, so browsers need this hop.
+  'nhc-atcf': { origin: 'https://ftp.nhc.noaa.gov', path: '/atcf/aid_public', tier: 'active' },
 };
 
 export default createProxy({
