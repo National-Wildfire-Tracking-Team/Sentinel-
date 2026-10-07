@@ -42,9 +42,6 @@ function initAnalytics() {
 
   window.gtag('js', new Date());
   window.gtag('config', GA_MEASUREMENT_ID);
-
-  // Google tag (gtag.js) event — fired right after the Google tag config.
-  window.gtag('event', 'user_engagement', {});
 }
 
 function scheduleDeferredAnalyticsLoad() {
