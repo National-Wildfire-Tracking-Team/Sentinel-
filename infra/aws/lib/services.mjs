@@ -1,8 +1,9 @@
 /**
  * services.mjs
- * One entry per cloud/<dir> HTTP service that moves from Cloud Run to AWS
- * Lambda. Sizing mirrors what is actually deployed on Cloud Run (read from
- * `gcloud run services list` on 2026-09-30, not the READMEs), translated:
+ * One entry per cloud/<dir> HTTP service on AWS Lambda: the ones moving
+ * from Cloud Run, plus hurricane-models, which started here. Sizing mirrors
+ * what is actually deployed on Cloud Run (read from `gcloud run services
+ * list` on 2026-09-30, not the READMEs), translated:
  *
  * - memory: Lambda's CPU scales with memory (1769 MB = 1 vCPU). Every Cloud
  *   Run service has 1 vCPU, so nothing gets less than 1769 MB even where
@@ -79,6 +80,22 @@ export const SERVICES = [
     env: ({ allowedOrigins, nwsUserAgent }) => ({
       ALLOWED_ORIGINS: allowedOrigins,
       NWS_USER_AGENT: nwsUserAgent,
+    }),
+  },
+  {
+    // New on AWS (never on Cloud Run): NHC ATCF hurricane model guidance.
+    // Holds parsed a-decks in memory, capped by record count (see
+    // StormStore); ~20k records per live storm, ~200k per archived one.
+    id: 'HurricaneModels',
+    dir: 'hurricane-models',
+    pathPrefix: '/hurricane-models',
+    frontendEnvVar: 'VITE_HURRICANE_MODELS_URL',
+    healthPath: '/health',
+    memoryMb: 1769,
+    timeoutSeconds: 30,
+    env: ({ allowedOrigins, nwsUserAgent }) => ({
+      ALLOWED_ORIGINS: allowedOrigins,
+      NOAA_USER_AGENT: nwsUserAgent,
     }),
   },
 ];

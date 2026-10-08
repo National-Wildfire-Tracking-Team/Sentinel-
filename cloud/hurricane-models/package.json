@@ -1,0 +1,13 @@
+{
+  "name": "hurricane-models",
+  "version": "1.0.0",
+  "description": "Normalized NOAA/NHC ATCF hurricane model guidance (spaghetti tracks) for Sentinel, read once per a-deck change and cached",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "scripts": {
+    "start": "node index.mjs"
+  }
+}
