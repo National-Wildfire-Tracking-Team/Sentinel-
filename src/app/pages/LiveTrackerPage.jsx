@@ -1617,7 +1617,10 @@ export default function LiveTrackerPage() {
       <Header onRefresh={handleRefresh} />
 
       {/* ── Active alert banner ── */}
-      <AlertBanner dismissed={bannerDismissed} onDismiss={() => setBannerDismissed(true)} />
+      {/* Red Flag Warnings are fire weather: only on the Wildfire and All Hazards tabs */}
+      {(activeMapTab === MAP_TABS.wildfire || activeMapTab === MAP_TABS.allhazard) && (
+        <AlertBanner dismissed={bannerDismissed} onDismiss={() => setBannerDismissed(true)} />
+      )}
 
       {/* ── Main content area (map fills full width; all controls float over it) ── */}
       {/* --map-bottom-stack: space taken by the bottom bar plus anything docked on

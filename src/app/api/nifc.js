@@ -26,6 +26,9 @@ const FIRIS_BASE =
   'https://services1.arcgis.com/jUJYIo9tSA7EHvfZ/arcgis/rest/services' +
   '/CA_Perimeters_NIFC_FIRIS_public_view/FeatureServer/0/query';
 
+// Geometry simplification tolerance, in outSR units (degrees): ~10m.
+const MAX_ALLOWABLE_OFFSET_DEG = '0.0001';
+
 /**
  * Retry a function with exponential backoff.
  * Mitigates transient ERR_HTTP2_PROTOCOL_ERROR from ArcGIS on large payloads.
@@ -77,8 +80,12 @@ function pagedUrlFor(baseUrl, pageSize, offset) {
  * original sequential loop if the count request fails for any reason.
  */
 async function fetchAllPages(baseUrl, cacheKeyBase, ttlMs, tag) {
-  const pageSize = 2000;
-  const maxPages = 10; // hard cap against a runaway loop; ~20k records
+  // Well under the service's 2000 cap: a full 2000-record perimeter page is
+  // tens of MB of JSON and takes the server 40s+ to build, and nothing
+  // downloads until it's done. 500-record pages build in ~1-4s each and
+  // download in parallel, so the whole set lands in a few seconds.
+  const pageSize = 500;
+  const maxPages = 40; // hard cap against a runaway loop; ~20k records
 
   const [firstPage, countResult] = await Promise.all([
     withRetry(
@@ -178,6 +185,11 @@ export async function fetchFirePerimeters({ minAcres = 0 } = {}) {
     // map zoom, but meaningfully trims payload size for perimeters with
     // thousands of vertices.
     geometryPrecision: '5',
+    // Server-side simplification to ~10m. Mapped perimeters carry vertices
+    // every metre or two; dropping the ones within 10m of the line cuts the
+    // payload ~4x (one 2000-record page: 8MB gzipped / 51MB raw → ~1.8MB)
+    // with no visible change short of street-level zoom.
+    maxAllowableOffset: MAX_ALLOWABLE_OFFSET_DEG,
     f: 'geojson',
   });
 
@@ -249,6 +261,7 @@ export async function fetchFIRISPerimeters({ minAcres = 0 } = {}) {
     ].join(','),
     outSR: '4326',
     geometryPrecision: '5',
+    maxAllowableOffset: MAX_ALLOWABLE_OFFSET_DEG,
     f: 'geojson',
   });
 
