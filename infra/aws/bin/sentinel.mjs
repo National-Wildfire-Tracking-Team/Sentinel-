@@ -12,6 +12,9 @@
  * MRMS (SentinelMrms) builds radar frames from NOAA's MRMS bucket in
  * us-east-1 and is served at /mrms/*. Also opt-in: `sentinel:mrms=enabled`.
  *
+ * HAFS (SentinelHafs) renders hurricane-model frames from NOAA's HAFS bucket
+ * in us-east-1 and is served at /hafs/*. Opt-in: `sentinel:hafs=enabled`.
+ *
  * Settings come from cdk.json context and can be overridden per deploy, e.g.
  *   npx cdk deploy SentinelDataServices -c sentinel:alarmEmail=ops@example.org
  */
@@ -21,6 +24,7 @@ import { DataServicesStack } from '../lib/data-services-stack.mjs';
 import { GithubDeployStack } from '../lib/github-deploy-stack.mjs';
 import { WEATHER_MODELS, WeatherModelsStack } from '../lib/weather-models-stack.mjs';
 import { MrmsStack } from '../lib/mrms-stack.mjs';
+import { HafsStack } from '../lib/hafs-stack.mjs';
 
 // Defaults live here, not in cdk.json: an empty `-c sentinel:key=` (an
 // unset GitHub variable in deploy-aws.yml) replaces cdk.json context
@@ -36,6 +40,8 @@ const DEFAULTS = {
   distributionId: '', // set after the first deploy to scope the weather-models invoke permission
   weatherModelsReservedConcurrency: '0', // >0 caps concurrent executions (needs spare account concurrency)
   mrms: 'disabled', // 'enabled' adds SentinelMrms and the /mrms/* route
+  hafs: 'disabled', // 'enabled' adds SentinelHafs and the /hafs/* route
+  hafsReservedConcurrency: '0', // >0 caps concurrent frame renders (needs spare account concurrency)
 };
 
 const app = new App();
@@ -68,6 +74,17 @@ if (mrmsEnabled) {
   });
 }
 
+let hafs;
+if (ctx('hafs') === 'enabled') {
+  hafs = new HafsStack(app, 'SentinelHafs', {
+    env,
+    description: 'Sentinel HAFS: hurricane-model map frames from NOAA HAFS on AWS Open Data (Lambda, us-east-1)',
+    alarmEmail: ctx('alarmEmail'),
+    distributionId: ctx('distributionId') || undefined,
+    reservedConcurrency: Number(ctx('hafsReservedConcurrency')),
+  });
+}
+
 const dataServices = new DataServicesStack(app, 'SentinelDataServices', {
   env,
   crossRegionReferences: weatherModelsEnabled,
@@ -78,9 +95,11 @@ const dataServices = new DataServicesStack(app, 'SentinelDataServices', {
   monthlyBudgetUsd: Number(ctx('monthlyBudgetUsd')),
   weatherModelsFunctionUrl: weatherModels?.functionUrl.url,
   mrms: mrmsEnabled,
+  hafsFunctionUrl: hafs?.functionUrl.url,
 });
 // Deploying the distribution deploys SentinelMrms first (its bucket backs /mrms/*), as CI deploys only SentinelDataServices.
 if (mrms) dataServices.addDependency(mrms);
+// SentinelHafs deploys first too: the distribution reads its Function URL (a same-region stack export).
 
 new GithubDeployStack(app, 'SentinelGithubDeploy', {
   env,

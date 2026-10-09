@@ -10,6 +10,10 @@
  * device, a fresh one is fetched when the map page goes idle, and hovering
  * the tab (warm()) also fetches the first frame.
  *
+ * HAFS (mode 'hafs') is the hurricane model: its fields are per storm and
+ * per run (useHafs), so in that mode the timeline, variables and valid time
+ * come from the selected HAFS run, and point forecasts (HRRR/GFS only) pause.
+ *
  * It's a context so that stepping through forecast time re-renders only the
  * Models pieces, never the whole live map page. The tab's model, variable,
  * view and inspected point are mirrored into the URL so a view can be shared.
@@ -24,9 +28,13 @@ import { WEATHER_MODEL_SERVICE_URL } from '../api/weatherModels';
 import { nowIndex } from '../components/WeatherModels/modelTheme';
 import { URL_KEYS, modelsHref, parseModelsQuery } from '../utils/weatherModelsLink';
 import { COMPARE_VIEWS, timelineFor, variablesFor } from '../utils/modelFieldSelection';
+import { HAFS_URL } from '../api/hafs';
+import { useHafs } from '../hooks/useHafs';
+import { DEFAULT_HAFS_FIELD, effectiveHafsField, hafsFields, hafsFrameAt, hafsTimeline } from '../utils/hafsSelection';
 
 const WeatherModelsContext = createContext(null);
 const MANIFEST_REFRESH_MS = 5 * 60 * 1000;
+const MODES = HAFS_URL ? [...MODEL_MODES, 'hafs'] : MODEL_MODES;
 /**
  * @param {{ active: boolean, onOpen?: () => void, apiRef?: object, children: any }} props
  *   active  — the Models tab is selected (otherwise only the manifest is fetched, once, when idle)
@@ -39,9 +47,11 @@ export function WeatherModelsProvider({ active, onOpen, apiRef, children }) {
   const { setViewport } = useViewport();
 
   const [manifestState, setManifestState] = useState(() => ({ manifest: readCachedManifest(), error: null }));
-  const [mode, setModeState] = useState(initial?.mode ?? 'hrrr');
+  const [mode, setModeState] = useState(MODES.includes(initial?.mode) ? initial.mode : 'hrrr');
   const [compareView, setCompareView] = useState(COMPARE_VIEWS.includes(initial?.view) ? initial.view : 'swipe');
-  const [variable, setVariableState] = useState(initial?.variable || 'temperature');
+  const [variable, setVariableState] = useState(initial?.mode !== 'hafs' && initial?.variable ? initial.variable : 'temperature');
+  const [hafsFieldChoice, setHafsField] = useState(initial?.mode === 'hafs' && initial?.variable ? initial.variable : DEFAULT_HAFS_FIELD);
+  const [hafsChoice, setHafsChoice] = useState(() => ({ storm: initial?.storm ?? undefined }));
   const [validTimeChoice, setValidTime] = useState(null);
   const [playing, setPlaying] = useState(false);
   const [particles, setParticles] = useState(false);
@@ -77,23 +87,59 @@ export function WeatherModelsProvider({ active, onOpen, apiRef, children }) {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const { manifest } = manifestState;
 
+  // ── HAFS ──
+  const isHafs = mode === 'hafs';
+  const hafsData = useHafs({ active: active && isHafs, choice: hafsChoice });
+  const { sel: hafsSel, detail: hafsDetail } = hafsData;
+  const hafsFieldList = useMemo(
+    () => hafsFields(hafsData.catalog, hafsDetail, hafsSel?.domain),
+    [hafsData.catalog, hafsDetail, hafsSel?.domain],
+  );
+  const hafsField = effectiveHafsField(hafsFieldList, hafsFieldChoice);
+
+  // Choosing a storm (or opening HAFS) centres the map on it once its run loads.
+  const [flyTo, setFlyTo] = useState(isHafs ? (initial?.storm ?? true) : null);
+  const chooseHafs = useCallback((patch) => {
+    setHafsChoice((c) => ({ ...c, ...patch }));
+    if (patch.storm || patch.domain) setFlyTo(patch.storm ?? true);
+  }, []);
+
   // ── selection, kept valid against what the manifest offers ──
-  const variables = useMemo(() => variablesFor(manifest, mode, compareView), [manifest, mode, compareView]);
-  const selected = variables.find((v) => v.id === variable);
-  const effectiveVariable = selected && !selected.available
-    ? (variables.find((v) => v.available && v.quantity === selected.quantity)?.id ?? variables.find((v) => v.available)?.id)
+  const fieldVariables = useMemo(() => variablesFor(manifest, mode, compareView), [manifest, mode, compareView]);
+  const variables = isHafs ? hafsFieldList : fieldVariables;
+  const selected = fieldVariables.find((v) => v.id === variable);
+  const effectiveVariable = isHafs ? hafsField : selected && !selected.available
+    ? (fieldVariables.find((v) => v.available && v.quantity === selected.quantity)?.id ?? fieldVariables.find((v) => v.available)?.id)
     : variable;
 
-  const timeline = useMemo(() => timelineFor(manifest, mode, compareView), [manifest, mode, compareView]);
+  const fieldTimeline = useMemo(() => timelineFor(manifest, mode, compareView), [manifest, mode, compareView]);
+  const hafsTimes = useMemo(() => hafsTimeline(hafsDetail, hafsSel?.domain), [hafsDetail, hafsSel?.domain]);
+  const timeline = isHafs ? hafsTimes : fieldTimeline;
   const validTime = timeline.length
     ? (timeline.includes(validTimeChoice) ? validTimeChoice : timeline[nowIndex(timeline.map((t) => ({ validTime: t })))])
     : null;
 
-  const setMode = useCallback((m) => { if (MODEL_MODES.includes(m)) setModeState(m); }, []);
-  const setVariable = useCallback((v) => setVariableState(v), []);
+  const setMode = useCallback((m) => {
+    if (!MODES.includes(m)) return;
+    if (m === 'hafs') setFlyTo(true); // (re)centre on the storm
+    setModeState(m);
+  }, []);
+  const setVariable = useCallback((v) => (isHafs ? setHafsField(v) : setVariableState(v)), [isHafs]);
 
-  // ── point inspection (full-precision values from the point API) ──
-  const point = useWeatherModels({ location, requestedMode: mode, active: active && Boolean(location) });
+  useEffect(() => {
+    if (!isHafs || !flyTo || !hafsDetail || !hafsSel) return;
+    if (flyTo !== true && hafsSel.storm.key !== flyTo) return;
+    const frame = hafsFrameAt(hafsDetail, hafsSel.domain, hafsTimes[0]);
+    if (!frame) return;
+    const [w, s, e, n] = frame.bounds;
+    setViewport({ longitude: (w + e) / 2, latitude: (s + n) / 2, zoom: hafsSel.domain === 'storm' ? 5 : 3 });
+    setFlyTo(null);
+  }, [isHafs, flyTo, hafsDetail, hafsSel, hafsTimes, setViewport]);
+
+  // ── point inspection (full-precision values from the point API; not for HAFS) ──
+  const point = useWeatherModels({
+    location, requestedMode: isHafs ? 'hrrr' : mode, active: active && Boolean(location) && !isHafs,
+  });
 
   const setLocation = useCallback((loc, { fly = true } = {}) => {
     setLocationState(loc);
@@ -109,7 +155,7 @@ export function WeatherModelsProvider({ active, onOpen, apiRef, children }) {
 
   // Tab hover/focus: the manifest, then the frame the tab will open on.
   const warm = useCallback(() => {
-    if (active || !WEATHER_MODEL_SERVICE_URL || (mode === 'compare' && compareView === 'difference')) return;
+    if (active || isHafs || !WEATHER_MODEL_SERVICE_URL || (mode === 'compare' && compareView === 'difference')) return;
     loadManifest().then((m) => {
       const model = mode === 'gfs' ? 'gfs' : 'hrrr';
       const times = timelineFor(m, mode, compareView);
@@ -119,7 +165,7 @@ export function WeatherModelsProvider({ active, onOpen, apiRef, children }) {
         preloadFrame(fieldUrl(fieldsBase(), m, model, variable, hour, 'lo'));
       }
     }).catch(() => {});
-  }, [active, loadManifest, mode, compareView, variable]);
+  }, [active, isHafs, loadManifest, mode, compareView, variable]);
 
   useImperativeHandle(apiRef, () => ({
     pick: ({ lat, lon }) => setLocation({ lat, lon, place: null }, { fly: false }),
@@ -136,11 +182,13 @@ export function WeatherModelsProvider({ active, onOpen, apiRef, children }) {
     const url = new URL(window.location.href);
     for (const k of URL_KEYS) url.searchParams.delete(k);
     if (active) {
-      const target = new URL(modelsHref({ ...location, model: mode, variable: effectiveVariable, view: compareView }), url.origin);
+      const target = new URL(modelsHref({
+        ...location, model: mode, variable: effectiveVariable, view: compareView, storm: isHafs ? hafsSel?.storm.atcfId : null,
+      }), url.origin);
       for (const [k, v] of target.searchParams) url.searchParams.set(k, v);
     }
     if (url.href !== window.location.href) window.history.replaceState(window.history.state, '', url);
-  }, [active, location, mode, effectiveVariable, compareView]);
+  }, [active, location, mode, effectiveVariable, compareView, isHafs, hafsSel?.storm.atcfId]);
 
   const value = useMemo(() => ({
     active,
@@ -151,7 +199,9 @@ export function WeatherModelsProvider({ active, onOpen, apiRef, children }) {
     compareView,
     setCompareView,
     variable: effectiveVariable,
-    variableSwitched: effectiveVariable !== variable ? selected?.reason : null,
+    variableSwitched: isHafs
+      ? (hafsDetail && hafsField !== hafsFieldChoice ? hafsFieldList.find((f) => f.id === hafsFieldChoice)?.reason ?? null : null)
+      : effectiveVariable !== variable ? selected?.reason : null,
     setVariable,
     variables,
     timeline,
@@ -167,8 +217,16 @@ export function WeatherModelsProvider({ active, onOpen, apiRef, children }) {
     clearLocation,
     point,
     open,
+    modes: MODES,
+    hafs: {
+      ...hafsData,
+      choose: chooseHafs,
+      fields: hafsFieldList,
+      frame: isHafs ? hafsFrameAt(hafsDetail, hafsSel?.domain, validTime) : null,
+    },
   }), [active, manifest, manifestState.error, mode, setMode, compareView, effectiveVariable, variable, selected,
-    setVariable, variables, timeline, validTime, playing, particles, location, setLocation, clearLocation, point, open]);
+    setVariable, variables, timeline, validTime, playing, particles, location, setLocation, clearLocation, point, open,
+    isHafs, hafsData, chooseHafs, hafsFieldList, hafsField, hafsFieldChoice, hafsDetail, hafsSel?.domain]);
 
   return <WeatherModelsContext.Provider value={value}>{children}</WeatherModelsContext.Provider>;
 }

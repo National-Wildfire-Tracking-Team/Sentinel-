@@ -42,12 +42,13 @@ import { SERVICES, LWA_LAYER_ACCOUNT, LWA_LAYER_NAME, LWA_LAYER_VERSION } from '
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import { WEATHER_MODELS, fieldsBucketName } from './weather-models-stack.mjs';
 import { MRMS, mrmsBucketName } from './mrms-stack.mjs';
+import { HAFS } from './hafs-stack.mjs';
 
 const CLOUD_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../cloud');
 const LOG_RETENTION = logs.RetentionDays.TWO_WEEKS;
 
 /**
- * A Lambda Function URL in another region, signed by CloudFront OAC.
+ * A Lambda Function URL in another stack (here, another region), signed by CloudFront OAC.
  * origins.FunctionUrlOrigin can't be used across regions: it adds the
  * invoke permission to the distribution's stack, and CloudFormation can't
  * create a permission on a function in a different region. Here the
@@ -79,12 +80,12 @@ export class DataServicesStack extends Stack {
    * @param {string} id
    * @param {import('aws-cdk-lib').StackProps & {
    *   allowedOrigins: string, nwsUserAgent: string, alarmEmail?: string, monthlyBudgetUsd?: number,
-   *   weatherModelsFunctionUrl?: string, mrms?: boolean,
+   *   weatherModelsFunctionUrl?: string, mrms?: boolean, hafsFunctionUrl?: string,
    * }} props
    */
   constructor(scope, id, props) {
     super(scope, id, props);
-    const { allowedOrigins, nwsUserAgent, alarmEmail, monthlyBudgetUsd, weatherModelsFunctionUrl, mrms } = props;
+    const { allowedOrigins, nwsUserAgent, alarmEmail, monthlyBudgetUsd, weatherModelsFunctionUrl, mrms, hafsFunctionUrl } = props;
 
     Tags.of(this).add('project', 'sentinel');
     Tags.of(this).add('component', 'data-services');
@@ -262,6 +263,38 @@ export class DataServicesStack extends Stack {
       Annotations.of(this).acknowledgeWarning('@aws-cdk/aws-cloudfront-origins:updateImportedBucketPolicyOac');
     }
 
+    // Sentinel HAFS (HafsStack, same region): hurricane-model frames rendered
+    // on request. Its own cache policy: frames say max-age 1 y, immutable,
+    // which the shared policy would cap at a day, and the key needs neither
+    // Origin (every response is `*`) nor the query (the service refuses one).
+    // Origin Shield: one render per frame, whichever edge asks first.
+    if (hafsFunctionUrl) {
+      behaviors[`${HAFS.pathPrefix}/*`] = {
+        origin: new CrossRegionFunctionUrlOrigin(hafsFunctionUrl, new cloudfront.FunctionUrlOriginAccessControl(this, 'HafsOac', {
+          originAccessControlName: 'sentinel-hafs',
+        }), {
+          readTimeout: Duration.seconds(HAFS.timeoutSeconds),
+          originShieldRegion: HAFS.region,
+        }),
+        viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+        allowedMethods: cloudfront.AllowedMethods.ALLOW_GET_HEAD_OPTIONS,
+        cachedMethods: cloudfront.CachedMethods.CACHE_GET_HEAD,
+        cachePolicy: new cloudfront.CachePolicy(this, 'HafsCachePolicy', {
+          comment: 'Sentinel HAFS: honour origin Cache-Control (immutable frames), key on path only',
+          defaultTtl: Duration.seconds(0),
+          minTtl: Duration.seconds(0),
+          maxTtl: Duration.days(365),
+          queryStringBehavior: cloudfront.CacheQueryStringBehavior.none(),
+          headerBehavior: cloudfront.CacheHeaderBehavior.none(),
+          cookieBehavior: cloudfront.CacheCookieBehavior.none(),
+          enableAcceptEncodingGzip: true,
+          enableAcceptEncodingBrotli: true,
+        }),
+        originRequestPolicy: cloudfront.OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER,
+        compress: true,
+      };
+    }
+
     const distribution = new cloudfront.Distribution(this, 'Distribution', {
       comment: 'Sentinel data services (replaces the *.run.app endpoints)',
       priceClass: cloudfront.PriceClass.PRICE_CLASS_100, // US/Canada/Europe edges — Sentinel's audience is US
@@ -346,6 +379,12 @@ export class DataServicesStack extends Stack {
       new CfnOutput(this, 'MrmsBaseUrl', {
         description: `Value for ${MRMS.frontendEnvVar}`,
         value: `https://${distribution.distributionDomainName}${MRMS.pathPrefix}`,
+      });
+    }
+    if (hafsFunctionUrl) {
+      new CfnOutput(this, 'HafsBaseUrl', {
+        description: `Value for ${HAFS.frontendEnvVar}`,
+        value: `https://${distribution.distributionDomainName}${HAFS.pathPrefix}`,
       });
     }
     new CfnOutput(this, 'DistributionId', {

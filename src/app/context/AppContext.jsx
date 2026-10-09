@@ -8,6 +8,7 @@
  */
 
 import { createContext, useContext, useReducer, useCallback, useMemo } from 'react';
+import { normalizeModelSelection } from '../api/nhcModelTracks';
 
 // ─── Initial State ────────────────────────────────────────────────────────────
 const initialState = {
@@ -75,7 +76,8 @@ const initialState = {
   },
   // Wind-speed probability threshold shown by nhcWindProb: 34 | 50 | 64 (kt)
   nhcWindProbKt: 34,
-  // Spaghetti model tracks on the map: { atcfId: 'EP182026' | 'AL922026', group } or null
+  // Spaghetti model tracks on the map: { atcfId: 'EP182026' | 'AL922026',
+  // models: registry ids (api/atcf/registry.mjs), groups: other-guidance group keys } or null
   nhcModelTracks: null,
   // Currently selected 7-day fire risk forecast (1-7)
   fireRiskDay: 1,
@@ -149,7 +151,12 @@ function reducer(state, action) {
     case A.SET_NHC_WIND_PROB_KT:
       return { ...state, nhcWindProbKt: [34, 50, 64].includes(action.kt) ? action.kt : 34 };
     case A.SET_NHC_MODEL_TRACKS:
-      return { ...state, nhcModelTracks: action.value?.atcfId ? { atcfId: action.value.atcfId, group: action.value.group || 'all' } : null };
+      return {
+        ...state,
+        nhcModelTracks: action.value?.atcfId
+          ? { atcfId: action.value.atcfId, ...normalizeModelSelection(action.value) }
+          : null,
+      };
     case A.SELECT_FIRE:
       return { ...state, selectedFire: action.fire, selectedGauge: null, selectedCamera: null };
     case A.CLEAR_SELECTED:

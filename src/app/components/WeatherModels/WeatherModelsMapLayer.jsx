@@ -7,6 +7,8 @@
  *                       wind particles on top (when on), and the inspect popup
  *   Compare → Swipe     HRRR field here; GFS on a synced second map right of a divider
  *   Compare → Difference  HRRR − GFS field with a diverging scale
+ *   HAFS                the selected storm run's field for the selected hour, placed
+ *                       between that hour's own corners (the storm nest moves)
  *
  * Resolution: HRRR frames come in two sizes. The light one is used while
  * animating or zoomed out; the full 3 km one once paused at zoom ≥ 5.
@@ -26,6 +28,8 @@ import ModelInspectPopup from './ModelInspectPopup';
 import SwipeCompare from './SwipeCompare';
 import WindParticles from './WindParticles';
 import { zulu } from './modelTheme';
+import { hafsBase, hafsFrameUrl } from '../../api/hafs';
+import { hafsPrefetchPlan } from '../../utils/hafsSelection';
 
 const HI_RES_ZOOM = 5;
 // A precise pointer is a reasonable proxy for a desktop on an unmetered
@@ -89,7 +93,7 @@ export default function WeatherModelsMapLayer(props) {
   const wm = useWeatherModelsContext();
   return (
     <ModelLayerBoundary key={`${wm?.mode}|${wm?.compareView}|${wm?.variable}`}>
-      <ModelsOverlay {...props} />
+      {wm?.mode === 'hafs' ? <HafsOverlay /> : <ModelsOverlay {...props} />}
     </ModelLayerBoundary>
   );
 }
@@ -160,4 +164,25 @@ function ModelsOverlay({ mapStyle, mapboxAccessToken }) {
       <ModelInspectPopup />
     </>
   );
+}
+
+/** HAFS: one frame of the selected storm run, rendered on demand by cloud/hafs. */
+function HafsOverlay() {
+  const wm = useWeatherModelsContext();
+  const base = hafsBase();
+  const { hafs, variable, validTime, timeline, playing } = wm ?? {};
+  const { sel, detail, fields = [], frame } = hafs ?? {};
+  const spec = fields.find((f) => f.id === variable);
+  const paint = useMemo(() => (spec ? rasterPaint(spec) : null), [spec]);
+
+  const upcoming = useMemo(() => hafsPrefetchPlan({
+    base, sel, detail, field: variable, fields, validTime, timeline, playing,
+  }), [base, sel, detail, variable, fields, validTime, timeline, playing]);
+  usePreloadFrames(upcoming);
+
+  if (!sel || !frame || !paint || !spec?.hours.includes(frame.hour)) return null;
+  const url = hafsFrameUrl(base, {
+    model: sel.model, cycle: sel.cycle, storm: sel.storm.id, domain: sel.domain, field: variable, hour: frame.hour,
+  });
+  return <ModelFieldLayer key={`hafs-${sel.domain}`} id="wm-hafs-field" url={url} coordinates={frame.coordinates} paint={paint} />;
 }

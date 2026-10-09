@@ -48,6 +48,13 @@ jobs:
           # service isn't configured; nothing else in the app changes.
           VITE_WEATHER_MODEL_SERVICE_URL: ${{ secrets.VITE_WEATHER_MODEL_SERVICE_URL }}
           VITE_MRMS_URL: ${{ secrets.VITE_MRMS_URL }}
+          # HAFS hurricane-model fields on the Models tab — see cloud/hafs/README.md.
+          # Unset, the Models tab simply doesn't offer HAFS.
+          VITE_HAFS_URL: ${{ secrets.VITE_HAFS_URL }}
+          # NHC hurricane model guidance — see cloud/hurricane-models/README.md.
+          # Unset the secret to fall back to reading the a-deck in the browser
+          # through /api/nws/nhc-atcf, no code change needed.
+          VITE_HURRICANE_MODELS_URL: ${{ secrets.VITE_HURRICANE_MODELS_URL }}
       # Snapshot the marketing pages as static HTML for crawlers (see
       # scripts/prerender.mjs). Deliberately run here rather than as part of
       # `npm run build` itself, so netlify.toml's own build command (used

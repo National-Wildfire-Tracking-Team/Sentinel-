@@ -1498,7 +1498,7 @@ export default function MapView({
 
   // Popup for a tropical system clicked on the map ({ kind: 'storm' | 'outlook',
   // system, via, lngLat }). The spaghetti model tracks it (or the detail
-  // panel) can turn on live in app state: nhcModelTracks = { atcfId, group }.
+  // panel) can turn on live in app state: nhcModelTracks = { atcfId, models, groups }.
   const [stormPopup, setStormPopup] = useState(null);
   const nhcCyclones = useMemo(() => buildCyclones(nhcForecastPointsGeoJSON), [nhcForecastPointsGeoJSON]);
   const nhcOutlookSystems = useMemo(
@@ -2270,7 +2270,7 @@ export default function MapView({
 
         {/* Spaghetti model tracks, turned on from a storm's map popup */}
         {nhcModelTracks && modelTrackData.data && (isWeatherTab || isAllHazardTab) && (
-          <NhcModelTracksLayer data={modelTrackData.data} group={nhcModelTracks.group} />
+          <NhcModelTracksLayer data={modelTrackData.data} selection={nhcModelTracks} />
         )}
 
         {/* Fire hotspot points – rendered last (top) */}

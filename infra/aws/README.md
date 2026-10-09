@@ -40,6 +40,8 @@ Defaults are in `bin/sentinel.mjs`. Override any of them with `-c sentinel:<key>
 | `weatherModels` | `disabled` | `enabled` adds `SentinelWeatherModels` and the `/weather-models/*` route. In CI it's the `AWS_WEATHER_MODELS` repo variable. |
 | `distributionId` | *(none)* | After the first deploy, set it to the `DistributionId` output to narrow the weather-models invoke permission from "CloudFront in this account" to this one distribution. In CI it's `AWS_DISTRIBUTION_ID`. |
 | `mrms` | `disabled` | `enabled` adds `SentinelMrms` (us-east-1) and the `/mrms/*` route. In CI it's the `AWS_MRMS` repo variable. With `distributionId` set, the frames bucket is readable only by that distribution. |
+| `hafs` | `disabled` | `enabled` adds `SentinelHafs` (us-east-1) and the `/hafs/*` route. In CI it's the `AWS_HAFS` repo variable. With `distributionId` set, only that distribution may invoke it. |
+| `hafsReservedConcurrency` | `0` (no cap) | Caps concurrent HAFS frame renders. Same unreserved-concurrency rule as below. |
 | `weatherModelsReservedConcurrency` | `0` (no cap) | Caps concurrent weather-models executions. Needs spare account concurrency (at least 10 must stay unreserved). |
 
 Nothing here is a secret. The services call only public APIs, so there's
@@ -211,6 +213,55 @@ retained; its lifecycle rule empties it within a day.
 
 **Cost.** About $2–7 a month (breakdown in the service README).
 
+## HAFS hurricane model
+
+HAFS fields for the Models tab (`cloud/hafs`, details in its
+[README](../../cloud/hafs/README.md)). One Python function renders frames
+on request:
+
+- it reads `s3://noaa-nws-hafs-pds` anonymously, in the same region, with range requests for single fields;
+- CloudFront serves it at `/hafs/*` through OAC, with Origin Shield in us-east-1 and its own cache policy (path-only key, up to a year for immutable frames);
+- its role can write its own logs and nothing else.
+
+It's opt-in. Without `-c sentinel:hafs=enabled` nothing changes. With it,
+`SentinelDataServices` reads the function's URL from `SentinelHafs`, so
+deploying the distribution deploys HAFS first. That includes CI, which
+deploys only `SentinelDataServices`.
+
+Deploy (laptop, admin credentials). Always pass the **full** live context:
+a feature left out of `-c` is removed from the distribution.
+
+```bash
+cd infra/aws && npm ci
+export CDK_DEFAULT_ACCOUNT=$(aws sts get-caller-identity --query Account --output text)
+CTX=(-c sentinel:hafs=enabled -c sentinel:weatherModels=enabled -c sentinel:mrms=enabled
+     -c sentinel:distributionId=<DistributionId> -c sentinel:alarmEmail=<ops mailbox>
+     -c "sentinel:nwsUserAgent=<live user agent>")
+
+# 1. Review: expect a new SentinelHafs stack and, on the distribution, only the
+#    /hafs/* behavior, its origin, OAC, cache policy and the HafsBaseUrl output.
+npx cdk diff SentinelHafs SentinelDataServices "${CTX[@]}"
+npx cdk deploy SentinelDataServices "${CTX[@]}"
+
+# 2. Smoke test through CloudFront.
+curl -s "https://<distribution>/hafs/health"
+curl -s "https://<distribution>/hafs/v1/catalog" | head -c 600
+```
+
+Then set the `VITE_HAFS_URL` GitHub secret (and the Netlify env var for
+previews) to the `HafsBaseUrl` output, set the repo variable `AWS_HAFS=enabled`
+for CI deploys, and confirm the new SNS email subscription.
+
+**Rollback.** Unset `VITE_HAFS_URL`: the Models tab stops offering HAFS. To
+remove the infrastructure, deploy with `hafs` unset, then
+`npx cdk destroy SentinelHafs -c sentinel:hafs=enabled`.
+
+**Cost.** A cold frame is ~1–3 GB-s of Lambda (~$0.00004), and each frame
+is rendered once and then served from the edge. Even 20k distinct frames a
+month is under $1 of Lambda; CloudFront transfer of 0.1–0.5 MB frames and
+5 alarms ($0.50) make the rest. Expect about $1–5 a month in storm season,
+near zero outside it (HAFS runs only while storms are active).
+
 ## Parallel run and validation
 
 Keep Cloud Run running. Compare both clouds with the frontend's own requests:
@@ -250,6 +301,9 @@ frontend code change.
    3. `VITE_FEMA_NFHL_PROXY_URL`
    4. `VITE_FIRE_MERGE_SERVICE_URL`
    5. `VITE_NWS_ALERTS_SERVICE_URL`
+   6. `VITE_HURRICANE_MODELS_URL`: new on AWS, with no Cloud Run
+      counterpart. Unsetting it falls back to the browser path; see
+      `cloud/hurricane-models/README.md`.
 2. Re-run the **Deploy** workflow (Netlify). Also update the same variables
    in Netlify's environment for deploy previews and branch builds.
 3. Watch the `sentinel-data-services` CloudWatch dashboard and the alarms
