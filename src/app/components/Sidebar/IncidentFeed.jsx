@@ -7,6 +7,7 @@ import { useMemo, useState } from 'react';
 import { Search, SortDesc, Loader2, AlertCircle } from 'lucide-react';
 import IncidentCard from './IncidentCard';
 import { useApp } from '../../context/AppContext';
+import { filterFeedIncidents, isActiveFire } from './incidentFeedFilter';
 
 const SORT_OPTIONS = [
   { value: 'acres',    label: 'Size' },
@@ -20,28 +21,14 @@ export default function IncidentFeed({ incidents, loading, error }) {
   const [sort,   setSort]   = useState('acres');
 
   const sorted = useMemo(() => {
-    const THREE_DAYS_MS = 3 * 24 * 60 * 60 * 1000;
-    const now = Date.now();
     const searchLower = search.toLowerCase();
 
-    // Filter by search term and feed mode
-    const filtered = incidents.filter(inc => {
-      const matchesSearch =
-        inc.name.toLowerCase().includes(searchLower) ||
-        inc.state.toLowerCase().includes(searchLower) ||
-        inc.county.toLowerCase().includes(searchLower);
-
-      if (!matchesSearch) return false;
-
-      // Always remove fires that are 95%+ contained or haven't been updated in 3 days
-      if ((inc.contained ?? 0) >= 95) return false;
-      if (inc.updated && (now - new Date(inc.updated).getTime()) > THREE_DAYS_MS) return false;
-
-      // 'focused' mode hides controlled fires
-      if (feedFilter === 'focused' && inc.status === 'controlled') return false;
-
-      return true;
-    });
+    // Filter by feed mode (shared with the sidebar counts), then search term
+    const filtered = filterFeedIncidents(incidents, feedFilter).filter(inc =>
+      inc.name.toLowerCase().includes(searchLower) ||
+      inc.state.toLowerCase().includes(searchLower) ||
+      inc.county.toLowerCase().includes(searchLower)
+    );
 
     // Sort
     return [...filtered].sort((a, b) => {
@@ -52,9 +39,9 @@ export default function IncidentFeed({ incidents, loading, error }) {
     });
   }, [incidents, search, feedFilter, sort]);
 
-  // Active vs controlled
-  const active     = useMemo(() => sorted.filter(i => i.status !== 'controlled'), [sorted]);
-  const controlled = useMemo(() => sorted.filter(i => i.status === 'controlled'), [sorted]);
+  // Active vs contained (only 'all' mode lists contained fires)
+  const active     = useMemo(() => sorted.filter(isActiveFire), [sorted]);
+  const controlled = useMemo(() => sorted.filter(i => !isActiveFire(i)), [sorted]);
 
   return (
     <div className="flex flex-col h-full">
@@ -151,7 +138,7 @@ export default function IncidentFeed({ incidents, loading, error }) {
           <div className="py-2 px-1">
             <div className="flex items-center gap-2">
               <div className="flex-1 h-px bg-sentinel-700" />
-              <span className="text-sentinel-300 text-xs">Controlled</span>
+              <span className="text-sentinel-300 text-xs">Contained</span>
               <div className="flex-1 h-px bg-sentinel-700" />
             </div>
           </div>
