@@ -109,14 +109,17 @@ function toCountOnlyUrl(url) {
   return u.toString();
 }
 
+// ~10m server-side simplification; see src/app/api/nifc.js.
+const MAX_ALLOWABLE_OFFSET_DEG = '0.0001';
+
 function pagedUrlFor(baseUrl, pageSize, offset) {
   return `${baseUrl}&orderByFields=OBJECTID&resultOffset=${offset}&resultRecordCount=${pageSize}`;
 }
 
 /** Fetches every ArcGIS page (see src/app/api/nifc.js's fetchAllPages for the original + rationale). */
 async function fetchAllPages(baseUrl, tag) {
-  const pageSize = 2000;
-  const maxPages = 10;
+  const pageSize = 500;
+  const maxPages = 40;
 
   const [firstPage, countResult] = await Promise.all([
     fetchJson(pagedUrlFor(baseUrl, pageSize, 0), tag),
@@ -222,6 +225,7 @@ async function fetchNifcPerimetersRaw() {
     ].join(','),
     outSR: '4326',
     geometryPrecision: '5',
+    maxAllowableOffset: MAX_ALLOWABLE_OFFSET_DEG,
     f: 'geojson',
   });
   const data = await fetchAllPages(`${NIFC_BASE}?${params}`, '[NIFC]');
@@ -237,6 +241,7 @@ async function fetchFirisPerimetersRaw() {
     ].join(','),
     outSR: '4326',
     geometryPrecision: '5',
+    maxAllowableOffset: MAX_ALLOWABLE_OFFSET_DEG,
     f: 'geojson',
   });
   const data = await fetchJson(`${FIRIS_BASE}?${params}`, '[FIRIS]');

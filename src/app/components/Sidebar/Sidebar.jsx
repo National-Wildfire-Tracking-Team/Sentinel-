@@ -14,6 +14,7 @@ import AddressAlertSearch from './AddressAlertSearch';
 import HomeNearbyStrip from './HomeNearbyStrip';
 import HomeSetupPanel from './HomeSetupPanel';
 import { useHomeSetup } from '../../context/HomeSetupContext';
+import { filterFeedIncidents } from './incidentFeedFilter';
 
 function StatPill({ icon: Icon, label, value, color = 'text-white', onClick, className = '' }) {
   const base = `flex flex-col items-center gap-0.5 px-3 py-2 bg-sentinel-800 rounded-lg border border-sentinel-700 min-w-[70px] ${className}`;
@@ -58,7 +59,7 @@ const Sidebar = memo(function Sidebar({
   // Models tab body (WeatherModelsPanel), rendered in place of the feeds
   modelsPanel = null,
 }) {
-  const { sidebarOpen } = useApp();
+  const { sidebarOpen, feedFilter } = useApp();
   const { alerts: allAlerts } = useAppStatus();
   const { homeSetupOpen } = useHomeSetup();
   const alerts = nearbyAlerts ?? allAlerts;
@@ -69,9 +70,12 @@ const Sidebar = memo(function Sidebar({
   const isModelsTab = activeMapTab === 'models';
   const nhcActiveCount = nhcInvests.length + nhcCyclones.length;
 
-  const activeCount  = incidents.filter(i => i.status === 'active').length;
+  // Same fires the feed lists for the All / Active toggle, so counts match it
+  const shownFires   = filterFeedIncidents(incidents, feedFilter);
+  const fireCount    = shownFires.length;
+  const fireLabel    = feedFilter === 'focused' ? 'Active' : 'Fires';
   const rfwCount     = alerts.filter(a => a.type === 'Red Flag Warning').length;
-  const totalAcres   = incidents.reduce((sum, i) => sum + (i.acres || 0), 0);
+  const totalAcres   = shownFires.reduce((sum, i) => sum + (i.acres || 0), 0);
   const acresDisplay = totalAcres >= 1000 ? `${(totalAcres / 1000).toFixed(0)}k` : totalAcres;
   const alertsCount = alerts.length;
   const severeCount = alerts.filter(a => a.severity === 'Extreme' || a.severity === 'Severe').length;
@@ -112,7 +116,7 @@ const Sidebar = memo(function Sidebar({
                 </div>
                 <h2 className="font-bold text-white text-sm tracking-wide">All Hazards</h2>
                 <span className="px-1.5 py-0.5 bg-red-600/30 text-red-300 text-[xs] font-bold rounded-full border border-red-700/40">
-                  {activeCount + alertsCount}
+                  {fireCount + alertsCount}
                 </span>
               </>
             ) : isWeatherTab ? (
@@ -127,7 +131,6 @@ const Sidebar = memo(function Sidebar({
               </>
             ) : (
               <>
-                <Flame size={16} className="text-fire-500" />
                 <h2 className="font-semibold text-white text-sm">Active Incidents</h2>
               </>
             )}
@@ -140,7 +143,7 @@ const Sidebar = memo(function Sidebar({
           <div className="flex justify-center gap-2 overflow-x-auto pb-1 scrollbar-none">
             {isAllHazardTab ? (
               <>
-                <StatPill icon={Flame}       label="Fires"     value={activeCount}   color="text-fire-400"   className="flex-1" />
+                <StatPill icon={Flame}       label={fireLabel} value={fireCount}   color="text-fire-400"   className="flex-1" />
                 <StatPill icon={TrendingUp}  label="Acres"     value={acresDisplay}  color="text-orange-400" className="flex-1" />
                 <StatPill icon={CloudSun}    label="Alerts"    value={alertsCount}   color="text-sky-300"    className="flex-1" />
                 <StatPill icon={ShieldAlert} label="Severe"    value={severeCount}   color="text-red-300"    className="flex-1" />
@@ -153,7 +156,7 @@ const Sidebar = memo(function Sidebar({
               </>
             ) : (
               <>
-                <StatPill icon={Flame}      label="Active"     value={activeCount}  color="text-fire-400"    className="flex-1" />
+                <StatPill icon={Flame}      label={fireLabel}  value={fireCount}  color="text-fire-400"    className="flex-1" />
                 <StatPill icon={TrendingUp} label="Acres"      value={acresDisplay} color="text-orange-400"  className="flex-1" />
                 <StatPill icon={Wind}       label="Red Flags"  value={rfwCount}     color="text-red-400"     className="flex-1" onClick={rfwCount > 0 ? onReopenBanner : undefined} />
               </>
@@ -182,7 +185,7 @@ const Sidebar = memo(function Sidebar({
                 }`}
               >
                 <Flame size={11} />
-                Fires {activeCount > 0 && <span className="opacity-70">({activeCount})</span>}
+                Fires {fireCount > 0 && <span className="opacity-70">({fireCount})</span>}
               </button>
               <button
                 type="button"
