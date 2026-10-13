@@ -102,6 +102,12 @@ export function getHurricaneCategory(windKt) {
   return 'Tropical Depression';
 }
 
+/** Past-point `dtg` (YYYYMMDDHH, UTC, sent as a number) or null. */
+function cleanDtg(v) {
+  const n = Number(v);
+  return Number.isFinite(n) && n > 1e9 ? Math.round(n) : null;
+}
+
 // Esri's sentinel value for "not reported" on this service is 9999.
 function cleanNumber(v) {
   const n = Number(v);
@@ -176,6 +182,9 @@ function normalizeForecastPoint(feature, idx, slot) {
       slot,
       stormName:    p.stormname || '',
       stormType:    p.tcdvlp || p.dvlbl || '',
+      // NHC's number for the storm this season (EP18 → 18); NWS tropical
+      // alert VTEC event numbers carry it.
+      stormNumber:  cleanNumber(p.stormnum),
       maxWindKt,
       maxWindMph:   Math.round(maxWindKt * KT_TO_MPH),
       gustKt:       cleanNumber(p.gust) || 0,
@@ -213,6 +222,8 @@ function normalizePastPoint(feature, idx, slot) {
       category,
       observed:     true,
       dateLabel,
+      // YYYYMMDDHH (UTC) — sorts the fixes chronologically.
+      dtg:          cleanDtg(p.dtg),
     },
   };
 }
@@ -241,6 +252,8 @@ function normalizeWatchWarning(feature, idx, slot) {
       slot,
       stormName: p.stormname || '',
       wwType,
+      advisoryNum: p.advisnum || '',
+      advisoryDate: p.advdate || '',
       color: WATCH_WARNING_COLORS[wwType] || WATCH_WARNING_COLORS.Advisory,
     },
   };
@@ -349,14 +362,33 @@ export function formatStormMotion(dirDeg, kt) {
   return `${dir} at ${k} kt (${Math.round(k * KT_TO_MPH)} mph)`;
 }
 
-/** NHC public advisory for a storm slot (EP/AT from Miami, CP from Honolulu). */
-export function nhcAdvisoryUrl(slot) {
+/**
+ * An NHC text product for a storm slot (EP/AT from Miami, CP from Honolulu):
+ * TCP public advisory, TCD forecast discussion, PWS wind speed probabilities.
+ */
+export function nhcProductUrl(slot, product) {
   if (!/^(AT|EP|CP)[1-5]$/.test(slot ?? '')) return 'https://www.nhc.noaa.gov/';
   const office = slot.startsWith('CP') ? 'HFO' : 'MIA';
-  return `https://www.nhc.noaa.gov/text/refresh/${office}TCP${slot}+shtml/`;
+  return `https://www.nhc.noaa.gov/text/refresh/${office}${product}${slot}+shtml/`;
+}
+
+/** NHC public advisory for a storm slot. */
+export function nhcAdvisoryUrl(slot) {
+  return nhcProductUrl(slot, 'TCP');
 }
 
 const BASIN_NAMES = { AT: 'Atlantic', AL: 'Atlantic', EP: 'East Pacific', CP: 'Central Pacific' };
+
+/**
+ * NHC's ATCF storm id ("EP182026") from the slot, storm number and the
+ * advisory's year — what NHC's text products and model files are keyed by.
+ */
+export function atcfStormId(slot, stormNumber, advisoryDate) {
+  const basin = { AT: 'AL', EP: 'EP', CP: 'CP' }[String(slot ?? '').slice(0, 2)];
+  const year = String(advisoryDate ?? '').match(/(\d{4})\s*$/)?.[1];
+  if (!basin || !Number.isFinite(stormNumber) || !year) return null;
+  return `${basin}${String(stormNumber).padStart(2, '0')}${year}`;
+}
 
 /** One cyclone per active slot, from its forecast points (lowest tau = now). */
 export function buildCyclones(forecastPointsFC) {
@@ -375,20 +407,25 @@ export function buildCyclones(forecastPointsFC) {
     const [lng, lat] = now.geometry.coordinates;
     const reported = Number.isFinite(p.motionKt) && Number.isFinite(p.motionDirDeg);
     const computed = reported ? null : motionBetween(now, next);
+    const motionDirDeg = reported ? p.motionDirDeg : computed?.dirDeg;
+    const motionKt = reported ? p.motionKt : computed?.kt;
     cyclones.push({
       id: `nhc-storm-${slot}`,
       slot,
       basin: BASIN_NAMES[slot.slice(0, 2)] ?? '',
       name: p.stormName || slot,
       stormType: p.stormType,
+      stormNumber: p.stormNumber,
+      atcfId: atcfStormId(slot, p.stormNumber, p.advisoryDate),
       category: p.category,
       maxWindKt: p.maxWindKt,
       maxWindMph: p.maxWindMph,
       gustKt: p.gustKt,
       mslp: p.mslp,
-      movement: reported
-        ? formatStormMotion(p.motionDirDeg, p.motionKt)
-        : formatStormMotion(computed?.dirDeg, computed?.kt),
+      movement: formatStormMotion(motionDirDeg, motionKt),
+      // The same motion in parts, for compact displays ("W · 8 mph").
+      motionDir: Number.isFinite(motionKt) && motionKt >= 1 ? compassPoint(motionDirDeg) : null,
+      motionMph: Number.isFinite(motionKt) ? Math.round(Math.round(motionKt) * KT_TO_MPH) : null,
       advisoryNum: p.advisoryNum,
       advisoryDate: p.advisoryDate,
       advisoryUrl: nhcAdvisoryUrl(slot),
@@ -574,10 +611,11 @@ export async function fetchNhcWindHazards({ slots = [], probKt = null, radii = f
     return id == null ? Promise.resolve(EMPTY_FC) : queryLayer(id, cacheKey, ttlMs, null, { simplifyDeg: SIMPLIFY_DEG });
   };
 
-  const [prob, radiiBySlot, arrivalBySlot, surgeIds] = await Promise.all([
+  const [prob, radiiBySlot, arrivalBySlot, earliestBySlot, surgeIds] = await Promise.all([
     probKt ? query(`Probabilistic Winds ${probKt} kts`, `nhc:windprob:${probKt}`, 10 * 60 * 1000) : EMPTY_FC,
     radii ? Promise.all(slots.map((s) => query(`${s} Forecast Wind Radii`, `nhc:${s}:radii`, 10 * 60 * 1000))) : [],
     arrival ? Promise.all(slots.map((s) => query(`${s} Most Likely Arrival Time`, `nhc:${s}:arrival`, 10 * 60 * 1000))) : [],
+    arrival ? Promise.all(slots.map((s) => query(`${s} Earliest Reasonable Arrival Time`, `nhc:${s}:arrival-early`, 10 * 60 * 1000))) : [],
     surge ? Promise.all(slots.map((s) => surgeImageLayerId(idMap, s))) : [],
   ]);
 
@@ -599,7 +637,15 @@ export async function fetchNhcWindHazards({ slots = [], probKt = null, radii = f
       type: 'FeatureCollection',
       features: arrivalBySlot.flatMap((fc, i) => tagSlot(fc, slots[i], (p) => ({ arrivalTime: p.arrival_time || '' }))),
     },
+    earliestArrivalGeoJSON: {
+      type: 'FeatureCollection',
+      features: earliestBySlot.flatMap((fc, i) => tagSlot(fc, slots[i], (p) => ({ arrivalTime: p.arrival_time || '' }))),
+    },
     surgeImageLayerIds: surgeIds.filter((id) => id != null),
+    // Slots with a surge footprint this cycle.
+    surgeSlots: slots.filter((_, i) => surge && surgeIds[i] != null),
+    // What this result covers, so readers can tell "none" from "not fetched".
+    fetched: { probKt: probKt || null, radii, arrival, surge },
   };
 }
 

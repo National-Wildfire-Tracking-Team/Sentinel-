@@ -2,7 +2,7 @@
  * PricingPage.jsx
  * Public pricing page — Free, Sentinel Plus, and Sentinel Pro tiers.
  * Checkout runs entirely through the embedded Stripe pricing table below;
- * these cards are informational (feature comparison), not separate
+ * these cards are informational, not separate
  * checkout flows.
  */
 
@@ -10,7 +10,7 @@ import { useEffect, useState, createElement } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import Seo from '../../shared/components/Seo';
 import {
-  Flame, Check, X, ChevronRight, AlertCircle, Lock,
+  Flame, Check, ChevronRight, AlertCircle, Lock,
   Radio, Camera, MapPin, Bell, BellRing,
   Layers, Droplets, Landmark, TreePine, Clock, Ruler, MessageSquare,
   Satellite, Plane, History, Radar,
@@ -84,30 +84,6 @@ const PRO_FEATURES = [
   { icon: <ClipboardList size={14} />, label: 'Professional reporting tools' },
   { icon: <Building2 size={14} />,     label: 'Multi-location monitoring' },
   { icon: <ShieldAlert size={14} />,   label: 'Advanced hazard analysis' },
-];
-
-const COMPARISON_ROWS = [
-  { label: 'Wildfire, weather & all-hazard map tabs', free: true,  plus: true,  pro: true },
-  { label: 'Polygon + distance tools',                free: true,  plus: true,  pro: true },
-  { label: 'NWS/SPC/WPC/NHC outlooks',                free: true,  plus: true,  pro: true },
-  { label: 'Mesoscale discussions',                   free: true,  plus: true,  pro: true },
-  { label: 'Cameras & water-level gauges',             free: true,  plus: true,  pro: true },
-  { label: 'NWS radar & radar composite',              free: true,  plus: true,  pro: true },
-  { label: 'Saved locations',                          free: '4',   plus: '15',  pro: '∞' },
-  { label: 'Fire behavior modeling',                   free: false, plus: 'Basic', pro: 'Advanced' },
-  { label: 'Smoke layers & satellite imagery',         free: false, plus: true,  pro: true },
-  { label: 'Advanced radar products',                  free: false, plus: true,  pro: true },
-  { label: 'Historical wildfire perimeters',           free: false, plus: true,  pro: true },
-  { label: 'Custom / advanced alert rules',            free: false, plus: true,  pro: true },
-  { label: 'Critical infrastructure layers',           free: false, plus: false, pro: true },
-  { label: 'WUI data & land ownership',                free: false, plus: '🔜',  pro: true },
-  { label: 'Protected / public lands',                 free: false, plus: '🔜',  pro: true },
-  { label: 'Fire progression & spread modeling',       free: false, plus: false, pro: true },
-  { label: 'Advanced hotspot & incident intelligence', free: false, plus: false, pro: true },
-  { label: 'Data & GIS exports',                       free: false, plus: false, pro: true },
-  { label: 'Custom dashboards',                        free: false, plus: false, pro: true },
-  { label: 'API access',                                free: false, plus: false, pro: true },
-  { label: 'Multi-location monitoring',                 free: false, plus: false, pro: true },
 ];
 
 const FAQ = [
@@ -202,6 +178,7 @@ export default function PricingPage() {
 
       {/* ── Plan cards (informational — checkout happens in the pricing table below) ── */}
       <section className="relative max-w-6xl mx-auto px-4 sm:px-6 pb-16">
+        <h2 className="text-2xl font-bold text-white text-center mb-8">Choose your plan</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-stretch">
 
           {/* ── Free card ── */}
@@ -300,8 +277,6 @@ export default function PricingPage() {
 
       {/* ── Checkout widget ── */}
       <section id="subscribe" className="max-w-3xl mx-auto px-4 sm:px-6 pb-20 scroll-mt-10">
-        <h2 className="text-2xl font-bold text-white text-center mb-8">Choose your plan</h2>
-
         {alreadyPaid ? (
           <div className="rounded-2xl border border-sentinel-700 bg-sentinel-900/80 p-8 text-center">
             <Check size={28} className="text-fire-400 mx-auto mb-3" />
@@ -336,43 +311,15 @@ export default function PricingPage() {
             >
               Create Free Account
             </a>
+            <p className="text-xs text-sentinel-500 mt-4">
+              All prices USD · Cancel anytime · Payments processed by{' '}
+              <a href="https://stripe.com" target="_blank" rel="noopener noreferrer"
+                className="text-sentinel-400 hover:text-white underline underline-offset-2">
+                Stripe
+              </a>
+            </p>
           </div>
         )}
-
-        <p className="text-center text-xs text-sentinel-500 mt-6">
-          All prices USD · Cancel anytime · Payments processed by{' '}
-          <a href="https://stripe.com" target="_blank" rel="noopener noreferrer"
-            className="text-sentinel-400 hover:text-white underline underline-offset-2">
-            Stripe
-          </a>
-        </p>
-      </section>
-
-      {/* ── Feature comparison table ── */}
-      <section className="max-w-3xl mx-auto px-4 sm:px-6 pb-20">
-        <h2 className="text-2xl font-bold text-white text-center mb-8">Plan comparison</h2>
-        <div className="overflow-x-auto rounded-xl border border-sentinel-700">
-          <table className="w-full text-xs sm:text-sm">
-            <thead>
-              <tr className="border-b border-sentinel-700 bg-sentinel-900">
-                <th className="text-left px-3 sm:px-5 py-4 text-sentinel-300 font-semibold">Feature</th>
-                <th className="px-2 sm:px-4 py-4 text-center font-semibold text-white">Free</th>
-                <th className="px-2 sm:px-4 py-4 text-center font-semibold text-amber-300">Plus</th>
-                <th className="px-2 sm:px-4 py-4 text-center font-semibold text-fire-300">Pro</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-sentinel-800">
-              {COMPARISON_ROWS.map((row, i) => (
-                <tr key={i} className="hover:bg-sentinel-800/40 transition-colors">
-                  <td className="px-3 sm:px-5 py-3 text-sentinel-200">{row.label}</td>
-                  <td className="px-2 sm:px-4 py-3 text-center"><CellValue val={row.free} freeCol /></td>
-                  <td className="px-2 sm:px-4 py-3 text-center"><CellValue val={row.plus} /></td>
-                  <td className="px-2 sm:px-4 py-3 text-center"><CellValue val={row.pro} /></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
       </section>
 
       {/* ── FAQ ── */}
@@ -417,30 +364,4 @@ function ComingSoon() {
       Soon
     </span>
   );
-}
-
-function CellValue({ val, freeCol }) {
-  if (val === true) {
-    return (
-      <Check
-        size={15}
-        className={`inline ${freeCol ? 'text-sentinel-300' : 'text-fire-400'}`}
-      />
-    );
-  }
-  if (val === false) {
-    return <X size={14} className="inline text-sentinel-500" />;
-  }
-  if (val === '🔜') {
-    return (
-      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px]
-                       font-bold bg-sentinel-700/80 border border-sentinel-600
-                       text-sentinel-300 uppercase tracking-wide">
-        <Clock size={8} />
-        Soon
-      </span>
-    );
-  }
-  // string values like '4', '15', '∞', 'Basic', 'Advanced'
-  return <span className="text-sentinel-200 font-medium">{val}</span>;
 }

@@ -15,8 +15,14 @@ import { useApp } from '../../context/AppContext';
 import { useAppStatus } from '../../context/AppStatusContext';
 import { useViewport } from '../../context/ViewportContext';
 import { usePreferences } from '../../context/PreferencesContext';
-import { formatAcres, formatContainment, formatFRP } from '../../utils/formatUtils';
+import { useWeatherModelsContext } from '../../context/WeatherModelsContext';
+import { formatAcres, formatContainment, formatFRP, withClock } from '../../utils/formatUtils';
 import MapFeaturePopup from './MapFeaturePopup';
+import StormMapPopup from './StormMapPopup';
+import NhcModelTracksLayer from './layers/NhcModelTracksLayer';
+import { useSatelliteContext } from '../../context/SatelliteContext';
+import { useNhcModelTracks } from '../../hooks/useNhcModelTracks';
+import { buildCyclones, buildOutlookSystems } from '../../api/nhcTropicalWeather';
 import SpotlightMaskLayer from './layers/SpotlightMaskLayer';
 import { frpToLabel } from '../../utils/colorUtils';
 import * as hrrRateLimiter from '../../utils/hrrRateLimiter';
@@ -442,6 +448,21 @@ const HOVER_MATCHED_WIDTH_LAYER_IDS = new Set(['weather-alerts-fill', 'spc-md-fi
 // tooltip can render a rotated direction arrow for quick recognition.
 const CAMERA_DIRECTION_DEGREES = { North: 0, East: 90, South: 180, West: 270 };
 
+// NHC storm layers a click can open the storm popup from, and how the popup
+// names what was clicked.
+// Outlook layers (invest disturbances, areas of interest) open the same popup.
+const OUTLOOK_CLICK_LAYERS = {
+  'nhc-disturbance-circle': 'Disturbance',
+  'nhc-disturbance-fill': 'Area of interest',
+};
+
+const STORM_CLICK_LAYERS = {
+  'nhc-cone-fill': () => 'Cone of uncertainty',
+  'nhc-forecast-track-line': () => 'Forecast track',
+  'nhc-track-circle': (p) => (p.isCurrent === true || p.isCurrent === 'true' ? 'Current position' : `Forecast +${p.tau} hr`),
+  'nhc-obs-circle': () => 'Past track',
+};
+
 // Builds the hover-tooltip content for a single map feature. Returns null
 // when the feature's layer has no hover tooltip defined.
 function getHoverContent(feature) {
@@ -561,7 +582,7 @@ function getHoverContent(feature) {
           {p.magnitude && <div className="text-sentinel-200 text-xs">Magnitude: {p.magnitude}</div>}
           {p.reportedAt && (
             <div className="text-sentinel-300 text-xs">
-              {new Date(p.reportedAt).toLocaleString()}
+              {new Date(p.reportedAt).toLocaleString(undefined, withClock())}
             </div>
           )}
           {p.comments && (
@@ -618,7 +639,7 @@ function getHoverContent(feature) {
             if (s.length === 12) {
               const yr = s.slice(0, 4), mo = s.slice(4, 6), dy = s.slice(6, 8), hr = s.slice(8, 10), mn = s.slice(10, 12);
               const d = new Date(`${yr}-${mo}-${dy}T${hr}:${mn}Z`);
-              return isNaN(d.getTime()) ? null : d.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', timeZoneName: 'short' });
+              return isNaN(d.getTime()) ? null : d.toLocaleString(undefined, withClock({ month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', timeZoneName: 'short' }));
             }
             return null;
           })()
@@ -647,7 +668,7 @@ function getHoverContent(feature) {
           </div>
           {p.created_at && (
             <div className="text-sentinel-300 text-xs">
-              {new Date(p.created_at).toLocaleString()}
+              {new Date(p.created_at).toLocaleString(undefined, withClock())}
             </div>
           )}
         </>
@@ -662,7 +683,7 @@ function getHoverContent(feature) {
           </div>
           {p.created_at && (
             <div className="text-sentinel-300 text-xs">
-              {new Date(p.created_at).toLocaleString()}
+              {new Date(p.created_at).toLocaleString(undefined, withClock())}
             </div>
           )}
         </>
@@ -730,7 +751,7 @@ function getHoverContent(feature) {
           </div>
           <div className="text-sentinel-400 text-[10px] mt-1 flex justify-between gap-3">
             {p.elevation != null && <span>Elev: {Math.round(p.elevation).toLocaleString()} ft</span>}
-            {p.observationTime && <span>{new Date(p.observationTime).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</span>}
+            {p.observationTime && <span>{new Date(p.observationTime).toLocaleTimeString([], withClock({ hour: '2-digit', minute: '2-digit' }))}</span>}
           </div>
         </>
       );
@@ -762,7 +783,7 @@ function getHoverContent(feature) {
             )}
             {p.effective_at && (
               <div className="text-sentinel-300 text-xs">
-                Effective: {new Date(p.effective_at).toLocaleString()}
+                Effective: {new Date(p.effective_at).toLocaleString(undefined, withClock())}
               </div>
             )}
             <div className="text-[#0096ff] text-[10px] mt-1 uppercase tracking-wider">Reporter Zone</div>
@@ -779,7 +800,7 @@ function getHoverContent(feature) {
             {p.ipawsAreaDesc && <div className="text-sentinel-200 text-xs">{p.ipawsAreaDesc}</div>}
             {(p.ipawsSent || p.effectiveDate) && (
               <div className="text-sentinel-300 text-xs mt-1">
-                {new Date(p.ipawsSent || p.effectiveDate).toLocaleString()}
+                {new Date(p.ipawsSent || p.effectiveDate).toLocaleString(undefined, withClock())}
               </div>
             )}
           </>
@@ -801,7 +822,7 @@ function getHoverContent(feature) {
           {p.agency && <div className="text-sentinel-300 text-xs">{p.agency}</div>}
           {p.effectiveDate && (
             <div className="text-sentinel-300 text-xs">
-              Effective: {new Date(p.effectiveDate).toLocaleString()}
+              Effective: {new Date(p.effectiveDate).toLocaleString(undefined, withClock())}
             </div>
           )}
           {p.instructions && (
@@ -835,7 +856,7 @@ function getHoverContent(feature) {
       const fmt = (ms) => {
         if (ms == null || !Number.isFinite(ms)) return null;
         const d = new Date(ms);
-        return Number.isNaN(d.getTime()) ? null : d.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', timeZoneName: 'short' });
+        return Number.isNaN(d.getTime()) ? null : d.toLocaleString(undefined, withClock({ month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', timeZoneName: 'short' }));
       };
       const refStr = fmt(refMs);
       const toStr = fmt(toMs);
@@ -1465,20 +1486,39 @@ export default function MapView({
   routeOverlay = null,
   onRoutePick,
 }) {
-  const { layers, selectedFire, selectFire, selectGauge, selectCamera, sidebarOpen, locationGranted, layerPanelOpen, closeLayerPanel } = useApp();
+  const { layers, setLayer, selectedFire, selectFire, selectGauge, selectCamera, sidebarOpen, locationGranted, layerPanelOpen, closeLayerPanel, nhcModelTracks } = useApp();
+  const satellite = useSatelliteContext();
   const { alerts, userLocation, setUserLocation } = useAppStatus();
   const { viewport, setViewport } = useViewport();
   const { prefs: displayPrefs } = usePreferences();
   const mapRef = useRef(null);
+  // Data Picker: Center (the default) reads the middle of the screen; Mouse reads the clicked spot.
+  const pickAtCenter = displayPrefs.dataPickerAnchor !== 'mouse';
+  const modelsCtx = useWeatherModelsContext();
+  const modelPointActive = Boolean(onModelPick && modelsCtx?.location);
 
   // Popup shown when a click hits multiple stacked features at once
   const [featurePopup, setFeaturePopup] = useState(null);
+
+  // Popup for a tropical system clicked on the map ({ kind: 'storm' | 'outlook',
+  // system, via, lngLat }). The spaghetti model tracks it (or the detail
+  // panel) can turn on live in app state: nhcModelTracks = { atcfId, group }.
+  const [stormPopup, setStormPopup] = useState(null);
+  const nhcCyclones = useMemo(() => buildCyclones(nhcForecastPointsGeoJSON), [nhcForecastPointsGeoJSON]);
+  const nhcOutlookSystems = useMemo(
+    () => buildOutlookSystems(nhcDisturbancePointsGeoJSON, nhcDisturbanceAreasGeoJSON),
+    [nhcDisturbancePointsGeoJSON, nhcDisturbanceAreasGeoJSON],
+  );
+  const modelTrackData = useNhcModelTracks(nhcModelTracks?.atcfId);
 
   // Close the multi-feature popup whenever a selection is made through any
   // other path (sidebar feed, alert banner) so it never lingers behind a
   // now-stale FireDetailPanel.
   useEffect(() => {
-    if (selectedFire) setFeaturePopup(null);
+    if (selectedFire) {
+      setFeaturePopup(null);
+      setStormPopup(null);
+    }
   }, [selectedFire]);
 
   // Popup Spotlight for the currently selected weather alert or evacuation
@@ -1508,11 +1548,13 @@ export default function MapView({
 
   // All fire points share one clustered source (IncidentLocationsLayer), so
   // perimeter centroid dots are derived here rather than inside FirePerimetersLayer.
+  // Every fire dot, perimeter centroids included, belongs to the Incident
+  // Locations toggle; Fire Perimeters draws only the perimeter shapes.
   const showFireIncidents  = (isWildfireTab || isAllHazardTab) && Boolean(layers.incidentLocations);
   const showFirePerimeters = (isWildfireTab || isAllHazardTab) && Boolean(layers.firePerimeters);
   const perimeterCentroidsGeoJSON = useMemo(
-    () => (showFirePerimeters ? perimeterCentroids(perimetersGeoJSON) : null),
-    [showFirePerimeters, perimetersGeoJSON],
+    () => (showFireIncidents ? perimeterCentroids(perimetersGeoJSON) : null),
+    [showFireIncidents, perimetersGeoJSON],
   );
 
   /** NDGD smoke: which forecast hour (index into sorted unique `todate` values) */
@@ -1613,10 +1655,10 @@ export default function MapView({
     if ((isWildfireTab || isAllHazardTab) && layers.ngfsDetections && ngfsGeoJSON)          ids.push('ngfs-detections-fill');
     if ((isWildfireTab || isAllHazardTab) && layers.firePerimeters && perimetersGeoJSON) {
       ids.push('fire-perimeters-fill');
-      ids.push('fire-perimeter-centroids-circle');
     }
-    if ((isWildfireTab || isAllHazardTab) && (layers.incidentLocations || layers.firePerimeters)) {
+    if ((isWildfireTab || isAllHazardTab) && layers.incidentLocations) {
       ids.push('incident-locations-cluster');
+      if (perimetersGeoJSON) ids.push('fire-perimeter-centroids-circle');
     }
     if ((isWildfireTab || isAllHazardTab) && layers.incidentLocations && incidentsGeoJSON) {
       ids.push('incident-locations-circle');
@@ -1665,6 +1707,8 @@ export default function MapView({
       if (nhcDisturbanceAreasGeoJSON?.features?.length) ids.push('nhc-disturbance-fill');
       if (nhcDisturbancePointsGeoJSON?.features?.length) ids.push('nhc-disturbance-circle');
       if (nhcForecastPointsGeoJSON?.features?.length) ids.push('nhc-track-circle');
+      if (nhcShow.cone && nhcConeGeoJSON?.features?.length) ids.push('nhc-cone-fill');
+      if (nhcShow.track && nhcForecastTrackGeoJSON?.features?.length) ids.push('nhc-forecast-track-line');
       if (nhcPastPointsGeoJSON?.features?.length) ids.push('nhc-obs-circle');
       if (nhcWatchWarningGeoJSON?.features?.length) ids.push('nhc-watch-warning-line');
       if (nhcHazardShow.prob && nhcWindHazards?.windProbGeoJSON?.features?.length) ids.push('nhc-wind-prob-fill');
@@ -1693,7 +1737,7 @@ export default function MapView({
       damageAssessmentPointsGeoJSON, damageAssessmentLinesGeoJSON, damageAssessmentPolygonsGeoJSON,
       rawsGeoJSON, airNowMonitorsGeoJSON, droughtOutlookGeoJSON, ndgdSmokeFilteredGeoJSON, fireWeatherOutlooksGeoJSON,
       nhcForecastPointsGeoJSON, nhcPastPointsGeoJSON, nhcDisturbanceAreasGeoJSON, nhcDisturbancePointsGeoJSON, nhcWatchWarningGeoJSON,
-      nhcHazardShow, nhcWindHazards,
+      nhcHazardShow, nhcWindHazards, nhcShow.cone, nhcShow.track, nhcConeGeoJSON, nhcForecastTrackGeoJSON,
       layers.wpcEro, layers.wpcWssi, layers.wpcQpf, layers.wpcFronts,
       wpcEroGeoJSON, wpcWssiGeoJSON, wpcQpfGeoJSON, wpcFrontsGeoJSON, wpcMpdGeoJSON,
       criticalInfrastructureVisible, criticalInfrastructureTransGeoJSON, criticalInfrastructureGasGeoJSON,
@@ -1735,10 +1779,12 @@ export default function MapView({
 
     // Models tab: a click picks the point to forecast (operational layers are off there).
     if (onModelPick) {
-      onModelPick({ lat: evt.lngLat.lat, lon: evt.lngLat.lng });
+      const center = pickAtCenter ? mapRef.current?.getCenter() : null;
+      onModelPick(center ? { lat: center.lat, lon: center.lng } : { lat: evt.lngLat.lat, lon: evt.lngLat.lng });
       return;
     }
 
+    setStormPopup(null);
     const features = evt.features;
     if (!features?.length) {
       selectFire(null);
@@ -1834,6 +1880,35 @@ export default function MapView({
       records.push({ record: buildFloodHazardRecord(null, evt.lngLat, floodPanel), feature: floodPanelFeature });
     }
 
+    // An NHC storm opens its own popup; stacked with other features, it's
+    // listed alongside them instead.
+    const stormFeature = features.find((f) => STORM_CLICK_LAYERS[f.layer.id]);
+    const storm = stormFeature && nhcCyclones.find((c) => c.slot === stormFeature.properties?.slot);
+    if (storm && records.length === 0) {
+      selectFire(null);
+      setFeaturePopup(null);
+      setStormPopup({ kind: 'storm', system: storm, via: STORM_CLICK_LAYERS[stormFeature.layer.id](stormFeature.properties), lngLat: evt.lngLat });
+      return;
+    }
+    if (storm) records.push({ record: { ...storm, type: 'nhc-storm' }, feature: stormFeature });
+
+    // Likewise an invest disturbance or area of interest. An area with a
+    // disturbance inside is that disturbance's system, so areas resolve to
+    // the nearest outlook system.
+    const outlookFeature = !storm && features.find((f) => OUTLOOK_CLICK_LAYERS[f.layer.id]);
+    const outlook = outlookFeature && (
+      nhcOutlookSystems.find((o) => o.id === outlookFeature.properties?.id)
+      ?? [...nhcOutlookSystems].sort((a, b) => (
+        Math.hypot(a.lng - evt.lngLat.lng, a.lat - evt.lngLat.lat) - Math.hypot(b.lng - evt.lngLat.lng, b.lat - evt.lngLat.lat)
+      ))[0]);
+    if (outlook && records.length === 0) {
+      selectFire(null);
+      setFeaturePopup(null);
+      setStormPopup({ kind: 'outlook', system: outlook, via: OUTLOOK_CLICK_LAYERS[outlookFeature.layer.id], lngLat: evt.lngLat });
+      return;
+    }
+    if (outlook) records.push({ record: { ...outlook, type: 'nhc-invest' }, feature: outlookFeature });
+
     if (records.length === 0) {
       selectFire(null);
       setFeaturePopup(null);
@@ -1852,7 +1927,19 @@ export default function MapView({
       mouseLngLat: evt.lngLat,
       anchorFeature: records[0].feature,
     });
-  }, [measureActive, alerts, selectFire, selectGauge, selectCamera, layerPanelOpen, closeLayerPanel, onModelPick, onRoutePick]);
+  }, [measureActive, alerts, selectFire, selectGauge, selectCamera, layerPanelOpen, closeLayerPanel, onModelPick, onRoutePick, nhcCyclones, nhcOutlookSystems, pickAtCenter]);
+
+  // Center picker: once a model point is being inspected, panning keeps it on the screen center.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !pickAtCenter || !modelPointActive) return undefined;
+    const onMoveEnd = () => {
+      const c = map.getCenter();
+      onModelPick({ lat: c.lat, lon: c.lng });
+    };
+    map.on('moveend', onMoveEnd);
+    return () => map.off('moveend', onMoveEnd);
+  }, [onModelPick, pickAtCenter, modelPointActive]);
 
   // Handle mouse move – update hover tooltip OR measurement preview
   const handleMouseMove = useCallback((evt) => {
@@ -2089,7 +2176,7 @@ export default function MapView({
           geoJSON={showFireIncidents ? incidentsGeoJSON : null}
           fireDotsGeoJSON={showFireIncidents ? incidentDotsGeoJSON : null}
           perimeterCentroidsGeoJSON={perimeterCentroidsGeoJSON}
-          visible={showFireIncidents || showFirePerimeters}
+          visible={showFireIncidents}
         />
 
         {/* Evacuation zones and markers — above incident dots for clear identification */}
@@ -2187,7 +2274,7 @@ export default function MapView({
         <NhcWindHazardsLayer
           data={nhcWindHazards}
           show={nhcHazardShow}
-          visible={isWeatherTab || isAllHazardTab || activeMapTab === 'models'}
+          visible={isWeatherTab || isAllHazardTab}
         />
 
         {/* NHC hurricane tracks, cone, watch/warnings, and tropical weather outlook —
@@ -2203,10 +2290,15 @@ export default function MapView({
           disturbancePointsGeoJSON={nhcDisturbancePointsGeoJSON}
           disturbanceAreasGeoJSON={nhcDisturbanceAreasGeoJSON}
           stormLabelsGeoJSON={nhcStormLabelsGeoJSON}
-          visible={isWeatherTab || isAllHazardTab || activeMapTab === 'models'}
+          visible={isWeatherTab || isAllHazardTab}
           show={nhcShow}
           onImagery={satelliteImageryOn}
         />
+
+        {/* Spaghetti model tracks, turned on from a storm's map popup */}
+        {nhcModelTracks && modelTrackData.data && (isWeatherTab || isAllHazardTab) && (
+          <NhcModelTracksLayer data={modelTrackData.data} group={nhcModelTracks.group} />
+        )}
 
         {/* Fire hotspot points – rendered last (top) */}
         <FireHotspotsLayer
@@ -2324,8 +2416,8 @@ export default function MapView({
           />
         )}
 
-        {/* Hover tooltip */}
-        <HoverTooltip features={hoverFeatures} lngLat={hoverLngLat} />
+        {/* Hover tooltip (not over an open storm popup) */}
+        <HoverTooltip features={stormPopup ? null : hoverFeatures} lngLat={hoverLngLat} />
 
         {/* Popup Spotlight for the selected weather alert / evac zone, however it was selected */}
         {spotlightGeometry && (
@@ -2349,6 +2441,28 @@ export default function MapView({
             prefs={displayPrefs}
             onSelect={(item) => { setFeaturePopup(null); selectFire(item); }}
             onClose={() => setFeaturePopup(null)}
+          />
+        )}
+
+        {/* Tropical popup — a click on a storm's cone, track or position, or
+            on an invest disturbance / area of interest */}
+        {stormPopup && (
+          <StormMapPopup
+            kind={stormPopup.kind}
+            system={(stormPopup.kind === 'storm' ? nhcCyclones : nhcOutlookSystems)
+              .find((c) => c.id === stormPopup.system.id) ?? stormPopup.system}
+            via={stormPopup.via}
+            lngLat={stormPopup.lngLat}
+            prefs={displayPrefs}
+            onOpen={(system) => {
+              setStormPopup(null);
+              selectFire({ ...system, type: stormPopup.kind === 'storm' ? 'nhc-storm' : 'nhc-invest' });
+            }}
+            onShowSatellite={(system) => {
+              setLayer('satellite', true);
+              satellite?.focusOnStorm?.({ lng: system.lng, lat: system.lat });
+            }}
+            onClose={() => setStormPopup(null)}
           />
         )}
         {typeof modelOverlay === 'function'

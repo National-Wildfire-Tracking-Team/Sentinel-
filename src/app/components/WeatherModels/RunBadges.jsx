@@ -7,6 +7,7 @@
 
 import { AlertTriangle, Clock } from 'lucide-react';
 import { MODEL_STYLE, ageLabel, dayZulu, forecastHourLabel, localTime, zulu } from './modelTheme';
+import { useTimeFormat } from '../../hooks/useTimeFormat';
 
 export function ModelChip({ model, size = 'md' }) {
   const style = MODEL_STYLE[model.id];
@@ -51,6 +52,7 @@ export function RunNotices({ data }) {
 }
 
 export default function RunBadges({ data, entry }) {
+  useTimeFormat();
   const { model, run } = data;
   return (
     <div className="space-y-1.5">

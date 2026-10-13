@@ -18,6 +18,8 @@ vi.mock('react-map-gl', () => ({
     layers.push(props);
     return null;
   },
+  // The cluster flame images are already registered, so the flame layer renders.
+  useMap: () => ({ current: { hasImage: () => true, isStyleLoaded: () => true, on: () => {}, off: () => {} } }),
 }));
 
 const point = (acres, contained = 0) => ({
@@ -41,6 +43,7 @@ describe('IncidentLocationsLayer clustering', () => {
     expect(source.clusterMaxZoom).toBe(8);
     expect(source.clusterRadius).toBeGreaterThan(0);
     expect(source.clusterProperties).toHaveProperty('activeCount');
+    expect(source.clusterProperties).toHaveProperty('redCount');
   });
 
   it('drops fires under 0.4 acres before clustering so bubbles do not count them', () => {
@@ -62,13 +65,22 @@ describe('IncidentLocationsLayer clustering', () => {
     expect(count.layout['text-field']).toEqual(['get', 'point_count_abbreviated']);
   });
 
-  it('styles bubbles with a dark fill and a status ring, distinct from containment dot colors', () => {
+  it('draws clusters as logo flames whose outline shows status, distinct from containment dot colors', () => {
     render(<IncidentLocationsLayer geoJSON={{ type: 'FeatureCollection', features: [] }} visible />);
-    const { paint } = layerById('incident-locations-cluster');
-    expect(paint['circle-color']).toBe(CLUSTER_FILL_COLOR);
-    expect(paint['circle-stroke-color']).toEqual(
-      ['case', ['>', ['get', 'activeCount'], 0], CLUSTER_ACTIVE_RING_COLOR, CLUSTER_CONTAINED_RING_COLOR]
-    );
+    const { type, layout } = layerById('incident-locations-cluster');
+    expect(type).toBe('symbol');
+    expect(layout['icon-image']).toEqual([
+      'case',
+      ['all',
+        ['>', ['coalesce', ['get', 'redCount'], 0], 0],
+        ['>=', ['*', ['coalesce', ['get', 'redCount'], 0], 3], ['get', 'point_count']],
+      ], 'fire-cluster-red',
+      ['>', ['coalesce', ['get', 'activeCount'], 0], 0], 'fire-cluster-active',
+      'fire-cluster-contained',
+    ]);
+    expect(CLUSTER_ACTIVE_RING_COLOR).not.toBe(CLUSTER_CONTAINED_RING_COLOR);
+    // The flames can mount after the counts, so they must be slotted beneath them.
+    expect(layerById('incident-locations-cluster').beforeId).toBe('incident-locations-cluster-count');
     const dotColors = JSON.stringify(layerById('incident-locations-circle').paint['circle-color']);
     expect(dotColors).not.toContain(CLUSTER_FILL_COLOR);
   });
@@ -92,7 +104,7 @@ describe('IncidentLocationsLayer clustering', () => {
   it('clusters perimeter dots and incident dots in the same source as incident locations', () => {
     const perimeter = (props) => ({
       type: 'Feature',
-      properties: { IncidentName: 'Perimeter fire', PercentContained: 10, ...props },
+      properties: { IncidentName: 'Perimeter fire', PercentContained: 10, GISAcres: 50, ...props },
       geometry: { type: 'Point', coordinates: [-121, 39] },
     });
     const dot = (GISAcres, PercentContained = 0) => ({
@@ -105,8 +117,13 @@ describe('IncidentLocationsLayer clustering', () => {
         geoJSON={{ type: 'FeatureCollection', features: [point(250, 40)] }}
         perimeterCentroidsGeoJSON={{
           type: 'FeatureCollection',
-          // Only active, current perimeters draw a dot, so only they are grouped.
-          features: [perimeter(), perimeter({ PercentContained: 100 }), perimeter({ isStaleFire: true }), perimeter({ isHistoricalMapping: true })],
+          // Perimeters follow the same rules as every fire dot: current
+          // mappings of at least 0.4 acres, fully contained ones included.
+          features: [
+            perimeter(), perimeter({ PercentContained: 100 }),
+            perimeter({ isStaleFire: true }), perimeter({ isHistoricalMapping: true }),
+            perimeter({ GISAcres: 0.1 }), perimeter({ HideFromCentroid: true }),
+          ],
         }}
         fireDotsGeoJSON={{ type: 'FeatureCollection', features: [dot(5, 100), dot(0.1)] }}
         visible
@@ -114,9 +131,9 @@ describe('IncidentLocationsLayer clustering', () => {
     );
     expect(sources).toHaveLength(1);
     const props = sources[0].data.features.map((f) => f.properties);
-    expect(props.map((p) => p._kind)).toEqual(['incident', 'perimeter', 'dot']);
-    // Containment is normalized so the bubbles count active fires of every kind.
-    expect(props.map((p) => p._contained)).toEqual([40, 10, 100]);
+    expect(props.map((p) => p._kind)).toEqual(['incident', 'perimeter', 'perimeter', 'dot']);
+    // Containment is normalized so the groups count fires of every kind alike.
+    expect(props.map((p) => p._contained)).toEqual([40, 10, 100, 100]);
     // Original properties survive for MapView's click/hover handling.
     expect(props[1].IncidentName).toBe('Perimeter fire');
   });

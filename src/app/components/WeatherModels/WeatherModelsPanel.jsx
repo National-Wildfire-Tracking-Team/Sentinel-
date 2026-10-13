@@ -13,6 +13,7 @@
 import { Info, Loader2 } from 'lucide-react';
 import { WEATHER_MODEL_SERVICE_URL } from '../../api/weatherModels';
 import { useWeatherModelsContext } from '../../context/WeatherModelsContext';
+import { usePreferences } from '../../context/PreferencesContext';
 import LocationPanel from './LocationPanel';
 import Meteogram from './Meteogram';
 import ModelComparison from './ModelComparison';
@@ -43,7 +44,9 @@ function Status({ state, label }) {
 
 export default function WeatherModelsPanel() {
   const wm = useWeatherModelsContext();
+  const { prefs } = usePreferences();
   if (!wm) return null;
+  const pickAtCenter = prefs.dataPickerAnchor !== 'mouse';
   const { location, setLocation, mode: requestedMode, validTime, setValidTime, point } = wm;
   const { mode, inHrrr, hrrr, gfs, primary, forecast, shown } = point;
   const entry = entryAt(forecast, validTime);
@@ -55,7 +58,11 @@ export default function WeatherModelsPanel() {
       <Section>
         <LocationPanel location={location} onChange={setLocation} />
         {!location && (
-          <p className="mt-2 text-xs text-sentinel-300">Click the map to inspect a point; its full forecast appears here.</p>
+          <p className="mt-2 text-xs text-sentinel-300">
+            {pickAtCenter
+              ? 'Click the map to inspect the center of the screen, then pan to move the point; its full forecast appears here.'
+              : 'Click the map to inspect a point; its full forecast appears here.'}
+          </p>
         )}
         {location && !inHrrr && requestedMode !== 'gfs' && (
           <p className="mt-2 flex items-start gap-1.5 text-xs text-sentinel-200">

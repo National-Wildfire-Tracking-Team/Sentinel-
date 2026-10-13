@@ -116,6 +116,17 @@
   status = 301
   force = true
 
+# A missing hashed asset (a tab still running an older deploy asks for a chunk
+# that no longer exists) must 404, not fall through to the SPA fallback below.
+# Otherwise index.html is returned as the "JS" — the browser rejects it with a
+# text/html MIME error — and, because of the /assets/* header above, it's
+# cached as immutable for a year under that chunk's URL. Not forced, so real
+# files are still served normally.
+[[redirects]]
+  from = "/assets/*"
+  to = "/404.html"
+  status = 404
+
 # SPA fallback – must be last
 [[redirects]]
   from = "/*"

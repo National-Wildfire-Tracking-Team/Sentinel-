@@ -10,6 +10,7 @@ import { useApp } from '../../context/AppContext';
 import { useWeatherModelsContext } from '../../context/WeatherModelsContext';
 import { DISPLAY_UNITS, byteToValue, formatDisplay, hourAt, toDisplay, valueToByte } from '../../api/modelFields';
 import { MODEL_STYLE, ageLabel, localTime, zulu } from './modelTheme';
+import { useTimeFormat } from '../../hooks/useTimeFormat';
 
 const TICKS = 5;
 
@@ -34,6 +35,7 @@ function age(runTime) {
 }
 
 export default function ModelFieldLegend() {
+  useTimeFormat();
   const wm = useWeatherModelsContext();
   const { layerPanelOpen } = useApp();
   if (!wm?.manifest || !wm.validTime) return null;

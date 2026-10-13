@@ -27,13 +27,14 @@ const ROW = 'w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg hover:bg-wh
   + 'focus-visible:outline focus-visible:outline-2 focus-visible:outline-sky-500';
 const LIST = 'rounded-lg bg-sentinel-900 border border-sentinel-700 divide-y divide-sentinel-700 overflow-hidden';
 
-function IconBox({ active, color, children }) {
+// fill/edge are hex alpha suffixes; toggles pass '26'/'4d' (15%/30%), matching the layer toggles.
+function IconBox({ active, color, fill = '22', edge = '55', children }) {
   return (
     <div
       className="shrink-0 w-7 h-7 rounded-md flex items-center justify-center"
       style={{
-        backgroundColor: active ? `${color}22` : 'transparent',
-        border: `1px solid ${active ? `${color}55` : '#52525b'}`,
+        backgroundColor: active ? `${color}${fill}` : 'transparent',
+        border: `1px solid ${active ? `${color}${edge}` : '#52525b'}`,
       }}
     >
       {children}
@@ -172,14 +173,14 @@ export default function ModelLayerPanel({ collapsed = {}, onToggleSection }) {
         >
           <div className={LIST}>
             <button type="button" onClick={() => setParticles(!particles)} aria-pressed={particles} aria-label="Toggle Wind particles" className={ROW}>
-              <IconBox active={particles} color="#38bdf8">
-                <Wind size={14} style={{ color: particles ? '#38bdf8' : '#a1a1aa' }} aria-hidden />
+              <IconBox active={particles} color="#ff5a00" fill="26" edge="4d">
+                <Wind size={14} style={{ color: particles ? '#ff5a00' : '#a1a1aa' }} aria-hidden />
               </IconBox>
               <div className="flex-1 min-w-0">
                 <div className={`text-sm font-medium truncate ${particles ? 'text-white' : 'text-sentinel-100'}`}>Wind particles</div>
                 <div className="text-[10px] text-sentinel-300 leading-snug">Animated wind flow from the selected model</div>
               </div>
-              <div className={`shrink-0 relative w-9 h-5 rounded-full transition-colors duration-200 ${particles ? 'bg-fire-600' : 'bg-sentinel-500'}`}>
+              <div className={`shrink-0 relative w-9 h-5 rounded-full transition-colors duration-200 ${particles ? 'bg-fire-600/25 ring-1 ring-inset ring-fire-600/50' : 'bg-sentinel-500'}`}>
                 <span className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform duration-200 ${particles ? 'translate-x-4' : ''}`} />
               </div>
             </button>

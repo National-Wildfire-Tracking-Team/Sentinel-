@@ -22,6 +22,7 @@
  */
 
 const IEM_WMS = 'https://mesonet.agron.iastate.edu/cgi-bin/wms';
+import { withClock } from '../utils/formatUtils';
 const IEM_LATEST = 'https://mesonet.agron.iastate.edu/data/gis/images/GOES';
 const GIBS_WMTS = 'https://gibs.earthdata.nasa.gov/wmts/epsg3857/best';
 const TIMEOUT_MS = 15 * 1000;
@@ -374,7 +375,7 @@ export function formatScanTime(isoTime, now = Date.now()) {
   if (!isoTime) return null;
   const t = Date.parse(isoTime);
   if (!Number.isFinite(t)) return null;
-  const when = new Date(t).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', timeZoneName: 'short' });
+  const when = new Date(t).toLocaleTimeString([], withClock({ hour: 'numeric', minute: '2-digit', timeZoneName: 'short' }));
   const minutes = Math.max(0, Math.round((now - t) / 60000));
   const ago = minutes < 1 ? 'just now' : minutes < 120 ? `${minutes} min ago` : `${Math.round(minutes / 60)} h ago`;
   return `${when} · ${ago}`;

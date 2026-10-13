@@ -213,7 +213,7 @@ export default function AccountPage() {
             </p>
             <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-semibold
               ${role === 'admin'
-                ? 'bg-fire-600/20 border border-fire-600/40 text-fire-300'
+                ? 'bg-fire-600/25 border border-fire-600/50 text-fire-300'
                 : 'bg-blue-600/15 border border-blue-600/30 text-blue-300'}`}>
               {role}
             </span>
@@ -415,7 +415,7 @@ export default function AccountPage() {
                       onClick={() => handleFireToggle(location)}
                       className={`shrink-0 rounded-full border px-2.5 py-1 text-[11px] transition-colors disabled:opacity-50 ${
                         active
-                          ? 'bg-fire-600/15 border-fire-500/40 text-fire-300'
+                          ? 'bg-fire-600/25 border-fire-600/50 text-fire-300'
                           : 'bg-sentinel-800 border-sentinel-600 text-sentinel-400'
                       }`}
                     >

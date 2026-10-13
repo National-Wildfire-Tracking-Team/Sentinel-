@@ -17,8 +17,10 @@ import { useWeatherModelsContext } from '../../context/WeatherModelsContext';
 import { modelsHref } from '../../utils/weatherModelsLink';
 import { compassPoint, localTime, nowIndex, zulu } from './modelTheme';
 import { ModelChip } from './RunBadges';
+import { useTimeFormat } from '../../hooks/useTimeFormat';
 
 export default function ModelForecastSummary({ lat, lon, place }) {
+  useTimeFormat();
   const enabled = Boolean(WEATHER_MODEL_SERVICE_URL) && Number.isFinite(lat) && Number.isFinite(lon);
   // auto: HRRR inside CONUS, GFS elsewhere. The chip shows which one answered.
   const { data } = useModelForecast({ model: enabled ? 'auto' : null, lat, lon });

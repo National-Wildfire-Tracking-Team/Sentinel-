@@ -10,6 +10,7 @@ import {
   formatMrms, manifestIsStale, mrmsBase, mrmsDisplayUnit, mrmsFrameUrl, mrmsLegendRows, parseMrmsManifest, toMrmsDisplay,
 } from '../../src/app/api/mrms';
 import { rasterPaint, valueToByte } from '../../src/app/api/modelFields';
+import { mrmsPanelOpenAfter } from '../../src/app/components/Map/MrmsPanel';
 
 const precipRate = {
   label: 'Precipitation rate', quantity: 'rate', units: 'mm/h', encodingId: 'e130294f8',
@@ -85,5 +86,25 @@ describe('MRMS display units', () => {
       { color: '#6baed6', label: '0.04 in/h' },
       { color: '#08306b', label: '1.00 in/h' },
     ]);
+  });
+});
+
+describe('mrmsPanelOpenAfter', () => {
+  it('opens when MRMS is switched on', () => {
+    expect(mrmsPanelOpenAfter({}, { mrms: true }, false)).toBe(true);
+  });
+
+  it('closes when MRMS is switched off', () => {
+    expect(mrmsPanelOpenAfter({ mrms: true }, {}, true)).toBe(false);
+  });
+
+  it('steps aside when another docked layer, such as satellite, is switched on after it', () => {
+    expect(mrmsPanelOpenAfter({ mrms: true }, { mrms: true, satellite: true }, true)).toBe(false);
+    expect(mrmsPanelOpenAfter({ mrms: true }, { mrms: true, spcWeatherOutlooks: true }, true)).toBe(false);
+  });
+
+  it('otherwise keeps its open state', () => {
+    expect(mrmsPanelOpenAfter({ mrms: true }, { mrms: true, stormReports: true }, false)).toBe(false);
+    expect(mrmsPanelOpenAfter({ mrms: true }, { mrms: true, stormReports: true }, true)).toBe(true);
   });
 });

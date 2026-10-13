@@ -32,6 +32,7 @@ export const MODEL_STYLE = {
     blurb: '0.25° (~25 km) · global · to 16 days',
   },
 };
+import { withClock } from '../../utils/formatUtils';
 
 export const ROOT_VARS = '[--wm-hrrr:#2a78d6] dark:[--wm-hrrr:#3987e5] [--wm-gfs:#d55181]';
 
@@ -62,7 +63,7 @@ export function dayZulu(iso) {
 export function localTime(iso, opts = {}) {
   const d = toDate(iso);
   if (!d || Number.isNaN(d.getTime())) return '—';
-  return d.toLocaleString(undefined, { weekday: 'short', hour: 'numeric', ...opts });
+  return d.toLocaleString(undefined, withClock({ weekday: 'short', hour: 'numeric', ...opts }));
 }
 
 export function forecastHourLabel(h) {

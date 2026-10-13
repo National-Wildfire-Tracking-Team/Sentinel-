@@ -1,7 +1,9 @@
 /**
  * weather-gov-proxy.js
  * Netlify Edge Function — proxies api.weather.gov for the NWS active-alerts
- * layer and the zone-geometry lookups it depends on.
+ * layer and the zone-geometry lookups it depends on, plus the NHC text
+ * products (advisory, discussion, forecast advisory, wind probabilities)
+ * behind the hurricane panel.
  *
  * Active alerts sit in the life-safety tier: a new warning has to reach the
  * map quickly, so this is the shortest TTL we hold anywhere. Zone geometry is
@@ -15,6 +17,8 @@ import { createProxy, TIERS } from './_shared/edgeProxy.js';
 export const ROUTES = {
   alerts: { path: '/alerts', tier: 'lifeSafety' },
   zones: { path: '/zones', tier: 'static' },
+  // NHC issues these every 3-6 hours per storm.
+  products: { path: '/products', tier: 'active' },
 };
 
 export default createProxy({

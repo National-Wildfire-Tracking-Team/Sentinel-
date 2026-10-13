@@ -8,10 +8,12 @@
 
 import { memo, useMemo } from 'react';
 import { forecastHourLabel, localTime, nowIndex, zulu } from './modelTheme';
+import { useTimeFormat } from '../../hooks/useTimeFormat';
 
 const JUMPS = [1, 3, 6, 12, 24, 48, 72, 120, 168];
 
 function ForecastTimeline({ forecast, validTime, onChange, runTime, nowMs = Date.now() }) {
+  useTimeFormat();
   const index = Math.max(0, forecast.findIndex((e) => e.validTime === validTime));
   const nowIdx = nowIndex(forecast, nowMs);
   const nowMsHour = Date.parse(forecast[nowIdx]?.validTime);

@@ -1,0 +1,58 @@
+
+000
+WTPZ43 KNHC 061446
+TCDEP3
+ 
+Hurricane Rachel Discussion Number  38
+NWS National Hurricane Center Miami FL       EP182026
+800 AM PDT Tue Oct 06 2026
+ 
+Satellite imagery this morning shows that Rachel's inner core has 
+degraded, with the system now featuring a large, ragged eye. The 
+deepest cold convection is confined mainly to the southern eyewall 
+as the cyclone continues to encounter northeasterly wind shear and a 
+drier mid-level environment. The latest subjective Dvorak intensity 
+estimate from TAFB held steady at T4.5/77 kt, while objective 
+intensity estimates from UW-CIMSS range between 77 and 82 kt. Based 
+on these satellite trends and intensity estimates, the initial 
+intensity is held at 75 kt for this advisory.
+
+The initial motion is westward, or 275/7 kt. A general west to 
+west-northwestward motion is expected during the next several days 
+while the system is steered by a subtropical ridge to its north. In 
+a few days, a mid- to upper-level trough is forecast to approach the 
+west coast of the United States, which will weaken the ridge. This 
+should cause Rachel to slow down, make a sharp turn toward the 
+northeast, and increase in forward speed. The latest NHC track 
+forecast is very similar to the previous advisory and remains in 
+good agreement with the HCCA and Google DeepMind aids.
+
+The surrounding environment is starting to take its toll on Rachel, 
+with a drier, more stable airmass and moderate northeasterly wind 
+shear. Sea surface temperatures along the forecast track will also 
+cool below 26C in about a day or so, which should induce a steady 
+weakening trend. Simulated infrared imagery from the global models 
+shows Rachel struggling to produce deep, organized convection later 
+this week. As a result, the latest NHC forecast now indicates that 
+Rachel will become a post-tropical cyclone by 96 h. The official NHC 
+intensity forecast is similar to the previous one, with gradual 
+weakening near the upper end of the guidance suite in the short 
+term, and then a faster weakening trend toward the consensus aids at 
+the end of the period.
+ 
+FORECAST POSITIONS AND MAX WINDS
+ 
+INIT  06/1500Z 20.5N 119.5W   75 KT  85 MPH
+ 12H  07/0000Z 20.6N 120.4W   75 KT  85 MPH
+ 24H  07/1200Z 21.0N 121.7W   70 KT  80 MPH
+ 36H  08/0000Z 21.5N 123.0W   60 KT  70 MPH
+ 48H  08/1200Z 22.0N 124.3W   55 KT  65 MPH
+ 60H  09/0000Z 22.4N 125.4W   50 KT  60 MPH
+ 72H  09/1200Z 22.8N 125.8W   45 KT  50 MPH
+ 96H  10/1200Z 24.2N 123.5W   40 KT  45 MPH...POST-TROPICAL
+120H  11/1200Z 27.7N 119.3W   35 KT  40 MPH...POST-TROPICAL
+ 
+$$
+Forecaster Kelly
+ 
+
