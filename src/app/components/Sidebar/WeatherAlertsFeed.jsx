@@ -1,51 +1,50 @@
 /**
  * WeatherAlertsFeed.jsx
- * Live active NOAA/NWS alerts feed — grouped by category and event type,
- * with compact cards matching the weather sidebar design.
+ * Live active NOAA/NWS alerts feed — grouped by category and event type.
+ * Cards sit on a neutral surface and carry the official NWS event color as
+ * an accent stripe, so a long list of warnings reads as a list rather than
+ * a wall of red.
  */
 
 import { useMemo, useState, useCallback } from 'react';
 import {
   Loader2,
   AlertCircle,
-  ShieldAlert,
-  AlertTriangle,
-  Info,
   CloudSun,
-  Eye,
-  HelpCircle,
   ChevronDown,
   ChevronRight,
-  MapPin,
+  MapPinOff,
   Clock,
-  Globe,
+  Users,
+  Building2,
+  X,
 } from 'lucide-react';
 import { nwsAlertColor, nwsAlertCategory } from '../../utils/nwsColors';
 import { useApp } from '../../context/AppContext';
 import { useAppStatus } from '../../context/AppStatusContext';
 import { useViewport } from '../../context/ViewportContext';
-import { formatRelativeTime } from '../../utils/formatUtils';
+import { formatRelativeTime, formatClockTime } from '../../utils/formatUtils';
 import AlertErrorBanner from './AlertErrorBanner';
 
-/** Text on dark sidebar (category / type rows) */
-const ON_DARK = 'text-sentinel-100';
-const ON_DARK_MUTED = 'text-sentinel-400';
-
 /**
- * Dark-theme card styling per alert category — matches the severity-card
- * treatment used elsewhere in the sidebar (AddressAlertSearch) instead of
- * a light "paper bulletin" look. Also matches this file's own FILTER_COLORS
- * palette below (red/orange/yellow/sky), so the filter pills and the cards
- * they filter now agree on what each category looks like.
+ * Per-category accent — used for the filter chips and section headers. The
+ * cards themselves use the per-event NWS color instead.
  */
-const CATEGORY_STYLES = {
-  warning:   { border: 'border-red-600/60',    bg: 'bg-red-950/50',    text: 'text-red-100',    tag: 'bg-sentinel-700' },
-  watch:     { border: 'border-orange-600/60', bg: 'bg-orange-950/50', text: 'text-orange-100', tag: 'bg-sentinel-700' },
-  advisory:  { border: 'border-yellow-600/60', bg: 'bg-yellow-950/50', text: 'text-yellow-100', tag: 'bg-sentinel-700' },
-  statement: { border: 'border-sky-600/60',    bg: 'bg-sky-950/50',    text: 'text-sky-100',    tag: 'bg-sentinel-700' },
-  eas:       { border: 'border-purple-600/60', bg: 'bg-purple-950/50', text: 'text-purple-100', tag: 'bg-sentinel-700' },
-  other:     { border: 'border-sentinel-600',  bg: 'bg-sentinel-800/60', text: 'text-sentinel-200', tag: 'bg-sentinel-700' },
+const CATEGORY_ACCENT = {
+  warning:   { dot: 'bg-red-500',      text: 'text-red-300' },
+  watch:     { dot: 'bg-orange-400',   text: 'text-orange-300' },
+  advisory:  { dot: 'bg-yellow-400',   text: 'text-yellow-200' },
+  statement: { dot: 'bg-sky-400',      text: 'text-sky-300' },
+  eas:       { dot: 'bg-purple-400',   text: 'text-purple-300' },
+  other:     { dot: 'bg-sentinel-400', text: 'text-sentinel-300' },
 };
+
+const SEVERITY_BADGE = {
+  Extreme: 'bg-red-500/15 text-red-300 ring-red-500/30',
+  Severe:  'bg-orange-500/15 text-orange-300 ring-orange-500/30',
+};
+
+const EXPIRING_SOON_MS = 30 * 60 * 1000;
 
 /** Compute a representative center [lng, lat] from a GeoJSON Polygon or MultiPolygon. */
 function getAlertCenter(alert) {
@@ -93,6 +92,33 @@ function issuingOfficeCode(alert) {
   return null;
 }
 
+/** "NWS Sacramento CA" → kept as-is; falls back to the 4-letter office code. */
+function issuerLabel(alert) {
+  if (alert.senderName) return alert.senderName;
+  const office = issuingOfficeCode(alert);
+  if (office) return office;
+  return alert.source === 'fema' ? 'FEMA IPAWS' : null;
+}
+
+/** Areas are "A; B; C" — collapse to the first few plus a "+N more" tail. */
+function summarizeArea(area, max = 3) {
+  if (!area) return null;
+  const parts = String(area).split(/;\s*/).filter(Boolean);
+  if (parts.length <= max) return parts.join(' · ');
+  return `${parts.slice(0, max).join(' · ')} +${parts.length - max} more`;
+}
+
+/** { label, tone } for the expiration line — tone drives color. */
+function expiryInfo(expires) {
+  if (!expires) return null;
+  const t = new Date(expires).getTime();
+  if (Number.isNaN(t)) return null;
+  const diff = t - Date.now();
+  if (diff <= 0) return { label: `Expired ${formatRelativeTime(expires)}`, tone: 'text-sentinel-400' };
+  if (diff < EXPIRING_SOON_MS) return { label: `Ends ${formatRelativeTime(expires)}`, tone: 'text-orange-300' };
+  return { label: `Ends ${formatRelativeTime(expires)}`, tone: 'text-sentinel-300' };
+}
+
 function categoryLabel(key) {
   if (key === 'warning') return 'Warnings';
   if (key === 'watch') return 'Watches';
@@ -104,65 +130,87 @@ function categoryLabel(key) {
 
 const CATEGORY_ORDER = ['warning', 'watch', 'advisory', 'statement', 'eas', 'other'];
 
-const SEVERITY_ICONS = {
-  Extreme: ShieldAlert,
-  Severe: AlertTriangle,
-  Moderate: AlertTriangle,
-  Minor: Info,
-  Unknown: Info,
-};
+function CountBadge({ children }) {
+  return (
+    <span className="shrink-0 px-1.5 py-px rounded-md text-[11px] font-semibold tabular-nums text-sentinel-200 bg-sentinel-700/80 min-w-[1.5rem] text-center">
+      {children}
+    </span>
+  );
+}
+
+function SeverityBadge({ severity }) {
+  const cls = SEVERITY_BADGE[severity];
+  if (!cls) return null;
+  return (
+    <span className={`px-1.5 py-px rounded text-[10px] font-semibold uppercase tracking-wide ring-1 ring-inset ${cls}`}>
+      {severity}
+    </span>
+  );
+}
+
+function DetailRow({ label, children }) {
+  if (!children) return null;
+  return (
+    <div className="min-w-0">
+      <dt className="text-[10px] font-semibold uppercase tracking-wider text-sentinel-400">{label}</dt>
+      <dd className="text-xs text-sentinel-100 mt-0.5 truncate">{children}</dd>
+    </div>
+  );
+}
 
 function SelectedAlertBanner({ alert, onClear }) {
-  const styles = CATEGORY_STYLES[nwsAlertCategory(alert.type)] || CATEGORY_STYLES.other;
+  const color = nwsAlertColor(alert.type);
   const pop = firstPopulation(alert.parameters);
   const state = firstStateCode(alert.geocodes || alert.geocode?.UGC);
-  const office = issuingOfficeCode(alert);
+  const issuer = issuerLabel(alert);
+  const expiry = expiryInfo(alert.expires);
+  const area = summarizeArea(alert.affectedArea, 6);
 
   return (
-    <div className={`mx-2.5 mb-3 rounded-xl px-3.5 py-3 border shadow-md ${styles.border} ${styles.bg}`}>
-      <div className="flex items-start justify-between gap-3">
-        <p className={`text-sm font-bold leading-relaxed pr-1 line-clamp-4 ${styles.text}`}>
-          {alert.headline || alert.type}
-        </p>
-        {onClear && (
-          <button
-            type="button"
-            onClick={onClear}
-            className={`shrink-0 text-xs font-semibold underline-offset-2 hover:underline hover:text-white ${ON_DARK}`}
-          >
-            Back to list
-          </button>
+    <div className="mx-2 mb-3 rounded-xl overflow-hidden border border-sentinel-600 bg-sentinel-800 shadow-lg shadow-black/30">
+      <div className="h-1" style={{ backgroundColor: color }} />
+      <div className="px-3.5 pt-3 pb-3.5">
+        <div className="flex items-start gap-2">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: color }} />
+              <span className="text-sm font-semibold text-sentinel-100">{alert.type}</span>
+              <SeverityBadge severity={alert.severity} />
+            </div>
+            {area && <p className="text-xs text-sentinel-300 mt-1.5 leading-relaxed line-clamp-3">{area}</p>}
+          </div>
+          {onClear && (
+            <button
+              type="button"
+              onClick={onClear}
+              aria-label="Back to list"
+              title="Back to list"
+              className="shrink-0 -mr-1 -mt-0.5 p-1.5 rounded-md text-sentinel-400 hover:text-sentinel-100 hover:bg-white/10 transition-colors"
+            >
+              <X size={16} />
+            </button>
+          )}
+        </div>
+
+        {alert.headline && (
+          <p className="text-xs text-sentinel-200 mt-2.5 leading-relaxed line-clamp-4">{alert.headline}</p>
         )}
+
+        <dl className="grid grid-cols-2 gap-x-3 gap-y-2.5 mt-3 pt-3 border-t border-sentinel-700">
+          <DetailRow label="Ends">
+            {alert.expires && (
+              <span className={expiry?.tone}>
+                {formatClockTime(alert.expires)}
+              </span>
+            )}
+          </DetailRow>
+          <DetailRow label="Urgency">{alert.urgency && alert.urgency !== 'Unknown' ? alert.urgency : null}</DetailRow>
+          <DetailRow label="Issued by">{issuer}</DetailRow>
+          <DetailRow label="Action">{alert.response && alert.response !== 'None' ? alert.response : null}</DetailRow>
+          <DetailRow label="Population">{pop != null ? pop.toLocaleString() : null}</DetailRow>
+          <DetailRow label="State">{state}</DetailRow>
+        </dl>
       </div>
-      <div className="flex flex-wrap gap-2 mt-2.5">
-        {pop != null && (
-          <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold text-white tabular-nums ${styles.tag}`}>
-            <span aria-hidden="true">👤</span>
-            {pop.toLocaleString()}
-          </span>
-        )}
-        {state && (
-          <span className={`px-2.5 py-1 rounded-full text-xs font-bold text-white ${styles.tag}`}>
-            {state}
-          </span>
-        )}
-        {office && (
-          <span className={`px-2.5 py-1 rounded-full text-xs font-bold text-white ${styles.tag}`}>
-            {office}
-          </span>
-        )}
-      </div>
-      {alert.response && (
-        <p className={`text-xs mt-2.5 leading-relaxed ${ON_DARK}`}>
-          <span className="font-semibold">{alert.type}:</span>{' '}
-          <span className="font-bold">{alert.response}</span>
-        </p>
-      )}
-      {alert.expires && (
-        <p className={`text-xs mt-2 font-semibold leading-snug ${styles.text}`}>
-          Expires {formatRelativeTime(alert.expires)}
-        </p>
-      )}
     </div>
   );
 }
@@ -171,51 +219,43 @@ function AlertTypeRow({
   eventType,
   count,
   alertsInType,
-  categoryKey,
   expanded,
   onToggle,
   accentColor,
   selectedId,
   onSelectAlert,
 }) {
-  const Icon = SEVERITY_ICONS[alertsInType[0]?.severity] || Info;
-
   return (
-    <div className="ml-0.5">
+    <div>
       <button
         type="button"
         onClick={onToggle}
-        className="w-full flex items-center gap-2.5 py-2 px-1.5 rounded-lg hover:bg-white/[0.07] transition-colors text-left min-h-[44px]"
+        aria-expanded={expanded}
+        className="group w-full flex items-center gap-2.5 py-2 pl-2 pr-1.5 rounded-lg hover:bg-white/[0.05] transition-colors text-left min-h-[40px]"
       >
         <span
-          className="flex items-center justify-center w-9 h-9 rounded-full shrink-0 ring-2 ring-black/10"
+          className="w-1 self-stretch min-h-[20px] rounded-full shrink-0"
           style={{ backgroundColor: accentColor }}
-        >
-          <Icon size={16} className="text-white drop-shadow-sm" strokeWidth={2.5} />
-        </span>
-        <span className={`flex-1 min-w-0 font-semibold text-sm leading-snug text-left line-clamp-2 ${ON_DARK}`}>
+        />
+        <span className="flex-1 min-w-0 text-[13px] font-medium leading-snug text-sentinel-100 line-clamp-2">
           {eventType}
         </span>
-        <span className="shrink-0 px-2 py-0.5 rounded-full text-xs font-bold text-white tabular-nums min-w-[1.5rem] text-center bg-sentinel-700">
-          {count}
-        </span>
-        <span className={`shrink-0 p-1 rounded-md hover:bg-white/10 ${ON_DARK_MUTED}`} title="NWS event type">
-          <HelpCircle size={15} strokeWidth={2} />
-        </span>
-        {expanded ? (
-          <ChevronDown size={17} className={`shrink-0 ${ON_DARK_MUTED}`} />
-        ) : (
-          <ChevronRight size={17} className={`shrink-0 ${ON_DARK_MUTED}`} />
-        )}
+        <CountBadge>{count}</CountBadge>
+        <ChevronRight
+          size={15}
+          className={`shrink-0 text-sentinel-400 group-hover:text-sentinel-200 transition-transform duration-150 ${
+            expanded ? 'rotate-90' : ''
+          }`}
+        />
       </button>
 
       {expanded && (
-        <div className="pl-2 pb-2 pt-0.5 space-y-2.5 border-l border-sentinel-600/50 ml-4">
+        <div className="pl-3.5 pr-0.5 pt-1 pb-2 space-y-1.5">
           {alertsInType.map((alert) => (
             <CompactAlertCard
               key={alert.id}
               alert={alert}
-              categoryKey={categoryKey}
+              accentColor={accentColor}
               selected={selectedId === alert.id}
               onSelect={() => onSelectAlert(alert)}
             />
@@ -226,82 +266,73 @@ function AlertTypeRow({
   );
 }
 
-function CompactAlertCard({ alert, categoryKey, selected, onSelect }) {
-  const styles = CATEGORY_STYLES[categoryKey] || CATEGORY_STYLES.other;
+function CompactAlertCard({ alert, accentColor, selected, onSelect }) {
   const pop = firstPopulation(alert.parameters);
   const state = firstStateCode(alert.geocodes || alert.geocode?.UGC);
-  const office = issuingOfficeCode(alert);
+  const issuer = issuerLabel(alert);
+  const expiry = expiryInfo(alert.expires);
+  const area = summarizeArea(alert.affectedArea);
 
   return (
     <button
       type="button"
       onClick={onSelect}
-      className={`w-full text-left rounded-xl px-3.5 py-3 border transition-shadow ${styles.bg} ${
+      aria-pressed={selected}
+      style={{ borderLeftColor: accentColor }}
+      className={`w-full text-left rounded-lg border border-l-[3px] px-3 py-2.5 transition-colors ${
         selected
-          ? 'ring-2 ring-sky-400 ring-offset-2 ring-offset-sentinel-900 border-sky-500/40 shadow-md'
-          : `${styles.border} hover:brightness-110`
-      } shadow-sm hover:shadow-md`}
+          ? 'bg-sentinel-700/70 border-sky-400/60 ring-1 ring-sky-400/40'
+          : 'bg-sentinel-800/60 border-sentinel-700 hover:bg-sentinel-700/50 hover:border-sentinel-600'
+      }`}
     >
-      <p className={`text-sm font-bold leading-relaxed line-clamp-4 text-left ${styles.text}`}>
-        {alert.headline || alert.type}
-      </p>
-      <div className="flex flex-wrap gap-2 mt-2.5">
+      <div className="flex items-start gap-2">
+        <p className="flex-1 min-w-0 text-[13px] font-medium leading-snug text-sentinel-100 line-clamp-2">
+          {area || alert.headline || alert.type}
+        </p>
+        <SeverityBadge severity={alert.severity} />
+      </div>
+
+      <div className="flex items-center flex-wrap gap-x-3 gap-y-1 mt-1.5 text-[11px] text-sentinel-400">
+        {expiry && (
+          <span className={`inline-flex items-center gap-1 ${expiry.tone}`}>
+            <Clock size={11} />
+            {expiry.label}
+          </span>
+        )}
+        {(issuer || state) && (
+          <span className="inline-flex items-center gap-1 min-w-0">
+            <Building2 size={11} className="shrink-0" />
+            <span className="truncate">{issuer || state}</span>
+          </span>
+        )}
         {pop != null && (
-          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold text-white tabular-nums bg-sentinel-700">
-            <span aria-hidden="true">👤</span>
+          <span className="inline-flex items-center gap-1 tabular-nums">
+            <Users size={11} />
             {pop.toLocaleString()}
           </span>
         )}
-        {state && (
-          <span className="px-2.5 py-1 rounded-full text-xs font-bold text-white bg-sentinel-700">
-            {state}
-          </span>
-        )}
-        {office && (
-          <span className="px-2.5 py-1 rounded-full text-xs font-bold text-white bg-sentinel-700">
-            {office}
-          </span>
-        )}
       </div>
-      {alert.response && (
-        <p className={`text-xs mt-2.5 leading-relaxed text-left ${ON_DARK}`}>
-          <span className="font-semibold">{alert.type}:</span>{' '}
-          <span className="font-bold">{alert.response}</span>
-        </p>
-      )}
-      {alert.expires && (
-        <p className={`text-xs mt-2 font-semibold leading-snug text-left ${styles.text}`}>
-          Expires {formatRelativeTime(alert.expires)}
-        </p>
-      )}
-      <div className="flex flex-wrap gap-1.5 mt-2">
-        <span
-          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${
-            alert.geometry
-              ? 'bg-green-900/60 text-green-200'
-              : 'bg-sentinel-700 text-sentinel-300'
-          }`}
-        >
-          <MapPin size={10} />
-          {alert.geometry ? 'On map' : 'Text only'}
-        </span>
-        {alert.expires && new Date(alert.expires).getTime() - Date.now() < 30 * 60 * 1000 && (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-orange-900/60 text-orange-200">
-            <Clock size={10} />
-            Expiring soon
-          </span>
-        )}
-        {alert.source && (
-          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${
-            alert.source === 'fema'
-              ? 'bg-purple-900/60 text-purple-200'
-              : 'bg-sky-900/60 text-sky-200'
-          }`}>
-            <Globe size={10} />
-            {alert.source === 'fema' ? 'FEMA' : 'NWS'}
-          </span>
-        )}
-      </div>
+
+      {(alert.response && alert.response !== 'None') || !alert.geometry || alert.source === 'fema' ? (
+        <div className="flex flex-wrap gap-1.5 mt-2">
+          {alert.response && alert.response !== 'None' && (
+            <span className="px-1.5 py-px rounded text-[10px] font-semibold bg-sentinel-700 text-sentinel-100">
+              {alert.response}
+            </span>
+          )}
+          {!alert.geometry && (
+            <span className="inline-flex items-center gap-1 px-1.5 py-px rounded text-[10px] font-medium bg-sentinel-700/70 text-sentinel-300">
+              <MapPinOff size={10} />
+              Not on map
+            </span>
+          )}
+          {alert.source === 'fema' && (
+            <span className="px-1.5 py-px rounded text-[10px] font-semibold bg-purple-500/15 text-purple-300 ring-1 ring-inset ring-purple-500/30">
+              FEMA
+            </span>
+          )}
+        </div>
+      ) : null}
     </button>
   );
 }
@@ -328,39 +359,36 @@ function CategorySection({
   );
 
   const open = expandedCategory;
+  const accent = CATEGORY_ACCENT[categoryKey] || CATEGORY_ACCENT.other;
 
   return (
-    <div className="mb-2">
+    <section className="mb-1">
       <button
         type="button"
         onClick={() => onToggleCategory(categoryKey)}
-        className="w-full flex items-center gap-2.5 py-2.5 px-1.5 rounded-lg hover:bg-white/[0.07] transition-colors min-h-[44px]"
+        aria-expanded={open}
+        className="sticky top-0 z-10 w-full flex items-center gap-2 py-2 px-2 bg-sentinel-900/95 backdrop-blur-sm hover:bg-sentinel-800/95 transition-colors"
       >
-        <span className={`flex-1 text-left font-bold text-[15px] tracking-tight ${ON_DARK}`}>
+        <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${accent.dot}`} />
+        <span className={`flex-1 text-left text-[11px] font-bold uppercase tracking-[0.08em] ${accent.text}`}>
           {categoryLabel(categoryKey)}
         </span>
-        <span className="shrink-0 px-2 py-0.5 rounded-full text-xs font-bold text-white tabular-nums min-w-[1.5rem] text-center bg-sentinel-700">
-          {total}
-        </span>
-        <span className={`shrink-0 p-1 rounded-md hover:bg-white/10 ${ON_DARK_MUTED}`} title="Alerts in this category">
-          <Eye size={17} strokeWidth={2} />
-        </span>
+        <CountBadge>{total}</CountBadge>
         {open ? (
-          <ChevronDown size={18} className={`shrink-0 ${ON_DARK_MUTED}`} />
+          <ChevronDown size={15} className="shrink-0 text-sentinel-400" />
         ) : (
-          <ChevronRight size={18} className={`shrink-0 ${ON_DARK_MUTED}`} />
+          <ChevronRight size={15} className="shrink-0 text-sentinel-400" />
         )}
       </button>
 
       {open && (
-        <div className="space-y-0.5 ml-1 pl-2 border-l border-sentinel-600/50">
+        <div className="px-1 pb-1">
           {byType.map(([eventType, list]) => (
             <AlertTypeRow
               key={eventType}
               eventType={eventType}
               count={list.length}
               alertsInType={list}
-              categoryKey={categoryKey}
               expanded={expandedTypes.has(eventType)}
               onToggle={() => toggleType(eventType)}
               accentColor={nwsAlertColor(eventType)}
@@ -370,7 +398,7 @@ function CategorySection({
           ))}
         </div>
       )}
-    </div>
+    </section>
   );
 }
 
@@ -381,22 +409,6 @@ const FILTER_OPTIONS = [
   { key: 'advisory', label: 'Advisories' },
   { key: 'statement', label: 'Statements' },
 ];
-
-const FILTER_COLORS = {
-  all: 'bg-sentinel-700 text-white border-sentinel-500',
-  warning: 'bg-red-700/70 text-red-100 border-red-500/60',
-  watch: 'bg-orange-700/70 text-orange-100 border-orange-500/60',
-  advisory: 'bg-yellow-700/70 text-yellow-100 border-yellow-500/60',
-  statement: 'bg-sky-700/70 text-sky-100 border-sky-500/60',
-};
-
-const FILTER_COLORS_INACTIVE = {
-  all: 'text-sentinel-300 border-sentinel-600 hover:bg-sentinel-700/50',
-  warning: 'text-red-300 border-red-800/50 hover:bg-red-900/30',
-  watch: 'text-orange-300 border-orange-800/50 hover:bg-orange-900/30',
-  advisory: 'text-yellow-300 border-yellow-800/50 hover:bg-yellow-900/30',
-  statement: 'text-sky-300 border-sky-800/50 hover:bg-sky-900/30',
-};
 
 export default function WeatherAlertsFeed({
   alerts = [],
@@ -488,43 +500,47 @@ export default function WeatherAlertsFeed({
 
   return (
     <div className="flex flex-col h-full antialiased">
-      <div className="px-2.5 pt-2 pb-2 shrink-0 border-b border-sentinel-700/60">
-        <div className="flex gap-1.5 flex-wrap">
+      <div className="px-2 pt-2 pb-2 shrink-0 border-b border-sentinel-700/60">
+        <div className="flex gap-1 overflow-x-auto scrollbar-none" role="tablist" aria-label="Alert category">
           {FILTER_OPTIONS.map(({ key, label }) => {
             const isActive = activeFilter === key;
             const count = counts[key] ?? 0;
+            const accent = CATEGORY_ACCENT[key];
             return (
               <button
                 key={key}
                 type="button"
+                role="tab"
+                aria-selected={isActive}
                 onClick={() => onFilterChange?.(key)}
-                className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs font-semibold transition-colors ${
-                  isActive ? FILTER_COLORS[key] : `bg-transparent ${FILTER_COLORS_INACTIVE[key]}`
-                }`}
+                className={`shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${
+                  isActive
+                    ? 'bg-sentinel-700 text-sentinel-100 shadow-sm ring-1 ring-inset ring-sentinel-500/60'
+                    : 'text-sentinel-400 hover:text-sentinel-200 hover:bg-sentinel-800'
+                } ${count === 0 && !isActive ? 'opacity-50' : ''}`}
               >
+                {accent && <span className={`w-1.5 h-1.5 rounded-full ${accent.dot}`} />}
                 {label}
-                <span
-                  className={`tabular-nums font-bold ${isActive ? 'opacity-95' : 'opacity-70'}`}
-                >
-                  {count}
-                </span>
+                <span className={`tabular-nums ${isActive ? 'text-sentinel-300' : 'text-sentinel-500'}`}>{count}</span>
               </button>
             );
           })}
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto overflow-x-hidden py-2 pb-3 px-1">
-        <AlertErrorBanner
-          error={alertsStatus?.error || error}
-          detail={alertsStatus?.errorDetail}
-          staleCount={alerts.length}
-          onRetry={onRefresh}
-        />
+      <div className="flex-1 overflow-y-auto overflow-x-hidden pb-3">
+        <div className="pt-2">
+          <AlertErrorBanner
+            error={alertsStatus?.error || error}
+            detail={alertsStatus?.errorDetail}
+            staleCount={alerts.length}
+            onRetry={onRefresh}
+          />
+        </div>
 
         {loading && filtered.length === 0 && (
-          <div className="flex items-center justify-center gap-2 py-8 text-sentinel-200">
-            <Loader2 size={18} className="animate-spin" />
+          <div className="flex items-center justify-center gap-2 py-10 text-sentinel-300">
+            <Loader2 size={16} className="animate-spin" />
             <span className="text-sm">Loading active alerts…</span>
           </div>
         )}
@@ -537,8 +553,8 @@ export default function WeatherAlertsFeed({
         )}
 
         {!loading && !error && filtered.length === 0 && (
-          <div className="text-center py-8 text-sentinel-300 text-sm flex flex-col items-center gap-2">
-            <CloudSun size={18} />
+          <div className="text-center py-10 text-sentinel-400 text-sm flex flex-col items-center gap-2">
+            <CloudSun size={22} className="text-sentinel-500" />
             <span>{activeFilter === 'all' ? 'No active NWS or FEMA alerts.' : `No active ${activeFilter}s.`}</span>
           </div>
         )}

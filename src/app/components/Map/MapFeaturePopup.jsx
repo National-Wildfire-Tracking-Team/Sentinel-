@@ -66,30 +66,66 @@ function formatExpiresIn(expires) {
   return `in ${days} day${days === 1 ? '' : 's'}`;
 }
 
+const EXPIRING_SOON_MS = 30 * 60 * 1000;
+
 function getSubtitle(item) {
   if (item.historical) return { prefix: 'Previous mapping', bold: null };
   if (item.type === 'weather-alert' && item.expires) {
     const rel = formatExpiresIn(item.expires);
-    if (rel) return { prefix: 'Expires ', bold: rel };
+    if (rel === 'Expired') return { prefix: 'Expired', bold: null, tone: 'text-sentinel-400' };
+    if (rel) {
+      const soon = new Date(item.expires) - Date.now() < EXPIRING_SOON_MS;
+      return { prefix: 'Ends ', bold: rel, tone: soon ? 'text-orange-300' : null };
+    }
   }
   const typeLabel = TYPE_LABELS[item.type] || 'Item';
   if (getTitle(item) !== typeLabel) return { prefix: typeLabel, bold: null };
   return null;
 }
 
+/** First affected area (+N more) and issuing office — a weather alert's "where". */
+function getAlertWhere(item) {
+  if (item.type !== 'weather-alert') return null;
+  const areas = String(item.affectedArea || '').split(/;\s*/).filter(Boolean);
+  const area = areas.length ? `${areas[0]}${areas.length > 1 ? ` +${areas.length - 1}` : ''}` : null;
+  return [area, item.senderName].filter(Boolean).join(' · ') || null;
+}
+
+const SEVERITY_DOT = { Extreme: 'bg-red-400', Severe: 'bg-orange-400' };
+
+function SeverityTag({ item }) {
+  if (item.type !== 'weather-alert' || !SEVERITY_DOT[item.severity]) return null;
+  return (
+    <span className="inline-flex items-center gap-1 shrink-0 px-1.5 py-px rounded text-[9px] font-bold uppercase tracking-wide bg-white/10 text-white/80">
+      <span className={`w-1.5 h-1.5 rounded-full ${SEVERITY_DOT[item.severity]}`} />
+      {item.severity}
+    </span>
+  );
+}
+
+function Subtitle({ subtitle, className }) {
+  if (!subtitle) return null;
+  return (
+    <div className={`${className} ${subtitle.tone || ''}`}>
+      {subtitle.prefix}
+      {subtitle.bold && <span className={`font-semibold ${subtitle.tone || 'text-white'}`}>{subtitle.bold}</span>}
+    </div>
+  );
+}
+
 function ItemHeader({ item }) {
   const title = getTitle(item);
   const subtitle = getSubtitle(item);
+  const where = getAlertWhere(item);
   return (
     <span className="flex-1 min-w-0 flex items-center justify-between gap-2">
       <span className="min-w-0">
-        <div className={`font-semibold text-[15px] leading-snug truncate ${item.historical ? 'text-sentinel-300' : 'text-white'}`}>{title}</div>
-        {subtitle && (
-          <div className="text-[13px] text-sentinel-200 mt-0.5">
-            {subtitle.prefix}
-            {subtitle.bold && <span className="font-semibold text-white">{subtitle.bold}</span>}
-          </div>
-        )}
+        <div className="flex items-center gap-2 min-w-0">
+          <span className={`font-semibold text-[15px] leading-snug truncate ${item.historical ? 'text-sentinel-300' : 'text-white'}`}>{title}</span>
+          <SeverityTag item={item} />
+        </div>
+        {where && <div className="text-[12px] text-sentinel-300 mt-0.5 truncate">{where}</div>}
+        <Subtitle subtitle={subtitle} className="text-[13px] text-sentinel-200 mt-0.5" />
       </span>
       <ChevronRight size={18} className="text-white/50 shrink-0" />
     </span>
@@ -99,24 +135,24 @@ function ItemHeader({ item }) {
 function ListRow({ item, onSelect }) {
   const title = getTitle(item);
   const subtitle = getSubtitle(item);
+  const where = getAlertWhere(item);
   return (
     <button
       type="button"
       onClick={() => onSelect(item)}
-      className="w-full flex items-stretch gap-3 px-3 py-2 text-left hover:bg-white/5 transition-colors"
+      className="group w-full flex items-stretch gap-3 px-3 py-2 text-left hover:bg-white/[0.06] transition-colors"
     >
       <span className="w-1 rounded-full shrink-0" style={{ background: getAccentColor(item) }} />
       <span className="flex-1 min-w-0 flex items-center justify-between gap-2">
         <span className="min-w-0">
-          <div className={`text-sm font-semibold truncate ${item.historical ? 'text-sentinel-300' : 'text-white'}`}>{title}</div>
-          {subtitle && (
-            <div className="text-xs text-sentinel-300 mt-0.5">
-              {subtitle.prefix}
-              {subtitle.bold && <span className="font-semibold text-white">{subtitle.bold}</span>}
-            </div>
-          )}
+          <div className="flex items-center gap-2 min-w-0">
+            <span className={`text-sm font-semibold truncate ${item.historical ? 'text-sentinel-300' : 'text-white'}`}>{title}</span>
+            <SeverityTag item={item} />
+          </div>
+          {where && <div className="text-[11px] text-sentinel-400 mt-0.5 truncate">{where}</div>}
+          <Subtitle subtitle={subtitle} className="text-xs text-sentinel-300 mt-0.5" />
         </span>
-        <ChevronRight size={15} className="text-white/40 shrink-0" />
+        <ChevronRight size={15} className="text-white/30 group-hover:text-white/70 group-hover:translate-x-0.5 transition-all shrink-0" />
       </span>
     </button>
   );
@@ -232,16 +268,21 @@ const MapFeaturePopup = memo(function MapFeaturePopup({
       >
         <div
           style={{ transform: `translate(${offset.x}px, ${offset.y}px)`, background: CARD_BG }}
-          className="rounded-2xl border border-white/10 shadow-2xl min-w-[240px] max-w-[300px] overflow-hidden"
+          className="rounded-2xl border border-white/10 shadow-2xl min-w-[260px] max-w-[320px] overflow-hidden"
         >
           {prefs.mapPopupMode === 'single' ? (
             <SingleCarousel items={items} onSelect={onSelect} />
           ) : (
-            <div className="max-h-64 overflow-y-auto py-1">
-              {items.map((item, i) => (
-                <ListRow key={item.id ?? i} item={item} onSelect={onSelect} />
-              ))}
-            </div>
+            <>
+              <div className="px-4 pt-2.5 pb-1 text-[10px] font-bold uppercase tracking-wider text-sentinel-400">
+                {items.length} {items.length === 1 ? 'feature' : 'features'} here
+              </div>
+              <div className="max-h-64 overflow-y-auto scrollbar-thin pb-1 divide-y divide-white/5">
+                {items.map((item, i) => (
+                  <ListRow key={item.id ?? i} item={item} onSelect={onSelect} />
+                ))}
+              </div>
+            </>
           )}
 
           <div className="h-px bg-white/10 mx-3" />
