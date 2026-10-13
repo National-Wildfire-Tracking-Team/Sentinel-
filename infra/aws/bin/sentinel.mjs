@@ -36,10 +36,24 @@ const DEFAULTS = {
   distributionId: '', // set after the first deploy to scope the weather-models invoke permission
   weatherModelsReservedConcurrency: '0', // >0 caps concurrent executions (needs spare account concurrency)
   mrms: 'disabled', // 'enabled' adds SentinelMrms and the /mrms/* route
+  supabaseUrl: '', // ors-routing: public project URL (GitHub secret SUPABASE_URL)
+  supabaseAnonKey: '', // ors-routing: public anon key (GitHub secret VITE_SUPABASE_ANON_KEY)
+  allowMissingSupabase: 'false', // 'true' lets a local synth/diff run without the two above
 };
 
 const app = new App();
 const ctx = (key) => app.node.tryGetContext(`sentinel:${key}`) || DEFAULTS[key];
+
+// ors-routing answers every request with 503 not_configured without these, so a
+// deploy that silently drops them would ship a dead Navigation feature. Fail synth
+// instead. Local synth: -c sentinel:allowMissingSupabase=true.
+if ((!ctx('supabaseUrl') || !ctx('supabaseAnonKey')) && ctx('allowMissingSupabase') !== 'true') {
+  throw new Error(
+    'sentinel:supabaseUrl and sentinel:supabaseAnonKey are required (ors-routing). '
+    + 'CI passes them from the SUPABASE_URL and VITE_SUPABASE_ANON_KEY secrets; '
+    + 'for a local synth pass -c sentinel:allowMissingSupabase=true.',
+  );
+}
 
 const env = { account: process.env.CDK_DEFAULT_ACCOUNT, region: 'us-east-1' };
 const weatherModelsEnabled = ctx('weatherModels') === 'enabled';
@@ -78,6 +92,8 @@ const dataServices = new DataServicesStack(app, 'SentinelDataServices', {
   monthlyBudgetUsd: Number(ctx('monthlyBudgetUsd')),
   weatherModelsFunctionUrl: weatherModels?.functionUrl.url,
   mrms: mrmsEnabled,
+  supabaseUrl: ctx('supabaseUrl'),
+  supabaseAnonKey: ctx('supabaseAnonKey'),
 });
 // Deploying the distribution deploys SentinelMrms first (its bucket backs /mrms/*), as CI deploys only SentinelDataServices.
 if (mrms) dataServices.addDependency(mrms);

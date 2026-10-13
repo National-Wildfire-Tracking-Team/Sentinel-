@@ -81,6 +81,32 @@ export const SERVICES = [
       NWS_USER_AGENT: nwsUserAgent,
     }),
   },
+  {
+    id: 'OrsRouting',
+    dir: 'ors-routing',
+    pathPrefix: '/ors-routing',
+    frontendEnvVar: 'VITE_ORS_ROUTING_URL',
+    healthPath: '/health',
+    memoryMb: 1024, // JSON in, JSON out; the heavy lifting happens at ORS
+    timeoutSeconds: 30,
+    // Route to Safety (Pro). Unlike the public-data services it has npm
+    // dependencies (openrouteservice-js, AWS SDK), so its asset is an
+    // esbuild bundle; it reads one secret; and its responses are per-user,
+    // so CloudFront must never cache them. Reserved concurrency is a cost
+    // backstop on top of the Supabase quota (public.consume_routing_quota).
+    bundle: true,
+    secretName: 'Routing',
+    cache: 'disabled',
+    reservedConcurrency: 10,
+    // Edge flood guard (AWS WAF rate rule, per IP, 5-minute window). A real
+    // user makes a handful of calls per session; 100/5 min only stops scripts.
+    wafRateLimitPer5Min: 100,
+    env: ({ allowedOrigins, supabaseUrl, supabaseAnonKey }) => ({
+      ALLOWED_ORIGINS: allowedOrigins,
+      SUPABASE_URL: supabaseUrl,
+      SUPABASE_ANON_KEY: supabaseAnonKey,
+    }),
+  },
 ];
 
 /** AWS Lambda Web Adapter, published by AWS in every commercial region. */

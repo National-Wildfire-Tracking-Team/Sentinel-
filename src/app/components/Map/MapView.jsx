@@ -1401,6 +1401,8 @@ function HoverTooltip({ features, lngLat }) {
  * @param {'wildfire'|'weather'|'allhazard'|'models'} [props.activeMapTab]
  * @param {Function}    [props.onModelPick]  Models tab: a map click picks the forecast point ({lat, lon})
  * @param {Function}    [props.modelOverlay] Models tab: ({ mapStyle, mapboxAccessToken }) => children rendered inside the map
+ * @param {React.ReactNode} [props.routeOverlay] All Hazards Route to Safety layer, rendered inside the map
+ * @param {Function}    [props.onRoutePick]  Route to Safety "pick a point": a map click sets the destination ({lng, lat})
  */
 export default function MapView({
   activeMapTab = 'wildfire',
@@ -1481,6 +1483,8 @@ export default function MapView({
   fireWxOutlookPanelRef,
   onModelPick,
   modelOverlay = null,
+  routeOverlay = null,
+  onRoutePick,
 }) {
   const { layers, setLayer, selectedFire, selectFire, selectGauge, selectCamera, sidebarOpen, locationGranted, layerPanelOpen, closeLayerPanel, nhcModelTracks } = useApp();
   const satellite = useSatelliteContext();
@@ -1753,6 +1757,15 @@ export default function MapView({
 
   // Handle map click – add measurement point OR select fire for detail panel
   const handleClick = useCallback((evt) => {
+    // Navigation "pick a point on map": the click is the destination, even with
+    // the layer panel open (otherwise the first tap only closes the panel).
+    // Measurement keeps priority if both are somehow active.
+    if (onRoutePick && !measureActive) {
+      if (layerPanelOpen) closeLayerPanel();
+      onRoutePick({ lng: evt.lngLat.lng, lat: evt.lngLat.lat });
+      return;
+    }
+
     if (layerPanelOpen) {
       closeLayerPanel();
       return;
@@ -1914,7 +1927,7 @@ export default function MapView({
       mouseLngLat: evt.lngLat,
       anchorFeature: records[0].feature,
     });
-  }, [measureActive, alerts, selectFire, selectGauge, selectCamera, layerPanelOpen, closeLayerPanel, onModelPick, nhcCyclones, nhcOutlookSystems, pickAtCenter]);
+  }, [measureActive, alerts, selectFire, selectGauge, selectCamera, layerPanelOpen, closeLayerPanel, onModelPick, onRoutePick, nhcCyclones, nhcOutlookSystems, pickAtCenter]);
 
   // Center picker: once a model point is being inspected, panning keeps it on the screen center.
   useEffect(() => {
@@ -1932,6 +1945,11 @@ export default function MapView({
   const handleMouseMove = useCallback((evt) => {
     if (measureActive) {
       setMeasurePreview({ lng: evt.lngLat.lng, lat: evt.lngLat.lat });
+      if (mapRef.current) mapRef.current.getCanvas().style.cursor = 'crosshair';
+      return;
+    }
+    // Route to Safety pick mode: the whole map is a target.
+    if (onRoutePick) {
       if (mapRef.current) mapRef.current.getCanvas().style.cursor = 'crosshair';
       return;
     }
@@ -1964,7 +1982,16 @@ export default function MapView({
         mapRef.current.getCanvas().style.cursor = '';
       }
     }
-  }, [measureActive]);
+  }, [measureActive, onRoutePick]);
+
+  // Pick mode on → crosshair right away (before the next mouse move);
+  // off → back to the default cursor.
+  const routePickActive = Boolean(onRoutePick);
+  useEffect(() => {
+    const canvas = mapRef.current?.getCanvas?.();
+    if (!canvas || measureActive) return;
+    canvas.style.cursor = routePickActive ? 'crosshair' : '';
+  }, [routePickActive, measureActive]);
 
   const handleMouseLeave = useCallback(() => {
     setMeasurePreview(null);
@@ -2377,6 +2404,8 @@ export default function MapView({
             </Marker>
           ) : null
         ))}
+
+        {routeOverlay}
 
         {/* Measurement geometry – rendered last so it's always on top */}
         {measureActive && (
