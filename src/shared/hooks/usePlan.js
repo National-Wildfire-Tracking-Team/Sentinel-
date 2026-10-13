@@ -100,6 +100,9 @@ export function usePlan() {
   const hasProInfrastructureAccess = isProOrAbove || Boolean(isReporter);
   /** Fire behavior modeling (spread projection layer) — Plus plan and above, or field reporter status. */
   const hasFireBehaviorModelingAccess = isPaidPlan || Boolean(isReporter);
+  /** Route to Safety (ORS routing to shelters) — Pro/Team only (PLANS.*.evacuationRoutes).
+   *  Must match the server check in cloud/ors-routing/auth.mjs. */
+  const hasEvacuationRoutesAccess = Boolean(plan.evacuationRoutes);
 
   return {
     planId,
@@ -111,6 +114,7 @@ export function usePlan() {
     isPaid: isPaidPlan,
     hasProInfrastructureAccess,
     hasFireBehaviorModelingAccess,
+    hasEvacuationRoutesAccess,
     isActive: paidStatuses.includes(subscription?.status) || planId === 'free',
     cancelAtPeriodEnd: subscription?.cancel_at_period_end ?? false,
     currentPeriodEnd: subscription?.current_period_end ?? null,

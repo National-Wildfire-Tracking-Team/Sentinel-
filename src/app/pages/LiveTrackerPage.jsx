@@ -78,6 +78,9 @@ import { SatelliteProvider, satellitePanelOpenAfter } from '../context/Satellite
 import { parseSatelliteQuery } from '../api/goesSatellite';
 import { parseModelsQuery } from '../utils/weatherModelsLink';
 import MapCornerButtons from '../components/MapControls/MapCornerButtons';
+import { useRouteToSafety } from '../hooks/useRouteToSafety';
+import RouteToSafetyPanel from '../components/Routing/RouteToSafetyPanel';
+import RouteLayer from '../components/Map/layers/RouteLayer';
 import FutureFeaturesPanel from '../components/MapControls/FutureFeaturesPanel';
 import AccountButton from '../components/MapControls/AccountButton';
 import AccountPanel from '../components/AccountPanel/AccountPanel';
@@ -277,7 +280,7 @@ export default function LiveTrackerPage() {
   const { home, nearbyActive } = useHomeSetup();
   const { viewport, setViewport, flyToFire } = useViewport();
   const { prefs } = usePreferences();
-  const { hasProInfrastructureAccess, hasFireBehaviorModelingAccess } = usePlan();
+  const { hasProInfrastructureAccess, hasFireBehaviorModelingAccess, hasEvacuationRoutesAccess } = usePlan();
   const criticalInfraEntitled = hasProInfrastructureAccess;
   const { locations: savedLocations } = useSavedLocations();
   // A Models link (?tab=models&lat=…, e.g. from an incident or /weather-models) opens on that tab.
@@ -318,6 +321,18 @@ export default function LiveTrackerPage() {
     }
   }, [criticalInfraEntitled, layers.landOwnership, setLayer]);
 
+  // Navigation (Route to Safety): Pro + All Hazards only. A lapsed plan or leaving the tab turns it off.
+  // Navigation (Route to Safety): Pro/Team only — the server and quota RPC enforce it too.
+  const navigationEntitled = hasEvacuationRoutesAccess;
+  // Offered at the bottom of the layer list on the All Hazards, Wildfire and Weather tabs.
+  const navigationTab = activeMapTab === MAP_TABS.allhazard || activeMapTab === MAP_TABS.wildfire || activeMapTab === MAP_TABS.weather;
+  useEffect(() => {
+    if (layers.routeToSafety && (!navigationEntitled || !navigationTab)) {
+      setLayer('routeToSafety', false);
+    }
+  }, [navigationEntitled, navigationTab, layers.routeToSafety, setLayer]);
+  const routeToSafetyActive = navigationTab && navigationEntitled && Boolean(layers.routeToSafety);
+
   // The map canvas bleeds below the page (see .viewport-bleed), so the
   // document itself must not scroll while this full-screen page is mounted.
   useEffect(() => {
@@ -348,7 +363,10 @@ export default function LiveTrackerPage() {
   const handleTabChange = useCallback((newTab) => {
     if (newTab === activeMapTab) return;
     if (activeMapTab !== MAP_TABS.locations) {
-      layerSnapshotsRef.current[activeMapTab] = { ...layers };
+      // routeToSafety is never restored as on: each activation spends ORS quota.
+      // eslint-disable-next-line no-unused-vars
+      const { routeToSafety: _routeToSafety, ...snapshot } = layers;
+      layerSnapshotsRef.current[activeMapTab] = snapshot;
     }
     setActiveMapTab(newTab);
   }, [activeMapTab, layers]);
@@ -1286,6 +1304,52 @@ export default function LiveTrackerPage() {
   }, [nearbyOn, nearbyLat, nearbyLng, nearbyRadius, filteredPerimetersGeoJSON,
     deduplicatedIncidentsGeoJSON, finalIncidentDotsGeoJSON, filteredAlertsGeoJSON]);
 
+  // ── Navigation / Route to Safety (All Hazards, Pro) ──
+  const routeToSafety = useRouteToSafety({
+    enabled: routeToSafetyActive,
+    home,
+    perimetersGeoJSON: nearbyMapGeoJSON.perimeters,
+    evacZonesGeoJSON,
+  });
+  const closeRouteToSafety = useCallback(() => setLayer('routeToSafety', false), [setLayer]);
+  // Same validity rule the hook uses before routing from Home.
+  const hasValidHome = Boolean(home) && Number.isFinite(home.latitude) && Number.isFinite(home.longitude);
+  const routeOverlay = useMemo(() => (routeToSafetyActive ? (
+    <RouteLayer
+      route={routeToSafety.route}
+      origin={routeToSafety.origin}
+      destination={routeToSafety.destination}
+      shelters={routeToSafety.status === 'ready' ? routeToSafety.shelters : []}
+      hazardWarning={routeToSafety.hazardWarning}
+    />
+  ) : null), [routeToSafetyActive, routeToSafety.route, routeToSafety.origin, routeToSafety.destination, routeToSafety.status, routeToSafety.shelters, routeToSafety.hazardWarning]);
+
+  // Frame a newly arrived route once (not on every data refresh). The map
+  // instance comes from handleMapLoad; reduced motion jumps instead of flying.
+  const routeBoundsKeyRef = useRef(null);
+  useEffect(() => {
+    const coords = routeToSafety.route?.features?.[0]?.geometry?.coordinates;
+    if (!coords?.length) {
+      routeBoundsKeyRef.current = null;
+      return;
+    }
+    if (!mapInstance || typeof mapInstance.fitBounds !== 'function') return;
+    const key = `${coords[0]}|${coords[coords.length - 1]}|${coords.length}`;
+    if (routeBoundsKeyRef.current === key) return;
+    routeBoundsKeyRef.current = key;
+    const lngs = coords.map((c) => c[0]);
+    const lats = coords.map((c) => c[1]);
+    const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    // Keep the route clear of the panel on the right (360px + 16px gutters).
+    const padding = window.innerWidth < 640
+      ? 40
+      : { top: 80, bottom: 80, left: 80, right: Math.min(window.innerWidth * 0.5, 392) };
+    mapInstance.fitBounds(
+      [[Math.min(...lngs), Math.min(...lats)], [Math.max(...lngs), Math.max(...lats)]],
+      { padding, duration: reduceMotion ? 0 : 600 },
+    );
+  }, [routeToSafety.route, mapInstance]);
+
   // ── Global loading state ──
   // Weather alerts count too: they're the live feed on the Weather tab, where
   // the wildfire feeds are switched off, so without them "Updated …" would
@@ -1639,9 +1703,19 @@ export default function LiveTrackerPage() {
             wpcMpdGeoJSON={wpcMpdGeoJSON}
             onModelPick={activeMapTab === MAP_TABS.models ? handleModelPick : undefined}
             modelOverlay={activeMapTab === MAP_TABS.models ? (p) => <WeatherModelsMapLayer {...p} /> : null}
+            routeOverlay={routeOverlay}
+            onRoutePick={routeToSafetyActive && routeToSafety.picking ? routeToSafety.actions.pickPoint : undefined}
           />
 
           <MapCornerButtons onReopenBanner={reopenBanner} />
+          {routeToSafetyActive && (
+            <RouteToSafetyPanel
+              state={routeToSafety}
+              actions={routeToSafety.actions}
+              onClose={closeRouteToSafety}
+              hasHome={hasValidHome}
+            />
+          )}
 
           {floodHazardEnabled && (
             <FloodHazardStatus
@@ -1695,6 +1769,7 @@ export default function LiveTrackerPage() {
             onTabChange={handleTabChange}
             onModelsIntent={handleModelsIntent}
             infrastructureLayersEntitled={hasProInfrastructureAccess}
+            routingEntitled={navigationEntitled}
             measureActive={measureActive}
             measureMode={measureMode}
             onMeasureActivate={onMeasureActivate}

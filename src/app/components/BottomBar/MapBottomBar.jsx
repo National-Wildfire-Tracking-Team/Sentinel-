@@ -13,6 +13,7 @@ const MapBottomBar = memo(forwardRef(function MapBottomBar({
   onTabChange,
   onModelsIntent,
   infrastructureLayersEntitled = false,
+  routingEntitled = false,
   measureActive = false,
   measureMode = 'distance',
   onMeasureActivate,
@@ -32,6 +33,7 @@ const MapBottomBar = memo(forwardRef(function MapBottomBar({
       <LayerControl
         activeMapTab={activeMapTab}
         infrastructureLayersEntitled={infrastructureLayersEntitled}
+        routingEntitled={routingEntitled}
         measureActive={measureActive}
         measureMode={measureMode}
         onMeasureActivate={onMeasureActivate}

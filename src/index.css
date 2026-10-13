@@ -193,6 +193,31 @@ html.site-theme:not(.dark) .hover\:text-fire-300:hover {
   background: #5a6a7a;
 }
 
+/* Panel scrollbar: track = the panel's own background, thumb = a quiet grey,
+   so the bar blends into dark panels (theme-aware via the sentinel tokens). */
+.scrollbar-panel {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(var(--sentinel-600)) rgb(var(--sentinel-900));
+}
+
+.scrollbar-panel::-webkit-scrollbar {
+  width: 8px;
+}
+
+.scrollbar-panel::-webkit-scrollbar-track {
+  background: rgb(var(--sentinel-900));
+}
+
+.scrollbar-panel::-webkit-scrollbar-thumb {
+  background: rgb(var(--sentinel-600));
+  border-radius: 8px;
+  border: 2px solid rgb(var(--sentinel-900));
+}
+
+.scrollbar-panel::-webkit-scrollbar-thumb:hover {
+  background: rgb(var(--sentinel-500));
+}
+
 .scrollbar-none {
   scrollbar-width: none;
 }
@@ -258,6 +283,16 @@ body {
   .animate-dock-rise {
     animation: dockFade 0.2s ease-out;
   }
+}
+
+/* Route to Safety sheet (and its address suggestions): frosted material; solid when transparency is reduced or contrast raised. */
+@media (prefers-reduced-transparency: reduce) {
+  .route-safety-panel,
+  .route-safety-suggestions { background-color: rgb(24 24 27); backdrop-filter: none; }
+}
+@media (prefers-contrast: more) {
+  .route-safety-panel,
+  .route-safety-suggestions { background-color: rgb(24 24 27); border-color: rgb(255 255 255 / 0.6); }
 }
 
 @keyframes dockFade {

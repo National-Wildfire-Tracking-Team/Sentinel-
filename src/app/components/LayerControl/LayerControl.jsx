@@ -7,7 +7,7 @@
 import { useState, memo, useMemo, useEffect } from 'react';
 import { getMainOrigin } from '../../../shared/utils/getAppOrigin';
 import {
-  Layers, Flame, MapPin, Wind, CloudRain, CloudLightning, Radar, AlertTriangle, Ruler, Hexagon, Satellite, Thermometer, Activity, Droplets, Zap, Lock, GraduationCap, History, TrendingUp, Camera, Snowflake, Landmark, Waves, Waypoints,
+  Layers, Flame, MapPin, Wind, CloudRain, CloudLightning, Radar, AlertTriangle, Ruler, Hexagon, Satellite, Thermometer, Activity, Droplets, Zap, Lock, GraduationCap, History, TrendingUp, Camera, Snowflake, Landmark, Waves, Waypoints, Navigation,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { trackSentinelUse } from '../../../shared/utils/analytics';
@@ -48,6 +48,7 @@ const LAYER_DEFS = {
   wildfireCameras:   { label: 'Live CA Cameras',      sublabel: 'Caltrans District CCTV · click for live feed', icon: Camera, color: '#14b8a6' },
   nhcTropical:      { label: 'NHC Tropical', sublabel: 'Storms, outlook, wind & surge · choose parts below', icon: Waypoints, color: '#4dffff' },
   fireBehaviorModeling: { label: 'Fire Behavior Modeling', sublabel: 'Spread projection · select a fire', icon: TrendingUp, color: '#ff3b1f' },
+  routeToSafety: { label: 'Navigation', sublabel: 'Nearest open shelters · hazard-avoiding routes', icon: Navigation, color: '#22c55e' },
 };
 
 
@@ -351,6 +352,7 @@ function WpcDaySelector({ layerKey, product, subtitle, accentColor }) {
 const LayerControl = memo(function LayerControl({
   activeMapTab = 'wildfire',
   infrastructureLayersEntitled = false,
+  routingEntitled = false,
   measureActive = false,
   measureMode = 'distance',
   onMeasureActivate,
@@ -387,6 +389,12 @@ const LayerControl = memo(function LayerControl({
     },
   ], [infrastructureLayersEntitled]);
 
+  // Pro-gated rows outside the Infrastructure section (same Lock/Upgrade row).
+  const lockedLayerKeys = useMemo(
+    () => new Set(routingEntitled ? [] : ['routeToSafety']),
+    [routingEntitled],
+  );
+
   const sections = useMemo(() => {
     const tabKey = activeMapTab === 'weather' ? 'weather' : activeMapTab === 'allhazard' ? 'allhazard' : 'wildfire';
     const base = TAB_SECTIONS[tabKey] || TAB_SECTIONS.wildfire;
@@ -400,6 +408,12 @@ const LayerControl = memo(function LayerControl({
         title: 'Infrastructure',
         groups: [{ layers: infraLayers.map((l) => l.key) }],
         infraLayers,
+      },
+      // Navigation (Pro): last in the list on All Hazards, Wildfire and Weather.
+      {
+        id: 'nav-safety',
+        title: 'Evacuation',
+        groups: [{ layers: ['routeToSafety'] }],
       },
     ];
   }, [activeMapTab, infraLayers]);
@@ -496,7 +510,7 @@ const LayerControl = memo(function LayerControl({
               (plus any docked outlook panel), so short landscape phone
               screens don't push the panel's header up under the page header. */}
           <div
-            className="py-2 max-h-[min(60vh,28rem)] overflow-y-auto"
+            className="py-2 max-h-[min(60vh,28rem)] overflow-y-auto scrollbar-panel"
             style={{ maxHeight: `min(60vh, 28rem, calc(100dvh - 14rem - ${dockedPanelClearance}px))` }}
           >
             {/* The Models tab's model / variable / overlay choices live in this same
@@ -558,6 +572,7 @@ const LayerControl = memo(function LayerControl({
                                 sublabel={sublabel}
                                 icon={def.icon}
                                 color={def.color}
+                                locked={lockedLayerKeys.has(layerKey)}
                               />
 
                               {layerKey === 'mrms' && <MrmsControls />}

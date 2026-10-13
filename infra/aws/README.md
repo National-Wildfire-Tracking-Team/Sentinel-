@@ -41,9 +41,13 @@ Defaults are in `bin/sentinel.mjs`. Override any of them with `-c sentinel:<key>
 | `distributionId` | *(none)* | After the first deploy, set it to the `DistributionId` output to narrow the weather-models invoke permission from "CloudFront in this account" to this one distribution. In CI it's `AWS_DISTRIBUTION_ID`. |
 | `mrms` | `disabled` | `enabled` adds `SentinelMrms` (us-east-1) and the `/mrms/*` route. In CI it's the `AWS_MRMS` repo variable. With `distributionId` set, the frames bucket is readable only by that distribution. |
 | `weatherModelsReservedConcurrency` | `0` (no cap) | Caps concurrent weather-models executions. Needs spare account concurrency (at least 10 must stay unreserved). |
+| `supabaseUrl` | *(none, required)* | ors-routing's Supabase project URL. In CI it's the `SUPABASE_URL` **secret**. Synth fails if empty. |
+| `supabaseAnonKey` | *(none, required)* | ors-routing's public anon key. In CI it's the `VITE_SUPABASE_ANON_KEY` **secret**. Synth fails if empty. |
+| `allowMissingSupabase` | `false` | `true` skips the two checks above, for a local synth or test run only. |
 
-Nothing here is a secret. The services call only public APIs, so there's
-nothing to put in Secrets Manager.
+Only ors-routing reads a secret (its ORS API key, see
+[ors-routing](#ors-routing-navigation)). The other services call only public
+APIs, so there's nothing for them in Secrets Manager.
 
 ## Develop and verify offline
 
@@ -53,7 +57,7 @@ No AWS account is needed for any of this.
 cd infra/aws
 npm ci
 npm test            # synthesizes both stacks and asserts the IAM, networking, caching and cost guards
-npx cdk synth       # CloudFormation lands in cdk.out/
+npx cdk synth -c sentinel:allowMissingSupabase=true   # CloudFormation lands in cdk.out/
 ```
 
 ## First deploy (one-time, from a laptop)
@@ -210,6 +214,40 @@ infrastructure, deploy with `mrms` unset, then
 retained; its lifecycle rule empties it within a day.
 
 **Cost.** About $2–7 a month (breakdown in the service README).
+
+## ors-routing (Navigation)
+
+The backend for All Hazards → Navigation (internally "Route to Safety", Pro/Team
+only; [README](../../cloud/ors-routing/README.md)). It's part of
+`SentinelDataServices` at `/ors-routing/*`, never cached by CloudFront.
+
+- **ORS key.** A Secrets Manager secret named `Routing` in **us-east-1**,
+  encrypted with the default `aws/secretsmanager` key (a customer-managed key
+  would also need a `kms:Decrypt` grant, which the stack doesn't add). Plain
+  string, or JSON `{ "ORS_API_KEY": "…" }`. Create it before the first deploy:
+  `aws secretsmanager create-secret --region us-east-1 --name Routing --secret-string '<key>'`.
+  Only the ors-routing runtime role can read it.
+- **Supabase.** The function needs the project URL and anon key (both public,
+  the same values the frontend ships) to check the caller's JWT, plan and
+  `consume_routing_quota`. `deploy-aws.yml` passes the `SUPABASE_URL` and
+  `VITE_SUPABASE_ANON_KEY` repo **secrets**; a laptop deploy passes
+  `-c sentinel:supabaseUrl=… -c sentinel:supabaseAnonKey=…`. Synth fails
+  without them unless `-c sentinel:allowMissingSupabase=true`.
+- **WAF.** A web ACL on the distribution rate-limits `/ors-routing/*` to 100
+  requests per IP per 5 minutes, answering 429 with a JSON body and
+  `access-control-allow-origin: *` so the browser can read it. Cost: about
+  **$6 a month** ($5 per ACL + $1 per rule) plus **$0.60 per million requests**
+  on the whole distribution, since the ACL inspects every request, not only
+  `/ors-routing`.
+- **Concurrency.** Reserved concurrency is **10**, a cost backstop on top of
+  the Supabase quota. Reserving takes it out of the account pool, and Lambda
+  keeps at least 10 unreserved, so the account limit must be at least
+  10 + 10 + any other reservations (e.g. `weatherModelsReservedConcurrency`).
+  A new account at the default limit of 10 fails the deploy; request an
+  increase first (see [First deploy](#first-deploy-one-time-from-a-laptop)).
+
+Then set the `VITE_ORS_ROUTING_URL` GitHub secret (and the Netlify env var for
+previews) to the `OrsRoutingBaseUrl` output.
 
 ## Parallel run and validation
 
