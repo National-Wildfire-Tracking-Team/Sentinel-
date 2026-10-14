@@ -329,12 +329,6 @@ export default function LiveTrackerPage() {
   }, [criticalInfraEntitled, layers.criticalInfrastructure, setLayer]);
 
   useEffect(() => {
-    if (!criticalInfraEntitled && layers.schoolsUniversities) {
-      setLayer('schoolsUniversities', false);
-    }
-  }, [criticalInfraEntitled, layers.schoolsUniversities, setLayer]);
-
-  useEffect(() => {
     if (!criticalInfraEntitled && layers.landOwnership) {
       setLayer('landOwnership', false);
     }
@@ -667,7 +661,6 @@ export default function LiveTrackerPage() {
 
   const schoolsLayerEnabled = Boolean(
     layers.schoolsUniversities
-    && criticalInfraEntitled
     && (activeMapTab === MAP_TABS.wildfire || activeMapTab === MAP_TABS.weather || activeMapTab === MAP_TABS.allhazard)
   );
   const {
