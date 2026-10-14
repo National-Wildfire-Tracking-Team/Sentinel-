@@ -6,8 +6,7 @@
  */
 
 import { useRef, useCallback, useMemo, useState, useEffect } from 'react';
-import Map, { Popup, Marker, Source, Layer } from 'react-map-gl';
-import { Navigation } from 'lucide-react';
+import Map, { Marker, Source, Layer } from 'react-map-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import MapZoomControl from './MapZoomControl';
 
@@ -16,7 +15,6 @@ import { useAppStatus } from '../../context/AppStatusContext';
 import { useViewport } from '../../context/ViewportContext';
 import { usePreferences } from '../../context/PreferencesContext';
 import { useWeatherModelsContext } from '../../context/WeatherModelsContext';
-import { formatAcres, formatContainment, formatFRP, withClock } from '../../utils/formatUtils';
 import MapFeaturePopup from './MapFeaturePopup';
 import StormMapPopup from './StormMapPopup';
 import NhcModelTracksLayer from './layers/NhcModelTracksLayer';
@@ -24,9 +22,7 @@ import { useSatelliteContext } from '../../context/SatelliteContext';
 import { useNhcModelTracks } from '../../hooks/useNhcModelTracks';
 import { buildCyclones, buildOutlookSystems } from '../../api/nhcTropicalWeather';
 import SpotlightMaskLayer from './layers/SpotlightMaskLayer';
-import { frpToLabel } from '../../utils/colorUtils';
 import * as hrrRateLimiter from '../../utils/hrrRateLimiter';
-import { FLOOD_CATEGORY_META, floodCategoryLabel } from '../../api/noaaWaterGauge';
 
 // Data layer components
 import FireHotspotsLayer  from './layers/FireHotspotsLayer';
@@ -64,13 +60,12 @@ import NationalMapCollegesLayer from './layers/NationalMapCollegesLayer';
 import CaliforniaLandOwnershipLayer from './layers/CaliforniaLandOwnershipLayer';
 import FloodHazardLayer, { FLOOD_ZONES_FILL_ID, FLOOD_PANELS_FILL_ID } from './layers/FloodHazardLayer';
 import { floodCategoryMeta } from '../../utils/floodHazard';
-import { WATCH_WARNING_COLORS } from '../../api/nhcTropicalWeather';
 import NHCTropicalWeatherLayer from './layers/NHCTropicalWeatherLayer';
 import NhcWindHazardsLayer from './layers/NhcWindHazardsLayer';
 import WaterGaugesLayer from './layers/WaterGaugesLayer';
 import CaliforniaCamerasLayer from './layers/CaliforniaCamerasLayer';
 import CalFirePerimetersLayer from './layers/CalFirePerimetersLayer';
-import HazardEventsLayer, { HAZARD_CATEGORY_LABELS } from './layers/HazardEventsLayer';
+import HazardEventsLayer from './layers/HazardEventsLayer';
 import DamageAssessmentLayer from './layers/DamageAssessmentLayer';
 import MrmsLayer from './layers/MrmsLayer';
 import { parseAliasIds } from '../../utils/incidentAliases';
@@ -434,20 +429,6 @@ const GLOBE_FOG = {
   'star-intensity': 0.3,
 };
 
-/**
- * Tooltip shown on hover
- */
-const OUTLOOK_LAYER_IDS = new Set(['spc-outlook-fill', 'drought-outlook-fill', 'fire-weather-outlook-fill', 'nhc-disturbance-fill', 'nhc-disturbance-circle', 'nhc-track-circle', 'nhc-obs-circle', 'nhc-watch-warning-line', 'nhc-wind-prob-fill', 'nhc-wind-radii-fill', 'wpc-ero-fill', 'wpc-wssi-fill', 'wpc-qpf-fill', 'wpc-fronts-solid', 'wpc-fronts-dashed', 'wpc-fronts-stationary-line']);
-
-// Warning and mesoscale-discussion hover boxes share one fixed width so they
-// line up cleanly when stacked together above the cursor.
-const HOVER_MATCHED_WIDTH_LAYER_IDS = new Set(['weather-alerts-fill', 'spc-md-fill', 'wpc-mpd-fill']);
-
-// Caltrans only reports a camera's facing as a cardinal direction (no
-// numeric bearing in the source data) — map it to degrees so the hover
-// tooltip can render a rotated direction arrow for quick recognition.
-const CAMERA_DIRECTION_DEGREES = { North: 0, East: 90, South: 180, West: 270 };
-
 // NHC storm layers a click can open the storm popup from, and how the popup
 // names what was clicked.
 // Outlook layers (invest disturbances, areas of interest) open the same popup.
@@ -456,6 +437,9 @@ const OUTLOOK_CLICK_LAYERS = {
   'nhc-disturbance-fill': 'Area of interest',
 };
 
+// Zoom 12 is about a 1-mile map view (see FloodHazardLayer).
+const WILDFIRE_ALERTS_MAX_ZOOM = 12;
+
 const STORM_CLICK_LAYERS = {
   'nhc-cone-fill': () => 'Cone of uncertainty',
   'nhc-forecast-track-line': () => 'Forecast track',
@@ -463,882 +447,7 @@ const STORM_CLICK_LAYERS = {
   'nhc-obs-circle': () => 'Past track',
 };
 
-// Builds the hover-tooltip content for a single map feature. Returns null
-// when the feature's layer has no hover tooltip defined.
-function getHoverContent(feature) {
-  const p = feature.properties;
-  const layerId = feature.layer.id;
-  const isOutlookPopup = OUTLOOK_LAYER_IDS.has(layerId);
 
-  let content;
-  switch (layerId) {
-    case 'fire-hotspots-circle': {
-      const detections = num(p.detection_count) || 1;
-      const isConsolidated = detections > 1;
-      content = (
-        <>
-          <div className="font-semibold text-orange-400">
-            {isConsolidated ? `FIRMS Detection (${detections} sensors)` : 'FIRMS Detection'}
-          </div>
-          <div className="text-sentinel-200 text-xs mt-0.5">
-            FRP: <span className="text-white font-medium">{formatFRP(num(p.frp))}</span>
-            {' '}· {frpToLabel(num(p.frp))} intensity
-            {isConsolidated && (
-              <span className="text-sentinel-300"> · Combined: {formatFRP(num(p.total_frp))}</span>
-            )}
-          </div>
-          <div className="text-sentinel-300 text-xs">{p.satellite} · {p.acq_date}</div>
-          <div className="text-sentinel-400 text-[10px] mt-1">
-            ({num(p.latitude).toFixed(4)}, {num(p.longitude).toFixed(4)})
-          </div>
-        </>
-      );
-      break;
-    }
-    case 'ngfs-detections-fill': {
-      content = (
-        <>
-          <div className="font-semibold text-orange-400">GOES Fire Detection</div>
-          <div className="text-sentinel-200 text-xs mt-0.5">
-            FRP: <span className="text-white font-medium">{formatFRP(num(p.frp))}</span>
-            {' '}· {p.confidence} confidence
-          </div>
-          <div className="text-sentinel-300 text-xs">{p.satellite} · {p.acq_date_time}</div>
-          <div className="text-sentinel-400 text-[10px] mt-1">
-            ({num(p.latitude).toFixed(4)}, {num(p.longitude).toFixed(4)})
-          </div>
-        </>
-      );
-      break;
-    }
-    case 'fire-perimeters-fill':
-    case 'fire-perimeter-centroids-circle': {
-      const isHistorical = Boolean(p.isHistoricalMapping);
-      content = (
-        <>
-          <div className={`font-semibold ${isHistorical ? 'text-sentinel-300' : 'text-orange-400'}`}>
-            {p.IncidentName}
-            {isHistorical && (
-              <span className="ml-1.5 text-[10px] font-normal uppercase tracking-wide text-sentinel-400">
-                Previous mapping
-              </span>
-            )}
-          </div>
-          <div className="text-sentinel-200 text-xs mt-0.5">
-            {formatAcres(num(p.GISAcres))} · {formatContainment(num(p.PercentContained))} contained
-          </div>
-          <div className="text-sentinel-300 text-xs">{p.POOState} · {p.POOCounty} County</div>
-        </>
-      );
-      break;
-    }
-    case 'aqi-stations-circle':
-      content = (
-        <>
-          <div className="font-semibold text-blue-400">{p.reportingArea}</div>
-          <div className="text-sentinel-200 text-xs mt-0.5">
-            AQI: <span className="text-white font-medium">{num(p.aqi)}</span>
-            {' '}· {p.category}
-          </div>
-          <div className="text-sentinel-300 text-xs">PM2.5: {num(p.pm25)} µg/m³</div>
-        </>
-      );
-      break;
-    case 'fire-incidents-circle':
-      content = (
-        <>
-          <div className="font-semibold text-orange-400">{p.IncidentName}</div>
-          <div className="text-sentinel-200 text-xs mt-0.5">
-            {formatAcres(p.GISAcres)} · {formatContainment(p.PercentContained)} contained
-          </div>
-          <div className="text-sentinel-300 text-xs">{p.POOState} · {p.POOCounty} County</div>
-        </>
-      );
-      break;
-    case 'weather-alerts-fill':
-      content = (
-        <>
-          <div className="font-semibold text-red-400">{p.type}</div>
-          <div className="text-sentinel-200 text-xs mt-0.5 max-w-[200px] line-clamp-2">{p.headline}</div>
-        </>
-      );
-      break;
-    case 'nws-lsr-reports-circle':
-      content = (
-        <>
-          <div className="font-semibold text-sky-300">
-            {p.reportType} <span className="text-sentinel-300">
-              (NWS LSR{p.nwsLsrWindow ? ` · ${p.nwsLsrWindow}` : ''})
-            </span>
-          </div>
-          {p.lsrDescription && (
-            <div className="text-sentinel-200 text-xs mt-0.5 line-clamp-2">{p.lsrDescription}</div>
-          )}
-          {p.wfo && <div className="text-sentinel-300 text-xs">{p.wfo}</div>}
-          <div className="text-sentinel-200 text-xs mt-0.5">
-            {p.city ? `${p.city}, ` : ''}{p.state}
-            {p.county ? ` · ${p.county} County` : ''}
-          </div>
-          {p.magnitude && <div className="text-sentinel-200 text-xs">Magnitude: {p.magnitude}</div>}
-          {p.reportedAt && (
-            <div className="text-sentinel-300 text-xs">
-              {new Date(p.reportedAt).toLocaleString(undefined, withClock())}
-            </div>
-          )}
-          {p.comments && (
-            <div className="text-sentinel-300 text-xs mt-1 max-w-[220px] line-clamp-3">{p.comments}</div>
-          )}
-        </>
-      );
-      break;
-    case 'spc-md-fill': {
-      const tillStr = p.activeTill ? `Active till ${p.activeTill}` : null;
-      content = (
-        <>
-          <div className="font-semibold text-red-400">
-            {p.name || 'Mesoscale Discussion'}
-          </div>
-          {tillStr && (
-            <div className="text-sentinel-200 text-xs mt-0.5">{tillStr}</div>
-          )}
-          <div className="text-sentinel-300 text-xs mt-0.5">SPC Mesoscale Discussion</div>
-          <div className="text-sky-400 text-xs mt-1">Click for full discussion</div>
-        </>
-      );
-      break;
-    }
-    case 'wpc-mpd-fill': {
-      const tillStr = p.activeTill ? `Active till ${p.activeTill}` : null;
-      content = (
-        <>
-          <div className="font-semibold text-green-400">
-            {p.mpdNumber != null ? `MPD ${p.mpdNumber}` : 'Mesoscale Discussion'}
-          </div>
-          {p.concerning && (
-            <div className="text-sentinel-200 text-xs mt-0.5">{p.concerning}</div>
-          )}
-          {tillStr && (
-            <div className="text-sentinel-200 text-xs mt-0.5">{tillStr}</div>
-          )}
-          <div className="text-sentinel-300 text-xs mt-0.5">WPC Mesoscale Discussion</div>
-          <div className="text-sky-400 text-xs mt-1">Click for full discussion</div>
-        </>
-      );
-      break;
-    }
-    case 'spc-outlook-fill': {
-      const dayNum = String(p.day || '').replace('day', '');
-      const typeLabel = (() => {
-        const t = p.outlookType || 'categorical';
-        const map = { categorical: 'Categorical', tornado: 'Tornado Prob.', hail: 'Hail Prob.', wind: 'Wind Prob.', severe: 'Severe Prob.' };
-        return map[t] || t;
-      })();
-      const validStr = p.validTime
-        ? (() => {
-            const s = String(p.validTime);
-            if (s.length === 12) {
-              const yr = s.slice(0, 4), mo = s.slice(4, 6), dy = s.slice(6, 8), hr = s.slice(8, 10), mn = s.slice(10, 12);
-              const d = new Date(`${yr}-${mo}-${dy}T${hr}:${mn}Z`);
-              return isNaN(d.getTime()) ? null : d.toLocaleString(undefined, withClock({ month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', timeZoneName: 'short' }));
-            }
-            return null;
-          })()
-        : null;
-      content = (
-        <>
-          <div className="font-semibold text-yellow-300">
-            SPC Day {dayNum} · {typeLabel}
-          </div>
-          <div className="text-sentinel-100 text-xs mt-0.5">
-            {p.outlookLabel || p.riskCategory || (p.probPct != null ? `${p.probPct}% probability` : 'Outlook')}
-          </div>
-          {validStr && (
-            <div className="text-sentinel-300 text-xs mt-0.5">Valid: {validStr}</div>
-          )}
-        </>
-      );
-      break;
-    }
-    case 'user-reports-circle':
-      content = (
-        <>
-          <div className="font-semibold text-orange-400">{p.title}</div>
-          <div className="text-sentinel-200 text-xs mt-0.5">
-            {p.contained != null ? `${formatContainment(num(p.contained))} contained` : 'Fire incident'}
-          </div>
-          {p.created_at && (
-            <div className="text-sentinel-300 text-xs">
-              {new Date(p.created_at).toLocaleString(undefined, withClock())}
-            </div>
-          )}
-        </>
-      );
-      break;
-    case 'hazard-events-circle': {
-      content = (
-        <>
-          <div className="font-semibold text-purple-300">{p.title}</div>
-          <div className="text-sentinel-200 text-xs mt-0.5">
-            {HAZARD_CATEGORY_LABELS[p.category] || 'Event'} · {p.severity}
-          </div>
-          {p.created_at && (
-            <div className="text-sentinel-300 text-xs">
-              {new Date(p.created_at).toLocaleString(undefined, withClock())}
-            </div>
-          )}
-        </>
-      );
-      break;
-    }
-    case 'incident-locations-cluster': {
-      const total = num(p.point_count);
-      const active = num(p.activeCount);
-      content = (
-        <>
-          <div className="font-semibold text-orange-400">
-            {total} incident{total === 1 ? '' : 's'}
-          </div>
-          <div className="text-sentinel-200 text-xs mt-0.5">
-            {active} active · {total - active} fully contained
-          </div>
-          <div className="text-sentinel-400 text-[10px] mt-1">Click to zoom in</div>
-        </>
-      );
-      break;
-    }
-    case 'incident-locations-circle':
-      content = (
-        <>
-          <div className="font-semibold text-orange-400">{p.name}</div>
-          <div className="text-sentinel-200 text-xs mt-0.5">
-            {formatAcres(num(p.acres))} · {formatContainment(num(p.contained))} contained
-          </div>
-          <div className="text-sentinel-300 text-xs">{p.county} Co., {p.state}</div>
-        </>
-      );
-      break;
-    case 'raws-stations-circle': {
-      const fmt  = (v, unit) => v != null ? `${Math.round(v)}${unit}` : '—';
-      const fmtD = (v) => v != null ? `${Math.round(v)}°` : '—';
-      content = (
-        <>
-          <div className="font-semibold text-purple-300">{p.stationName}</div>
-          <div className="text-sentinel-300 text-[10px]">
-            {[p.county && `${p.county} Co.`, p.state, p.agency].filter(Boolean).join(' · ')}
-          </div>
-          <div className="text-sentinel-200 text-xs mt-1.5 space-y-0.5">
-            <div>
-              Temp: <span className="text-white font-medium">{fmt(p.temp, '°F')}</span>
-              {' '}· RH: <span className="text-white font-medium">{fmt(p.relHumidity, '%')}</span>
-            </div>
-            <div>
-              Wind: <span className="text-white font-medium">{fmt(p.windSpeed, ' mph')}</span>
-              {' '}@ <span className="text-white font-medium">{fmtD(p.windDir)}</span>
-              {p.windSpeedPeak != null && (
-                <span className="text-sentinel-300"> (peak {fmt(p.windSpeedPeak, ' mph')})</span>
-              )}
-            </div>
-            {(p.fuelMoisture != null || p.fuelTemp != null) && (
-              <div>
-                {p.fuelMoisture != null && <>FM: <span className="text-white font-medium">{fmt(p.fuelMoisture, '%')}</span></>}
-                {p.fuelMoisture != null && p.fuelTemp != null && ' · '}
-                {p.fuelTemp != null && <>Fuel Temp: <span className="text-white font-medium">{fmt(p.fuelTemp, '°F')}</span></>}
-              </div>
-            )}
-            {p.precip != null && p.precip > 0 && (
-              <div>Precip: <span className="text-white font-medium">{p.precip.toFixed(2)}"</span></div>
-            )}
-          </div>
-          <div className="text-sentinel-400 text-[10px] mt-1 flex justify-between gap-3">
-            {p.elevation != null && <span>Elev: {Math.round(p.elevation).toLocaleString()} ft</span>}
-            {p.observationTime && <span>{new Date(p.observationTime).toLocaleTimeString([], withClock({ hour: '2-digit', minute: '2-digit' }))}</span>}
-          </div>
-        </>
-      );
-      break;
-    }
-    case 'evac-zones-fill': {
-      const isReporter = p.source === 'reporter';
-      const isIpaws = p.source === 'ipaws';
-
-      if (isReporter) {
-        const zoneTypeColors = {
-          'evacuation order':   'text-red-400',
-          'evacuation warning': 'text-orange-400',
-          'evacuation watch':   'text-yellow-400',
-        };
-        const ztKey = (p.zone_type || '').toLowerCase();
-        const ztClass = zoneTypeColors[ztKey] || 'text-red-400';
-        content = (
-          <>
-            <div className={`font-semibold ${ztClass}`}>{p.zone_type || 'Evacuation Zone'}</div>
-            {p.title && <div className="text-white text-xs mt-0.5 font-medium">{p.title}</div>}
-            {p.incident_name && (
-              <div className="text-orange-300 text-xs mt-0.5">Fire: {p.incident_name}</div>
-            )}
-            {(p.county || p.state) && (
-              <div className="text-sentinel-200 text-xs">
-                {[p.county && `${p.county} County`, p.state].filter(Boolean).join(', ')}
-              </div>
-            )}
-            {p.effective_at && (
-              <div className="text-sentinel-300 text-xs">
-                Effective: {new Date(p.effective_at).toLocaleString(undefined, withClock())}
-              </div>
-            )}
-            <div className="text-[#0096ff] text-[10px] mt-1 uppercase tracking-wider">Reporter Zone</div>
-          </>
-        );
-        break;
-      }
-
-      if (isIpaws) {
-        content = (
-          <>
-            <div className="font-semibold text-amber-400">IPAWS / EAS</div>
-            <div className="text-white text-xs mt-0.5 font-medium">{p.ipawsHeadline || p.zoneName}</div>
-            {p.ipawsAreaDesc && <div className="text-sentinel-200 text-xs">{p.ipawsAreaDesc}</div>}
-            {(p.ipawsSent || p.effectiveDate) && (
-              <div className="text-sentinel-300 text-xs mt-1">
-                {new Date(p.ipawsSent || p.effectiveDate).toLocaleString(undefined, withClock())}
-              </div>
-            )}
-          </>
-        );
-        break;
-      }
-      const statusColors = {
-        'evacuation order':   'text-red-400',
-        'evacuation warning': 'text-orange-400',
-        'evacuation watch':   'text-yellow-400',
-      };
-      const statusKey = (p.warningType || '').toLowerCase();
-      const statusClass = statusColors[statusKey] || 'text-orange-400';
-      content = (
-        <>
-          <div className={`font-semibold ${statusClass}`}>{p.warningType || 'Evacuation Zone'}</div>
-          {p.zoneName && <div className="text-white text-xs mt-0.5 font-medium">{p.zoneName}</div>}
-          {p.county && <div className="text-sentinel-200 text-xs">{p.county} County</div>}
-          {p.agency && <div className="text-sentinel-300 text-xs">{p.agency}</div>}
-          {p.effectiveDate && (
-            <div className="text-sentinel-300 text-xs">
-              Effective: {new Date(p.effectiveDate).toLocaleString(undefined, withClock())}
-            </div>
-          )}
-          {p.instructions && (
-            <div className="text-sentinel-300 text-xs mt-1 max-w-[220px] line-clamp-2">{p.instructions}</div>
-          )}
-        </>
-      );
-      break;
-    }
-    case 'drought-outlook-fill': {
-      const outlookLabel = {
-        Drought_Develops: 'Drought Likely to Develop',
-        Drought_Persists: 'Drought Likely to Persist',
-        Drought_Improves: 'Drought Likely to Improve',
-        Drought_Removes:  'Drought Likely to End',
-        No_Drought:       'No Drought Expected',
-      }[p.outlook] || p.outlook || 'Drought Outlook';
-      content = (
-        <>
-          <div className="font-semibold text-amber-400">CPC Drought Outlook</div>
-          <div className="text-white text-xs mt-0.5 font-medium">{outlookLabel}</div>
-          {p.target && <div className="text-sentinel-200 text-xs">Forecast: {p.target}</div>}
-          {p.fcst_date && <div className="text-sentinel-300 text-xs">Issued: {p.fcst_date}</div>}
-        </>
-      );
-      break;
-    }
-    case 'ndgd-smoke-forecast-fill': {
-      const refMs = typeof p.referencedate === 'number' ? p.referencedate : null;
-      const toMs = typeof p.todate === 'number' ? p.todate : null;
-      const fmt = (ms) => {
-        if (ms == null || !Number.isFinite(ms)) return null;
-        const d = new Date(ms);
-        return Number.isNaN(d.getTime()) ? null : d.toLocaleString(undefined, withClock({ month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', timeZoneName: 'short' }));
-      };
-      const refStr = fmt(refMs);
-      const toStr = fmt(toMs);
-      const band = p.smoke_classdesc ? `${p.smoke_classdesc} µg/m³` : 'Smoke concentration';
-      content = (
-        <>
-          <div className="font-semibold text-yellow-200">NOAA Smoke Forecast</div>
-          <div className="text-white text-xs mt-0.5 font-medium">{band}</div>
-          {refStr && <div className="text-sentinel-200 text-xs">From: {refStr}</div>}
-          {toStr && <div className="text-sentinel-300 text-xs">To: {toStr}</div>}
-        </>
-      );
-      break;
-    }
-    case 'airnow-monitors-circle': {
-      const aqiColor = (aqi) => {
-        if (aqi == null) return '#94a3b8';
-        if (aqi <= 50)  return '#00e400';
-        if (aqi <= 100) return '#ffff00';
-        if (aqi <= 150) return '#ff7e00';
-        if (aqi <= 200) return '#ff0000';
-        if (aqi <= 300) return '#8f3f97';
-        return '#7e0023';
-      };
-      const aqiCategory = (aqi) => {
-        if (aqi == null) return 'No Data';
-        if (aqi <= 50)  return 'Good';
-        if (aqi <= 100) return 'Moderate';
-        if (aqi <= 150) return 'Unhealthy for Sensitive Groups';
-        if (aqi <= 200) return 'Unhealthy';
-        if (aqi <= 300) return 'Very Unhealthy';
-        return 'Hazardous';
-      };
-      const primaryAqi = p.aqi != null ? num(p.aqi) : null;
-      content = (
-        <>
-          <div className="font-semibold text-sky-300">{p.siteName || 'AirNow Monitor'}</div>
-          {p.stateName && <div className="text-sentinel-300 text-[10px]">{p.stateName}</div>}
-          <div className="mt-1.5 space-y-0.5">
-            <div className="flex items-center gap-1.5">
-              <span
-                className="inline-block w-2 h-2 rounded-full shrink-0"
-                style={{ backgroundColor: aqiColor(primaryAqi) }}
-              />
-              <span className="text-sentinel-200 text-xs">
-                AQI: <span className="text-white font-medium">{primaryAqi ?? 'ND'}</span>
-                {primaryAqi != null && (
-                  <span className="text-sentinel-300"> · {aqiCategory(primaryAqi)}</span>
-                )}
-              </span>
-            </div>
-            {p.pm25Aqi != null && (
-              <div className="text-sentinel-200 text-xs">
-                PM2.5 AQI: <span className="text-white font-medium">{num(p.pm25Aqi)}</span>
-              </div>
-            )}
-            {p.pm10Aqi != null && (
-              <div className="text-sentinel-200 text-xs">
-                PM10 AQI: <span className="text-white font-medium">{num(p.pm10Aqi)}</span>
-              </div>
-            )}
-            {p.ozoneAqi != null && (
-              <div className="text-sentinel-200 text-xs">
-                Ozone AQI: <span className="text-white font-medium">{num(p.ozoneAqi)}</span>
-              </div>
-            )}
-          </div>
-          {p.localTime && (
-            <div className="text-sentinel-400 text-[10px] mt-1">{p.localTime}</div>
-          )}
-        </>
-      );
-      break;
-    }
-    case 'fire-weather-outlook-fill': {
-      const dayNum = String(p.day || '').replace('day', '');
-      const typeLabel = p.outlookType === 'dry_thunderstorm' ? 'Dry Lightning' : 'Wind & Low RH';
-      const riskColors = {
-        ELEVATED: 'text-yellow-300',
-        CRITICAL: 'text-red-400',
-        EXTREME:  'text-fuchsia-400',
-      };
-      const riskClass = riskColors[p.riskCategory] || 'text-orange-300';
-      content = (
-        <>
-          <div className="font-semibold text-orange-300">
-            SPC Fire Wx Day {dayNum} · {typeLabel}
-          </div>
-          <div className={`text-xs mt-0.5 font-medium ${riskClass}`}>
-            {p.outlookLabel || p.riskCategory || 'Fire Weather Outlook'}
-          </div>
-        </>
-      );
-      break;
-    }
-    case 'wpc-ero-fill': {
-      const dayNum = String(p.day || '').replace('day', '');
-      const riskColors = {
-        MARGINAL: 'text-green-400',
-        SLIGHT:   'text-yellow-300',
-        MODERATE: 'text-red-400',
-        HIGH:     'text-fuchsia-400',
-      };
-      const riskClass = riskColors[p.riskCategory] || 'text-green-400';
-      content = (
-        <>
-          <div className="font-semibold text-sky-300">WPC Excessive Rainfall Outlook · Day {dayNum}</div>
-          <div className={`text-xs mt-0.5 font-medium ${riskClass}`}>
-            {p.outlookLabel || p.riskCategory || 'Excessive Rainfall Outlook'}
-          </div>
-        </>
-      );
-      break;
-    }
-    case 'wpc-wssi-fill': {
-      const dayNum = String(p.day || '').replace('day', '');
-      const impactColors = {
-        'WINTER WEATHER AREA': 'text-sentinel-200',
-        MINOR:    'text-sky-300',
-        MODERATE: 'text-blue-400',
-        MAJOR:    'text-purple-400',
-        EXTREME:  'text-red-400',
-      };
-      const impactClass = impactColors[p.impactCategory] || 'text-sentinel-200';
-      content = (
-        <>
-          <div className="font-semibold text-blue-300">WPC Winter Storm Severity Index · Day {dayNum}</div>
-          <div className={`text-xs mt-0.5 font-medium ${impactClass}`}>
-            {p.impactCategory || 'Overall Impact'}
-          </div>
-        </>
-      );
-      break;
-    }
-    case 'wpc-qpf-fill': {
-      const dayNum = String(p.day || '').replace('day', '');
-      content = (
-        <>
-          <div className="font-semibold text-sky-300">WPC 24hr QPF · Day {dayNum}</div>
-          <div className="text-xs mt-0.5 font-medium text-white">
-            {p.qpf != null ? `${p.qpf}"+ ${p.units || 'Inches'}` : 'Precipitation forecast'}
-          </div>
-        </>
-      );
-      break;
-    }
-    case 'wpc-fronts-solid':
-    case 'wpc-fronts-dashed':
-    case 'wpc-fronts-stationary-line': {
-      const frontColors = {
-        COLD: 'text-blue-400',
-        WARM: 'text-red-400',
-        STATIONARY: 'text-purple-400',
-        OCCLUDED: 'text-purple-300',
-        TROUGH: 'text-amber-400',
-      };
-      const frontClass = frontColors[p.frontType] || 'text-purple-300';
-      content = (
-        <>
-          <div className={`font-semibold ${frontClass}`}>
-            {p.frontType ? `${p.frontType.charAt(0)}${p.frontType.slice(1).toLowerCase()} Front` : 'Front'}
-          </div>
-          <div className="text-sentinel-300 text-[10px] mt-0.5">WPC Surface Analysis</div>
-        </>
-      );
-      break;
-    }
-    case 'nhc-disturbance-fill':
-    case 'nhc-disturbance-circle': {
-      const chanceColors = { HIGH: 'text-red-400', MEDIUM: 'text-orange-400', LOW: 'text-yellow-300' };
-      const chanceClass  = chanceColors[p.formationChance] || 'text-yellow-300';
-      content = (
-        <>
-          <div className="font-semibold text-sky-300">NHC Tropical Weather Outlook</div>
-          {p.formationChance && (
-            <div className={`text-xs mt-0.5 font-medium ${chanceClass}`}>
-              {p.formationChance} formation probability
-            </div>
-          )}
-          <div className="text-sentinel-200 text-xs mt-0.5">
-            {p.day2Percent != null && <span>2-day: {p.day2Percent}%</span>}
-            {p.day2Percent != null && p.day7Percent != null && <span> · </span>}
-            {p.day7Percent != null && <span>7-day: {p.day7Percent}%</span>}
-          </div>
-        </>
-      );
-      break;
-    }
-    case 'nhc-obs-circle':
-    case 'nhc-track-circle': {
-      const catColors = {
-        'Tropical Depression': 'text-sky-300',
-        'Tropical Storm':      'text-cyan-300',
-        'Category 1':          'text-yellow-200',
-        'Category 2':          'text-yellow-300',
-        'Category 3':          'text-orange-300',
-        'Category 4':          'text-orange-400',
-        'Category 5':          'text-red-400',
-      };
-      const catClass = catColors[p.category] || 'text-sky-300';
-      const isObserved = feature.layer.id === 'nhc-obs-circle';
-      const windKt  = isObserved ? p.intensityKt  : p.maxWindKt;
-      const windMph = isObserved ? p.intensityMph : p.maxWindMph;
-      content = (
-        <>
-          <div className="font-semibold text-sky-300">
-            {p.stormName ? `${p.stormName} · ` : ''}
-            {isObserved ? 'Observed' : p.isCurrent ? 'Current position' : `Forecast +${p.tau}h`}
-          </div>
-          <div className={`text-xs mt-0.5 font-medium ${catClass}`}>
-            {p.stormType || p.category}
-          </div>
-          {windKt > 0 && (
-            <div className="text-sentinel-200 text-xs mt-0.5">
-              Winds: {windMph} mph ({windKt} kt){p.gustKt > 0 && ` · Gusts: ${p.gustKt} kt`}
-            </div>
-          )}
-          {(p.dateLabel || p.fullDateLabel) && (
-            <div className="text-sentinel-300 text-[10px] mt-0.5">{p.fullDateLabel || p.dateLabel}</div>
-          )}
-        </>
-      );
-      break;
-    }
-    case 'nhc-wind-prob-fill': {
-      const kt = Number(p.thresholdKt) || 34;
-      content = (
-        <>
-          <div className="font-semibold text-sky-300">NHC wind-speed probability</div>
-          <div className="text-white text-sm font-bold mt-0.5">{p.percentage} chance</div>
-          <div className="text-sentinel-200 text-xs mt-0.5">
-            of {kt}-kt ({Math.round(kt * 1.15078)} mph) or stronger sustained winds in the next 5 days
-          </div>
-        </>
-      );
-      break;
-    }
-    case 'nhc-wind-radii-fill': {
-      const kt = Number(p.radiiKt) || 34;
-      const quadrants = ['ne', 'se', 'sw', 'nw']
-        .filter((q) => Number.isFinite(Number(p[q])))
-        .map((q) => `${q.toUpperCase()} ${Number(p[q])} nm`);
-      content = (
-        <>
-          <div className="font-semibold text-sky-300">NHC wind field · now</div>
-          <div className="text-white text-xs font-semibold mt-0.5">
-            {kt}-kt ({Math.round(kt * 1.15078)} mph) sustained winds extend:
-          </div>
-          {quadrants.length > 0 && <div className="text-sentinel-200 text-xs mt-0.5">{quadrants.join(' · ')}</div>}
-        </>
-      );
-      break;
-    }
-    case 'nhc-watch-warning-line': {
-      const wwColor = WATCH_WARNING_COLORS[p.wwType] || WATCH_WARNING_COLORS.Advisory;
-      content = (
-        <>
-          <div className="font-semibold text-white flex items-center gap-1.5">
-            <span className="inline-block w-2.5 h-2.5 rounded-sm shrink-0" style={{ backgroundColor: wwColor }} />
-            {p.wwType || 'Advisory'}
-          </div>
-          {p.stormName && (
-            <div className="text-sentinel-200 text-xs mt-0.5">{p.stormName}</div>
-          )}
-        </>
-      );
-      break;
-    }
-    case 'cmra-transmission-lines': {
-      const kv = (label, val) => (val != null && String(val).trim() !== '' ? (
-        <div className="text-sentinel-200 text-xs">
-          {label}: <span className="text-white font-medium">{String(val)}</span>
-        </div>
-      ) : null);
-      content = (
-        <>
-          <div className="font-semibold text-amber-300">Transmission line</div>
-          {kv('ID', p.ID)}
-          {kv('Voltage (kV)', p.VOLTAGE)}
-          {kv('Class', p.VOLT_CLASS)}
-          {kv('Type', p.TYPE)}
-          {kv('Status', p.STATUS)}
-          {kv('Owner', p.OWNER)}
-          {p.NAICS_DESC && (
-            <div className="text-sentinel-300 text-[10px] mt-1 line-clamp-2">{p.NAICS_DESC}</div>
-          )}
-          <div className="text-sentinel-400 text-[10px] mt-1">CMRA · U.S. electric transmission (archive)</div>
-        </>
-      );
-      break;
-    }
-    case 'eia-gas-pipelines': {
-      const k = (label, val) => (val != null && String(val).trim() !== '' ? (
-        <div className="text-sentinel-200 text-xs">
-          {label}: <span className="text-white font-medium">{String(val)}</span>
-        </div>
-      ) : null);
-      content = (
-        <>
-          <div className="font-semibold text-sky-300">Natural gas pipeline</div>
-          {k('Interstate / intrastate', p.TYPEPIPE)}
-          {k('Operator', p.Operator)}
-          {k('Status', p.Status)}
-          <div className="text-sentinel-400 text-[10px] mt-1">EIA U.S. pipeline (public)</div>
-        </>
-      );
-      break;
-    }
-    case 'water-gauges-circle-priority':
-    case 'water-gauges-circle-other': {
-      const stage = p.currentStage != null ? `${Number(p.currentStage).toFixed(2)} ft` : 'N/A';
-      const catLabel = floodCategoryLabel(p.floodCategory);
-      const catClass = FLOOD_CATEGORY_META[p.floodCategory]?.textClass ?? FLOOD_CATEGORY_META.no_flooding.textClass;
-      content = (
-        <>
-          <div className="font-semibold text-blue-300">{p.name || p.lid}</div>
-          {(p.county || p.state) && (
-            <div className="text-sentinel-300 text-[10px]">
-              {[p.county && `${p.county} Co.`, p.state].filter(Boolean).join(', ')}
-            </div>
-          )}
-          <div className="mt-1 space-y-0.5">
-            <div className="text-sentinel-200 text-xs">
-              Stage: <span className="text-white font-medium">{stage}</span>
-            </div>
-            <div className={`text-xs font-medium ${catClass}`}>{catLabel}</div>
-          </div>
-          <div className="text-sentinel-400 text-[10px] mt-1">Click for details · NOAA NWPS</div>
-        </>
-      );
-      break;
-    }
-    case 'ca-cameras-circle': {
-      const bearing = CAMERA_DIRECTION_DEGREES[p.direction];
-      content = (
-        <>
-          <div className="flex items-center gap-1.5">
-            <div className="font-semibold text-teal-300">{p.name}</div>
-            {bearing != null && (
-              <Navigation
-                size={13}
-                className="text-teal-400 shrink-0"
-                style={{ transform: `rotate(${bearing}deg)` }}
-                aria-label={`Facing ${p.direction}`}
-              />
-            )}
-          </div>
-          {p.route && <div className="text-sentinel-200 text-xs">{p.route}</div>}
-          {p.inService === false && (
-            <div className="text-red-400 text-xs font-medium mt-0.5">Out of service</div>
-          )}
-          {p.county && <div className="text-sentinel-300 text-[10px] mt-0.5">{p.county} Co.</div>}
-          <div className="text-sentinel-400 text-[10px] mt-1">Click for live feed · Caltrans CCTV</div>
-        </>
-      );
-      break;
-    }
-    case 'dat-points-circle':
-    case 'dat-lines-line':
-    case 'dat-polygons-fill': {
-      content = (
-        <>
-          <div className="font-semibold text-red-500">
-            {p.efscale} <span className="text-sentinel-300">(NWS DAT)</span>
-          </div>
-          {p.damage_txt && <div className="text-sentinel-200 text-xs mt-0.5 line-clamp-2">{p.damage_txt}</div>}
-          {p.office && <div className="text-sentinel-300 text-xs">{p.office}</div>}
-          {(p.injuries || p.deaths || p.fatalities) ? (
-            <div className="text-sentinel-200 text-xs mt-0.5">
-              {num(p.injuries) ? `${num(p.injuries)} injuries` : ''}
-              {(num(p.injuries) && (num(p.deaths) || num(p.fatalities))) ? ' · ' : ''}
-              {(num(p.deaths) || num(p.fatalities)) ? `${num(p.deaths) || num(p.fatalities)} deaths` : ''}
-            </div>
-          ) : null}
-          {p.stormdate && (
-            <div className="text-sentinel-300 text-xs">{new Date(p.stormdate).toLocaleDateString()}</div>
-          )}
-          {p.comments && (
-            <div className="text-sentinel-300 text-xs mt-1 max-w-[220px] line-clamp-3">{p.comments}</div>
-          )}
-        </>
-      );
-      break;
-    }
-    case 'national-map-colleges-circle': {
-      const name = p.NAME || p.name || 'School / university';
-      content = (
-        <>
-          <div className="font-semibold text-violet-300">USGS National Map</div>
-          <div className="text-white text-xs mt-0.5 font-medium line-clamp-2">{name}</div>
-          <div className="text-sentinel-300 text-[10px] mt-1">Colleges &amp; universities (structures)</div>
-        </>
-      );
-      break;
-    }
-    case FLOOD_ZONES_FILL_ID: {
-      const meta = floodCategoryMeta(p.category);
-      content = (
-        <>
-          <div className="font-semibold text-sky-300">{meta.label}</div>
-          {p.zone && <div className="text-white text-xs mt-0.5 font-medium">Flood Zone {p.zone}</div>}
-          <div className="text-sentinel-300 text-[10px] mt-1">FEMA NFHL · click for details</div>
-        </>
-      );
-      break;
-    }
-    case 'california-land-ownership-fill': {
-      content = (
-        <>
-          <div className="font-semibold text-emerald-400">{p.Own_Level}</div>
-          <div className="text-white text-xs mt-0.5 font-medium line-clamp-2">{p.Own_Agency}</div>
-          <div className="text-sentinel-300 text-[10px] mt-1">CAL FIRE FRAP · Land Ownership</div>
-        </>
-      );
-      break;
-    }
-    default:
-      return null;
-  }
-
-  const popupShell = isOutlookPopup
-    ? 'bg-sentinel-900 border border-sentinel-600 rounded-lg p-3 shadow-2xl shadow-black/70 text-sm min-w-[160px] ring-1 ring-white/10'
-    : HOVER_MATCHED_WIDTH_LAYER_IDS.has(layerId)
-      ? 'bg-sentinel-800 border border-sentinel-600 rounded-lg p-2.5 shadow-2xl text-sm w-[220px]'
-      : 'bg-sentinel-800 border border-sentinel-600 rounded-lg p-2.5 shadow-2xl text-sm min-w-[140px]';
-
-  return { content, popupShell };
-}
-
-// Stacking priority for hover boxes: warnings must render above (visually
-// higher than) mesoscale-discussion boxes when a warning polygon is hovered
-// inside an MD polygon. Lower number = higher in the stack. Everything else
-// keeps its natural (topmost-feature-first) order via the stable sort below.
-const HOVER_STACK_PRIORITY = { 'weather-alerts-fill': 0, 'spc-md-fill': 2, 'wpc-mpd-fill': 2 };
-const HOVER_STACK_DEFAULT_PRIORITY = 1;
-
-// Renders one independent box per hovered map feature, stacked above the
-// cursor in a single popup so overlapping features (e.g. a warning polygon
-// over an MD polygon) are all fully visible instead of only the topmost one.
-function HoverTooltip({ features, lngLat }) {
-  if (!features?.length || !lngLat) return null;
-
-  const items = features
-    .map((feature, i) => {
-      const result = getHoverContent(feature);
-      if (!result) return null;
-      const key = `${feature.layer.id}:${feature.id ?? feature.properties?.id ?? i}`;
-      return { key, layerId: feature.layer.id, ...result };
-    })
-    .filter(Boolean);
-
-  if (!items.length) return null;
-
-  const ordered = items
-    .map((item, i) => ({ item, i }))
-    .sort((a, b) => {
-      const pa = HOVER_STACK_PRIORITY[a.item.layerId] ?? HOVER_STACK_DEFAULT_PRIORITY;
-      const pb = HOVER_STACK_PRIORITY[b.item.layerId] ?? HOVER_STACK_DEFAULT_PRIORITY;
-      return pa - pb || a.i - b.i;
-    })
-    .map(({ item }) => item);
-
-  return (
-    <Popup
-      longitude={lngLat.lng}
-      latitude={lngLat.lat}
-      closeButton={false}
-      closeOnClick={false}
-      anchor="bottom"
-      offset={[0, -8]}
-      className="sentinel-popup"
-    >
-      <div className="flex flex-col gap-1.5">
-        {ordered.map(item => (
-          <div key={item.key} className={item.popupShell}>
-            {item.content}
-          </div>
-        ))}
-      </div>
-    </Popup>
-  );
-}
 
 /**
  * @param {object} props
@@ -1401,6 +510,8 @@ function HoverTooltip({ features, lngLat }) {
  * @param {'wildfire'|'weather'|'allhazard'|'models'} [props.activeMapTab]
  * @param {Function}    [props.onModelPick]  Models tab: a map click picks the forecast point ({lat, lon})
  * @param {Function}    [props.modelOverlay] Models tab: ({ mapStyle, mapboxAccessToken }) => children rendered inside the map
+ * @param {React.ReactNode} [props.routeOverlay] All Hazards Route to Safety layer, rendered inside the map
+ * @param {Function}    [props.onRoutePick]  Route to Safety "pick a point": a map click sets the destination ({lng, lat})
  */
 export default function MapView({
   activeMapTab = 'wildfire',
@@ -1481,6 +592,8 @@ export default function MapView({
   fireWxOutlookPanelRef,
   onModelPick,
   modelOverlay = null,
+  routeOverlay = null,
+  onRoutePick,
 }) {
   const { layers, setLayer, selectedFire, selectFire, selectGauge, selectCamera, sidebarOpen, locationGranted, layerPanelOpen, closeLayerPanel, nhcModelTracks } = useApp();
   const satellite = useSatelliteContext();
@@ -1538,16 +651,13 @@ export default function MapView({
   const isWildfireTab   = activeMapTab === 'wildfire';
   const isWeatherTab    = activeMapTab === 'weather';
   const isAllHazardTab  = activeMapTab === 'allhazard';
-  // Hover tooltip state (array so overlapping features each get their own box)
-  const [hoverFeatures, setHoverFeatures] = useState(null);
-  const [hoverLngLat,   setHoverLngLat]   = useState(null);
 
   // All fire points share one clustered source (IncidentLocationsLayer), so
   // perimeter centroid dots are derived here rather than inside FirePerimetersLayer.
-  // Every fire dot, perimeter centroids included, belongs to the Incident
-  // Locations toggle; Fire Perimeters draws only the perimeter shapes.
+  // One Active Fires toggle (layers.incidentLocations) drives every fire dot,
+  // perimeter centroids included, and the perimeter shapes.
   const showFireIncidents  = (isWildfireTab || isAllHazardTab) && Boolean(layers.incidentLocations);
-  const showFirePerimeters = (isWildfireTab || isAllHazardTab) && Boolean(layers.firePerimeters);
+  const showFirePerimeters = showFireIncidents;
   const perimeterCentroidsGeoJSON = useMemo(
     () => (showFireIncidents ? perimeterCentroids(perimetersGeoJSON) : null),
     [showFireIncidents, perimetersGeoJSON],
@@ -1643,16 +753,14 @@ export default function MapView({
 
   // Only include interactive layer IDs for layers that are currently visible.
   // When the measurement tool is active, disable all layer interactions so
-  // clicks and hover tooltips don't compete with the measurement workflow.
+  // clicks and pointer cursors don't compete with the measurement workflow.
   const interactiveLayerIds = useMemo(() => {
     if (measureActive) return [];
     const ids = [];
     if ((isWildfireTab || isAllHazardTab) && layers.fireHotspots && hotspotsGeoJSON)        ids.push('fire-hotspots-circle');
     if ((isWildfireTab || isAllHazardTab) && layers.ngfsDetections && ngfsGeoJSON)          ids.push('ngfs-detections-fill');
-    if ((isWildfireTab || isAllHazardTab) && layers.firePerimeters && perimetersGeoJSON) {
-      ids.push('fire-perimeters-fill');
-    }
     if ((isWildfireTab || isAllHazardTab) && layers.incidentLocations) {
+      if (perimetersGeoJSON) ids.push('fire-perimeters-fill');
       ids.push('incident-locations-cluster');
       if (perimetersGeoJSON) ids.push('fire-perimeter-centroids-circle');
     }
@@ -1723,7 +831,7 @@ export default function MapView({
     }
     if ((isWeatherTab || isAllHazardTab) && layers.weatherAlerts && wpcMpdGeoJSON?.features?.length) ids.push('wpc-mpd-fill');
     return ids;
-  }, [measureActive, isWildfireTab, isWeatherTab, isAllHazardTab, layers.fireHotspots, layers.firePerimeters, layers.incidentLocations, layers.aqi,
+  }, [measureActive, isWildfireTab, isWeatherTab, isAllHazardTab, layers.fireHotspots, layers.incidentLocations, layers.aqi,
       layers.weatherAlerts, layers.spcWeatherOutlooks, layers.stormReports, layers.evacZones, spcMdGeoJSON,
       layers.rawsStations, layers.airNowMonitors, layers.droughtOutlook, layers.ndgdSmokeForecast, layers.fireWeatherOutlooks,
       layers.damageAssessment,
@@ -1744,15 +852,22 @@ export default function MapView({
       layers.wildfireCameras, californiaCamerasGeoJSON,
       hazardEventsGeoJSON]);
 
-  // Clear stale hover when layers change
+  // Clear a stale click popup when layers change
   useEffect(() => {
-    setHoverFeatures(null);
-    setHoverLngLat(null);
     setFeaturePopup(null);
   }, [layers]);
 
   // Handle map click – add measurement point OR select fire for detail panel
   const handleClick = useCallback((evt) => {
+    // Navigation "pick a point on map": the click is the destination, even with
+    // the layer panel open (otherwise the first tap only closes the panel).
+    // Measurement keeps priority if both are somehow active.
+    if (onRoutePick && !measureActive) {
+      if (layerPanelOpen) closeLayerPanel();
+      onRoutePick({ lng: evt.lngLat.lng, lat: evt.lngLat.lat });
+      return;
+    }
+
     if (layerPanelOpen) {
       closeLayerPanel();
       return;
@@ -1914,7 +1029,7 @@ export default function MapView({
       mouseLngLat: evt.lngLat,
       anchorFeature: records[0].feature,
     });
-  }, [measureActive, alerts, selectFire, selectGauge, selectCamera, layerPanelOpen, closeLayerPanel, onModelPick, nhcCyclones, nhcOutlookSystems, pickAtCenter]);
+  }, [measureActive, alerts, selectFire, selectGauge, selectCamera, layerPanelOpen, closeLayerPanel, onModelPick, onRoutePick, nhcCyclones, nhcOutlookSystems, pickAtCenter]);
 
   // Center picker: once a model point is being inspected, panning keeps it on the screen center.
   useEffect(() => {
@@ -1928,48 +1043,39 @@ export default function MapView({
     return () => map.off('moveend', onMoveEnd);
   }, [onModelPick, pickAtCenter, modelPointActive]);
 
-  // Handle mouse move – update hover tooltip OR measurement preview
+  // Handle mouse move – pointer cursor over clickable features OR measurement
+  // preview. There is no hover tooltip: feature info opens only on click.
   const handleMouseMove = useCallback((evt) => {
     if (measureActive) {
       setMeasurePreview({ lng: evt.lngLat.lng, lat: evt.lngLat.lat });
       if (mapRef.current) mapRef.current.getCanvas().style.cursor = 'crosshair';
       return;
     }
-    const features = evt.features;
-    if (features?.length) {
-      // Keep every feature stacked at the cursor (deduped by layer + id) so
-      // the hover tooltip can show one independent box per feature, not
-      // just the topmost one.
-      const seen = new Set();
-      const deduped = [];
-      for (const f of features) {
-        const key = `${f.layer.id}:${f.id ?? f.properties?.id ?? ''}`;
-        if (seen.has(key)) continue;
-        seen.add(key);
-        deduped.push(f);
-      }
-      setHoverFeatures(deduped);
-      setHoverLngLat(evt.lngLat);
-      if (mapRef.current) {
-        // FIRM panels blanket the whole view at flood-detail zoom; they're
-        // clickable for panel info but shouldn't turn the cursor into a
-        // pointer everywhere on their own.
-        const onlyFloodPanels = deduped.every((f) => f.layer.id === FLOOD_PANELS_FILL_ID);
-        mapRef.current.getCanvas().style.cursor = onlyFloodPanels ? '' : 'pointer';
-      }
-    } else {
-      setHoverFeatures(null);
-      setHoverLngLat(null);
-      if (mapRef.current) {
-        mapRef.current.getCanvas().style.cursor = '';
-      }
+    // Route to Safety pick mode: the whole map is a target.
+    if (onRoutePick) {
+      if (mapRef.current) mapRef.current.getCanvas().style.cursor = 'crosshair';
+      return;
     }
-  }, [measureActive]);
+    const features = evt.features;
+    if (!mapRef.current) return;
+    // FIRM panels blanket the whole view at flood-detail zoom; they're
+    // clickable for panel info but shouldn't turn the cursor into a
+    // pointer everywhere on their own.
+    const clickable = features?.some((f) => f.layer.id !== FLOOD_PANELS_FILL_ID);
+    mapRef.current.getCanvas().style.cursor = clickable ? 'pointer' : '';
+  }, [measureActive, onRoutePick]);
+
+  // Pick mode on → crosshair right away (before the next mouse move);
+  // off → back to the default cursor.
+  const routePickActive = Boolean(onRoutePick);
+  useEffect(() => {
+    const canvas = mapRef.current?.getCanvas?.();
+    if (!canvas || measureActive) return;
+    canvas.style.cursor = routePickActive ? 'crosshair' : '';
+  }, [routePickActive, measureActive]);
 
   const handleMouseLeave = useCallback(() => {
     setMeasurePreview(null);
-    setHoverFeatures(null);
-    setHoverLngLat(null);
     if (mapRef.current) {
       mapRef.current.getCanvas().style.cursor = '';
     }
@@ -2094,14 +1200,6 @@ export default function MapView({
         {/* Smoke forecast */}
         <SmokeLayer visible={isAllHazardTab && layers.smoke} />
 
-        {/* Weather alert zones — wildfire tab shows Red Flag Warnings only, no SPC MDs */}
-        <WeatherAlertsLayer
-          geoJSON={alertsGeoJSON}
-          spcMdGeoJSON={isWildfireTab ? null : spcMdGeoJSON}
-          visible={(isWildfireTab || isWeatherTab || isAllHazardTab) && layers.weatherAlerts}
-          onImagery={satelliteImageryOn}
-        />
-
         {/* Radar Settings: Storm Motion Vectors — a display preference, not
             a layer toggle, so not gated to any particular map tab */}
         <StormMotionVectorLayer
@@ -2113,13 +1211,6 @@ export default function MapView({
         <SPCOutlookLayer
           geoJSON={spcOutlooksGeoJSON}
           visible={(isWeatherTab || isAllHazardTab) && layers.spcWeatherOutlooks}
-        />
-
-        {/* Fire perimeter polygons (their dots cluster in IncidentLocationsLayer) */}
-        <FirePerimetersLayer
-          geoJSON={perimetersGeoJSON}
-          visible={showFirePerimeters}
-          centroidDots={false}
         />
 
         {/* AQI heatmap + stations — all-hazard tab only */}
@@ -2142,22 +1233,6 @@ export default function MapView({
           polygonsGeoJSON={damageAssessmentPolygonsGeoJSON}
           visible={(isWeatherTab || isAllHazardTab) && layers.damageAssessment}
         />
-        {/* Every fire point — WFIGS incident locations, perimeter centroid dots
-            and incident dots with no perimeter — clustered together; above
-            evacuation fills */}
-        <IncidentLocationsLayer
-          geoJSON={showFireIncidents ? incidentsGeoJSON : null}
-          fireDotsGeoJSON={showFireIncidents ? incidentDotsGeoJSON : null}
-          perimeterCentroidsGeoJSON={perimeterCentroidsGeoJSON}
-          visible={showFireIncidents}
-        />
-
-        {/* Evacuation zones and markers — above incident dots for clear identification */}
-        <EvacuationZonesLayer
-          geoJSON={evacZonesGeoJSON}
-          visible={layers.evacZones}
-        />
-
         {/* Fire behavior spread-projection rings for the selected fire (Rothermel engine) */}
         <FireBehaviorModelingLayer
           geoJSON={fireBehaviorModelingGeoJSON}
@@ -2315,6 +1390,43 @@ export default function MapView({
           visible={(isWildfireTab || isAllHazardTab) && layers.calFireHistoricalPerimeters}
         />
 
+        {/* Operational stack, bottom to top: NWS alerts → evacuation zones →
+            fire perimeters → fire points. layerStack.js keeps this order on
+            top of every other data layer, even ones that mount later. */}
+        {/* Weather alert zones — wildfire tab shows Red Flag Warnings only, no SPC MDs */}
+        <WeatherAlertsLayer
+          geoJSON={alertsGeoJSON}
+          spcMdGeoJSON={isWildfireTab ? null : spcMdGeoJSON}
+          visible={(isWildfireTab || isWeatherTab || isAllHazardTab) && layers.weatherAlerts}
+          onImagery={satelliteImageryOn}
+          // Wildfire tab: hide NWS alerts once zoomed in past a ~1-mile view so
+          // they don't cover the fire detail underneath.
+          alertsMaxZoom={isWildfireTab ? WILDFIRE_ALERTS_MAX_ZOOM : undefined}
+        />
+
+        {/* Evacuation zones and markers — above NWS alerts, below fire data */}
+        <EvacuationZonesLayer
+          geoJSON={evacZonesGeoJSON}
+          visible={layers.evacZones}
+        />
+
+        {/* Fire perimeter polygons (their dots cluster in IncidentLocationsLayer) */}
+        <FirePerimetersLayer
+          geoJSON={perimetersGeoJSON}
+          visible={showFirePerimeters}
+          centroidDots={false}
+        />
+
+        {/* Every fire point — WFIGS incident locations, perimeter centroid dots
+            and incident dots with no perimeter — clustered together; top of
+            the data stack */}
+        <IncidentLocationsLayer
+          geoJSON={showFireIncidents ? incidentsGeoJSON : null}
+          fireDotsGeoJSON={showFireIncidents ? incidentDotsGeoJSON : null}
+          perimeterCentroidsGeoJSON={perimeterCentroidsGeoJSON}
+          visible={showFireIncidents}
+        />
+
         {/* Near-me radius — the Home Setup radius around the live location */}
         {nearbyRadiusGeoJSON && (
           <Source id="nearby-radius" type="geojson" data={nearbyRadiusGeoJSON}>
@@ -2378,6 +1490,8 @@ export default function MapView({
           ) : null
         ))}
 
+        {routeOverlay}
+
         {/* Measurement geometry – rendered last so it's always on top */}
         {measureActive && (
           <MeasurementLayer
@@ -2388,7 +1502,6 @@ export default function MapView({
         )}
 
         {/* Hover tooltip (not over an open storm popup) */}
-        <HoverTooltip features={stormPopup ? null : hoverFeatures} lngLat={hoverLngLat} />
 
         {/* Popup Spotlight for the selected weather alert / evac zone, however it was selected */}
         {spotlightGeometry && (

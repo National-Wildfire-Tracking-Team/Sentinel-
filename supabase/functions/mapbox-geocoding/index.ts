@@ -15,6 +15,7 @@
  *   limit?       number   – max results (default: 5)
  *   types?       string   – comma-separated feature types (e.g. "address,place")
  *   autocomplete? boolean – enable autocomplete (default: true)
+ *   proximity?   [lng, lat] – bias results toward this point (ignored unless valid)
  */
 
 import { guardExpensiveRequest } from '../_shared/requestGuard.ts';
@@ -90,6 +91,7 @@ Deno.serve(async (req: Request) => {
       limit = 5,
       types,
       autocomplete = true,
+      proximity,
     } = body;
 
     if (!query || typeof query !== 'string' || !query.trim()) {
@@ -105,6 +107,13 @@ Deno.serve(async (req: Request) => {
     });
 
     if (types) params.set('types', String(types));
+    if (
+      Array.isArray(proximity) && proximity.length === 2
+      && proximity.every((n) => typeof n === 'number' && Number.isFinite(n))
+      && Math.abs(proximity[0]) <= 180 && Math.abs(proximity[1]) <= 90
+    ) {
+      params.set('proximity', `${proximity[0]},${proximity[1]}`);
+    }
 
     const url = `https://api.mapbox.com/search/geocode/v6/forward?${params}`;
 

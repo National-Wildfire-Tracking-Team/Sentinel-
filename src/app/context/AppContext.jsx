@@ -16,7 +16,6 @@ const initialState = {
     fireHotspots:      false,
     /** NOAA NESDIS NGFS — GOES satellite fire detections */
     ngfsDetections:    false,
-    firePerimeters:    false,
     /** CAL FIRE FRAP historical fire perimeter scars */
     calFireHistoricalPerimeters: false,
     incidentLocations: false,
@@ -49,6 +48,10 @@ const initialState = {
     damageAssessment: false,
     /** Rothermel-based spread projection rings for the selected fire */
     fireBehaviorModeling: false,
+    /** Route to Safety (All Hazards, Pro): nearest open shelters + hazard-avoiding
+     *  routes via cloud/ors-routing. Never restored as on — every activation
+     *  spends ORS quota, so it only turns on from an explicit tap. */
+    routeToSafety: false,
     /** WPC Excessive Rainfall Outlook (Day 1-3) */
     wpcEro: false,
     /** WPC Winter Storm Severity Index — Overall Impact (Day 1-3) */

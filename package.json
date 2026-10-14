@@ -8,6 +8,7 @@
   },
   "scripts": {
     "dev": "vite",
+    "dev:routing": "node cloud/ors-routing/dev.mjs",
     "dev:all": "bash dev.sh",
     "build": "vite build",
     "preview": "vite preview",
@@ -24,6 +25,11 @@
   "dependencies": {
     "@mapbox/mapbox-gl-draw": "^1.5.1",
     "@supabase/supabase-js": "^2.103.0",
+    "@turf/bbox": "^7.4.0",
+    "@turf/bbox-clip": "^7.4.0",
+    "@turf/boolean-point-in-polygon": "^7.4.0",
+    "@turf/buffer": "^7.4.0",
+    "@turf/simplify": "^7.4.0",
     "date-fns": "^3.6.0",
     "fast-xml-parser": "^5.7.2",
     "lucide-react": "^0.344.0",

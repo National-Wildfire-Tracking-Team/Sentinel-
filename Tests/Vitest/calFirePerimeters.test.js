@@ -1,14 +1,28 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import {
-  fetchCalFireHistoricalPerimeters,
-  normalizeCalFireHistoricalPerimeters,
-} from '../../src/app/api/calFirePerimeters';
-import { fetchWithCache } from '../../src/app/utils/dataCache';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { normalizeCalFireHistoricalPerimeters } from '../../src/app/api/calFirePerimeters';
 
 vi.mock('../../src/app/utils/dataCache');
 
-beforeEach(() => {
+let fetchCalFireHistoricalPerimeters;
+let fetchWithCache;
+
+// calFirePerimeters reads VITE_CALFIRE_FRAP_PROXY_URL at import time, so pin
+// it (a local .env may set it) and re-import the module for each test.
+async function loadModule({ proxyUrl = '' } = {}) {
+  vi.stubEnv('VITE_CALFIRE_FRAP_PROXY_URL', proxyUrl);
+  vi.resetModules();
+  ({ fetchCalFireHistoricalPerimeters } = await import('../../src/app/api/calFirePerimeters'));
+  ({ fetchWithCache } = await import('../../src/app/utils/dataCache'));
+  fetchWithCache.mockReset();
+}
+
+beforeEach(async () => {
   vi.restoreAllMocks();
+  await loadModule();
+});
+
+afterEach(() => {
+  vi.unstubAllEnvs();
 });
 
 describe('normalizeCalFireHistoricalPerimeters', () => {
@@ -165,6 +179,39 @@ describe('fetchCalFireHistoricalPerimeters', () => {
     );
     expect(fetchWithCache).toHaveBeenCalledWith(
       'https://data.ca.gov/dataset/fire-perimeters.geojson',
+      expect.anything(), expect.anything(), expect.anything()
+    );
+  });
+
+  it('uses calfire-frap-proxy instead of data.ca.gov when VITE_CALFIRE_FRAP_PROXY_URL is set', async () => {
+    await loadModule({ proxyUrl: 'https://proxy.example.test' });
+    vi.useFakeTimers();
+    fetchWithCache.mockImplementation(async (url) => {
+      if (url.includes('/api/arcgis/frap-egis') || url.includes('/api/arcgis/frap-mirror')) {
+        throw new Error('ArcGIS unavailable');
+      }
+      if (url.startsWith('https://proxy.example.test/perimeters?')) {
+        return {
+          type: 'FeatureCollection',
+          features: [{ properties: { FIRE_NAME: 'Proxy Fire', YEAR_: 2022, GIS_ACRES: 700 } }],
+        };
+      }
+      throw new Error(`unexpected url ${url}`);
+    });
+
+    const promise = fetchCalFireHistoricalPerimeters({ minYear: 2018, minAcres: 100 });
+    await vi.runAllTimersAsync();
+    const result = await promise;
+
+    vi.useRealTimers();
+    expect(result.features).toHaveLength(1);
+    expect(result.features[0].properties.FireName).toBe('Proxy Fire');
+    expect(fetchWithCache).toHaveBeenCalledWith(
+      'https://proxy.example.test/perimeters?minYear=2018&minAcres=100',
+      expect.anything(), expect.anything(), expect.anything()
+    );
+    expect(fetchWithCache).not.toHaveBeenCalledWith(
+      expect.stringContaining('data.ca.gov'),
       expect.anything(), expect.anything(), expect.anything()
     );
   });
