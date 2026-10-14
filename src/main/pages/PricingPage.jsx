@@ -10,13 +10,10 @@ import { useEffect, useState, createElement } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import Seo from '../../shared/components/Seo';
 import {
-  Flame, Check, ChevronRight, AlertCircle, Lock,
-  Radio, Camera, MapPin, Bell, BellRing,
-  Layers, Droplets, Landmark, TreePine, Clock, Ruler, MessageSquare,
-  Satellite, Plane, History, Radar,
-  Globe, Factory, Mountain, TrendingUp, Target, BarChart3,
-  Download, FileText, LayoutDashboard, Code2, ClipboardList,
-  Building2, ShieldAlert, CloudFog, Sparkles,
+  Flame, Check, ChevronRight, AlertCircle, Lock, Clock,
+  Radio, Camera, MapPin, Bell, Layers, Droplets, Landmark, Ruler, MessageSquare,
+  Satellite, Plane, History, Radar, CloudFog, CloudLightning, Sparkles,
+  Hexagon, Zap, Navigation, Home, Leaf, Columns, Search, Wind, Fuel, Target,
 } from 'lucide-react';
 import { useAuth } from '../../shared/context/AuthContext';
 import { usePlan } from '../../shared/hooks/usePlan';
@@ -28,62 +25,50 @@ const STRIPE_PUBLISHABLE_KEY =
 
 // ─── Feature data ─────────────────────────────────────────────────────────────
 
+// `soon: true` marks features that are announced but not live yet. Only list
+// a feature without it once it actually ships in the app.
 const FREE_FEATURES = [
-  { icon: <MapPin size={14} />,   label: '4 saved locations with notifications' },
-  { icon: <Flame size={14} />,    label: 'Wildfire map' },
-  { icon: <CloudFog size={14} />, label: 'Weather map' },
-  { icon: <Layers size={14} />,   label: 'All-hazard map' },
-  { icon: <Ruler size={14} />,    label: 'Polygon drawing tool' },
-  { icon: <Ruler size={14} />,    label: 'Distance-to-hazard tool' },
-  { icon: <Radio size={14} />,    label: 'NWS outlooks' },
-  { icon: <Radio size={14} />,    label: 'SPC outlooks' },
-  { icon: <Radio size={14} />,    label: 'WPC outlooks' },
-  { icon: <Radio size={14} />,    label: 'NHC outlooks' },
-  { icon: <MessageSquare size={14} />, label: 'Mesoscale discussions' },
-  { icon: <Camera size={14} />,   label: 'Available live cameras' },
-  { icon: <Droplets size={14} />, label: 'Water-level gauges' },
-  { icon: <Radar size={14} />,    label: 'NWS radar' },
-  { icon: <Radar size={14} />,    label: 'Radar composite' },
+  { icon: <MapPin size={14} />,         label: '4 saved locations with notifications' },
+  { icon: <MapPin size={14} />,         label: 'Saved counties with notifications', soon: true },
+  { icon: <Radar size={14} />,          label: 'MRMS composite radar' },
+  { icon: <Radar size={14} />,          label: 'NWS Level II radar sites', soon: true },
+  { icon: <Ruler size={14} />,          label: 'Polygon & area drawing tools' },
+  { icon: <Radio size={14} />,          label: 'NWS outlooks' },
+  { icon: <Radio size={14} />,          label: 'SPC outlooks' },
+  { icon: <Radio size={14} />,          label: 'WPC outlooks' },
+  { icon: <Radio size={14} />,          label: 'NHC outlooks' },
+  { icon: <MessageSquare size={14} />,  label: 'Mesoscale discussions' },
+  { icon: <Camera size={14} />,         label: 'Available live cameras' },
+  { icon: <Droplets size={14} />,       label: 'Water-level gauges' },
+  { icon: <Satellite size={14} />,      label: 'Worldwide satellite imagery' },
+  { icon: <CloudFog size={14} />,       label: 'Smoke layers' },
+  { icon: <Wind size={14} />,           label: 'Red Flag Warnings, Fire Weather Watches & SPC Fire Weather Outlooks' },
+  { icon: <Flame size={14} />,          label: 'Nationwide active fire perimeters & incident info' },
+  { icon: <Target size={14} />,         label: 'Satellite hotspot detection' },
+  { icon: <CloudLightning size={14} />, label: 'Basic lightning detection', soon: true },
+  { icon: <Home size={14} />,           label: 'Home-location report' },
 ];
 
 const PLUS_FEATURES = [
-  { icon: <Flame size={14} />,     label: 'Basic fire behavior modeling — spread projection rings (+1h / +3h / +6h)' },
-  { icon: <MapPin size={14} />,    label: '15 saved locations' },
-  { icon: <Bell size={14} />,      label: 'Custom alert settings' },
-  { icon: <CloudFog size={14} />,  label: 'Smoke layers' },
-  { icon: <Satellite size={14} />, label: 'Worldwide satellite imagery' },
-  { icon: <Plane size={14} />,     label: 'Aircraft tracking', soon: true },
-  { icon: <History size={14} />,   label: 'Historical wildfire perimeters' },
-  { icon: <History size={14} />,   label: 'Historical weather data', soon: true },
-  { icon: <Radar size={14} />,     label: 'Advanced radar products' },
-  { icon: <Layers size={14} />,    label: 'Additional map layers' },
-  { icon: <Ruler size={14} />,     label: 'Advanced distance-to-hazard analysis' },
-  { icon: <TreePine size={14} />,  label: 'Protected / public lands', soon: true },
-  { icon: <Landmark size={14} />,  label: 'WUI data', soon: true },
+  { icon: <Flame size={14} />,          label: 'Predictive fire spread rings (+1h / +3h / +6h)' },
+  { icon: <MapPin size={14} />,         label: '10 saved locations with notifications' },
+  { icon: <Plane size={14} />,          label: 'Aircraft tracking', soon: true },
+  { icon: <Bell size={14} />,           label: 'Custom alert rules (wind, humidity, distance, dry lightning)', soon: true },
+  { icon: <CloudLightning size={14} />, label: 'Lightning replay', soon: true },
+  { icon: <History size={14} />,        label: '50-frame radar loops & 30-day archive', soon: true },
+  { icon: <Columns size={14} />,        label: 'Multi-pane map view', soon: true },
+  { icon: <Leaf size={14} />,           label: 'Live fuels & fire danger', soon: true },
+  { icon: <Search size={14} />,         label: 'Historical fire search', soon: true },
 ];
 
 const PRO_FEATURES = [
-  { icon: <MapPin size={14} />,        label: 'Unlimited saved locations' },
-  { icon: <BellRing size={14} />,      label: 'Advanced alert rules' },
-  { icon: <Globe size={14} />,         label: 'Advanced GIS layers' },
-  { icon: <Landmark size={14} />,      label: 'WUI data' },
-  { icon: <Landmark size={14} />,      label: 'Land ownership' },
-  { icon: <Factory size={14} />,       label: 'Critical infrastructure' },
-  { icon: <TreePine size={14} />,      label: 'Protected / public lands' },
-  { icon: <Mountain size={14} />,      label: 'Advanced terrain data' },
-  { icon: <TrendingUp size={14} />,    label: 'Fire progression modeling' },
-  { icon: <Flame size={14} />,         label: 'Fire behavior modeling' },
-  { icon: <TrendingUp size={14} />,    label: 'Fire spread projections' },
-  { icon: <Target size={14} />,        label: 'Advanced hotspot analysis' },
-  { icon: <BarChart3 size={14} />,     label: 'Advanced incident intelligence' },
-  { icon: <History size={14} />,       label: 'Historical incident analysis' },
-  { icon: <Download size={14} />,      label: 'Data exports' },
-  { icon: <FileText size={14} />,      label: 'GIS exports' },
-  { icon: <LayoutDashboard size={14} />, label: 'Custom dashboards' },
-  { icon: <Code2 size={14} />,         label: 'API access' },
-  { icon: <ClipboardList size={14} />, label: 'Professional reporting tools' },
-  { icon: <Building2 size={14} />,     label: 'Multi-location monitoring' },
-  { icon: <ShieldAlert size={14} />,   label: 'Advanced hazard analysis' },
+  { icon: <MapPin size={14} />,     label: 'Unlimited saved locations' },
+  { icon: <Hexagon size={14} />,    label: 'WUI data (California)', soon: true },
+  { icon: <Layers size={14} />,     label: 'CA State Responsibility Areas', soon: true },
+  { icon: <Landmark size={14} />,   label: 'Federal land management (California land ownership)' },
+  { icon: <Zap size={14} />,        label: 'Electrical power lines' },
+  { icon: <Fuel size={14} />,       label: 'Natural gas pipelines' },
+  { icon: <Navigation size={14} />, label: 'Route to Safety (evacuation routing)' },
 ];
 
 const FAQ = [
@@ -100,8 +85,8 @@ const FAQ = [
     a: 'Yes. The Free tier is not a trial — it\'s a permanent, no-credit-card-required plan designed to keep core situational awareness accessible to everyone.',
   },
   {
-    q: 'What does "coming soon" mean for Plus/Pro features?',
-    a: 'Those data layers are actively in development. Subscribers get access automatically as each layer launches — no extra charge, no action needed.',
+    q: 'What does "Soon" mean next to a feature?',
+    a: 'Those features are actively in development and are not available yet. Each one turns on automatically for the plans it is listed under when it launches — no extra charge, no action needed.',
   },
   {
     q: 'Can I upgrade or switch plans mid-month?',
@@ -156,7 +141,7 @@ export default function PricingPage() {
         </h1>
         <p className="text-sentinel-300 text-lg max-w-xl mx-auto">
           Core situational awareness is free — forever. Upgrade to Plus or Pro for
-          fire behavior modeling, critical infrastructure intelligence, and personalized alerts.
+          predictive fire spread, more saved locations, critical infrastructure layers, and evacuation routing.
         </p>
 
         {/* Result banners */}
@@ -206,7 +191,10 @@ export default function PricingPage() {
               {FREE_FEATURES.map((f, i) => (
                 <li key={i} className="flex items-start gap-2.5 text-sm text-sentinel-200">
                   <span className="shrink-0 mt-0.5 text-sentinel-400">{f.icon}</span>
-                  {f.label}
+                  <span className="flex items-center gap-2 flex-wrap">
+                    {f.label}
+                    {f.soon && <ComingSoon />}
+                  </span>
                 </li>
               ))}
             </ul>
@@ -266,7 +254,10 @@ export default function PricingPage() {
               {PRO_FEATURES.map((f, i) => (
                 <li key={i} className="flex items-start gap-2.5 text-sm text-sentinel-200">
                   <span className="shrink-0 mt-0.5 text-fire-400">{f.icon}</span>
-                  {f.label}
+                  <span className="flex items-center gap-2 flex-wrap">
+                    {f.label}
+                    {f.soon && <ComingSoon />}
+                  </span>
                 </li>
               ))}
             </ul>

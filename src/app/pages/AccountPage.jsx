@@ -270,9 +270,9 @@ export default function AccountPage() {
           {/* Plan features summary */}
           <ul className="text-xs text-sentinel-300 space-y-1">
             <li>• {Number.isFinite(plan.savedLocationsLimit) ? plan.savedLocationsLimit : 'Unlimited'} saved locations</li>
-            {plan.priorityAlerts && <li>• Priority alert delivery</li>}
-            {plan.advancedLayers && <li>• Advanced radar &amp; satellite layers</li>}
-            {plan.apiAccess && <li>• API access</li>}
+            {plan.fireBehaviorModeling && <li>• Predictive fire spread rings</li>}
+            {plan.infrastructureLayers && <li>• Power lines, gas pipelines &amp; land ownership</li>}
+            {plan.evacuationRoutes && <li>• Route to Safety</li>}
             {plan.teamMembers > 1 && <li>• Up to {plan.teamMembers} team members</li>}
           </ul>
 

@@ -375,7 +375,8 @@ const LayerControl = memo(function LayerControl({
       sublabel: 'USGS National Map · colleges & universities',
       icon: GraduationCap,
       color: '#a78bfa',
-      locked: !infrastructureLayersEntitled,
+      // Free for everyone; only power lines/pipelines and land ownership are Pro.
+      locked: false,
     },
     {
       key: 'landOwnership',
