@@ -109,7 +109,7 @@ export function useSavedLocations() {
   }) => {
     if (!isAuthenticated || !isSupabaseConfigured) throw new Error('Sign in to save locations');
     if (locations.length >= locationLimit) {
-      throw new Error(`Your plan allows up to ${locationLimit} saved locations. Upgrade to add more.`);
+      throw new Error(`You can have up to ${locationLimit} saved locations. Remove one to add another.`);
     }
 
     const row = {

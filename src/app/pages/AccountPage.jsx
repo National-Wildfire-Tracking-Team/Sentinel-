@@ -16,7 +16,6 @@ import {
 import { useAuth } from '../../shared/context/AuthContext';
 import { useConfirmSignOut } from '../../shared/hooks/useConfirmSignOut';
 import { supabase } from '../../shared/api/supabaseClient';
-import { getMainOrigin } from '../../shared/utils/getAppOrigin';
 import { useSavedLocations } from '../hooks/useSavedLocations';
 import { useNotificationPreferences } from '../hooks/useNotificationPreferences';
 import { usePlan } from '../../shared/hooks/usePlan';
@@ -237,12 +236,6 @@ export default function AccountPage() {
               <CreditCard size={14} className="text-fire-400" />
               Plan &amp; Billing
             </h2>
-            <a
-              href={`${getMainOrigin()}/pricing`}
-              className="text-xs text-fire-400 hover:text-fire-300 transition-colors"
-            >
-              View plans →
-            </a>
           </div>
 
           {/* Current plan badge */}
@@ -276,15 +269,15 @@ export default function AccountPage() {
             {plan.teamMembers > 1 && <li>• Up to {plan.teamMembers} team members</li>}
           </ul>
 
-          {/* Billing portal or upgrade CTA */}
+          {/* Billing portal (paid plans only; no upgrade CTA in the app) */}
           {portalError && (
             <div className="flex items-start gap-2 p-2.5 rounded-lg bg-red-950/40 border border-red-800/60 text-red-300 text-xs">
               <AlertCircle size={13} className="shrink-0 mt-0.5" />
               <span>{portalError}</span>
             </div>
           )}
-          <div className="flex gap-2 flex-wrap pt-1">
-            {isPaid ? (
+          {isPaid && (
+            <div className="flex gap-2 flex-wrap pt-1">
               <button
                 onClick={handleManageBilling}
                 disabled={portalBusy}
@@ -296,18 +289,8 @@ export default function AccountPage() {
                 <ExternalLink size={12} />
                 {portalBusy ? 'Opening…' : 'Manage Billing'}
               </button>
-            ) : (
-              <a
-                href={`${getMainOrigin()}/pricing`}
-                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold
-                           bg-fire-600/15 border border-fire-500/30 text-fire-400
-                           hover:bg-fire-600/25 hover:text-fire-300 transition-colors"
-              >
-                <Zap size={12} />
-                View Plans &amp; Upgrade
-              </a>
-            )}
-          </div>
+            </div>
+          )}
         </section>
 
         {/* ── Saved Locations card ── */}
