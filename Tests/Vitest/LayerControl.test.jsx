@@ -215,7 +215,7 @@ describe('LayerControl — Navigation (Pro)', () => {
 
   it('keeps every existing All Hazards toggle', () => {
     renderPanel({ activeMapTab: 'allhazard', routingEntitled: true });
-    for (const label of ['Fire Perimeters', 'Evacuation Zones', 'Incident Locations', 'Fire Hotspots']) {
+    for (const label of ['Active Fires', 'Evacuation Zones', 'Fire Hotspots']) {
       expect(screen.getByText(label)).toBeInTheDocument();
     }
   });

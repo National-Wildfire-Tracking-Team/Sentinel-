@@ -28,12 +28,15 @@ const IMAGERY_LINE_WIDTH_EXPR = ['+', LINE_WIDTH_EXPR, 1];
 const CASING_WIDTH_EXPR = ['+', LINE_WIDTH_EXPR, 4];
 const ALERT_FEATURE_FILTER = ['==', ['get', '__sentinelLayerType'], 'nws-alert'];
 const MD_FEATURE_FILTER = ['==', ['get', '__sentinelLayerType'], 'spc-md'];
+// Mapbox's own upper zoom limit — i.e. no cap.
+const NO_MAX_ZOOM = 24;
 
 const WeatherAlertsLayer = memo(function WeatherAlertsLayer({
   geoJSON,
   spcMdGeoJSON,
   visible,
   onImagery = false,
+  alertsMaxZoom = NO_MAX_ZOOM,
 }) {
   const vis = visible ? 'visible' : 'none';
   const combinedGeoJSON = useMemo(() => {
@@ -92,6 +95,8 @@ const WeatherAlertsLayer = memo(function WeatherAlertsLayer({
       <Source id="weather-alerts" type="geojson" data={combinedGeoJSON}>
         <Layer
           id="weather-alerts-fill"
+          minzoom={0}
+          maxzoom={alertsMaxZoom}
           type="fill"
           source="weather-alerts"
           filter={ALERT_FEATURE_FILTER}
@@ -103,6 +108,8 @@ const WeatherAlertsLayer = memo(function WeatherAlertsLayer({
         />
         <Layer
           id="weather-alerts-casing"
+          minzoom={0}
+          maxzoom={alertsMaxZoom}
           type="line"
           source="weather-alerts"
           filter={ALERT_FEATURE_FILTER}
@@ -116,6 +123,8 @@ const WeatherAlertsLayer = memo(function WeatherAlertsLayer({
         />
         <Layer
           id="weather-alerts-line"
+          minzoom={0}
+          maxzoom={alertsMaxZoom}
           type="line"
           source="weather-alerts"
           filter={ALERT_FEATURE_FILTER}

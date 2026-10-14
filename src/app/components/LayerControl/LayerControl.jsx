@@ -7,7 +7,7 @@
 import { useState, memo, useMemo, useEffect } from 'react';
 import { getMainOrigin } from '../../../shared/utils/getAppOrigin';
 import {
-  Layers, Flame, MapPin, Wind, CloudRain, CloudLightning, Radar, AlertTriangle, Ruler, Hexagon, Satellite, Thermometer, Activity, Droplets, Zap, Lock, GraduationCap, History, TrendingUp, Camera, Snowflake, Landmark, Waves, Waypoints, Navigation,
+  Layers, Flame, Wind, CloudRain, CloudLightning, Radar, AlertTriangle, Ruler, Hexagon, Satellite, Thermometer, Activity, Droplets, Zap, Lock, GraduationCap, History, TrendingUp, Camera, Snowflake, Landmark, Waves, Waypoints, Navigation,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { trackSentinelUse } from '../../../shared/utils/analytics';
@@ -19,9 +19,8 @@ import NhcTropicalControls from './NhcTropicalControls';
 const LAYER_DEFS = {
   fireHotspots:      { label: 'Fire Hotspots',       sublabel: 'NASA FIRMS satellite',          icon: Flame,        color: '#ff4500' },
   ngfsDetections:    { label: 'GOES Fire Detections', sublabel: 'NOAA NESDIS NGFS satellite',   icon: Satellite,    color: '#ffa500' },
-  firePerimeters:    { label: 'Fire Perimeters',     sublabel: 'NIFC WFIGS',                  icon: MapPin,       color: '#ff6600' },
   calFireHistoricalPerimeters: { label: 'Historical Fire Perimeters', sublabel: 'CAL FIRE FRAP · past fire scars', icon: History, color: '#92400e' },
-  incidentLocations: { label: 'Incident Locations',  sublabel: 'WFIGS · NWTT verified',       icon: Flame,        color: '#f59e0b' },
+  incidentLocations: { label: 'Active Fires',        sublabel: 'WFIGS locations & perimeters · NWTT verified', icon: Flame, color: '#f59e0b' },
   evacZones:         { label: 'Evacuation Zones',    sublabel: 'Cal OES + IPAWS + field-reported zones', icon: AlertTriangle, color: '#ef4444' },
   ndgdSmokeForecast: { label: 'Smoke Concentration', sublabel: 'NOAA NDGD hourly (48h)',      icon: CloudRain,    color: '#eab308' },
   droughtOutlook:    { label: 'Drought Outlook',     sublabel: 'NOAA CPC Monthly Outlook',    icon: Droplets,     color: '#f59e0b' },
@@ -60,7 +59,7 @@ const TAB_SECTIONS = {
       title: 'Fire activity',
       groups: [
         {
-          layers: ['incidentLocations', 'firePerimeters', 'evacZones', 'fireHotspots', 'ngfsDetections', 'calFireHistoricalPerimeters', 'fireBehaviorModeling'],
+          layers: ['incidentLocations', 'evacZones', 'fireHotspots', 'ngfsDetections', 'calFireHistoricalPerimeters', 'fireBehaviorModeling'],
         },
       ],
     },
@@ -92,7 +91,7 @@ const TAB_SECTIONS = {
           layers: [
             { key: 'weatherAlerts', label: 'Red Flag Warnings', sublabel: 'NWS active Red Flag Warnings' },
             'evacZones',
-            'incidentLocations', 'firePerimeters',
+            'incidentLocations',
             'fireHotspots', 'ngfsDetections', 'calFireHistoricalPerimeters', 'satellite',
             'fireBehaviorModeling',
           ],

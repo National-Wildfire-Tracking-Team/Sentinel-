@@ -5,8 +5,7 @@
  * on top (same icon-registration pattern as HazardEventsLayer) so they
  * read as cameras at a glance rather than generic dots. Cameras
  * Caltrans reports as out of service get a red X over the dot instead of
- * the camera glyph. Hovering shows name/route/direction/status in
- * MapView's HoverTooltip, click opens CameraPanel with the live still image.
+ * the camera glyph. Clicking opens CameraPanel with the live still image.
  */
 
 import { memo, useEffect, useState } from 'react';

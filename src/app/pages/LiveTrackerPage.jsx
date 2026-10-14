@@ -113,8 +113,7 @@ const MAP_TABS = {
 
 const WILDFIRE_LAYER_PRESET = {
   fireHotspots: false,
-  firePerimeters: false, // off on open; switch on from the layer panel
-  incidentLocations: true,
+  incidentLocations: true, // fire points + perimeter shapes
   weatherAlerts: true,
   smoke: false,
   satellite: false,
@@ -133,8 +132,7 @@ const WILDFIRE_LAYER_PRESET = {
 
 const ALL_HAZARD_LAYER_PRESET = {
   fireHotspots: false,
-  firePerimeters: false, // off on open; switch on from the layer panel
-  incidentLocations: true,
+  incidentLocations: true, // fire points + perimeter shapes
   weatherAlerts: true,
   smoke: false,
   satellite: false,
@@ -157,7 +155,6 @@ const ALL_HAZARD_LAYER_PRESET = {
 // the previous tab; all of them stay available in the layer panel.
 const WEATHER_LAYER_PRESET = {
   fireHotspots: false,
-  firePerimeters: false,
   incidentLocations: false,
   weatherAlerts: true,
   smoke: false,

@@ -10,8 +10,9 @@
  *
  * The lines draw above every other layer, so borders show through alerts,
  * outlooks, imagery and fire data alike. Layers that mount later (switched on
- * from the layer panel) would otherwise land on top, so the border layers are
- * raised back to the top whenever the style changes.
+ * from the layer panel) would otherwise land on top, so whenever the style
+ * changes the borders, and the fire/alert stack under them, are raised back
+ * to the top (see layerStack.js).
  *
  * The base styles' own (thin, orange-tinted) admin boundaries are switched
  * off, so these white lines are the only borders on the map.
@@ -19,6 +20,7 @@
 
 import { memo, useEffect } from 'react';
 import { Source, Layer, useMap } from 'react-map-gl';
+import { applyLayerStack } from './layerStack';
 
 const STATE_LINE_FILTER = [
   'all',
@@ -68,12 +70,6 @@ function casedLine(id, sourceLayer, filter) {
   ];
 }
 
-// Bottom to top: each casing sits under its line.
-const BORDER_LAYER_IDS = [
-  'country-outlines-casing', 'country-outlines-line',
-  'state-boundaries-casing', 'state-boundaries-line',
-];
-
 // Classic styles (dark-v11, the street map) draw borders in these layers;
 // Mapbox Standard styles (the satellite map) expose a config switch instead.
 const BASE_BOUNDARY_LAYER = /^admin-[01]-boundary/;
@@ -105,11 +101,8 @@ const StateBoundariesLayer = memo(function StateBoundariesLayer() {
       // Touching layers mid-load throws; a later styledata/idle retries.
       if (!map.isStyleLoaded()) return;
       hideBaseBoundaries(map);
-      const order = map.getStyle?.()?.layers?.map((l) => l.id);
-      if (!order) return;
-      const top = order.slice(-BORDER_LAYER_IDS.length);
-      if (BORDER_LAYER_IDS.every((id, i) => top[i] === id)) return;
-      BORDER_LAYER_IDS.forEach((id) => { if (map.getLayer(id)) map.moveLayer(id); });
+      // Borders on top, with the fire/alert stack right under them.
+      applyLayerStack(map);
     };
     // Coalesce bursts of style events (several layers mounting at once).
     const schedule = () => { if (frame == null) frame = requestAnimationFrame(raise); };

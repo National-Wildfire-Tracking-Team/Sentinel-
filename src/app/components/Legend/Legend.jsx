@@ -274,7 +274,7 @@ const Legend = memo(function Legend({
               </Section>
             )}
 
-            {layers.firePerimeters && (
+            {layers.incidentLocations && (
               <Section title="Fire Perimeters">
                 <ColorRow color="#ff6600" label="Active perimeter" />
               </Section>
