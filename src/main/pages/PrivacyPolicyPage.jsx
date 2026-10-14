@@ -47,11 +47,11 @@ const sections = [
     ],
   },
   {
-    title: '7. Advertising & Cookies',
+    title: '7. Analytics & Cookies',
     body: [
-      'We use Google AdSense to display advertising on this website, configured to serve non-personalized ads. Ad selection is not based on your browsing history or an advertising profile; Google may still use cookies and similar technologies for basic functions such as frequency capping, aggregated reporting, and fraud prevention.',
-      'If you would like to review or control how Google uses data across its own services generally, you can visit Google\'s Ads Settings at adssettings.google.com or the industry opt-out tool at aboutads.info/choices.',
-      'Google\'s ad delivery is subject to Google\'s own privacy policy, not ours. We do not control the content of ads served by Google or the data Google collects to serve them.',
+      'We do not display third-party advertising on this website or in the Sentinel app.',
+      'We use Google Analytics and Google Tag Manager to measure how our services are used in aggregate, for example which pages and features are used most. These tools may set cookies and collect technical information such as browser type, device type, and pages visited. We use this information only in aggregated form to understand and improve our services.',
+      'You can block or delete cookies through your browser settings, or opt out of Google Analytics with Google\'s browser add-on at tools.google.com/dlpage/gaoptout. Google\'s processing of this data is subject to Google\'s own privacy policy.',
     ],
   },
   {

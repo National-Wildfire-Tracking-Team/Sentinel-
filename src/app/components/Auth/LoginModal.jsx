@@ -3,6 +3,7 @@ import { Eye, EyeOff, Flame, X, Loader2 } from 'lucide-react';
 import { useAuth } from '../../../shared/context/AuthContext';
 import { isEmailNotConfirmedError, isExistingAccountSignUp } from '../../../shared/utils/authEmail';
 import ResendConfirmation from './ResendConfirmation';
+import { trackSignUp } from '../../../shared/utils/analytics';
 
 export default function LoginModal({ onClose, onLoginSuccess }) {
   const { signIn, signUp, isSupabaseConfigured } = useAuth();
@@ -60,6 +61,7 @@ export default function LoginModal({ onClose, onLoginSuccess }) {
         setError('An account with this email already exists. Sign in instead.');
         return;
       }
+      trackSignUp('email');
       if (data?.session) {
         onLoginSuccess?.();
       } else {

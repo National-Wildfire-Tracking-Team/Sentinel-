@@ -8,7 +8,7 @@
 import { memo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  Home, Map as MapIcon, HelpCircle, Award, HeartHandshake, MapPin, Satellite, Mountain, Info, ChevronDown,
+  Home, Map as MapIcon, HelpCircle, HeartHandshake, MapPin, Satellite, Mountain, Info, ChevronDown,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { useTheme } from '../../context/ThemeContext';
@@ -226,14 +226,6 @@ const FutureFeaturesPanel = memo(function FutureFeaturesPanel({ mapType = 'satel
         <MenuRow icon={HelpCircle} label="Help" href={`${getMainOrigin()}/about`} sameTab onClick={closePanel} />
 
         <SectionLabel>Support Our Mission</SectionLabel>
-        <MenuRow
-          icon={Award}
-          iconClassName="text-fire-500"
-          label="Membership"
-          href={`${getMainOrigin()}/pricing`}
-          sameTab
-          onClick={closePanel}
-        />
         <MenuRow
           icon={HeartHandshake}
           iconClassName="text-pink-500"

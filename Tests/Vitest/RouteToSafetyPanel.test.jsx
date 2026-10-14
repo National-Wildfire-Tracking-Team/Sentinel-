@@ -79,9 +79,10 @@ describe('RouteToSafetyPanel', () => {
     expect(screen.getByText(text)).toBeInTheDocument();
   });
 
-  it('not_entitled shows the upgrade link', () => {
+  it('not_entitled shows no upgrade link and no retry', () => {
     renderPanel({ status: 'error', error: { kind: 'not_entitled' } });
-    expect(screen.getByRole('link', { name: /Upgrade/ })).toHaveAttribute('href', 'https://example.org/pricing');
+    expect(screen.queryByRole('link', { name: /Upgrade/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Retry' })).not.toBeInTheDocument();
   });
 
   it('retry calls actions.retry', () => {

@@ -1,5 +1,5 @@
 /**
- * Fire behavior spread-projection rings (+1h/+3h/+6h). Sentinel Pro/Team.
+ * Fire behavior spread-projection rings (+1h/+3h/+6h). Sentinel Plus and above.
  */
 
 import { memo } from 'react';

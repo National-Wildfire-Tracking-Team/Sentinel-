@@ -5,7 +5,6 @@
  */
 
 import { useState, memo, useMemo, useEffect } from 'react';
-import { getMainOrigin } from '../../../shared/utils/getAppOrigin';
 import {
   Layers, Flame, Wind, CloudRain, CloudLightning, Radar, AlertTriangle, Ruler, Hexagon, Satellite, Thermometer, Activity, Droplets, Zap, Lock, GraduationCap, History, TrendingUp, Camera, Snowflake, Landmark, Waves, Waypoints, Navigation,
 } from 'lucide-react';
@@ -175,12 +174,6 @@ function LayerToggle({ layerKey, label, sublabel, icon: Icon, locked, onToggle }
           </div>
           <div className="text-[10px] text-sentinel-300 truncate">{sublabel}</div>
         </div>
-        <a
-          href={`${getMainOrigin()}/pricing`}
-          className="shrink-0 text-[10px] font-semibold text-amber-400 hover:text-amber-300 underline underline-offset-2"
-        >
-          Upgrade
-        </a>
       </div>
     );
   }
@@ -375,7 +368,8 @@ const LayerControl = memo(function LayerControl({
       sublabel: 'USGS National Map · colleges & universities',
       icon: GraduationCap,
       color: '#a78bfa',
-      locked: !infrastructureLayersEntitled,
+      // Free for everyone; only power lines/pipelines and land ownership are Pro.
+      locked: false,
     },
     {
       key: 'landOwnership',
@@ -387,7 +381,7 @@ const LayerControl = memo(function LayerControl({
     },
   ], [infrastructureLayersEntitled]);
 
-  // Pro-gated rows outside the Infrastructure section (same Lock/Upgrade row).
+  // Pro-gated rows outside the Infrastructure section (same locked row).
   const lockedLayerKeys = useMemo(
     () => new Set(routingEntitled ? [] : ['routeToSafety']),
     [routingEntitled],

@@ -8,7 +8,6 @@
 
 import { memo, useEffect, useState } from 'react';
 import { AlertTriangle, ChevronDown, ChevronLeft, Home, Loader2, LocateFixed, MapPin, Navigation, RotateCw, X } from 'lucide-react';
-import { getMainOrigin } from '../../../shared/utils/getAppOrigin';
 import { SHELTER_KIND_LABELS, directionsUrl } from '../FireDetailPanel/incidentDetailModel';
 import { reverseGeocode } from '../../utils/geocode';
 import AddressAutocomplete from './AddressAutocomplete';
@@ -220,9 +219,7 @@ const RouteToSafetyPanel = memo(function RouteToSafetyPanel({ state, actions, on
           <p className="text-sm text-amber-200">{errorMessage(state.error, Boolean(mapsUrl))}</p>
           <div className="flex flex-wrap gap-2">
             {hasShelters && backButton}
-            {state.error?.kind === 'not_entitled' ? (
-              <a href={`${getMainOrigin()}/pricing`} className="text-xs font-semibold text-amber-400 underline underline-offset-2">Upgrade</a>
-            ) : (
+            {state.error?.kind !== 'not_entitled' && (
               <button type="button" onClick={actions.retry}
                 className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-white/10 text-xs font-medium hover:bg-white/15 active:scale-[0.97] transition-transform duration-100">
                 <RotateCw size={12} /> Retry
