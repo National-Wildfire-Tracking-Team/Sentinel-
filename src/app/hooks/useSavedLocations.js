@@ -14,6 +14,7 @@ import { supabase, isSupabaseConfigured } from '../../shared/api/supabaseClient'
 import { useAuth } from '../../shared/context/AuthContext';
 import { fetchAlertsByPoint } from '../api/noaaWeather';
 import { usePlan, PLANS } from '../../shared/hooks/usePlan';
+import { trackSavedLocation } from '../../shared/utils/analytics';
 import {
   DEFAULT_RADIUS_MILES,
   validateSavedLocationFields,
@@ -108,7 +109,7 @@ export function useSavedLocations() {
   }) => {
     if (!isAuthenticated || !isSupabaseConfigured) throw new Error('Sign in to save locations');
     if (locations.length >= locationLimit) {
-      throw new Error(`Your plan allows up to ${locationLimit} saved locations. Upgrade to add more.`);
+      throw new Error(`You can have up to ${locationLimit} saved locations. Remove one to add another.`);
     }
 
     const row = {
@@ -131,6 +132,7 @@ export function useSavedLocations() {
       .single();
 
     if (err) throw err;
+    trackSavedLocation();
     setLocations(prev => [...prev, data]);
     return data;
   }, [isAuthenticated, user?.id, locations.length, locationLimit]);

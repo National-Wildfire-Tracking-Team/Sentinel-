@@ -13,6 +13,7 @@ import {
 import { useAuth } from '../../shared/context/AuthContext';
 import { isExistingAccountSignUp } from '../../shared/utils/authEmail';
 import ResendConfirmation from '../components/Auth/ResendConfirmation';
+import { trackSignUp } from '../../shared/utils/analytics';
 
 export default function RegisterPage() {
   const { signUp, isSupabaseConfigured } = useAuth();
@@ -52,6 +53,7 @@ export default function RegisterPage() {
         setError('An account with this email already exists. Sign in instead, or use "Forgot password" to reset it.');
         return;
       }
+      trackSignUp('email');
 
       // When email confirmation is enabled, signUp returns no session.
       // Show a confirmation prompt instead of navigating blindly.

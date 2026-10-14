@@ -191,12 +191,12 @@ describe('LayerControl — Navigation (Pro)', () => {
     expect(screen.queryByText('Navigation')).not.toBeInTheDocument();
   });
 
-  it.each(['allhazard', 'wildfire', 'weather'])('is Pro-locked with an Upgrade link when not entitled (%s)', (tab) => {
+  it.each(['allhazard', 'wildfire', 'weather'])('is Pro-locked with no upgrade link when not entitled (%s)', (tab) => {
     renderPanel({ activeMapTab: tab, routingEntitled: false });
     const label = screen.getByText('Navigation');
     const row = label.closest('.w-full');
     expect(row).toHaveTextContent('Pro');
-    expect(row.querySelector('a[href$="/pricing"]')).not.toBeNull();
+    expect(row.querySelector('a')).toBeNull();
     expect(screen.queryByRole('button', { name: 'Toggle Navigation' })).not.toBeInTheDocument();
   });
 
