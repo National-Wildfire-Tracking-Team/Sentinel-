@@ -14,6 +14,7 @@ import { supabase, isSupabaseConfigured } from '../../shared/api/supabaseClient'
 import { useAuth } from '../../shared/context/AuthContext';
 import { fetchAlertsByPoint } from '../api/noaaWeather';
 import { usePlan, PLANS } from '../../shared/hooks/usePlan';
+import { trackSavedLocation } from '../../shared/utils/analytics';
 import {
   DEFAULT_RADIUS_MILES,
   validateSavedLocationFields,
@@ -131,6 +132,7 @@ export function useSavedLocations() {
       .single();
 
     if (err) throw err;
+    trackSavedLocation();
     setLocations(prev => [...prev, data]);
     return data;
   }, [isAuthenticated, user?.id, locations.length, locationLimit]);

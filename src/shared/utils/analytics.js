@@ -28,3 +28,19 @@ export function trackEvent(eventName, params = {}) {
 export function trackSentinelUse(action, params = {}) {
   trackEvent('sentinel_use', { engagement_action: action, ...params });
 }
+
+/**
+ * Fires the GA4 recommended `sign_up` conversion event. Sends only the
+ * sign-up method — never the email or any other user data.
+ */
+export function trackSignUp(method = 'email') {
+  trackEvent('sign_up', { method });
+}
+
+/**
+ * Fires the `saved_location` conversion event after a location is saved.
+ * Deliberately sends no parameters: no name, address, coordinates or user ID.
+ */
+export function trackSavedLocation() {
+  trackEvent('saved_location');
+}
