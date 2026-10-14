@@ -16,7 +16,6 @@ const initialState = {
     fireHotspots:      false,
     /** NOAA NESDIS NGFS — GOES satellite fire detections */
     ngfsDetections:    false,
-    firePerimeters:    false,
     /** CAL FIRE FRAP historical fire perimeter scars */
     calFireHistoricalPerimeters: false,
     incidentLocations: false,
