@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { useAppStatus } from '../../context/AppStatusContext';
-import { formatAcres, formatContainment, formatFRP, formatDate, formatPersonnel, formatRelativeTime, withClock } from '../../utils/formatUtils';
+import { formatAcres, formatContainment, formatFRP, formatDate, formatPersonnel, formatRelativeTime, formatClockTime, withClock } from '../../utils/formatUtils';
 import { frpToLabel, containmentToColor, getAQICategory } from '../../utils/colorUtils';
 import { nwsAlertColor } from '../../utils/nwsColors';
 import IncidentTimeline from '../IncidentTimeline/IncidentTimeline';
@@ -249,18 +249,38 @@ function issuingOfficeFromAlert(alert) {
   return null;
 }
 
-function sourceChipLabel(response, senderName) {
-  if (response && String(response).trim()) {
-    const r = String(response).replace(/_/g, ' ');
-    const cap = r.charAt(0).toUpperCase() + r.slice(1);
-    return `Source: ${cap}.`;
-  }
-  if (senderName) return `Source: ${senderName}.`;
-  return null;
+const ALERT_SEVERITY_PILL = {
+  Extreme:  'bg-red-500/15 text-red-300 ring-red-500/30',
+  Severe:   'bg-orange-500/15 text-orange-300 ring-orange-500/30',
+  Moderate: 'bg-yellow-500/15 text-yellow-200 ring-yellow-500/30',
+  Minor:    'bg-sky-500/15 text-sky-300 ring-sky-500/30',
+};
+const ALERT_PILL_NEUTRAL = 'bg-sentinel-700/70 text-sentinel-200 ring-sentinel-600';
+const ALERT_EXPIRING_SOON_MS = 30 * 60 * 1000;
+const ALERT_AREA_PREVIEW = 8;
+
+function AlertPill({ className, children }) {
+  return (
+    <span className={`px-2 py-0.5 rounded-md text-[10px] font-semibold uppercase tracking-wide ring-1 ring-inset ${className}`}>
+      {children}
+    </span>
+  );
+}
+
+function AlertSectionLabel({ icon: Icon, children, action }) {
+  return (
+    <div className="flex items-center gap-1.5 mb-2 text-[10px] font-bold uppercase tracking-wider text-sentinel-400">
+      {Icon && <Icon size={12} />}
+      <span className="flex-1">{children}</span>
+      {action}
+    </div>
+  );
 }
 
 function AlertDetail({ fire, alerts }) {
+  useTimeFormat();
   const [copyStatus, setCopyStatus] = useState('');
+  const [showAllAreas, setShowAllAreas] = useState(false);
 
   const full = alerts?.find((a) => a.id === fire.id) || {};
   const merged = { ...full, ...fire };
@@ -270,12 +290,24 @@ function AlertDetail({ fire, alerts }) {
   const office = issuingOfficeFromAlert(merged);
   const pop = firstPopulationFromParams(merged.parameters);
   const areaSqMi = merged.areaSqMi;
-  const sourceLabel = sourceChipLabel(merged.response, merged.senderName);
+  const issuer = merged.senderName || (office ? `NWS ${office}` : null);
+  const sourceName = merged.source === 'fema' ? 'FEMA IPAWS' : 'National Weather Service';
+  const action = merged.response && merged.response !== 'None' ? String(merged.response).replace(/_/g, ' ') : null;
 
-  const bulletinBody = merged.description || merged.instruction || '';
+  const areas = String(merged.affectedArea || '').split(/;\s*/).filter(Boolean);
+  const visibleAreas = showAllAreas ? areas : areas.slice(0, ALERT_AREA_PREVIEW);
+
+  const expiresMs = merged.expires ? new Date(merged.expires).getTime() : NaN;
+  const msLeft = expiresMs - Date.now();
+  const expired = Number.isFinite(msLeft) && msLeft <= 0;
+  const endingSoon = Number.isFinite(msLeft) && msLeft > 0 && msLeft < ALERT_EXPIRING_SOON_MS;
+  const endsTone = expired ? 'text-sentinel-400' : endingSoon ? 'text-orange-300' : 'text-white';
+
+  const description = merged.description || '';
+  const instruction = merged.instruction || '';
 
   const handleCopyText = async () => {
-    const text = bulletinBody || merged.headline || eventTitle;
+    const text = [description, instruction].filter(Boolean).join('\n\n') || merged.headline || eventTitle;
     try {
       if (navigator.clipboard?.writeText) {
         await navigator.clipboard.writeText(text);
@@ -289,86 +321,121 @@ function AlertDetail({ fire, alerts }) {
     window.setTimeout(() => setCopyStatus(''), 2000);
   };
 
-  const chipBase =
-    'inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-semibold border';
-  const chipInfo = `${chipBase} bg-sky-100/95 text-blue-900 border-blue-200/80`;
-  const chipOutline = `${chipBase} bg-white text-[#1D2951] border-[#1D2951]/40`;
-  const actionBtn =
-    'inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[11px] font-bold text-sentinel-900 bg-amber-400 hover:bg-amber-300 border border-amber-500/50 transition-colors';
+  const pills = [
+    ALERT_SEVERITY_PILL[merged.severity] && { label: merged.severity, cls: ALERT_SEVERITY_PILL[merged.severity] },
+    merged.urgency && merged.urgency !== 'Unknown' && { label: merged.urgency, cls: ALERT_PILL_NEUTRAL },
+    merged.certainty && merged.certainty !== 'Unknown' && { label: merged.certainty, cls: ALERT_PILL_NEUTRAL },
+  ].filter(Boolean);
 
   return (
     <>
-      <div className="relative mb-4">
-        <div className="h-0.5 rounded-full mb-2" style={{ backgroundColor: typeColor }} aria-hidden />
-        <h3 className="font-bold text-white text-lg leading-tight pr-8">{eventTitle}</h3>
+      {/* Hero */}
+      <div className="-mx-4 -mt-4 mb-4 px-4 pt-4 pb-4 border-b border-sentinel-700"
+           style={{ background: `linear-gradient(180deg, ${typeColor}26 0%, transparent 100%)` }}>
+        <div className="flex items-center gap-2 mb-1.5">
+          <span className="w-2.5 h-2.5 rounded-full shrink-0 ring-2 ring-black/20" style={{ backgroundColor: typeColor }} />
+          <span className="text-[10px] font-bold uppercase tracking-wider text-sentinel-300">{sourceName}</span>
+        </div>
+        <h3 className="font-bold text-white text-lg leading-tight">{eventTitle}</h3>
+        {pills.length > 0 && (
+          <div className="flex flex-wrap gap-1.5 mt-2">
+            {pills.map((p) => <AlertPill key={p.label} className={p.cls}>{p.label}</AlertPill>)}
+          </div>
+        )}
+        {merged.headline && (
+          <p className="text-xs text-sentinel-300 leading-relaxed mt-2.5">{merged.headline}</p>
+        )}
       </div>
 
-      <div className="flex flex-col gap-2 mb-4">
-        <div className="flex flex-wrap gap-1.5">
-          {merged.sent && (
-            <span className={chipInfo}>Issued {formatRelativeTime(merged.sent)}</span>
-          )}
+      {/* Timing */}
+      {(merged.expires || merged.sent) && (
+        <div className="grid grid-cols-2 gap-2 mb-2">
           {merged.expires && (
-            <span className={chipInfo}>Expires {formatRelativeTime(merged.expires)}</span>
+            <div className="p-2.5 rounded-lg bg-sentinel-800/60 border border-sentinel-700">
+              <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-sentinel-400">
+                <Clock size={11} />
+                {expired ? 'Expired' : 'Ends'}
+              </div>
+              <div className={`text-sm font-bold mt-0.5 ${endsTone}`}>{formatRelativeTime(merged.expires)}</div>
+              <div className="text-[11px] text-sentinel-400 mt-0.5">{formatClockTime(merged.expires)}</div>
+            </div>
           )}
-          {sourceLabel && <span className={chipInfo}>{sourceLabel}</span>}
-          <span className={chipOutline}>
-            Source: {merged.source === 'fema' ? 'FEMA IPAWS' : 'National Weather Service'}
-          </span>
-          {office && <span className={chipOutline}>Office: {office}</span>}
+          {merged.sent && (
+            <div className="p-2.5 rounded-lg bg-sentinel-800/60 border border-sentinel-700">
+              <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-sentinel-400">
+                <Calendar size={11} />
+                Issued
+              </div>
+              <div className="text-sm font-bold text-white mt-0.5">{formatRelativeTime(merged.sent)}</div>
+              <div className="text-[11px] text-sentinel-400 mt-0.5">{formatClockTime(merged.sent)}</div>
+            </div>
+          )}
         </div>
-        <div className="flex flex-wrap gap-1.5 items-center">
+      )}
+
+      {/* Facts */}
+      {(issuer || pop != null || action || (areaSqMi != null && Number.isFinite(areaSqMi))) && (
+        <div className="grid grid-cols-2 gap-2 mb-4">
+          {issuer && <div className="col-span-2"><StatBlock label="Issued by" value={issuer} icon={ShieldAlert} /></div>}
+          {action && <StatBlock label="Action" value={action} icon={AlertTriangle} color="text-orange-300" />}
+          {pop != null && <StatBlock label="Population" value={pop.toLocaleString()} icon={Users} />}
           {areaSqMi != null && Number.isFinite(areaSqMi) && (
-            <span className={chipInfo}>Area: {areaSqMi.toLocaleString('en-US', { maximumFractionDigits: 1 })} mi²</span>
+            <StatBlock label="Area" value={`${areaSqMi.toLocaleString('en-US', { maximumFractionDigits: 1 })} mi²`} icon={MapPin} />
           )}
-          {pop != null && <span className={chipInfo}>Population: {pop.toLocaleString()}</span>}
-          <span className={chipInfo} title="Polygon count (approx.)">
-            👁️ {merged.geometry?.type === 'MultiPolygon' ? merged.geometry.coordinates.length : 1}
-          </span>
-          <button type="button" onClick={handleCopyText} className={actionBtn}>
-            <Copy size={13} />
-            Copy Text
-          </button>
+        </div>
+      )}
+
+      {/* Affected areas */}
+      {areas.length > 0 && (
+        <div className="mb-4">
+          <AlertSectionLabel icon={MapPin}>Affected areas · {areas.length}</AlertSectionLabel>
+          <div className="flex flex-wrap gap-1">
+            {visibleAreas.map((a) => (
+              <span key={a} className="px-2 py-0.5 rounded-md text-[11px] text-sentinel-200 bg-sentinel-800 border border-sentinel-700">
+                {a}
+              </span>
+            ))}
+            {areas.length > ALERT_AREA_PREVIEW && (
+              <button
+                type="button"
+                onClick={() => setShowAllAreas((v) => !v)}
+                className="px-2 py-0.5 rounded-md text-[11px] font-semibold text-sky-300 hover:text-sky-200 hover:bg-sky-500/10 transition-colors"
+              >
+                {showAllAreas ? 'Show less' : `+${areas.length - ALERT_AREA_PREVIEW} more`}
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* What to do */}
+      {instruction && (
+        <div className="mb-4 rounded-lg border border-amber-500/30 bg-amber-500/[0.07] p-3">
+          <AlertSectionLabel icon={Info}><span className="text-amber-300">What to do</span></AlertSectionLabel>
+          <p className="text-xs leading-relaxed text-sentinel-100 whitespace-pre-line">{instruction.replace(/([^\n])\n(?!\n)/g, '$1 ')}</p>
+        </div>
+      )}
+
+      {/* Bulletin */}
+      <AlertSectionLabel
+        icon={FileText}
+        action={(
           <button
             type="button"
-            onClick={() => {
-              const text = bulletinBody || merged.headline || eventTitle;
-              const shareUrl = new URL(window.location.href);
-              if (merged.id) shareUrl.searchParams.set('alert', merged.id);
-              const payload = {
-                title: 'NWTT Weather Alert',
-                text: text.slice(0, 4000),
-                url: shareUrl.toString(),
-              };
-              const canShare =
-                typeof navigator.share === 'function' &&
-                (typeof navigator.canShare !== 'function' || navigator.canShare(payload));
-              if (canShare) {
-                navigator.share(payload).catch(() => {});
-              } else if (navigator.clipboard?.writeText) {
-                navigator.clipboard.writeText(`${payload.text}\n${payload.url}`);
-                setCopyStatus('Link copied');
-                window.setTimeout(() => setCopyStatus(''), 2000);
-              }
-            }}
-            className={actionBtn}
+            onClick={handleCopyText}
+            className="inline-flex items-center gap-1 px-1.5 py-0.5 -my-0.5 rounded normal-case tracking-normal text-[11px] font-medium text-sentinel-300 hover:text-white hover:bg-sentinel-700 transition-colors"
           >
-            <Share2 size={13} />
-            Share
+            <Copy size={11} />
+            {copyStatus || 'Copy'}
           </button>
-          {copyStatus && <span className="text-[10px] text-sentinel-400">{copyStatus}</span>}
-        </div>
-      </div>
-
-      <div className="flex items-center gap-1.5 mb-2 text-xs font-bold text-sentinel-300">
-          <FileText size={14} />
+        )}
+      >
         Official bulletin
-      </div>
-
-      <div className="rounded-lg border border-sentinel-700 bg-sentinel-900/80 p-3 mb-4 max-h-[min(55vh,420px)] overflow-y-auto">
-        {bulletinBody ? (
+      </AlertSectionLabel>
+      <div className="rounded-lg border border-sentinel-700 bg-black/20 p-3 mb-1 max-h-[min(55vh,420px)] overflow-y-auto scrollbar-thin">
+        {description ? (
           <pre className="text-[11px] leading-relaxed text-sentinel-200 font-mono whitespace-pre-wrap break-words">
-            {bulletinBody}
+            {description}
           </pre>
         ) : (
           <p className="text-xs text-sentinel-400">No bulletin text available for this alert.</p>
