@@ -211,7 +211,7 @@ export default function PricingPage() {
               <span className="text-4xl font-extrabold text-white">$7.99</span>
               <span className="text-sentinel-400 text-sm ml-1">/month</span>
             </div>
-            <p className="text-sentinel-500 text-xs mb-1">or $69.99/year</p>
+            <p className="text-sentinel-500 text-xs mb-1">or $69/year <span className="text-green-400 font-semibold">· save 28%</span></p>
             <p className="text-sentinel-400 text-sm mb-6">
               Weather enthusiasts, wildfire trackers, media, and the prepared public.
             </p>
@@ -242,7 +242,7 @@ export default function PricingPage() {
               <span className="text-4xl font-extrabold text-white">$14.99</span>
               <span className="text-sentinel-400 text-sm ml-1">/month</span>
             </div>
-            <p className="text-sentinel-500 text-xs mb-1">or $149/year</p>
+            <p className="text-sentinel-500 text-xs mb-1">or $149/year <span className="text-green-400 font-semibold">· save 17%</span></p>
             <p className="text-sentinel-400 text-sm mb-6">
               Field-grade intelligence for professionals and power users.
             </p>
