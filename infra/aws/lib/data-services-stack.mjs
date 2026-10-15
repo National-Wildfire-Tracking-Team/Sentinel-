@@ -502,9 +502,11 @@ export class DataServicesStack extends Stack {
   /** Allow-listed headers for per-user API behaviors (ors-routing). */
   #apiOriginRequestPolicy() {
     this.apiOrp ??= new cloudfront.OriginRequestPolicy(this, 'OrsRoutingOriginRequestPolicy', {
-      comment: 'Per-user API: auth + OAC body hash + CORS preflight + viewer IP; never Host/Authorization',
+      comment: 'Per-user API: auth + CORS preflight + viewer IP; never Host/Authorization',
+      // No x-amz-content-sha256: CloudFront rejects it in a policy. OAC uses the
+      // viewer's value to sign the origin request and sends it on by itself.
       headerBehavior: cloudfront.OriginRequestHeaderBehavior.allowList(
-        'x-sentinel-auth', 'x-amz-content-sha256', 'Content-Type', 'Origin',
+        'x-sentinel-auth', 'Content-Type', 'Origin',
         'Access-Control-Request-Method', 'Access-Control-Request-Headers', 'CloudFront-Viewer-Address',
       ),
       queryStringBehavior: cloudfront.OriginRequestQueryStringBehavior.none(),
