@@ -12,14 +12,7 @@
  */
 
 import { createContext, useContext, useReducer, useCallback, useMemo } from 'react';
-
-const initialViewport = {
-  longitude: -114.5,
-  latitude:  44.0,
-  zoom:      4.5,
-  pitch:     0,
-  bearing:   0,
-};
+import { initialViewport } from '../utils/conusView';
 
 function reducer(state, action) {
   return { ...state, ...action.viewport };

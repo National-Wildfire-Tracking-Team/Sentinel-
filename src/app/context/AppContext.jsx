@@ -94,8 +94,9 @@ const initialState = {
   selectedCamera: null,
   // Sidebar open/closed (left panel) — closed by default, opened via the top-left corner buttons
   sidebarOpen: false,
-  // Layer control panel open/closed (right panel)
-  layerPanelOpen: true,
+  // Layer control panel open/closed (right panel) — closed on first open of the map;
+  // the Layers button opens it
+  layerPanelOpen: false,
   // Placeholder "future features" panel open/closed (top-left corner button 1)
   futurePanelOpen: false,
   // Account center panel open/closed (top-left corner button 3)
