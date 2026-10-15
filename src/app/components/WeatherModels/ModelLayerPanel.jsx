@@ -5,17 +5,21 @@
  * sections and rows as the map layer toggles on the other tabs.
  * Variables a mode can't show stay listed but disabled, with the reason
  * ("Not in GFS", "Not comparable between models").
+ * HAFS (hurricane model, when this build has VITE_HAFS_URL) adds its storm,
+ * run and domain choices under its row, and lists its own fields.
  */
 
 import { Check, GitCompare, Wind } from 'lucide-react';
 import { useWeatherModelsContext } from '../../context/WeatherModelsContext';
 import LayerPanelSection from '../LayerControl/LayerPanelSection';
 import { MODEL_STYLE } from './modelTheme';
+import HafsControls from './HafsControls';
 
 const MODELS = [
   { id: 'hrrr', label: 'HRRR', sublabel: MODEL_STYLE.hrrr.blurb, color: MODEL_STYLE.hrrr.hexDark },
   { id: 'gfs', label: 'GFS', sublabel: MODEL_STYLE.gfs.blurb, color: MODEL_STYLE.gfs.hexDark },
   { id: 'compare', label: 'Compare', sublabel: 'HRRR and GFS side by side', color: '#818cf8', icon: GitCompare },
+  { id: 'hafs', label: 'HAFS', sublabel: 'Hurricane model · storm-following 2 km nest · to 126 h', color: '#14b8a6' },
 ];
 
 const COMPARE_VIEWS = [
@@ -90,6 +94,9 @@ export default function ModelLayerPanel({ collapsed = {}, onToggleSection }) {
     manifest, manifestError, variableSwitched } = wm;
   const current = variables.find((v) => v.id === variable);
   const modelColor = MODELS.find((m) => m.id === mode)?.color ?? '#818cf8';
+  const models = MODELS.filter((m) => (wm.modes ?? []).includes(m.id));
+  const isHafs = mode === 'hafs';
+  const loadingVariables = isHafs ? (wm.hafs.sel && !wm.hafs.detail && !wm.hafs.detailError) : !manifest && !manifestError;
 
   return (
     <>
@@ -100,7 +107,7 @@ export default function ModelLayerPanel({ collapsed = {}, onToggleSection }) {
         onToggle={() => onToggleSection('wm-model')}
       >
         <div role="radiogroup" aria-label="Weather model" className={LIST}>
-          {MODELS.map((m) => {
+          {models.map((m) => {
             const active = mode === m.id;
             const Icon = m.icon;
             return (
@@ -118,6 +125,7 @@ export default function ModelLayerPanel({ collapsed = {}, onToggleSection }) {
                   <RadioDot active={active} color={m.color} />
                 </button>
                 {active && m.id === 'compare' && <CompareViewSelector value={compareView} onChange={setCompareView} />}
+                {active && m.id === 'hafs' && <HafsControls />}
               </div>
             );
           })}
@@ -131,8 +139,8 @@ export default function ModelLayerPanel({ collapsed = {}, onToggleSection }) {
         onToggle={() => onToggleSection('wm-variable')}
       >
         <div role="radiogroup" aria-label="Model variable" className={LIST}>
-          {!manifest && !manifestError && <p className="px-2.5 py-2 text-xs text-sentinel-300">Loading model runs…</p>}
-          {manifestError && !manifest && <p className="px-2.5 py-2 text-xs text-red-300">{manifestError.message}</p>}
+          {loadingVariables && <p className="px-2.5 py-2 text-xs text-sentinel-300">Loading model runs…</p>}
+          {!isHafs && manifestError && !manifest && <p className="px-2.5 py-2 text-xs text-red-300">{manifestError.message}</p>}
           {variables.map((v) => {
             const active = v.id === variable;
             return (
@@ -152,6 +160,9 @@ export default function ModelLayerPanel({ collapsed = {}, onToggleSection }) {
                     {v.label}
                   </div>
                   {v.reason && <div className="text-[10px] text-sentinel-400 leading-snug">{v.reason}</div>}
+                  {!v.reason && v.origin === 'calculated' && (
+                    <div className="text-[10px] text-sentinel-400 leading-snug">Calculated from model fields</div>
+                  )}
                 </div>
                 {active && <Check size={14} className="shrink-0" style={{ color: modelColor }} aria-hidden />}
               </button>
@@ -165,7 +176,7 @@ export default function ModelLayerPanel({ collapsed = {}, onToggleSection }) {
         )}
       </LayerPanelSection>
 
-      {mode !== 'compare' && (
+      {mode !== 'compare' && !isHafs && (
         <LayerPanelSection
           title="Overlays"
           collapsed={collapsed['wm-overlays']}

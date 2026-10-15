@@ -4,6 +4,8 @@
  * what is drawn: model (or HRRR − GFS), variable and units, valid time,
  * forecast hour, run and its age. The bar shows the real colours, including
  * transparency (where the field is clear, the bar shows the dark backdrop).
+ * HAFS titles add the storm, and say when a field is calculated or missing
+ * at this hour.
  */
 
 import { useApp } from '../../context/AppContext';
@@ -11,6 +13,7 @@ import { useWeatherModelsContext } from '../../context/WeatherModelsContext';
 import { DISPLAY_UNITS, byteToValue, formatDisplay, hourAt, toDisplay, valueToByte } from '../../api/modelFields';
 import { MODEL_STYLE, ageLabel, localTime, zulu } from './modelTheme';
 import { useTimeFormat } from '../../hooks/useTimeFormat';
+import { stormLabel } from '../../utils/hafsSelection';
 
 const TICKS = 5;
 
@@ -34,10 +37,65 @@ function age(runTime) {
   return ageLabel(Math.max(0, Math.round((Date.now() - Date.parse(runTime)) / 60000)));
 }
 
+function Frame({ layerPanelOpen, children }) {
+  return (
+    // Phones: between the left and right corner-button columns, and out of the way
+    // while the layer pop-up fills the screen. Wider: centred.
+    <div className={`absolute top-2 left-[4.25rem] right-[4.25rem] z-20 pointer-events-none sm:left-1/2 sm:right-auto sm:-translate-x-1/2 sm:w-[min(46rem,calc(100vw-10rem))] ${
+      layerPanelOpen ? 'max-sm:hidden' : ''}`}>
+      <div className="rounded-lg border border-dashed border-sentinel-500/70 bg-sentinel-900/90 backdrop-blur-sm px-2.5 py-1.5 text-white shadow-xl">
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function Bar({ scale, labels, unit }) {
+  return (
+    <>
+      <div className="mt-1 h-2.5 rounded-sm bg-sentinel-700" style={{ backgroundImage: gradient(scale) }} role="img"
+        aria-label={`Colour scale from ${labels[0]} to ${labels[TICKS - 1]} ${unit}`} />
+      <div className="mt-0.5 flex justify-between text-[10px] tabular-nums text-sentinel-300">
+        {labels.map((t, i) => <span key={i}>{t}</span>)}
+      </div>
+    </>
+  );
+}
+
+function HafsLegend({ wm, layerPanelOpen }) {
+  const { hafs, variable, validTime, units } = wm;
+  const spec = hafs.fields.find((f) => f.id === variable);
+  const { sel, frame, detail } = hafs;
+  if (!spec || !sel || !detail || !frame) return null;
+  const unit = DISPLAY_UNITS[units][spec.quantity] ?? spec.units;
+  const labels = ticks(spec, spec.quantity, units, false);
+  const model = sel.models.find((m) => m.id === sel.model)?.name ?? sel.model.toUpperCase();
+  const here = spec.hours.includes(frame.hour);
+  return (
+    <Frame layerPanelOpen={layerPanelOpen}>
+      <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-[11px] leading-tight">
+        <span className="font-bold">{model} · {stormLabel(sel.storm)}</span>
+        <span className="font-semibold">{spec.label} ({unit})</span>
+        <span className="text-sentinel-300">valid {localTime(validTime, { minute: '2-digit' })} ({zulu(validTime)})</span>
+        <span className="text-sentinel-300 tabular-nums">run {zulu(detail.initTime)} +{frame.hour} h · {age(detail.initTime)}</span>
+        <span className="ml-auto rounded border border-dashed border-sentinel-500 px-1 text-[10px] text-sentinel-300">Model forecast</span>
+      </div>
+      <Bar scale={spec} labels={labels} unit={unit} />
+      {!here && <div className="mt-0.5 text-[10px] text-amber-200">{spec.label} isn&apos;t in this run at +{frame.hour} h.</div>}
+      {spec.notice && <div className="mt-0.5 text-[10px] text-amber-200">{spec.notice}</div>}
+      {spec.origin === 'calculated' && <div className="mt-0.5 text-[10px] text-sentinel-300">{spec.description}</div>}
+      {sel.domain === 'storm' && (
+        <div className="mt-0.5 text-[10px] text-sentinel-300">Storm-following nest: the 2 km box moves with the storm each hour.</div>
+      )}
+    </Frame>
+  );
+}
+
 export default function ModelFieldLegend() {
   useTimeFormat();
   const wm = useWeatherModelsContext();
   const { layerPanelOpen } = useApp();
+  if (wm?.mode === 'hafs') return wm.validTime ? <HafsLegend wm={wm} layerPanelOpen={layerPanelOpen} /> : null;
   if (!wm?.manifest || !wm.validTime) return null;
   const { manifest, mode, compareView, variable, validTime, units } = wm;
   const spec = manifest.variables[variable];

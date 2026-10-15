@@ -1,0 +1,4 @@
+# Runtime dependencies, pinned. Installed for arm64 Linux (manylinux_2_28)
+# into the Lambda zip. Everything else is the standard library: NOAA is read
+# with unsigned HTTPS, so no boto3.
+numpy==2.5.3
