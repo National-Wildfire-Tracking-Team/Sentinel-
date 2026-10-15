@@ -187,9 +187,11 @@ test('ors-routing: uncached, all methods, reserved concurrency, secret + Supabas
   assert.equal(orp.HeadersConfig.HeaderBehavior, 'whitelist');
   assert.deepEqual([...orp.HeadersConfig.Headers].sort(), [
     'Access-Control-Request-Headers', 'Access-Control-Request-Method', 'CloudFront-Viewer-Address',
-    'Content-Type', 'Origin', 'x-amz-content-sha256', 'x-sentinel-auth',
+    'Content-Type', 'Origin', 'x-sentinel-auth',
   ].sort());
-  assert.ok(!orp.HeadersConfig.Headers.some((h) => /^(host|authorization)$/i.test(h)));
+  // CloudFront rejects these in a policy: Host/Authorization belong to OAC, and
+  // OAC itself carries x-amz-content-sha256 into the signed origin request.
+  assert.ok(!orp.HeadersConfig.Headers.some((h) => /^(host|authorization|x-amz-content-sha256)$/i.test(h)));
 });
 
 test('WAF rate-limits /ors-routing/* per IP and is attached to the distribution', () => {
