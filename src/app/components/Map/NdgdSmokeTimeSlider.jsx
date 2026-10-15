@@ -4,18 +4,20 @@
  */
 
 import { memo } from 'react';
+import { withClock } from '../../utils/formatUtils';
+import { useTimeFormat } from '../../hooks/useTimeFormat';
 
 function formatForecastHour(ms) {
   if (ms == null || !Number.isFinite(ms)) return '—';
   const d = new Date(ms);
   if (Number.isNaN(d.getTime())) return '—';
-  return d.toLocaleString(undefined, {
+  return d.toLocaleString(undefined, withClock({
     weekday: 'short',
     month: 'short',
     day: 'numeric',
     hour: 'numeric',
     minute: '2-digit',
-  });
+  }));
 }
 
 const NdgdSmokeTimeSlider = memo(function NdgdSmokeTimeSlider({
@@ -23,6 +25,7 @@ const NdgdSmokeTimeSlider = memo(function NdgdSmokeTimeSlider({
   valueIndex = 0,
   onIndexChange,
 }) {
+  useTimeFormat();
   const maxIdx = Math.max(0, forecastHoursMs.length - 1);
   const safeIdx = Math.min(Math.max(0, valueIndex), maxIdx);
   const label = forecastHoursMs.length ? formatForecastHour(forecastHoursMs[safeIdx]) : '';

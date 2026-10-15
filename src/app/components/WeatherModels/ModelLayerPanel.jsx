@@ -5,17 +5,21 @@
  * sections and rows as the map layer toggles on the other tabs.
  * Variables a mode can't show stay listed but disabled, with the reason
  * ("Not in GFS", "Not comparable between models").
+ * HAFS (hurricane model, when this build has VITE_HAFS_URL) adds its storm,
+ * run and domain choices under its row, and lists its own fields.
  */
 
 import { Check, GitCompare, Wind } from 'lucide-react';
 import { useWeatherModelsContext } from '../../context/WeatherModelsContext';
 import LayerPanelSection from '../LayerControl/LayerPanelSection';
 import { MODEL_STYLE } from './modelTheme';
+import HafsControls from './HafsControls';
 
 const MODELS = [
   { id: 'hrrr', label: 'HRRR', sublabel: MODEL_STYLE.hrrr.blurb, color: MODEL_STYLE.hrrr.hexDark },
   { id: 'gfs', label: 'GFS', sublabel: MODEL_STYLE.gfs.blurb, color: MODEL_STYLE.gfs.hexDark },
   { id: 'compare', label: 'Compare', sublabel: 'HRRR and GFS side by side', color: '#818cf8', icon: GitCompare },
+  { id: 'hafs', label: 'HAFS', sublabel: 'Hurricane model · storm-following 2 km nest · to 126 h', color: '#14b8a6' },
 ];
 
 const COMPARE_VIEWS = [
@@ -27,13 +31,14 @@ const ROW = 'w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg hover:bg-wh
   + 'focus-visible:outline focus-visible:outline-2 focus-visible:outline-sky-500';
 const LIST = 'rounded-lg bg-sentinel-900 border border-sentinel-700 divide-y divide-sentinel-700 overflow-hidden';
 
-function IconBox({ active, color, children }) {
+// fill/edge are hex alpha suffixes; toggles pass '26'/'4d' (15%/30%), matching the layer toggles.
+function IconBox({ active, color, fill = '22', edge = '55', children }) {
   return (
     <div
       className="shrink-0 w-7 h-7 rounded-md flex items-center justify-center"
       style={{
-        backgroundColor: active ? `${color}22` : 'transparent',
-        border: `1px solid ${active ? `${color}55` : '#52525b'}`,
+        backgroundColor: active ? `${color}${fill}` : 'transparent',
+        border: `1px solid ${active ? `${color}${edge}` : '#52525b'}`,
       }}
     >
       {children}
@@ -89,6 +94,9 @@ export default function ModelLayerPanel({ collapsed = {}, onToggleSection }) {
     manifest, manifestError, variableSwitched } = wm;
   const current = variables.find((v) => v.id === variable);
   const modelColor = MODELS.find((m) => m.id === mode)?.color ?? '#818cf8';
+  const models = MODELS.filter((m) => (wm.modes ?? []).includes(m.id));
+  const isHafs = mode === 'hafs';
+  const loadingVariables = isHafs ? (wm.hafs.sel && !wm.hafs.detail && !wm.hafs.detailError) : !manifest && !manifestError;
 
   return (
     <>
@@ -99,7 +107,7 @@ export default function ModelLayerPanel({ collapsed = {}, onToggleSection }) {
         onToggle={() => onToggleSection('wm-model')}
       >
         <div role="radiogroup" aria-label="Weather model" className={LIST}>
-          {MODELS.map((m) => {
+          {models.map((m) => {
             const active = mode === m.id;
             const Icon = m.icon;
             return (
@@ -117,6 +125,7 @@ export default function ModelLayerPanel({ collapsed = {}, onToggleSection }) {
                   <RadioDot active={active} color={m.color} />
                 </button>
                 {active && m.id === 'compare' && <CompareViewSelector value={compareView} onChange={setCompareView} />}
+                {active && m.id === 'hafs' && <HafsControls />}
               </div>
             );
           })}
@@ -130,8 +139,8 @@ export default function ModelLayerPanel({ collapsed = {}, onToggleSection }) {
         onToggle={() => onToggleSection('wm-variable')}
       >
         <div role="radiogroup" aria-label="Model variable" className={LIST}>
-          {!manifest && !manifestError && <p className="px-2.5 py-2 text-xs text-sentinel-300">Loading model runs…</p>}
-          {manifestError && !manifest && <p className="px-2.5 py-2 text-xs text-red-300">{manifestError.message}</p>}
+          {loadingVariables && <p className="px-2.5 py-2 text-xs text-sentinel-300">Loading model runs…</p>}
+          {!isHafs && manifestError && !manifest && <p className="px-2.5 py-2 text-xs text-red-300">{manifestError.message}</p>}
           {variables.map((v) => {
             const active = v.id === variable;
             return (
@@ -151,6 +160,9 @@ export default function ModelLayerPanel({ collapsed = {}, onToggleSection }) {
                     {v.label}
                   </div>
                   {v.reason && <div className="text-[10px] text-sentinel-400 leading-snug">{v.reason}</div>}
+                  {!v.reason && v.origin === 'calculated' && (
+                    <div className="text-[10px] text-sentinel-400 leading-snug">Calculated from model fields</div>
+                  )}
                 </div>
                 {active && <Check size={14} className="shrink-0" style={{ color: modelColor }} aria-hidden />}
               </button>
@@ -164,7 +176,7 @@ export default function ModelLayerPanel({ collapsed = {}, onToggleSection }) {
         )}
       </LayerPanelSection>
 
-      {mode !== 'compare' && (
+      {mode !== 'compare' && !isHafs && (
         <LayerPanelSection
           title="Overlays"
           collapsed={collapsed['wm-overlays']}
@@ -172,14 +184,14 @@ export default function ModelLayerPanel({ collapsed = {}, onToggleSection }) {
         >
           <div className={LIST}>
             <button type="button" onClick={() => setParticles(!particles)} aria-pressed={particles} aria-label="Toggle Wind particles" className={ROW}>
-              <IconBox active={particles} color="#38bdf8">
-                <Wind size={14} style={{ color: particles ? '#38bdf8' : '#a1a1aa' }} aria-hidden />
+              <IconBox active={particles} color="#ff5a00" fill="26" edge="4d">
+                <Wind size={14} style={{ color: particles ? '#ff5a00' : '#a1a1aa' }} aria-hidden />
               </IconBox>
               <div className="flex-1 min-w-0">
                 <div className={`text-sm font-medium truncate ${particles ? 'text-white' : 'text-sentinel-100'}`}>Wind particles</div>
                 <div className="text-[10px] text-sentinel-300 leading-snug">Animated wind flow from the selected model</div>
               </div>
-              <div className={`shrink-0 relative w-9 h-5 rounded-full transition-colors duration-200 ${particles ? 'bg-fire-600' : 'bg-sentinel-500'}`}>
+              <div className={`shrink-0 relative w-9 h-5 rounded-full transition-colors duration-200 ${particles ? 'bg-fire-600/25 ring-1 ring-inset ring-fire-600/50' : 'bg-sentinel-500'}`}>
                 <span className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform duration-200 ${particles ? 'translate-x-4' : ''}`} />
               </div>
             </button>

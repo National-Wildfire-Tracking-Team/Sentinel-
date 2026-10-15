@@ -8,7 +8,7 @@
 import { memo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  Home, Map as MapIcon, HelpCircle, Award, HeartHandshake, MapPin, Satellite, Mountain, Info, ChevronDown,
+  Home, Map as MapIcon, HelpCircle, HeartHandshake, MapPin, Satellite, Mountain, Info, ChevronDown,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { useTheme } from '../../context/ThemeContext';
@@ -95,7 +95,7 @@ function SegmentedControl({ value, onChange, options }) {
           onClick={() => onChange(opt.value)}
           className={`px-2.5 py-1 text-xs font-semibold rounded-md transition-colors ${
             value === opt.value
-              ? 'bg-fire-600 text-white shadow-sm'
+              ? 'bg-fire-600/25 ring-1 ring-inset ring-fire-600/50 text-sentinel-900 dark:text-white'
               : 'text-sentinel-500 dark:text-sentinel-400 hover:text-sentinel-800 dark:hover:text-sentinel-200'
           }`}
         >
@@ -115,7 +115,7 @@ function PrefSwitch({ checked, onChange }) {
       aria-checked={checked}
       onClick={() => onChange(!checked)}
       className={`h-6 w-11 shrink-0 rounded-full p-0.5 transition-colors ${
-        checked ? 'bg-fire-600' : 'bg-sentinel-300 dark:bg-sentinel-700'
+        checked ? 'bg-fire-600/25 ring-1 ring-inset ring-fire-600/50' : 'bg-sentinel-300 dark:bg-sentinel-700'
       }`}
     >
       <span
@@ -226,14 +226,6 @@ const FutureFeaturesPanel = memo(function FutureFeaturesPanel({ mapType = 'satel
         <MenuRow icon={HelpCircle} label="Help" href={`${getMainOrigin()}/about`} sameTab onClick={closePanel} />
 
         <SectionLabel>Support Our Mission</SectionLabel>
-        <MenuRow
-          icon={Award}
-          iconClassName="text-fire-500"
-          label="Membership"
-          href={`${getMainOrigin()}/pricing`}
-          sameTab
-          onClick={closePanel}
-        />
         <MenuRow
           icon={HeartHandshake}
           iconClassName="text-pink-500"

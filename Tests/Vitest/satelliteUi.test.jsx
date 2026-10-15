@@ -247,21 +247,13 @@ describe('Satellite panel', () => {
     expect(sources()).toHaveLength(0);
   });
 
-  it('summarizes NWS alerts and NHC systems on the imagery, with alert toggle and zoom to tropics', () => {
+  it('summarizes NHC systems on the imagery with zoom to tropics, and has no NWS alerts pill', () => {
     mockSources();
-    const onToggle = vi.fn();
-    const overlays = {
-      alerts: { on: true, count: 12, onToggle },
-      tropical: { storms: 1, areas: 2, bounds: [-80, 10, -40, 30] },
-    };
+    const overlays = { tropical: { storms: 1, areas: 2, bounds: [-80, 10, -40, 30] } };
     const { rerender } = render(<Page layers={{}} overlays={overlays} />);
     rerender(<Page layers={{ satellite: true }} overlays={overlays} />);
 
-    const alerts = screen.getByRole('button', { name: /NWS alerts · 12/ });
-    expect(alerts).toHaveAttribute('aria-pressed', 'true');
-    fireEvent.click(alerts);
-    expect(onToggle).toHaveBeenCalledTimes(1);
-
+    expect(screen.queryByRole('button', { name: /NWS alerts/ })).toBeNull();
     expect(screen.getByText('1 storm · 2 areas of interest')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: /zoom to tropics/i }));
     expect(probe.focus.bounds).toEqual([-80, 10, -40, 30]);
@@ -269,7 +261,7 @@ describe('Satellite panel', () => {
 
   it('says when there are no tropical systems and hides the zoom button', () => {
     mockSources();
-    const overlays = { alerts: null, tropical: { storms: 0, areas: 0, bounds: null } };
+    const overlays = { tropical: { storms: 0, areas: 0, bounds: null } };
     const { rerender } = render(<Page layers={{}} overlays={overlays} />);
     rerender(<Page layers={{ satellite: true }} overlays={overlays} />);
     expect(screen.getByText('No active tropical systems')).toBeInTheDocument();

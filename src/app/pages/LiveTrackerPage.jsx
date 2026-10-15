@@ -78,6 +78,9 @@ import { SatelliteProvider, satellitePanelOpenAfter } from '../context/Satellite
 import { parseSatelliteQuery } from '../api/goesSatellite';
 import { parseModelsQuery } from '../utils/weatherModelsLink';
 import MapCornerButtons from '../components/MapControls/MapCornerButtons';
+import { useRouteToSafety } from '../hooks/useRouteToSafety';
+import RouteToSafetyPanel from '../components/Routing/RouteToSafetyPanel';
+import RouteLayer from '../components/Map/layers/RouteLayer';
 import FutureFeaturesPanel from '../components/MapControls/FutureFeaturesPanel';
 import AccountButton from '../components/MapControls/AccountButton';
 import AccountPanel from '../components/AccountPanel/AccountPanel';
@@ -87,7 +90,9 @@ import { APP_VERSION } from '../version';
 import FloodHazardStatus from '../components/MapControls/FloodHazardStatus';
 import MrmsStatus from '../components/MapControls/MrmsStatus';
 import SatellitePanel, { SatelliteShowControlsPill } from '../components/Map/SatellitePanel';
+import MrmsPanel, { MrmsShowControlsPill, mrmsPanelOpenAfter } from '../components/Map/MrmsPanel';
 import SatelliteStormFocus from '../components/Map/SatelliteStormFocus';
+import { drawsCentroidDot } from '../components/Map/layers/perimeterCentroids';
 // Lazy-loaded: each only ever mounts once the user has actually selected the
 // corresponding fire/gauge/camera, so their code shouldn't ship in
 // the initial bundle for sessions that never open one.
@@ -108,8 +113,7 @@ const MAP_TABS = {
 
 const WILDFIRE_LAYER_PRESET = {
   fireHotspots: false,
-  firePerimeters: true,
-  incidentLocations: true,
+  incidentLocations: true, // fire points + perimeter shapes
   weatherAlerts: true,
   smoke: false,
   satellite: false,
@@ -128,8 +132,7 @@ const WILDFIRE_LAYER_PRESET = {
 
 const ALL_HAZARD_LAYER_PRESET = {
   fireHotspots: false,
-  firePerimeters: true,
-  incidentLocations: true,
+  incidentLocations: true, // fire points + perimeter shapes
   weatherAlerts: true,
   smoke: false,
   satellite: false,
@@ -144,13 +147,14 @@ const ALL_HAZARD_LAYER_PRESET = {
   schoolsUniversities: false,
   landOwnership: false,
   floodHazard: false,
+  nhcTropical: true, // on by default; the Weather preset turns it off
 };
 
-// Weather tab: auto-enable NWS alerts (includes SPC MDs on map); other
-// weather layers are opt-in via the layer panel.
+// Weather tab: opens with only NWS & mesoscale (NWS alerts + SPC/WPC MDs) and
+// MRMS radar on. Every other layer is listed off so nothing carries over from
+// the previous tab; all of them stay available in the layer panel.
 const WEATHER_LAYER_PRESET = {
   fireHotspots: false,
-  firePerimeters: false,
   incidentLocations: false,
   weatherAlerts: true,
   smoke: false,
@@ -165,13 +169,31 @@ const WEATHER_LAYER_PRESET = {
   schoolsUniversities: false,
   landOwnership: false,
   floodHazard: false,
-  mrms: false,
+  aqi: false,
+  wildfireCameras: false,
+  fireWeatherOutlooks: false,
+  fireRiskOutlook: false,
+  droughtOutlook: false,
+  calFireHistoricalPerimeters: false,
+  fireBehaviorModeling: false,
+  waterGauges: false,
+  damageAssessment: false,
+  wpcEro: false,
+  wpcWssi: false,
+  wpcQpf: false,
+  wpcFronts: false,
+  nhcTropical: false,
+  mrms: true,
 };
 
 // Models tab: HRRR/GFS model output only. Every operational layer (alerts,
 // incidents, observations) is off so model data is never blended with them;
 // any of them can still be switched on from the layer panel.
-const MODELS_LAYER_PRESET = Object.fromEntries(Object.keys(WILDFIRE_LAYER_PRESET).map((k) => [k, false]));
+// NHC tropical graphics are off too: the Models tab shows model fields only.
+const MODELS_LAYER_PRESET = {
+  ...Object.fromEntries(Object.keys(WILDFIRE_LAYER_PRESET).map((k) => [k, false])),
+  nhcTropical: false,
+};
 
 const THREE_DAYS_MS = 3 * 24 * 60 * 60 * 1000;
 
@@ -277,7 +299,7 @@ export default function LiveTrackerPage() {
   const { home, nearbyActive } = useHomeSetup();
   const { viewport, setViewport, flyToFire } = useViewport();
   const { prefs } = usePreferences();
-  const { hasProInfrastructureAccess, hasFireBehaviorModelingAccess } = usePlan();
+  const { hasProInfrastructureAccess, hasFireBehaviorModelingAccess, hasEvacuationRoutesAccess } = usePlan();
   const criticalInfraEntitled = hasProInfrastructureAccess;
   const { locations: savedLocations } = useSavedLocations();
   // A Models link (?tab=models&lat=…, e.g. from an incident or /weather-models) opens on that tab.
@@ -307,23 +329,33 @@ export default function LiveTrackerPage() {
   }, [criticalInfraEntitled, layers.criticalInfrastructure, setLayer]);
 
   useEffect(() => {
-    if (!criticalInfraEntitled && layers.schoolsUniversities) {
-      setLayer('schoolsUniversities', false);
-    }
-  }, [criticalInfraEntitled, layers.schoolsUniversities, setLayer]);
-
-  useEffect(() => {
     if (!criticalInfraEntitled && layers.landOwnership) {
       setLayer('landOwnership', false);
     }
   }, [criticalInfraEntitled, layers.landOwnership, setLayer]);
 
+  // Navigation (Route to Safety): Pro + All Hazards only. A lapsed plan or leaving the tab turns it off.
+  // Navigation (Route to Safety): Pro/Team only — the server and quota RPC enforce it too.
+  const navigationEntitled = hasEvacuationRoutesAccess;
+  // Offered at the bottom of the layer list on the All Hazards, Wildfire and Weather tabs.
+  const navigationTab = activeMapTab === MAP_TABS.allhazard || activeMapTab === MAP_TABS.wildfire || activeMapTab === MAP_TABS.weather;
+  useEffect(() => {
+    if (layers.routeToSafety && (!navigationEntitled || !navigationTab)) {
+      setLayer('routeToSafety', false);
+    }
+  }, [navigationEntitled, navigationTab, layers.routeToSafety, setLayer]);
+  const routeToSafetyActive = navigationTab && navigationEntitled && Boolean(layers.routeToSafety);
+
   // The map canvas bleeds below the page (see .viewport-bleed), so the
   // document itself must not scroll while this full-screen page is mounted.
+  // Only <html> gets overflow: hidden (that stops document scrolling); on
+  // <body> it would clip the bleed and leave a black bar under the toolbar.
   useEffect(() => {
-    const els = [document.documentElement, document.body];
+    const html = document.documentElement;
+    const els = [html, document.body];
     const prev = els.map((el) => [el.style.overflow, el.style.overscrollBehavior]);
-    els.forEach((el) => { el.style.overflow = 'hidden'; el.style.overscrollBehavior = 'none'; });
+    html.style.overflow = 'hidden';
+    els.forEach((el) => { el.style.overscrollBehavior = 'none'; });
     return () => els.forEach((el, i) => { [el.style.overflow, el.style.overscrollBehavior] = prev[i]; });
   }, []);
 
@@ -348,7 +380,10 @@ export default function LiveTrackerPage() {
   const handleTabChange = useCallback((newTab) => {
     if (newTab === activeMapTab) return;
     if (activeMapTab !== MAP_TABS.locations) {
-      layerSnapshotsRef.current[activeMapTab] = { ...layers };
+      // routeToSafety is never restored as on: each activation spends ORS quota.
+      // eslint-disable-next-line no-unused-vars
+      const { routeToSafety: _routeToSafety, ...snapshot } = layers;
+      layerSnapshotsRef.current[activeMapTab] = snapshot;
     }
     setActiveMapTab(newTab);
   }, [activeMapTab, layers]);
@@ -626,7 +661,6 @@ export default function LiveTrackerPage() {
 
   const schoolsLayerEnabled = Boolean(
     layers.schoolsUniversities
-    && criticalInfraEntitled
     && (activeMapTab === MAP_TABS.wildfire || activeMapTab === MAP_TABS.weather || activeMapTab === MAP_TABS.allhazard)
   );
   const {
@@ -698,13 +732,13 @@ export default function LiveTrackerPage() {
     refresh: refreshWpcMpd,
   } = useWpcMesoscaleDiscussion(weatherDataEnabled && layers.weatherAlerts);
 
-  // Fetches on the weather, all-hazard and models tabs while any Tropical (NHC)
-  // switch is on — the sidebar's Tropical feed reads the same data.
+  // Fetches on the weather and all-hazard tabs while any Tropical (NHC)
+  // switch is on — the sidebar's Tropical feed reads the same data. The Models
+  // tab never draws tropical graphics.
   // The wind/surge layers need the active storm slots, so they count too.
   const nhcAnyLayerOn = Boolean(layers.nhcTropical && (layers.nhcCone || layers.nhcTrack || layers.nhcWatchWarning
     || layers.nhcOutlook || layers.nhcWindProb || layers.nhcWindRadii || layers.nhcArrival || layers.nhcSurge));
-  const nhcTropicalWeatherEnabled = nhcAnyLayerOn
-    && (weatherDataEnabled || (activeMapTab === MAP_TABS.models && mapReady));
+  const nhcTropicalWeatherEnabled = nhcAnyLayerOn && weatherDataEnabled;
   const {
     cyclones: nhcCyclones,
     invests: nhcInvests,
@@ -730,6 +764,14 @@ export default function LiveTrackerPage() {
     arrival: Boolean(layers.nhcTropical && layers.nhcArrival),
     surge: Boolean(layers.nhcTropical && layers.nhcSurge),
   });
+  // What the hurricane detail panel reads (FireDetailPanel → HurricaneSidebar).
+  const nhcPanelData = useMemo(() => ({
+    cyclones: nhcCyclones,
+    forecastPointsGeoJSON: nhcForecastPointsGeoJSON,
+    pastPointsGeoJSON: nhcPastPointsGeoJSON,
+    watchWarningGeoJSON: nhcWatchWarningGeoJSON,
+    windHazards: nhcWindHazards,
+  }), [nhcCyclones, nhcForecastPointsGeoJSON, nhcPastPointsGeoJSON, nhcWatchWarningGeoJSON, nhcWindHazards]);
 
   // NOAA NWPS water gauges
   const {
@@ -905,12 +947,15 @@ export default function LiveTrackerPage() {
     return filterActiveFiresGeoJSON(freshIncidentDotsGeoJSON, { containedKey: 'PercentContained' });
   }, [isFocused, freshIncidentDotsGeoJSON]);
 
-  // Fires with perimeter overlays already render a centered perimeter centroid
-  // indicator. Build a set of those names so we can hide off-center IRWIN dots.
+  // Fires whose perimeter draws a centered centroid dot already have their
+  // dot. Build a set of those names so we can hide off-center IRWIN dots.
+  // Only perimeters that actually draw one count (drawsCentroidDot): a grey
+  // stale/historical perimeter has no dot, so its incident dot must stay.
   const perimeterMatchKeys = useMemo(() => {
     if (!filteredPerimetersGeoJSON?.features?.length) return new Set();
     const keys = new Set();
     filteredPerimetersGeoJSON.features.forEach(f => {
+      if (!drawsCentroidDot(f.properties)) return;
       const key = getFireMatchKey(f.properties.IncidentName);
       if (key) keys.add(key);
     });
@@ -1092,12 +1137,20 @@ export default function LiveTrackerPage() {
       selectFire(record);
       flyToFire(record);
       sharedLinkResolvedRef.current = true;
+      return;
+    }
+
+    const stormMatch = nhcCyclones.find((c) => c.id === incidentId);
+    if (stormMatch) {
+      selectFire({ ...stormMatch, type: 'nhc-storm' });
+      setViewport({ longitude: stormMatch.lng, latitude: stormMatch.lat, zoom: 6 });
+      sharedLinkResolvedRef.current = true;
     }
     // Not found in anything loaded so far — leave unresolved and retry as
     // more data comes in, until the give-up timeout below fires.
   }, [
     mapReady, alerts, mergedIncidents, hotspotsGeoJSON, namedPerimetersGeoJSON, approvedReports,
-    activeHazardEvents, selectFire, flyToFire, setViewport,
+    activeHazardEvents, nhcCyclones, selectFire, flyToFire, setViewport,
   ]);
 
   useEffect(() => {
@@ -1286,6 +1339,52 @@ export default function LiveTrackerPage() {
   }, [nearbyOn, nearbyLat, nearbyLng, nearbyRadius, filteredPerimetersGeoJSON,
     deduplicatedIncidentsGeoJSON, finalIncidentDotsGeoJSON, filteredAlertsGeoJSON]);
 
+  // ── Navigation / Route to Safety (All Hazards, Pro) ──
+  const routeToSafety = useRouteToSafety({
+    enabled: routeToSafetyActive,
+    home,
+    perimetersGeoJSON: nearbyMapGeoJSON.perimeters,
+    evacZonesGeoJSON,
+  });
+  const closeRouteToSafety = useCallback(() => setLayer('routeToSafety', false), [setLayer]);
+  // Same validity rule the hook uses before routing from Home.
+  const hasValidHome = Boolean(home) && Number.isFinite(home.latitude) && Number.isFinite(home.longitude);
+  const routeOverlay = useMemo(() => (routeToSafetyActive ? (
+    <RouteLayer
+      route={routeToSafety.route}
+      origin={routeToSafety.origin}
+      destination={routeToSafety.destination}
+      shelters={routeToSafety.status === 'ready' ? routeToSafety.shelters : []}
+      hazardWarning={routeToSafety.hazardWarning}
+    />
+  ) : null), [routeToSafetyActive, routeToSafety.route, routeToSafety.origin, routeToSafety.destination, routeToSafety.status, routeToSafety.shelters, routeToSafety.hazardWarning]);
+
+  // Frame a newly arrived route once (not on every data refresh). The map
+  // instance comes from handleMapLoad; reduced motion jumps instead of flying.
+  const routeBoundsKeyRef = useRef(null);
+  useEffect(() => {
+    const coords = routeToSafety.route?.features?.[0]?.geometry?.coordinates;
+    if (!coords?.length) {
+      routeBoundsKeyRef.current = null;
+      return;
+    }
+    if (!mapInstance || typeof mapInstance.fitBounds !== 'function') return;
+    const key = `${coords[0]}|${coords[coords.length - 1]}|${coords.length}`;
+    if (routeBoundsKeyRef.current === key) return;
+    routeBoundsKeyRef.current = key;
+    const lngs = coords.map((c) => c[0]);
+    const lats = coords.map((c) => c[1]);
+    const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    // Keep the route clear of the panel on the right (360px + 16px gutters).
+    const padding = window.innerWidth < 640
+      ? 40
+      : { top: 80, bottom: 80, left: 80, right: Math.min(window.innerWidth * 0.5, 392) };
+    mapInstance.fitBounds(
+      [[Math.min(...lngs), Math.min(...lats)], [Math.max(...lngs), Math.max(...lats)]],
+      { padding, duration: reduceMotion ? 0 : 600 },
+    );
+  }, [routeToSafety.route, mapInstance]);
+
   // ── Global loading state ──
   // Weather alerts count too: they're the live feed on the Weather tab, where
   // the wildfire feeds are switched off, so without them "Updated …" would
@@ -1418,28 +1517,51 @@ export default function LiveTrackerPage() {
   // its own docked or floating controls is switched on after it, so only one
   // layer's controls hold the dock at a time. The Satellite row's Controls
   // button brings them back.
+  // The MRMS radar controls pop up the same way while the MRMS layer is on.
   const [satellitePanelOpen, setSatellitePanelOpen] = useState(false);
+  const [mrmsPanelOpen, setMrmsPanelOpen] = useState(false);
   const prevLayersRef = useRef(layers);
   useEffect(() => {
     const prev = prevLayersRef.current;
     prevLayersRef.current = layers;
     setSatellitePanelOpen((open) => satellitePanelOpenAfter(prev, layers, open));
+    setMrmsPanelOpen((open) => mrmsPanelOpenAfter(prev, layers, open));
   }, [layers]);
+
+  // Weather tab: radar and satellite imagery are exclusive. Switching one on
+  // turns the other off, and the one switched on takes the dock.
+  const exclusivePrevLayersRef = useRef(layers);
+  useEffect(() => {
+    const prev = exclusivePrevLayersRef.current;
+    exclusivePrevLayersRef.current = layers;
+    if (activeMapTab !== MAP_TABS.weather) return;
+    if (layers.mrms && !prev.mrms && layers.satellite) setLayer('satellite', false);
+    else if (layers.satellite && !prev.satellite && layers.mrms) setLayer('mrms', false);
+  }, [layers, activeMapTab, setLayer]);
+
   const satelliteActive = Boolean(layers.satellite) && activeMapTab !== MAP_TABS.models;
   const satelliteDocked = satelliteActive && satellitePanelOpen;
+  const mrmsActive = Boolean(layers.mrms) && activeMapTab === MAP_TABS.weather;
+  const mrmsDocked = mrmsActive && mrmsPanelOpen;
+  const mrmsPanelRef = useRef(null);
+  const [mrmsPanelHeight, setMrmsPanelHeight] = useState(0);
+
+  useEffect(() => {
+    const el = mrmsPanelRef.current;
+    if (!el) {
+      setMrmsPanelHeight(0);
+      return undefined;
+    }
+    const observer = new ResizeObserver(() => {
+      setMrmsPanelHeight(el.getBoundingClientRect().height);
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [mrmsDocked]);
 
   // What the satellite panel reports as drawn over the imagery.
-  const alertsOnThisTab = activeMapTab === MAP_TABS.wildfire || activeMapTab === MAP_TABS.weather
-    || activeMapTab === MAP_TABS.allhazard;
   const satelliteOverlays = useMemo(() => {
     if (!satelliteActive) return null;
-    const alerts = alertsOnThisTab
-      ? {
-        on: Boolean(layers.weatherAlerts),
-        count: (filteredAlertsGeoJSON?.features ?? []).filter((f) => f?.geometry).length,
-        onToggle: () => setLayer('weatherAlerts', !layers.weatherAlerts),
-      }
-      : null;
     const tropical = nhcTropicalWeatherEnabled
       ? {
         storms: nhcStormLabelsGeoJSON?.features?.length ?? 0,
@@ -1447,8 +1569,8 @@ export default function LiveTrackerPage() {
         bounds: featureCollectionsBounds(nhcConeGeoJSON, nhcForecastPointsGeoJSON, nhcDisturbanceAreasGeoJSON, nhcDisturbancePointsGeoJSON),
       }
       : null;
-    return { alerts, tropical };
-  }, [satelliteActive, alertsOnThisTab, layers.weatherAlerts, filteredAlertsGeoJSON, setLayer, nhcTropicalWeatherEnabled,
+    return { tropical };
+  }, [satelliteActive, nhcTropicalWeatherEnabled,
     nhcStormLabelsGeoJSON, nhcDisturbanceAreasGeoJSON, nhcConeGeoJSON, nhcForecastPointsGeoJSON, nhcDisturbancePointsGeoJSON]);
   const satellitePanelRef = useRef(null);
   const [satellitePanelHeight, setSatellitePanelHeight] = useState(0);
@@ -1470,7 +1592,7 @@ export default function LiveTrackerPage() {
   // MapView), so it needs to be measured too — the Layers panel and the
   // bar's top corners both need to account for it being on top.
   const outlookShowing = (activeMapTab === MAP_TABS.weather || activeMapTab === MAP_TABS.allhazard)
-    && Boolean(layers.spcWeatherOutlooks) && !satelliteDocked;
+    && Boolean(layers.spcWeatherOutlooks) && !satelliteDocked && !mrmsDocked;
   const spcOutlookPanelRef = useRef(null);
   const [spcOutlookPanelHeight, setSpcOutlookPanelHeight] = useState(0);
 
@@ -1528,8 +1650,9 @@ export default function LiveTrackerPage() {
   // The SPC/fire-weather outlook selector and the Models scrubber dock on the
   // bottom bar's top edge, so the bar's own "something is attached to my top
   // edge" flag and the Layers panel's clearance both need to account for them.
-  const bottomBarAttached = satelliteDocked || outlookShowing || fireWxOutlookShowing || modelsTimelineShowing;
+  const bottomBarAttached = satelliteDocked || mrmsDocked || outlookShowing || fireWxOutlookShowing || modelsTimelineShowing;
   const totalDockedHeight = (satelliteDocked ? satellitePanelHeight : 0)
+    + (mrmsDocked ? mrmsPanelHeight : 0)
     + (outlookShowing ? spcOutlookPanelHeight : 0)
     + (fireWxOutlookShowing ? fireWxOutlookPanelHeight : 0)
     + (modelsTimelineShowing ? modelsTimelineHeight : 0);
@@ -1538,7 +1661,7 @@ export default function LiveTrackerPage() {
   return (
     // overflow-x-clip (not overflow-hidden) so the map canvas can bleed below
     // the page into the large viewport — see .viewport-bleed in index.css.
-    <div className="viewport-bleed h-screen supports-[height:100dvh]:h-dvh w-screen flex flex-col bg-sentinel-900 text-white overflow-x-clip select-none">
+    <div className="viewport-bleed w-screen flex flex-col bg-sentinel-900 text-white overflow-x-clip select-none">
       <Seo
         title="Live Wildfire Map & Tracker | Sentinel by NWTT"
         description="Track active wildfires in real time with satellite hotspot detection, fire perimeters, containment status, red flag warnings, and air quality — free, from the National Wildfire Tracking Team."
@@ -1548,13 +1671,16 @@ export default function LiveTrackerPage() {
       <Header onRefresh={handleRefresh} />
 
       {/* ── Active alert banner ── */}
-      <AlertBanner dismissed={bannerDismissed} onDismiss={() => setBannerDismissed(true)} />
+      {/* Red Flag Warnings are fire weather: only on the Wildfire and All Hazards tabs */}
+      {(activeMapTab === MAP_TABS.wildfire || activeMapTab === MAP_TABS.allhazard) && (
+        <AlertBanner dismissed={bannerDismissed} onDismiss={() => setBannerDismissed(true)} />
+      )}
 
       {/* ── Main content area (map fills full width; all controls float over it) ── */}
       {/* --map-bottom-stack: space taken by the bottom bar plus anything docked on
           it, so the left drawers can end above it where they'd otherwise cover it. */}
       <WeatherModelsProvider active={activeMapTab === MAP_TABS.models} onOpen={handleOpenModels} apiRef={modelsApiRef}>
-      <MrmsProvider active={activeMapTab === MAP_TABS.weather && Boolean(layers.mrms)}>
+      <MrmsProvider active={mrmsActive}>
       <SatelliteProvider active={satelliteActive} panelOpen={satellitePanelOpen} onPanelOpenChange={setSatellitePanelOpen}>
       <div
         className={`flex-1 relative overflow-x-clip ${MODEL_COLOR_VARS}`}
@@ -1627,7 +1753,8 @@ export default function LiveTrackerPage() {
             waterGaugesGeoJSON={waterGaugesGeoJSON}
             mapBottomBarWidth={mapBottomBarSize.width}
             mapBottomBarHeight={mapBottomBarSize.height}
-            satelliteDocked={satelliteDocked}
+            // Satellite or radar controls hold the dock, so the outlook/smoke selectors step aside.
+            satelliteDocked={satelliteDocked || mrmsDocked}
             spcOutlookPanelRef={spcOutlookPanelRef}
             fireWxOutlookPanelRef={fireWxOutlookPanelRef}
             calFireHistoricalPerimetersGeoJSON={calFireHistoricalPerimetersGeoJSON}
@@ -1639,9 +1766,19 @@ export default function LiveTrackerPage() {
             wpcMpdGeoJSON={wpcMpdGeoJSON}
             onModelPick={activeMapTab === MAP_TABS.models ? handleModelPick : undefined}
             modelOverlay={activeMapTab === MAP_TABS.models ? (p) => <WeatherModelsMapLayer {...p} /> : null}
+            routeOverlay={routeOverlay}
+            onRoutePick={routeToSafetyActive && routeToSafety.picking ? routeToSafety.actions.pickPoint : undefined}
           />
 
           <MapCornerButtons onReopenBanner={reopenBanner} />
+          {routeToSafetyActive && (
+            <RouteToSafetyPanel
+              state={routeToSafety}
+              actions={routeToSafety.actions}
+              onClose={closeRouteToSafety}
+              hasHome={hasValidHome}
+            />
+          )}
 
           {floodHazardEnabled && (
             <FloodHazardStatus
@@ -1695,6 +1832,7 @@ export default function LiveTrackerPage() {
             onTabChange={handleTabChange}
             onModelsIntent={handleModelsIntent}
             infrastructureLayersEntitled={hasProInfrastructureAccess}
+            routingEntitled={navigationEntitled}
             measureActive={measureActive}
             measureMode={measureMode}
             onMeasureActivate={onMeasureActivate}
@@ -1712,6 +1850,18 @@ export default function LiveTrackerPage() {
           <SatelliteStormFocus selected={selectedFire} />
           {/* bottom-4 bar + anything docked on it + an 8px gap */}
           <SatelliteShowControlsPill bottomOffset={16 + mapBottomBarSize.height + totalDockedHeight + 8} />
+          <MrmsPanel
+            ref={mrmsPanelRef}
+            open={mrmsPanelOpen}
+            onClose={() => setMrmsPanelOpen(false)}
+            bottomBarWidth={mapBottomBarSize.width}
+            bottomBarHeight={mapBottomBarSize.height}
+          />
+          <MrmsShowControlsPill
+            open={mrmsPanelOpen}
+            onOpen={() => setMrmsPanelOpen(true)}
+            bottomOffset={16 + mapBottomBarSize.height + totalDockedHeight + 8}
+          />
 
           {activeMapTab === MAP_TABS.models && (
             <>
@@ -1734,7 +1884,7 @@ export default function LiveTrackerPage() {
             v{APP_VERSION}
           </span>
           <Suspense fallback={null}>
-            {selectedFire && <FireDetailPanel />}
+            {selectedFire && <FireDetailPanel nhc={nhcPanelData} />}
             {selectedGauge && (
               <WaterGaugePanel
                 gauge={selectedGauge}

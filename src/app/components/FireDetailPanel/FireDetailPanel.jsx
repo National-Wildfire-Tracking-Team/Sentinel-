@@ -13,20 +13,21 @@ import {
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { useAppStatus } from '../../context/AppStatusContext';
-import {
-  formatAcres, formatContainment, formatFRP,
-  formatDate, formatPersonnel, formatRelativeTime,
-} from '../../utils/formatUtils';
+import { formatAcres, formatContainment, formatFRP, formatDate, formatPersonnel, formatRelativeTime, formatClockTime, withClock } from '../../utils/formatUtils';
 import { frpToLabel, containmentToColor, getAQICategory } from '../../utils/colorUtils';
 import { nwsAlertColor } from '../../utils/nwsColors';
 import IncidentTimeline from '../IncidentTimeline/IncidentTimeline';
 import IncidentSidebar from './IncidentSidebar';
+import HurricaneSidebar from './HurricaneSidebar';
+import SpaghettiModelsButton from '../Map/SpaghettiModelsButton';
+import { useInvestModelRun } from '../../hooks/useInvestModelRun';
 import { HAZARD_CATEGORY_COLORS } from '../Map/layers/HazardEventsLayer';
 import { normalizeHazardCategory } from '../../hooks/useHazardEvents';
 import { trackSentinelUse } from '../../../shared/utils/analytics';
 import { FLOOD_ATTRIBUTION, floodCategoryMeta, floodZoneDescription, floodZoneRows } from '../../utils/floodHazard';
 import { fetchSpcMdText, fetchWpcMpdText } from '../../api/mesoscaleDiscussionText';
-import { DISTURBANCE_COLORS, WATCH_WARNING_COLORS, categoryColor, categoryLabel } from '../../api/nhcTropicalWeather';
+import { DISTURBANCE_COLORS, WATCH_WARNING_COLORS } from '../../api/nhcTropicalWeather';
+import { useTimeFormat } from '../../hooks/useTimeFormat';
 
 // Fire-related detail types that represent a user opening a tracked wildfire
 // incident (as opposed to AQI stations, weather alerts, evac zones, etc).
@@ -248,18 +249,38 @@ function issuingOfficeFromAlert(alert) {
   return null;
 }
 
-function sourceChipLabel(response, senderName) {
-  if (response && String(response).trim()) {
-    const r = String(response).replace(/_/g, ' ');
-    const cap = r.charAt(0).toUpperCase() + r.slice(1);
-    return `Source: ${cap}.`;
-  }
-  if (senderName) return `Source: ${senderName}.`;
-  return null;
+const ALERT_SEVERITY_PILL = {
+  Extreme:  'bg-red-500/15 text-red-300 ring-red-500/30',
+  Severe:   'bg-orange-500/15 text-orange-300 ring-orange-500/30',
+  Moderate: 'bg-yellow-500/15 text-yellow-200 ring-yellow-500/30',
+  Minor:    'bg-sky-500/15 text-sky-300 ring-sky-500/30',
+};
+const ALERT_PILL_NEUTRAL = 'bg-sentinel-700/70 text-sentinel-200 ring-sentinel-600';
+const ALERT_EXPIRING_SOON_MS = 30 * 60 * 1000;
+const ALERT_AREA_PREVIEW = 8;
+
+function AlertPill({ className, children }) {
+  return (
+    <span className={`px-2 py-0.5 rounded-md text-[10px] font-semibold uppercase tracking-wide ring-1 ring-inset ${className}`}>
+      {children}
+    </span>
+  );
+}
+
+function AlertSectionLabel({ icon: Icon, children, action }) {
+  return (
+    <div className="flex items-center gap-1.5 mb-2 text-[10px] font-bold uppercase tracking-wider text-sentinel-400">
+      {Icon && <Icon size={12} />}
+      <span className="flex-1">{children}</span>
+      {action}
+    </div>
+  );
 }
 
 function AlertDetail({ fire, alerts }) {
+  useTimeFormat();
   const [copyStatus, setCopyStatus] = useState('');
+  const [showAllAreas, setShowAllAreas] = useState(false);
 
   const full = alerts?.find((a) => a.id === fire.id) || {};
   const merged = { ...full, ...fire };
@@ -269,12 +290,24 @@ function AlertDetail({ fire, alerts }) {
   const office = issuingOfficeFromAlert(merged);
   const pop = firstPopulationFromParams(merged.parameters);
   const areaSqMi = merged.areaSqMi;
-  const sourceLabel = sourceChipLabel(merged.response, merged.senderName);
+  const issuer = merged.senderName || (office ? `NWS ${office}` : null);
+  const sourceName = merged.source === 'fema' ? 'FEMA IPAWS' : 'National Weather Service';
+  const action = merged.response && merged.response !== 'None' ? String(merged.response).replace(/_/g, ' ') : null;
 
-  const bulletinBody = merged.description || merged.instruction || '';
+  const areas = String(merged.affectedArea || '').split(/;\s*/).filter(Boolean);
+  const visibleAreas = showAllAreas ? areas : areas.slice(0, ALERT_AREA_PREVIEW);
+
+  const expiresMs = merged.expires ? new Date(merged.expires).getTime() : NaN;
+  const msLeft = expiresMs - Date.now();
+  const expired = Number.isFinite(msLeft) && msLeft <= 0;
+  const endingSoon = Number.isFinite(msLeft) && msLeft > 0 && msLeft < ALERT_EXPIRING_SOON_MS;
+  const endsTone = expired ? 'text-sentinel-400' : endingSoon ? 'text-orange-300' : 'text-white';
+
+  const description = merged.description || '';
+  const instruction = merged.instruction || '';
 
   const handleCopyText = async () => {
-    const text = bulletinBody || merged.headline || eventTitle;
+    const text = [description, instruction].filter(Boolean).join('\n\n') || merged.headline || eventTitle;
     try {
       if (navigator.clipboard?.writeText) {
         await navigator.clipboard.writeText(text);
@@ -288,86 +321,121 @@ function AlertDetail({ fire, alerts }) {
     window.setTimeout(() => setCopyStatus(''), 2000);
   };
 
-  const chipBase =
-    'inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-semibold border';
-  const chipInfo = `${chipBase} bg-sky-100/95 text-blue-900 border-blue-200/80`;
-  const chipOutline = `${chipBase} bg-white text-[#1D2951] border-[#1D2951]/40`;
-  const actionBtn =
-    'inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[11px] font-bold text-sentinel-900 bg-amber-400 hover:bg-amber-300 border border-amber-500/50 transition-colors';
+  const pills = [
+    ALERT_SEVERITY_PILL[merged.severity] && { label: merged.severity, cls: ALERT_SEVERITY_PILL[merged.severity] },
+    merged.urgency && merged.urgency !== 'Unknown' && { label: merged.urgency, cls: ALERT_PILL_NEUTRAL },
+    merged.certainty && merged.certainty !== 'Unknown' && { label: merged.certainty, cls: ALERT_PILL_NEUTRAL },
+  ].filter(Boolean);
 
   return (
     <>
-      <div className="relative mb-4">
-        <div className="h-0.5 rounded-full mb-2" style={{ backgroundColor: typeColor }} aria-hidden />
-        <h3 className="font-bold text-white text-lg leading-tight pr-8">{eventTitle}</h3>
+      {/* Hero */}
+      <div className="-mx-4 -mt-4 mb-4 px-4 pt-4 pb-4 border-b border-sentinel-700"
+           style={{ background: `linear-gradient(180deg, ${typeColor}26 0%, transparent 100%)` }}>
+        <div className="flex items-center gap-2 mb-1.5">
+          <span className="w-2.5 h-2.5 rounded-full shrink-0 ring-2 ring-black/20" style={{ backgroundColor: typeColor }} />
+          <span className="text-[10px] font-bold uppercase tracking-wider text-sentinel-300">{sourceName}</span>
+        </div>
+        <h3 className="font-bold text-white text-lg leading-tight">{eventTitle}</h3>
+        {pills.length > 0 && (
+          <div className="flex flex-wrap gap-1.5 mt-2">
+            {pills.map((p) => <AlertPill key={p.label} className={p.cls}>{p.label}</AlertPill>)}
+          </div>
+        )}
+        {merged.headline && (
+          <p className="text-xs text-sentinel-300 leading-relaxed mt-2.5">{merged.headline}</p>
+        )}
       </div>
 
-      <div className="flex flex-col gap-2 mb-4">
-        <div className="flex flex-wrap gap-1.5">
-          {merged.sent && (
-            <span className={chipInfo}>Issued {formatRelativeTime(merged.sent)}</span>
-          )}
+      {/* Timing */}
+      {(merged.expires || merged.sent) && (
+        <div className="grid grid-cols-2 gap-2 mb-2">
           {merged.expires && (
-            <span className={chipInfo}>Expires {formatRelativeTime(merged.expires)}</span>
+            <div className="p-2.5 rounded-lg bg-sentinel-800/60 border border-sentinel-700">
+              <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-sentinel-400">
+                <Clock size={11} />
+                {expired ? 'Expired' : 'Ends'}
+              </div>
+              <div className={`text-sm font-bold mt-0.5 ${endsTone}`}>{formatRelativeTime(merged.expires)}</div>
+              <div className="text-[11px] text-sentinel-400 mt-0.5">{formatClockTime(merged.expires)}</div>
+            </div>
           )}
-          {sourceLabel && <span className={chipInfo}>{sourceLabel}</span>}
-          <span className={chipOutline}>
-            Source: {merged.source === 'fema' ? 'FEMA IPAWS' : 'National Weather Service'}
-          </span>
-          {office && <span className={chipOutline}>Office: {office}</span>}
+          {merged.sent && (
+            <div className="p-2.5 rounded-lg bg-sentinel-800/60 border border-sentinel-700">
+              <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-sentinel-400">
+                <Calendar size={11} />
+                Issued
+              </div>
+              <div className="text-sm font-bold text-white mt-0.5">{formatRelativeTime(merged.sent)}</div>
+              <div className="text-[11px] text-sentinel-400 mt-0.5">{formatClockTime(merged.sent)}</div>
+            </div>
+          )}
         </div>
-        <div className="flex flex-wrap gap-1.5 items-center">
+      )}
+
+      {/* Facts */}
+      {(issuer || pop != null || action || (areaSqMi != null && Number.isFinite(areaSqMi))) && (
+        <div className="grid grid-cols-2 gap-2 mb-4">
+          {issuer && <div className="col-span-2"><StatBlock label="Issued by" value={issuer} icon={ShieldAlert} /></div>}
+          {action && <StatBlock label="Action" value={action} icon={AlertTriangle} color="text-orange-300" />}
+          {pop != null && <StatBlock label="Population" value={pop.toLocaleString()} icon={Users} />}
           {areaSqMi != null && Number.isFinite(areaSqMi) && (
-            <span className={chipInfo}>Area: {areaSqMi.toLocaleString('en-US', { maximumFractionDigits: 1 })} mi²</span>
+            <StatBlock label="Area" value={`${areaSqMi.toLocaleString('en-US', { maximumFractionDigits: 1 })} mi²`} icon={MapPin} />
           )}
-          {pop != null && <span className={chipInfo}>Population: {pop.toLocaleString()}</span>}
-          <span className={chipInfo} title="Polygon count (approx.)">
-            👁️ {merged.geometry?.type === 'MultiPolygon' ? merged.geometry.coordinates.length : 1}
-          </span>
-          <button type="button" onClick={handleCopyText} className={actionBtn}>
-            <Copy size={13} />
-            Copy Text
-          </button>
+        </div>
+      )}
+
+      {/* Affected areas */}
+      {areas.length > 0 && (
+        <div className="mb-4">
+          <AlertSectionLabel icon={MapPin}>Affected areas · {areas.length}</AlertSectionLabel>
+          <div className="flex flex-wrap gap-1">
+            {visibleAreas.map((a) => (
+              <span key={a} className="px-2 py-0.5 rounded-md text-[11px] text-sentinel-200 bg-sentinel-800 border border-sentinel-700">
+                {a}
+              </span>
+            ))}
+            {areas.length > ALERT_AREA_PREVIEW && (
+              <button
+                type="button"
+                onClick={() => setShowAllAreas((v) => !v)}
+                className="px-2 py-0.5 rounded-md text-[11px] font-semibold text-sky-300 hover:text-sky-200 hover:bg-sky-500/10 transition-colors"
+              >
+                {showAllAreas ? 'Show less' : `+${areas.length - ALERT_AREA_PREVIEW} more`}
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* What to do */}
+      {instruction && (
+        <div className="mb-4 rounded-lg border border-amber-500/30 bg-amber-500/[0.07] p-3">
+          <AlertSectionLabel icon={Info}><span className="text-amber-300">What to do</span></AlertSectionLabel>
+          <p className="text-xs leading-relaxed text-sentinel-100 whitespace-pre-line">{instruction.replace(/([^\n])\n(?!\n)/g, '$1 ')}</p>
+        </div>
+      )}
+
+      {/* Bulletin */}
+      <AlertSectionLabel
+        icon={FileText}
+        action={(
           <button
             type="button"
-            onClick={() => {
-              const text = bulletinBody || merged.headline || eventTitle;
-              const shareUrl = new URL(window.location.href);
-              if (merged.id) shareUrl.searchParams.set('alert', merged.id);
-              const payload = {
-                title: 'NWTT Weather Alert',
-                text: text.slice(0, 4000),
-                url: shareUrl.toString(),
-              };
-              const canShare =
-                typeof navigator.share === 'function' &&
-                (typeof navigator.canShare !== 'function' || navigator.canShare(payload));
-              if (canShare) {
-                navigator.share(payload).catch(() => {});
-              } else if (navigator.clipboard?.writeText) {
-                navigator.clipboard.writeText(`${payload.text}\n${payload.url}`);
-                setCopyStatus('Link copied');
-                window.setTimeout(() => setCopyStatus(''), 2000);
-              }
-            }}
-            className={actionBtn}
+            onClick={handleCopyText}
+            className="inline-flex items-center gap-1 px-1.5 py-0.5 -my-0.5 rounded normal-case tracking-normal text-[11px] font-medium text-sentinel-300 hover:text-white hover:bg-sentinel-700 transition-colors"
           >
-            <Share2 size={13} />
-            Share
+            <Copy size={11} />
+            {copyStatus || 'Copy'}
           </button>
-          {copyStatus && <span className="text-[10px] text-sentinel-400">{copyStatus}</span>}
-        </div>
-      </div>
-
-      <div className="flex items-center gap-1.5 mb-2 text-xs font-bold text-sentinel-300">
-          <FileText size={14} />
+        )}
+      >
         Official bulletin
-      </div>
-
-      <div className="rounded-lg border border-sentinel-700 bg-sentinel-900/80 p-3 mb-4 max-h-[min(55vh,420px)] overflow-y-auto">
-        {bulletinBody ? (
+      </AlertSectionLabel>
+      <div className="rounded-lg border border-sentinel-700 bg-black/20 p-3 mb-1 max-h-[min(55vh,420px)] overflow-y-auto scrollbar-thin">
+        {description ? (
           <pre className="text-[11px] leading-relaxed text-sentinel-200 font-mono whitespace-pre-wrap break-words">
-            {bulletinBody}
+            {description}
           </pre>
         ) : (
           <p className="text-xs text-sentinel-400">No bulletin text available for this alert.</p>
@@ -632,6 +700,7 @@ function AQIDetail({ fire }) {
 // ─── Official Evacuation Zone Detail ─────────────────────────────────────────
 
 function EvacZoneDetail({ fire }) {
+  useTimeFormat();
   const isIpaws = fire.source === 'ipaws';
 
   if (isIpaws) {
@@ -665,13 +734,13 @@ function EvacZoneDetail({ fire }) {
         {fire.ipawsSent && (
           <div className="mb-2 text-xs text-sentinel-400">
             Effective / sent:{' '}
-            <span className="text-sentinel-200">{new Date(fire.ipawsSent).toLocaleString()}</span>
+            <span className="text-sentinel-200">{new Date(fire.ipawsSent).toLocaleString(undefined, withClock())}</span>
           </div>
         )}
 
         {fire.ipawsExpires && (
           <div className="mb-3 text-xs text-sentinel-400">
-            Expires: <span className="text-sentinel-200">{new Date(fire.ipawsExpires).toLocaleString()}</span>
+            Expires: <span className="text-sentinel-200">{new Date(fire.ipawsExpires).toLocaleString(undefined, withClock())}</span>
           </div>
         )}
 
@@ -739,13 +808,13 @@ function EvacZoneDetail({ fire }) {
 
       {fire.effectiveDate && (
         <div className="mb-2 text-xs text-sentinel-400">
-          Effective: <span className="text-sentinel-200">{new Date(fire.effectiveDate).toLocaleString()}</span>
+          Effective: <span className="text-sentinel-200">{new Date(fire.effectiveDate).toLocaleString(undefined, withClock())}</span>
         </div>
       )}
 
       {fire.expirationDate && (
         <div className="mb-3 text-xs text-sentinel-400">
-          Expires: <span className="text-sentinel-200">{new Date(fire.expirationDate).toLocaleString()}</span>
+          Expires: <span className="text-sentinel-200">{new Date(fire.expirationDate).toLocaleString(undefined, withClock())}</span>
         </div>
       )}
 
@@ -781,6 +850,7 @@ function EvacZoneDetail({ fire }) {
 // ─── Reporter Evacuation Zone Detail ─────────────────────────────────────────
 
 function ReporterEvacZoneDetail({ fire }) {
+  useTimeFormat();
   const ZONE_TYPE_COLOR = {
     'Evacuation Order':   '#ef4444',
     'Evacuation Warning': '#f97316',
@@ -820,13 +890,13 @@ function ReporterEvacZoneDetail({ fire }) {
 
       {fire.effective_at && (
         <div className="mb-2 text-xs text-sentinel-400">
-          Effective: <span className="text-sentinel-200">{new Date(fire.effective_at).toLocaleString()}</span>
+          Effective: <span className="text-sentinel-200">{new Date(fire.effective_at).toLocaleString(undefined, withClock())}</span>
         </div>
       )}
 
       {fire.expires_at && (
         <div className="mb-3 text-xs text-sentinel-400">
-          Expires: <span className="text-sentinel-200">{new Date(fire.expires_at).toLocaleString()}</span>
+          Expires: <span className="text-sentinel-200">{new Date(fire.expires_at).toLocaleString(undefined, withClock())}</span>
         </div>
       )}
 
@@ -1194,6 +1264,16 @@ function ViewOnSatelliteButton() {
   );
 }
 
+/** Model tracks for an outlook system, from the invest NHC files them under. */
+function InvestSpaghetti({ fire }) {
+  const run = useInvestModelRun(fire);
+  return (
+    <div className="mb-4">
+      <SpaghettiModelsButton atcfId={run.atcfId} finding={run.status === 'searching'} menuClassName="bg-sentinel-900" />
+    </div>
+  );
+}
+
 function NhcInvestDetail({ fire }) {
   const chanceColor = DISTURBANCE_COLORS[fire.formationChance]?.fill || '#94a3b8';
 
@@ -1210,6 +1290,7 @@ function NhcInvestDetail({ fire }) {
       </div>
 
       <ViewOnSatelliteButton />
+      <InvestSpaghetti fire={fire} />
 
       {(fire.day2Percent != null || fire.day7Percent != null) && (
         <div className="flex items-stretch mb-4 bg-sentinel-800/50 border border-sentinel-700 rounded-xl overflow-hidden">
@@ -1279,73 +1360,6 @@ function NhcInvestDetail({ fire }) {
   );
 }
 
-function NhcStormDetail({ fire }) {
-  const color = categoryColor(fire.category);
-
-  return (
-    <>
-      <div className="flex items-center gap-2 mb-4">
-        <div className="p-2 rounded-lg" style={{ backgroundColor: `${color}30` }}>
-          <Waves size={18} style={{ color }} />
-        </div>
-        <div>
-          <h3 className="font-bold text-white text-base">{fire.name}</h3>
-          <p className="text-xs font-medium" style={{ color }}>
-            {categoryLabel(fire.category)}{fire.basin ? ` · ${fire.basin}` : ''}
-          </p>
-        </div>
-      </div>
-
-      <ViewOnSatelliteButton />
-
-      <div className="grid grid-cols-2 gap-2 mb-4">
-        {fire.maxWindKt > 0 && (
-          <StatBlock label="Max Wind" value={`${fire.maxWindMph} mph (${fire.maxWindKt} kt)`} icon={Wind} />
-        )}
-        {fire.gustKt > 0 && (
-          <StatBlock label="Gusts" value={`${Math.round(fire.gustKt * 1.15078)} mph (${fire.gustKt} kt)`} icon={Wind} />
-        )}
-        {fire.mslp != null && (
-          <StatBlock label="Pressure" value={`${fire.mslp} mb`} />
-        )}
-        {fire.movement && (
-          <StatBlock label="Motion" value={fire.movement} icon={Navigation} />
-        )}
-        {fire.advisoryNum && (
-          <StatBlock label="Advisory" value={`#${fire.advisoryNum}`} icon={Info} />
-        )}
-      </div>
-
-      <div className="space-y-2 text-xs text-sentinel-400 mb-4">
-        {Number.isFinite(fire.lat) && Number.isFinite(fire.lng) && (
-          <div className="flex items-center gap-2">
-            <MapPin size={12} />
-            <span>
-              {Math.abs(fire.lat).toFixed(1)}°{fire.lat >= 0 ? 'N' : 'S'}, {Math.abs(fire.lng).toFixed(1)}°{fire.lng < 0 ? 'W' : 'E'}
-            </span>
-          </div>
-        )}
-        {fire.advisoryDate && (
-          <div className="flex items-center gap-2">
-            <Clock size={12} />
-            <span>Advisory issued {fire.advisoryDate}</span>
-          </div>
-        )}
-      </div>
-
-      <a
-        href={fire.advisoryUrl || 'https://www.nhc.noaa.gov/'}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="flex items-center gap-1.5 text-xs text-sky-400 hover:text-sky-300 transition-colors"
-      >
-        <ExternalLink size={12} />
-        Official NHC public advisory
-      </a>
-    </>
-  );
-}
-
 function NhcWatchWarningDetail({ fire }) {
   const color = WATCH_WARNING_COLORS[fire.wwType] || WATCH_WARNING_COLORS.Advisory;
   return (
@@ -1377,11 +1391,17 @@ function NhcWatchWarningDetail({ fire }) {
 
 // ─── Main Panel ───────────────────────────────────────────────────────────────
 
-const FireDetailPanel = memo(function FireDetailPanel() {
+/**
+ * @param {object} [nhc] Live NHC data for the hurricane panel:
+ *   { cyclones, forecastPointsGeoJSON, pastPointsGeoJSON, watchWarningGeoJSON, windHazards }
+ */
+const FireDetailPanel = memo(function FireDetailPanel({ nhc = null }) {
   const { selectedFire, clearSelected } = useApp();
   const { alerts } = useAppStatus();
   const [shareStatus, setShareStatus] = useState('');
-  const isShareableFireType = ['hotspot', 'perimeter', 'incident', 'user-report', 'weather-alert', 'hazard-event'].includes(selectedFire?.type);
+  // Selected NHC product per storm, kept while switching between storms.
+  const [stormProducts, setStormProducts] = useState({});
+  const isShareableFireType = ['hotspot', 'perimeter', 'incident', 'user-report', 'weather-alert', 'hazard-event', 'nhc-storm'].includes(selectedFire?.type);
 
   // Fires once per incident open (map click, sidebar card, or popup select
   // all funnel through selectedFire), not on every render or on close.
@@ -1428,6 +1448,7 @@ const FireDetailPanel = memo(function FireDetailPanel() {
     const payload =
       selectedFire.type === 'weather-alert' ? { title: 'NWTT Weather Alert', text: shareText, url: shareUrl } :
       selectedFire.type === 'hazard-event'  ? { title: 'Sentinel Event Report', text: `Track this event on Sentinel: ${shareText}`, url: shareUrl } :
+      selectedFire.type === 'nhc-storm'     ? { title: 'Sentinel Storm Tracker', text: `Track this storm on Sentinel: ${shareText}`, url: shareUrl } :
       { title: 'Sentinel Fire Tracker', text: `Track this fire on Sentinel: ${shareText}`, url: shareUrl };
 
     // Use the Web Share API only when the browser supports it AND can handle
@@ -1477,6 +1498,21 @@ const FireDetailPanel = memo(function FireDetailPanel() {
     return <MesoscaleDiscussionModal fire={selectedFire} onClose={clearSelected} />;
   }
 
+  if (selectedFire.type === 'nhc-storm') {
+    return (
+      <HurricaneSidebar
+        key={`${selectedFire.type}:${selectedFire.id}`}
+        fire={selectedFire}
+        nhc={nhc}
+        product={stormProducts[selectedFire.id]}
+        onProductChange={(key) => setStormProducts((prev) => ({ ...prev, [selectedFire.id]: key }))}
+        onClose={clearSelected}
+        onShare={handleShare}
+        shareStatus={shareStatus}
+      />
+    );
+  }
+
   if (usesIncidentSidebar(selectedFire)) {
     return (
       <IncidentSidebar
@@ -1516,7 +1552,6 @@ const FireDetailPanel = memo(function FireDetailPanel() {
              selectedFire.type === 'flood-hazard'            ? 'Flood Hazard' :
              selectedFire.type === 'hazard-event'            ? 'Event Report' :
              selectedFire.type === 'nhc-invest'              ? 'NHC Invest' :
-             selectedFire.type === 'nhc-storm'               ? 'NHC Tropical Cyclone' :
              selectedFire.type === 'nhc-watch-warning'        ? 'NHC Watch/Warning' :
              'Fire Detail'}
           </span>
@@ -1558,12 +1593,11 @@ const FireDetailPanel = memo(function FireDetailPanel() {
           {selectedFire.type === 'flood-hazard'            && <FloodHazardDetail       fire={selectedFire} />}
           {selectedFire.type === 'hazard-event'            && <HazardEventDetail       fire={selectedFire} />}
           {selectedFire.type === 'nhc-invest'              && <NhcInvestDetail        fire={selectedFire} />}
-          {selectedFire.type === 'nhc-storm'                && <NhcStormDetail         fire={selectedFire} />}
           {selectedFire.type === 'nhc-watch-warning'        && <NhcWatchWarningDetail  fire={selectedFire} />}
           {![
             'hotspot', 'perimeter', 'incident', 'aqi', 'weather-alert', 'user-report',
             'evacuation-zone', 'reporter-evacuation-zone', 'transmission-line',
-            'gas-pipeline', 'national-map-college', 'flood-hazard', 'hazard-event', 'nhc-invest', 'nhc-storm', 'nhc-watch-warning',
+            'gas-pipeline', 'national-map-college', 'flood-hazard', 'hazard-event', 'nhc-invest', 'nhc-watch-warning',
           ].includes(selectedFire.type) && (
             <div className="flex flex-col items-center justify-center py-10 text-center gap-3">
               <Info size={24} className="text-sentinel-600" />

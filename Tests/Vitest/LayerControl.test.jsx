@@ -175,3 +175,48 @@ describe('LayerControl — NHC Tropical', () => {
     restore();
   });
 });
+
+describe('LayerControl — Navigation (Pro)', () => {
+  it.each(['allhazard', 'wildfire', 'weather'])('is the last row of the layer list on the %s tab', (tab) => {
+    renderPanel({ activeMapTab: tab, routingEntitled: true });
+    const rows = screen.getAllByRole('button', { name: /^Toggle / });
+    expect(rows[rows.length - 1]).toHaveAccessibleName('Toggle Navigation');
+    // The Evacuation section comes after Infrastructure.
+    const titles = screen.getAllByText(/^(Infrastructure|Evacuation)$/).map((el) => el.textContent);
+    expect(titles).toEqual(['Infrastructure', 'Evacuation']);
+  });
+
+  it('is not offered on the Models tab', () => {
+    renderPanel({ activeMapTab: 'models', routingEntitled: true });
+    expect(screen.queryByText('Navigation')).not.toBeInTheDocument();
+  });
+
+  it.each(['allhazard', 'wildfire', 'weather'])('is Pro-locked with no upgrade link when not entitled (%s)', (tab) => {
+    renderPanel({ activeMapTab: tab, routingEntitled: false });
+    const label = screen.getByText('Navigation');
+    const row = label.closest('.w-full');
+    expect(row).toHaveTextContent('Pro');
+    expect(row.querySelector('a')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Toggle Navigation' })).not.toBeInTheDocument();
+  });
+
+  it('is a working toggle when entitled', () => {
+    const toggleLayer = vi.fn();
+    const original = useApp.getMockImplementation();
+    useApp.mockImplementation(() => ({ ...original(), layers: {}, layerPanelOpen: true, toggleLayer }));
+    try {
+      renderPanel({ activeMapTab: 'allhazard', routingEntitled: true });
+      fireEvent.click(screen.getByRole('button', { name: 'Toggle Navigation' }));
+      expect(toggleLayer).toHaveBeenCalledWith('routeToSafety');
+    } finally {
+      useApp.mockImplementation(original);
+    }
+  });
+
+  it('keeps every existing All Hazards toggle', () => {
+    renderPanel({ activeMapTab: 'allhazard', routingEntitled: true });
+    for (const label of ['Active Fires', 'Evacuation Zones', 'Fire Hotspots']) {
+      expect(screen.getByText(label)).toBeInTheDocument();
+    }
+  });
+});

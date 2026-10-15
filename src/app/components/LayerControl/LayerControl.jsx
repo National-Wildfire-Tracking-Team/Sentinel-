@@ -5,25 +5,21 @@
  */
 
 import { useState, memo, useMemo, useEffect } from 'react';
-import { getMainOrigin } from '../../../shared/utils/getAppOrigin';
 import {
-  Layers, Flame, MapPin, Wind, CloudRain, CloudLightning, Radar, AlertTriangle, Ruler, Hexagon, Satellite, Thermometer, Activity, Droplets, Zap, Lock, GraduationCap, History, TrendingUp, Camera, Snowflake, Landmark, Waves, Waypoints,
+  Layers, Flame, Wind, CloudRain, CloudLightning, Radar, AlertTriangle, Ruler, Hexagon, Satellite, Thermometer, Activity, Droplets, Zap, Lock, GraduationCap, History, TrendingUp, Camera, Snowflake, Landmark, Waves, Waypoints, Navigation,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { trackSentinelUse } from '../../../shared/utils/analytics';
 import LayerPanelSection from './LayerPanelSection';
 import ModelLayerPanel from '../WeatherModels/ModelLayerPanel';
-import MrmsControls from './MrmsControls';
 import NhcTropicalControls from './NhcTropicalControls';
-import { MRMS_URL } from '../../api/mrms';
 
 /** Layer row definitions — grouped under tab-specific sections below */
 const LAYER_DEFS = {
   fireHotspots:      { label: 'Fire Hotspots',       sublabel: 'NASA FIRMS satellite',          icon: Flame,        color: '#ff4500' },
   ngfsDetections:    { label: 'GOES Fire Detections', sublabel: 'NOAA NESDIS NGFS satellite',   icon: Satellite,    color: '#ffa500' },
-  firePerimeters:    { label: 'Fire Perimeters',     sublabel: 'NIFC WFIGS',                  icon: MapPin,       color: '#ff6600' },
   calFireHistoricalPerimeters: { label: 'Historical Fire Perimeters', sublabel: 'CAL FIRE FRAP · past fire scars', icon: History, color: '#92400e' },
-  incidentLocations: { label: 'Incident Locations',  sublabel: 'WFIGS · NWTT verified',       icon: Flame,        color: '#f59e0b' },
+  incidentLocations: { label: 'Active Fires',        sublabel: 'WFIGS locations & perimeters · NWTT verified', icon: Flame, color: '#f59e0b' },
   evacZones:         { label: 'Evacuation Zones',    sublabel: 'Cal OES + IPAWS + field-reported zones', icon: AlertTriangle, color: '#ef4444' },
   ndgdSmokeForecast: { label: 'Smoke Concentration', sublabel: 'NOAA NDGD hourly (48h)',      icon: CloudRain,    color: '#eab308' },
   droughtOutlook:    { label: 'Drought Outlook',     sublabel: 'NOAA CPC Monthly Outlook',    icon: Droplets,     color: '#f59e0b' },
@@ -48,6 +44,7 @@ const LAYER_DEFS = {
   wildfireCameras:   { label: 'Live CA Cameras',      sublabel: 'Caltrans District CCTV · click for live feed', icon: Camera, color: '#14b8a6' },
   nhcTropical:      { label: 'NHC Tropical', sublabel: 'Storms, outlook, wind & surge · choose parts below', icon: Waypoints, color: '#4dffff' },
   fireBehaviorModeling: { label: 'Fire Behavior Modeling', sublabel: 'Spread projection · select a fire', icon: TrendingUp, color: '#ff3b1f' },
+  routeToSafety: { label: 'Navigation', sublabel: 'Nearest open shelters · hazard-avoiding routes', icon: Navigation, color: '#22c55e' },
 };
 
 
@@ -61,7 +58,7 @@ const TAB_SECTIONS = {
       title: 'Fire activity',
       groups: [
         {
-          layers: ['firePerimeters', 'incidentLocations', 'evacZones', 'fireHotspots', 'ngfsDetections', 'calFireHistoricalPerimeters', 'fireBehaviorModeling'],
+          layers: ['incidentLocations', 'evacZones', 'fireHotspots', 'ngfsDetections', 'calFireHistoricalPerimeters', 'fireBehaviorModeling'],
         },
       ],
     },
@@ -93,7 +90,7 @@ const TAB_SECTIONS = {
           layers: [
             { key: 'weatherAlerts', label: 'Red Flag Warnings', sublabel: 'NWS active Red Flag Warnings' },
             'evacZones',
-            'firePerimeters', 'incidentLocations',
+            'incidentLocations',
             'fireHotspots', 'ngfsDetections', 'calFireHistoricalPerimeters', 'satellite',
             'fireBehaviorModeling',
           ],
@@ -125,11 +122,11 @@ const TAB_SECTIONS = {
   weather: [
     {
       id: 'wx-imagery',
-      title: MRMS_URL ? 'Radar & satellite' : 'Satellite',
+      title: 'Radar & satellite',
       groups: [
         {
-          // MRMS is offered only when its frames service is configured (VITE_MRMS_URL).
-          layers: [...(MRMS_URL ? ['mrms'] : []), 'satellite'],
+          // MRMS always shows; its pop-up controls (MrmsPanel) explain when VITE_MRMS_URL isn't set.
+          layers: ['mrms', 'satellite'],
         },
       ],
     },
@@ -154,7 +151,7 @@ const TAB_SECTIONS = {
   ],
 };
 
-function LayerToggle({ layerKey, label, sublabel, icon: Icon, color, locked, onToggle }) {
+function LayerToggle({ layerKey, label, sublabel, icon: Icon, locked, onToggle }) {
   const { layers, toggleLayer } = useApp();
   const active = layers[layerKey];
   const handleClick = onToggle || (() => {
@@ -177,12 +174,6 @@ function LayerToggle({ layerKey, label, sublabel, icon: Icon, color, locked, onT
           </div>
           <div className="text-[10px] text-sentinel-300 truncate">{sublabel}</div>
         </div>
-        <a
-          href={`${getMainOrigin()}/pricing`}
-          className="shrink-0 text-[10px] font-semibold text-amber-400 hover:text-amber-300 underline underline-offset-2"
-        >
-          Upgrade
-        </a>
       </div>
     );
   }
@@ -199,11 +190,12 @@ function LayerToggle({ layerKey, label, sublabel, icon: Icon, color, locked, onT
       <div
         className="shrink-0 w-7 h-7 rounded-md flex items-center justify-center"
         style={{
-          backgroundColor: active ? `${color}22` : 'transparent',
-          border: `1px solid ${active ? color + '55' : '#52525b'}`,
+          // Softer fire-600 tint than the toggle track: 15% fill, 30% border.
+          backgroundColor: active ? 'rgba(255, 90, 0, 0.15)' : 'transparent',
+          border: `1px solid ${active ? 'rgba(255, 90, 0, 0.3)' : '#52525b'}`,
         }}
       >
-        <Icon size={14} style={{ color: active ? color : '#a1a1aa' }} />
+        <Icon size={14} style={{ color: active ? '#ff5a00' : '#a1a1aa' }} />
       </div>
 
       <div className="flex-1 min-w-0">
@@ -215,7 +207,7 @@ function LayerToggle({ layerKey, label, sublabel, icon: Icon, color, locked, onT
 
       <div
         className={`shrink-0 relative w-9 h-5 rounded-full transition-colors duration-200
-          ${active ? 'bg-fire-600' : 'bg-sentinel-500'}`}
+          ${active ? 'bg-fire-600/25 ring-1 ring-inset ring-fire-600/50' : 'bg-sentinel-500'}`}
       >
         <span
           className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow
@@ -351,6 +343,7 @@ function WpcDaySelector({ layerKey, product, subtitle, accentColor }) {
 const LayerControl = memo(function LayerControl({
   activeMapTab = 'wildfire',
   infrastructureLayersEntitled = false,
+  routingEntitled = false,
   measureActive = false,
   measureMode = 'distance',
   onMeasureActivate,
@@ -375,7 +368,8 @@ const LayerControl = memo(function LayerControl({
       sublabel: 'USGS National Map · colleges & universities',
       icon: GraduationCap,
       color: '#a78bfa',
-      locked: !infrastructureLayersEntitled,
+      // Free for everyone; only power lines/pipelines and land ownership are Pro.
+      locked: false,
     },
     {
       key: 'landOwnership',
@@ -386,6 +380,12 @@ const LayerControl = memo(function LayerControl({
       locked: !infrastructureLayersEntitled,
     },
   ], [infrastructureLayersEntitled]);
+
+  // Pro-gated rows outside the Infrastructure section (same locked row).
+  const lockedLayerKeys = useMemo(
+    () => new Set(routingEntitled ? [] : ['routeToSafety']),
+    [routingEntitled],
+  );
 
   const sections = useMemo(() => {
     const tabKey = activeMapTab === 'weather' ? 'weather' : activeMapTab === 'allhazard' ? 'allhazard' : 'wildfire';
@@ -401,6 +401,12 @@ const LayerControl = memo(function LayerControl({
         groups: [{ layers: infraLayers.map((l) => l.key) }],
         infraLayers,
       },
+      // Navigation (Pro): last in the list on All Hazards, Wildfire and Weather.
+      {
+        id: 'nav-safety',
+        title: 'Evacuation',
+        groups: [{ layers: ['routeToSafety'] }],
+      },
     ];
   }, [activeMapTab, infraLayers]);
 
@@ -415,11 +421,6 @@ const LayerControl = memo(function LayerControl({
   const toggleGroup = (key) => setCollapsed((c) => ({ ...c, [key]: !c[key] }));
 
   const isModelsTab = activeMapTab === 'models';
-  const tabAccent =
-    isModelsTab                  ? 'from-indigo-600/40 to-black'        :
-    activeMapTab === 'weather'   ? 'from-sky-600/40 to-black'           :
-    activeMapTab === 'allhazard' ? 'from-red-700/40 via-fire-700/20 to-black' :
-                                   'from-fire-600/35 to-black';
 
 
   return (
@@ -447,7 +448,7 @@ const LayerControl = memo(function LayerControl({
                         animate-dock-rise"
           style={dockedPanelClearance ? { marginBottom: `${dockedPanelClearance}px` } : undefined}
         >
-          <div className={`px-3 pt-3 pb-2 border-b border-sentinel-700 bg-gradient-to-b ${tabAccent}`}>
+          <div className="px-3 pt-3 pb-2 border-b border-sentinel-700">
             <div className="flex items-center justify-between gap-2">
               <div className="min-w-0">
                 <span className="text-[11px] font-bold text-white uppercase tracking-wider">
@@ -462,7 +463,7 @@ const LayerControl = memo(function LayerControl({
                     onClick={() => (measureActive && measureMode === 'distance') ? onMeasureClose?.() : onMeasureActivate?.('distance')}
                     className={`w-7 h-7 flex items-center justify-center rounded-md transition-all ${
                       measureActive && measureMode === 'distance'
-                        ? 'bg-orange-500 text-white border border-orange-400'
+                        ? 'bg-fire-600/25 text-white border border-fire-600/50'
                         : 'text-sentinel-200 hover:text-white hover:bg-sentinel-700'
                     }`}
                   >
@@ -478,7 +479,7 @@ const LayerControl = memo(function LayerControl({
                     onClick={() => (measureActive && measureMode === 'polygon') ? onMeasureClose?.() : onMeasureActivate?.('polygon')}
                     className={`w-7 h-7 flex items-center justify-center rounded-md transition-all ${
                       measureActive && measureMode === 'polygon'
-                        ? 'bg-orange-500 text-white border border-orange-400'
+                        ? 'bg-fire-600/25 text-white border border-fire-600/50'
                         : 'text-sentinel-200 hover:text-white hover:bg-sentinel-700'
                     }`}
                   >
@@ -496,7 +497,7 @@ const LayerControl = memo(function LayerControl({
               (plus any docked outlook panel), so short landscape phone
               screens don't push the panel's header up under the page header. */}
           <div
-            className="py-2 max-h-[min(60vh,28rem)] overflow-y-auto"
+            className="py-2 max-h-[min(60vh,28rem)] overflow-y-auto scrollbar-panel"
             style={{ maxHeight: `min(60vh, 28rem, calc(100dvh - 14rem - ${dockedPanelClearance}px))` }}
           >
             {/* The Models tab's model / variable / overlay choices live in this same
@@ -558,9 +559,9 @@ const LayerControl = memo(function LayerControl({
                                 sublabel={sublabel}
                                 icon={def.icon}
                                 color={def.color}
+                                locked={lockedLayerKeys.has(layerKey)}
                               />
 
-                              {layerKey === 'mrms' && <MrmsControls />}
                               {layerKey === 'nhcTropical' && <NhcTropicalControls />}
                               {layerKey === 'fireRiskOutlook' && (
                                 <FireRiskDaySelector />

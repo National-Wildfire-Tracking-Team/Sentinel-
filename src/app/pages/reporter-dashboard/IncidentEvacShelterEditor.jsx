@@ -27,7 +27,7 @@ const BTN_SECONDARY =
   'border border-sentinel-600 hover:text-white hover:border-sentinel-400 transition-colors disabled:opacity-50';
 const BTN_PRIMARY =
   'inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium text-white ' +
-  'bg-fire-600 hover:bg-fire-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors';
+  'bg-fire-600/25 border border-fire-600/50 hover:bg-fire-600/35 disabled:opacity-50 disabled:cursor-not-allowed transition-colors';
 
 function Feedback({ feedback }) {
   if (!feedback) return null;

@@ -28,6 +28,28 @@ const ReporterTree = lazy(() => import('./app/ReporterTree'));
 
 ErrorLogger.init();
 
+// A tab opened before a deploy still references the previous build's chunk
+// filenames, which no longer exist. Vite raises vite:preloadError when such a
+// dynamic import fails; reload once to pick up the new index.html. The
+// sessionStorage stamp stops a reload loop if the chunk is genuinely broken.
+const RELOAD_KEY = 'chunk-reload-at';
+window.addEventListener('vite:preloadError', (event) => {
+  let last = 0;
+  try {
+    last = Number(sessionStorage.getItem(RELOAD_KEY)) || 0;
+  } catch {
+    // storage unavailable — fall through and let the error surface
+  }
+  if (Date.now() - last < 10_000) return;
+  try {
+    sessionStorage.setItem(RELOAD_KEY, String(Date.now()));
+  } catch {
+    return;
+  }
+  event.preventDefault();
+  window.location.reload();
+});
+
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <ErrorBoundary>

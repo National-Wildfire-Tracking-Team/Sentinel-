@@ -4,8 +4,11 @@
  *
  * Plans:
  *   free  – permanent free tier; core situational awareness
- *   plus  – Sentinel Plus ($7.99/mo or $69.99/yr); basic fire behavior modeling + extra layers
- *   pro   – Sentinel Pro ($14.99/mo or $149/yr); unlimited locations + critical infrastructure
+ *   plus  – Sentinel Plus ($7.99/mo or $69.99/yr); fire spread rings + 10 saved locations
+ *   pro   – Sentinel Pro ($14.99/mo or $149/yr); unlimited locations, critical infrastructure,
+ *           land ownership and Route to Safety
+ *
+ * Feature lists shown to users live in src/main/pages/PricingPage.jsx.
  *   team  – org/team tier; max limits + API + multi-seat
  */
 
@@ -34,13 +37,13 @@ export const PLANS = {
     id: 'plus',
     label: 'Sentinel Plus',
     price: 7.99,
-    savedLocationsLimit: 15,
+    savedLocationsLimit: 10,      // keep in sync with public.saved_location_limit()
     alertsEnabled: true,
     basicAlerts: true,
-    advancedLayers: true,          // smoke layers, satellite imagery, advanced radar products
-    infrastructureLayers: false,   // critical infrastructure is Pro-only
+    advancedLayers: true,          // not enforced: smoke + satellite are free for everyone
+    infrastructureLayers: false,   // power lines + gas pipelines are Pro-only
     evacuationRoutes: false,
-    federalLandLayers: false,      // protected/public lands — coming soon on Plus
+    federalLandLayers: false,      // land ownership is Pro-only
     fireBehaviorModeling: true,    // basic spread projection rings (live)
     camerasAircraft: true,
     apiAccess: false,
@@ -55,9 +58,9 @@ export const PLANS = {
     alertsEnabled: true,
     basicAlerts: true,
     advancedLayers: true,
-    infrastructureLayers: true,   // highways, railroads, powerlines, pipelines, WUI, land ownership
+    infrastructureLayers: true,   // power lines, gas pipelines
     evacuationRoutes: true,
-    federalLandLayers: true,      // protected/public lands (live)
+    federalLandLayers: true,      // CAL FIRE FRAP land ownership (live, CA only)
     fireBehaviorModeling: true,   // advanced fire progression + spread projections
     camerasAircraft: true,
     apiAccess: true,
@@ -96,10 +99,13 @@ export function usePlan() {
 
   const isPaidPlan = planId === 'plus' || planId === 'pro' || planId === 'team';
   const isProOrAbove = planId === 'pro' || planId === 'team';
-  /** Critical infrastructure / WUI layers — Pro plan and above, or field reporter status. */
+  /** Critical infrastructure + land ownership layers — Pro plan and above, or field reporter status. */
   const hasProInfrastructureAccess = isProOrAbove || Boolean(isReporter);
   /** Fire behavior modeling (spread projection layer) — Plus plan and above, or field reporter status. */
   const hasFireBehaviorModelingAccess = isPaidPlan || Boolean(isReporter);
+  /** Route to Safety (ORS routing to shelters) — Pro/Team only (PLANS.*.evacuationRoutes).
+   *  Must match the server check in cloud/ors-routing/auth.mjs. */
+  const hasEvacuationRoutesAccess = Boolean(plan.evacuationRoutes);
 
   return {
     planId,
@@ -111,6 +117,7 @@ export function usePlan() {
     isPaid: isPaidPlan,
     hasProInfrastructureAccess,
     hasFireBehaviorModelingAccess,
+    hasEvacuationRoutesAccess,
     isActive: paidStatuses.includes(subscription?.status) || planId === 'free',
     cancelAtPeriodEnd: subscription?.cancel_at_period_end ?? false,
     currentPeriodEnd: subscription?.current_period_end ?? null,

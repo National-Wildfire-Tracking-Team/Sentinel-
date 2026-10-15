@@ -13,6 +13,7 @@
 import { useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Table } from 'lucide-react';
 import { MODEL_STYLE, formatValue, localTime, zulu } from './modelTheme';
+import { useTimeFormat } from '../../hooks/useTimeFormat';
 
 const PANEL_H = 64;
 const PAD_Y = 6;
@@ -48,6 +49,7 @@ function linePath(points) {
 }
 
 export default function Meteogram({ series, validTime, onSelect }) {
+  useTimeFormat();
   const [ref, width] = useWidth();
   const [hover, setHover] = useState(null); // ms
   const [showTable, setShowTable] = useState(false);
@@ -187,6 +189,7 @@ export default function Meteogram({ series, validTime, onSelect }) {
 }
 
 function ForecastTable({ series }) {
+  useTimeFormat();
   const cols = ['temperature', 'relativeHumidity', 'windSpeed', 'windDirection', 'windGust', 'precipitationAmount'];
   return (
     <div className="max-h-72 overflow-auto rounded border border-sentinel-200 dark:border-sentinel-700">

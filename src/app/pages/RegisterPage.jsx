@@ -13,6 +13,7 @@ import {
 import { useAuth } from '../../shared/context/AuthContext';
 import { isExistingAccountSignUp } from '../../shared/utils/authEmail';
 import ResendConfirmation from '../components/Auth/ResendConfirmation';
+import { trackSignUp } from '../../shared/utils/analytics';
 
 export default function RegisterPage() {
   const { signUp, isSupabaseConfigured } = useAuth();
@@ -52,6 +53,7 @@ export default function RegisterPage() {
         setError('An account with this email already exists. Sign in instead, or use "Forgot password" to reset it.');
         return;
       }
+      trackSignUp('email');
 
       // When email confirmation is enabled, signUp returns no session.
       // Show a confirmation prompt instead of navigating blindly.
@@ -117,7 +119,7 @@ export default function RegisterPage() {
       {/* ══════════════════ LEFT PANEL — Branding ══════════════════ */}
       <div className="hidden lg:flex lg:w-1/2 relative flex-col items-center justify-center overflow-hidden">
 
-        <div className="absolute inset-0 bg-gradient-to-br from-[#07090c] via-[#0c1520] to-[#071020]" />
+        <div className="absolute inset-0 bg-[#07090c]" />
         <div
           className="absolute inset-0 opacity-[0.04]"
           style={{
@@ -127,7 +129,6 @@ export default function RegisterPage() {
             backgroundSize: '48px 48px',
           }}
         />
-        <div className="absolute bottom-0 left-0 right-0 h-64 bg-gradient-to-t from-orange-900/25 to-transparent" />
 
         <div className="relative z-10 text-center px-12 max-w-lg">
           <div className="flex items-center justify-center mb-8">

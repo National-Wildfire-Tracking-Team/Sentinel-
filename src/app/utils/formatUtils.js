@@ -73,17 +73,41 @@ export function formatRelativeTime(dateInput) {
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
-// User's Time Format preference ('12h' | '24h'), applied by formatDateTime
-// below. Set via PreferencesContext — kept as module state (like
-// ThemeContext toggling a class) so every formatDateTime call site picks it
-// up without threading a prop through each component.
+// User's Time Format preference ('12h' | '24h'). Set via PreferencesContext
+// and kept as module state so every formatter picks it up without threading a
+// prop through each component. Components that show times call
+// useTimeFormat() (hooks/useTimeFormat) to re-render when it changes.
 let hour12Preference = true;
+const timeFormatListeners = new Set();
 
 /**
  * @param {'12h'|'24h'} format
  */
 export function setTimeFormatPreference(format) {
-  hour12Preference = format !== '24h';
+  const next = format !== '24h';
+  if (next === hour12Preference) return;
+  hour12Preference = next;
+  timeFormatListeners.forEach((listener) => listener());
+}
+
+/** True while the 12-hour clock is selected. */
+export function isHour12() {
+  return hour12Preference;
+}
+
+/** @param {() => void} listener  @returns {() => void} unsubscribe */
+export function subscribeTimeFormat(listener) {
+  timeFormatListeners.add(listener);
+  return () => timeFormatListeners.delete(listener);
+}
+
+/**
+ * Adds the Time Format preference to toLocaleString/toLocaleTimeString
+ * options. hourCycle (not hour12: false) so midnight reads 00:05, not 24:05.
+ * @param {Intl.DateTimeFormatOptions} [opts]
+ */
+export function withClock(opts = {}) {
+  return { ...opts, hourCycle: hour12Preference ? 'h12' : 'h23' };
 }
 
 /**
@@ -95,7 +119,7 @@ export function setTimeFormatPreference(format) {
 export function formatClockTime(dateInput) {
   const date = new Date(dateInput);
   if (!dateInput || Number.isNaN(date.getTime())) return '';
-  const time = date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: hour12Preference });
+  const time = date.toLocaleTimeString('en-US', withClock({ hour: 'numeric', minute: '2-digit' }));
   if (date.toDateString() === new Date().toDateString()) return time;
   return `${date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}, ${time}`;
 }
@@ -108,15 +132,14 @@ export function formatClockTime(dateInput) {
 export function formatDateTime(dateInput) {
   if (!dateInput) return 'Unknown';
   const date = new Date(dateInput);
-  return date.toLocaleString('en-US', {
+  return date.toLocaleString('en-US', withClock({
     month: 'short',
     day: 'numeric',
     year: 'numeric',
     hour: 'numeric',
     minute: '2-digit',
-    hour12: hour12Preference,
     timeZoneName: 'short',
-  });
+  }));
 }
 
 /**

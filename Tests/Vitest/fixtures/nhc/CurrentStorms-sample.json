@@ -1,0 +1,49 @@
+{
+  "activeStorms": [
+    {
+      "id": "al092026",
+      "binNumber": "AT4",
+      "name": "Isaias",
+      "classification": "HU",
+      "intensity": "70",
+      "pressure": "975",
+      "latitude": "23.7N",
+      "longitude": "90.6W",
+      "latitudeNumeric": 23.7,
+      "longitudeNumeric": -90.6,
+      "movementDir": 60,
+      "movementSpeed": 9,
+      "lastUpdate": "2026-10-08T12:00:00.000Z"
+    },
+    {
+      "id": "ep182026",
+      "binNumber": "EP3",
+      "name": "Rachel",
+      "classification": "TS",
+      "intensity": "60",
+      "pressure": "985",
+      "latitude": "21.8N",
+      "longitude": "123.9W",
+      "latitudeNumeric": 21.8,
+      "longitudeNumeric": -123.9,
+      "movementDir": 290,
+      "movementSpeed": 8,
+      "lastUpdate": "2026-10-08T09:00:00.000Z"
+    },
+    {
+      "id": "ep202026",
+      "binNumber": "EP5",
+      "name": "Simon",
+      "classification": "TS",
+      "intensity": "45",
+      "pressure": "1000",
+      "latitude": "15.4N",
+      "longitude": "103.3W",
+      "latitudeNumeric": 15.4,
+      "longitudeNumeric": -103.3,
+      "movementDir": 270,
+      "movementSpeed": 7,
+      "lastUpdate": "2026-10-08T12:00:00.000Z"
+    }
+  ]
+}
