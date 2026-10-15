@@ -52,6 +52,13 @@ jobs:
           # data-services CloudFront at /ors-routing; see its README.md.
           # Unset: the panel says routing isn't configured.
           VITE_ORS_ROUTING_URL: ${{ secrets.VITE_ORS_ROUTING_URL }}
+          # HAFS hurricane-model fields on the Models tab — see cloud/hafs/README.md.
+          # Unset, the Models tab simply doesn't offer HAFS.
+          VITE_HAFS_URL: ${{ secrets.VITE_HAFS_URL }}
+          # NHC hurricane model guidance — see cloud/hurricane-models/README.md.
+          # Unset the secret to fall back to reading the a-deck in the browser
+          # through /api/nws/nhc-atcf, no code change needed.
+          VITE_HURRICANE_MODELS_URL: ${{ secrets.VITE_HURRICANE_MODELS_URL }}
       # Snapshot the marketing pages as static HTML for crawlers (see
       # scripts/prerender.mjs). Deliberately run here rather than as part of
       # `npm run build` itself, so netlify.toml's own build command (used

@@ -1,32 +1,35 @@
 /**
  * SpaghettiModelsButton.jsx
  * "Show Spaghetti Models" split button: the main part shows or hides one
- * system's model tracks on the map (all models), the chevron picks a model
- * group. The tracks themselves are drawn by MapView from the shared
- * `nhcModelTracks` state, so this works from the map popup and the detail
- * panel alike.
+ * system's model tracks on the map (the official forecast and every
+ * operational model), the chevron opens the per-model checklist
+ * (HurricaneModelPicker). The tracks themselves are drawn by MapView from
+ * the shared `nhcModelTracks` state, so this works from the map popup and
+ * the detail panel alike.
  */
 
 import { useEffect, useRef, useState } from 'react';
-import { Check, ChevronDown } from 'lucide-react';
+import { ChevronDown } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
-import { MODEL_GROUPS } from '../../api/nhcModelTracks';
+import { defaultModelSelection } from '../../api/nhcModelTracks';
 import { useNhcModelTracks } from '../../hooks/useNhcModelTracks';
 import { CARD_BG } from './MapFeaturePopup';
+import HurricaneModelPicker from './HurricaneModelPicker';
 
 const BUTTON = 'min-h-[44px] rounded-lg border border-white/10 bg-white/5 text-sm font-semibold text-white transition-colors';
 
 /**
  * @param {string|null} atcfId     the system's ATCF id; null while unknown or when there's none
  * @param {boolean}     [finding]  still looking the id up (invests)
- * @param {string}      [menuClassName]  background for the group menu; defaults to the map popup's card color
+ * @param {string}      [menuClassName]  background for the model menu; defaults to the map popup's card color
  */
 export default function SpaghettiModelsButton({ atcfId, finding = false, menuClassName = null }) {
   const { nhcModelTracks, setNhcModelTracks } = useApp();
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef(null);
   const showing = Boolean(atcfId) && nhcModelTracks?.atcfId === atcfId;
-  const { status } = useNhcModelTracks(showing ? atcfId : null);
+  // The checklist shows each model's run time, so it loads the data too.
+  const { status, data } = useNhcModelTracks(showing || menuOpen ? atcfId : null);
 
   useEffect(() => {
     if (!menuOpen) return undefined;
@@ -47,13 +50,14 @@ export default function SpaghettiModelsButton({ atcfId, finding = false, menuCla
     : status === 'loading' ? 'Loading models…'
     : status === 'error' ? 'Models unavailable · Hide'
     : 'Hide Spaghetti Models';
+  const selection = showing ? nhcModelTracks : defaultModelSelection();
 
   return (
     <div ref={menuRef}>
       <div className={`flex overflow-hidden ${BUTTON}`}>
         <button
           type="button"
-          onClick={() => setNhcModelTracks(showing ? null : { atcfId, group: 'all' })}
+          onClick={() => setNhcModelTracks(showing ? null : { atcfId, ...defaultModelSelection() })}
           className="flex-1 min-h-[44px] px-3 hover:bg-white/5"
         >
           {label}
@@ -61,7 +65,7 @@ export default function SpaghettiModelsButton({ atcfId, finding = false, menuCla
         <span className="w-px bg-white/10" aria-hidden />
         <button
           type="button"
-          aria-label="Choose model group"
+          aria-label="Choose models"
           aria-haspopup="menu"
           aria-expanded={menuOpen}
           onClick={() => setMenuOpen((o) => !o)}
@@ -72,29 +76,20 @@ export default function SpaghettiModelsButton({ atcfId, finding = false, menuCla
       </div>
       {menuOpen && (
         // In the card's flow: map popups clip anything that floats outside them.
-        <ul
+        <div
           role="menu"
-          className={`mt-1 overflow-hidden rounded-lg border border-white/10 py-1 ${menuClassName ?? ''}`}
+          aria-label="Hurricane models"
+          className={`mt-1 max-h-[60vh] overflow-y-auto rounded-lg border border-white/10 ${menuClassName ?? ''}`}
           style={menuClassName ? undefined : { background: CARD_BG }}
         >
-          {MODEL_GROUPS.map((g) => {
-            const active = showing && nhcModelTracks.group === g.key;
-            return (
-              <li key={g.key}>
-                <button
-                  type="button"
-                  role="menuitemradio"
-                  aria-checked={active}
-                  onClick={() => { setMenuOpen(false); setNhcModelTracks({ atcfId, group: g.key }); }}
-                  className="flex min-h-[44px] w-full items-center gap-2 px-3 text-left text-sm text-white hover:bg-white/5"
-                >
-                  <span className="w-4">{active && <Check size={14} aria-hidden />}</span>
-                  {g.label}
-                </button>
-              </li>
-            );
-          })}
-        </ul>
+          <HurricaneModelPicker
+            data={data}
+            status={status}
+            selection={selection}
+            // Picking models turns the tracks on for this storm.
+            onChange={(next) => setNhcModelTracks({ atcfId, ...next })}
+          />
+        </div>
       )}
     </div>
   );
