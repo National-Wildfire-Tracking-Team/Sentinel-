@@ -53,7 +53,7 @@ const asResponse = (err) => ({ status: err.status, body: err.body });
 export function createHandlers({ supabase, ors, shelterSources, nearestCache, routeCache, log = () => {}, now = Date.now }) {
   /** Maps a non-HttpError to a response error, logging only its kind/status (never message, body or headers). */
   function mapUpstream(err, path) {
-    if (!(err instanceof HttpError)) log('ERROR', 'upstream_failed', { path, kind: err?.name, status: err?.status });
+    if (!(err instanceof HttpError)) log('ERROR', 'upstream_failed', { path, kind: err?.name, status: err?.status, reason: err?.reason });
     return upstreamError(err);
   }
 
