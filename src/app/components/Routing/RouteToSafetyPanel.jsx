@@ -3,7 +3,8 @@
  * All Hazards → Navigation (Pro; internally "Route to Safety"). A translucent sheet over the map:
  * From and To address lines (type-ahead suggestions; From also takes current
  * location or Home), nearest open shelters ranked by drive time, and the chosen
- * route with steps, an Open in Maps handoff and the safety disclaimer.
+ * route with steps, an Open in Maps handoff and the safety disclaimer. From inside
+ * an evacuation zone, Nearest Safety Area routes out of the zone (see useRouteToSafety).
  */
 
 import { memo, useEffect, useState } from 'react';
@@ -43,6 +44,16 @@ function errorMessage(error, hasMapsUrl) {
     case 'not_configured': return 'Routing is not configured for this environment.';
     default: return 'Routing is unavailable right now.';
   }
+}
+
+export const EXIT_SAFETY_COPY = 'Always avoid active fires, thick smoke significantly reducing visibility, and flooded roadways.';
+
+/** Why this route goes to the zone edge rather than a shelter. */
+function exitZoneCopy({ name, level, isFire }) {
+  const where = name ? `${level} (${name})` : level;
+  return isFire
+    ? `You're inside a fire ${where}. This is the quickest way out, heading away from nearby fires. ${EXIT_SAFETY_COPY}`
+    : `You're inside an ${where}. This is the quickest way out of the zone. ${EXIT_SAFETY_COPY}`;
 }
 
 // The two buttons beside From and To share one size so they line up as a pair.
@@ -91,7 +102,7 @@ const RouteToSafetyPanel = memo(function RouteToSafetyPanel({ state, actions, on
   const findingLocation = state.status === 'locating' && !originLabel;
   const noLocation = state.status === 'error' && state.error?.kind === 'location';
   let statusText = '';
-  if (state.status === 'routing') statusText = 'Finding a route…';
+  if (state.status === 'routing') statusText = state.exitZone ? 'Finding the way out of the evacuation zone…' : 'Finding a route…';
   else if (state.status === 'locating') statusText = originLabel ? 'Finding that address…' : 'Finding your location…';
   else if (state.status === 'searching') statusText = 'Finding open shelters…';
   // The header already shows "Finding your location…"; keep it out of the body.
@@ -178,7 +189,8 @@ const RouteToSafetyPanel = memo(function RouteToSafetyPanel({ state, actions, on
                     onSubmitText={actions.routeToAddress}
                   />
                 </div>
-                {/* One tap: your location → closest open shelter, routed around active hazards. */}
+                {/* One tap: your start → out of the evacuation zone you're in (away from fire),
+                    else the closest open shelter, routed around active hazards. */}
                 <button type="button" onClick={actions.nearestSafety} aria-label="Nearest Safety Area (Beta)"
                   className={`${sideButtonClass} relative bg-green-600/80 text-white hover:bg-green-600`}>
                   Nearest Safety Area
@@ -264,12 +276,19 @@ const RouteToSafetyPanel = memo(function RouteToSafetyPanel({ state, actions, on
 
       {state.status === 'routed' && (
         <div className="px-4 py-3 space-y-2">
-          <div className="-ml-2">{backButton}</div>
+          {/* Routed out of a zone without a shelter search: there's no list to go back to. */}
+          {(!state.exitZone || hasShelters) && <div className="-ml-2">{backButton}</div>}
           {Number.isFinite(summary?.duration) && Number.isFinite(summary?.distance) && (
             <div className="text-xl font-semibold tracking-[-0.02em]">{fmtMin(summary.duration)} · {fmtMi(summary.distance)}</div>
           )}
           {state.hazardWarning && (
             <p className="flex gap-1.5 text-xs text-amber-300"><AlertTriangle size={13} className="shrink-0 mt-px" />This route passes through or near an active hazard. Follow official evacuation orders.</p>
+          )}
+          {state.exitZone && (
+            <p data-testid="exit-zone-note" className="flex gap-1.5 text-xs text-amber-300">
+              <AlertTriangle size={13} className="shrink-0 mt-px" />
+              <span>{exitZoneCopy(state.exitZone)}</span>
+            </p>
           )}
           {state.startsInsideHazard && (
             <p className="flex gap-1.5 text-xs text-amber-300"><AlertTriangle size={13} className="shrink-0 mt-px" />You're starting inside an active hazard area. Leave by the safest route officials direct.</p>

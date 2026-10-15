@@ -13,6 +13,7 @@ import MapZoomControl from './MapZoomControl';
 import { useApp } from '../../context/AppContext';
 import { useAppStatus } from '../../context/AppStatusContext';
 import { useViewport } from '../../context/ViewportContext';
+import { initialViewport, conusPadding, conusFitStep } from '../../utils/conusView';
 import { usePreferences } from '../../context/PreferencesContext';
 import { useWeatherModelsContext } from '../../context/WeatherModelsContext';
 import MapFeaturePopup from './MapFeaturePopup';
@@ -599,6 +600,9 @@ export default function MapView({
   const satellite = useSatelliteContext();
   const { alerts, userLocation, setUserLocation } = useAppStatus();
   const { viewport, setViewport } = useViewport();
+  // Read on map load: still the opening camera means nothing has moved it yet.
+  const viewportRef = useRef(viewport);
+  useEffect(() => { viewportRef.current = viewport; }, [viewport]);
   const { prefs: displayPrefs } = usePreferences();
   const mapRef = useRef(null);
   // Data Picker: Center (the default) reads the middle of the screen; Mouse reads the clicked spot.
@@ -1100,9 +1104,71 @@ export default function MapView({
     setViewport(evt.viewState);
   }, [setViewport]);
 
+  // Opening view: frame the lower 48 between the header (the map's top edge)
+  // and the bottom bar, as tight as it fits. Fitted on the live map so the
+  // globe's curvature is accounted for. Skipped if anything already moved the
+  // camera (a shared incident link, the user panning).
+  //
+  // The map's size can change after load (the Red Flag Warning banner drops in
+  // above it once alerts arrive, or is dismissed), so it re-frames on resize for
+  // as long as the camera is still the one it framed.
+  const autoFrameRef = useRef(null);
+  const frameRunRef = useRef(0);
+  const frameConus = useCallback(async (map) => {
+    const run = ++frameRunRef.current;
+    const canvas = map.getContainer().getBoundingClientRect();
+    const bar = document.querySelector('[data-map-bottom-bar]')?.getBoundingClientRect();
+    // Map bottom edge (it bleeds past the page) up to the top of the bottom bar.
+    const padding = conusPadding(bar ? Math.max(0, canvas.bottom - bar.top) : undefined);
+    const nextFrame = () => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+    for (let i = 0; i < 4; i += 1) {
+      let step;
+      try {
+        step = conusFitStep(map, padding);
+      } catch {
+        return;
+      }
+      if (!step || !Number.isFinite(step.camera.zoom)) return;
+      if (step.done) return;
+      autoFrameRef.current = step.camera;
+      setViewport(step.camera);
+      // Let react-map-gl apply the camera before measuring again.
+      await nextFrame();
+      if (run !== frameRunRef.current || !isAutoFramed()) return;
+    }
+  }, [setViewport]);
+  // True while the camera is still the one frameConus set (nothing else moved it).
+  function isAutoFramed() {
+    const framed = autoFrameRef.current;
+    const v = viewportRef.current;
+    return Boolean(framed) && Math.abs(v.longitude - framed.longitude) < 1e-4
+      && Math.abs(v.latitude - framed.latitude) < 1e-4 && Math.abs(v.zoom - framed.zoom) < 1e-3;
+  }
   const handleMapLoad = useCallback((e) => {
+    const map = e?.target;
+    if (viewportRef.current === initialViewport && typeof map?.project === 'function') {
+      frameConus(map);
+      map.on('resize', () => {
+        // Next frame: react-map-gl syncs the camera after the resize event.
+        if (isAutoFramed()) requestAnimationFrame(() => frameConus(map));
+        else autoFrameRef.current = null;
+      });
+      // Mapbox doesn't always notice its container shrinking when the banner
+      // pushes it down, leaving the canvas taller than the space it has.
+      if (typeof ResizeObserver !== 'undefined') {
+        const container = map.getContainer();
+        let last = container.clientHeight;
+        const ro = new ResizeObserver(() => {
+          if (container.clientHeight === last) return;
+          last = container.clientHeight;
+          map.resize();
+        });
+        ro.observe(container);
+        map.once('remove', () => ro.disconnect());
+      }
+    }
     onMapLoad?.(e);
-  }, [onMapLoad]);
+  }, [onMapLoad, frameConus]);
 
   return (
     <div className="absolute inset-0 bg-sentinel-900">

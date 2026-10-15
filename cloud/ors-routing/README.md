@@ -4,7 +4,9 @@ Backend for **Route to Safety**, shown in the UI as **Navigation** (Pro/Team, Al
 `docs/superpowers/specs/2026-10-09-pro-route-to-safety-design.md`.
 
 - `POST /shelters/nearest` `{ origin: [lng, lat], radiusKm? }` → `{ shelters, partial }`
-- `POST /route` `{ origin, destination, avoid }` → `{ route, avoidedHazards }` (422 `no_route`).
+- `POST /route` `{ origin, destination, avoid, preference? }` → `{ route, avoidedHazards }` (422 `no_route`).
+  `preference` is optional, `"fastest"` or `"recommended"` (ORS default); the client sends
+  `"fastest"` when leaving an evacuation zone so the route favours major roads.
   `avoidedHazards` means "avoid polygons were applied"; it is also false when none were sent.
   Bodies are capped at 512 KB (the client keeps them under ~150 KB).
 - `GET /health`

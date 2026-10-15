@@ -12,7 +12,7 @@ vi.mock('../../src/app/utils/geocode', () => ({
 
 const base = {
   status: 'ready', origin: [-121, 38], originLabel: 'My location', shelters: [], partial: false,
-  destination: null, route: null, avoidedHazards: false, hazardWarning: false, startsInsideHazard: false, picking: false, error: null,
+  destination: null, route: null, avoidedHazards: false, hazardWarning: false, startsInsideHazard: false, exitZone: null, picking: false, error: null,
 };
 const actions = () => ({
   useMyLocation: vi.fn(), useHome: vi.fn(), useAddress: vi.fn(), useCoordinates: vi.fn(), selectShelter: vi.fn(),
@@ -329,6 +329,36 @@ describe('RouteToSafetyPanel', () => {
   it('no amber hazard warning when hazardWarning is false (no hazards were near the trip)', () => {
     renderPanel({ status: 'routed', destination: { lng: -121.2, lat: 38.1, name: 'X' }, route, avoidedHazards: false, hazardWarning: false });
     expect(screen.queryByText(/passes through or near an active hazard/)).toBeNull();
+  });
+
+  describe('routed out of an evacuation zone', () => {
+    const exitDest = { lng: -121.01, lat: 38, name: 'Outside evacuation zone' };
+
+    it('explains a fire-zone exit and heads away from fire', () => {
+      renderPanel({ status: 'routed', destination: exitDest, route, exitZone: { name: 'Zone 7', level: 'Evacuation Order', isFire: true } });
+      expect(screen.getByTestId('exit-zone-note')).toHaveTextContent(
+        "You're inside a fire Evacuation Order (Zone 7). This is the quickest way out, heading away from nearby fires. "
+        + 'Always avoid active fires, thick smoke significantly reducing visibility, and flooded roadways.',
+      );
+    });
+
+    it('explains a non-fire exit', () => {
+      renderPanel({ status: 'routed', destination: exitDest, route, exitZone: { name: null, level: 'Evacuation Warning', isFire: false } });
+      expect(screen.getByTestId('exit-zone-note')).toHaveTextContent(
+        "You're inside an Evacuation Warning. This is the quickest way out of the zone. "
+        + 'Always avoid active fires, thick smoke significantly reducing visibility, and flooded roadways.',
+      );
+    });
+
+    it('hides Back to shelters when no shelter list was loaded', () => {
+      renderPanel({ status: 'routed', destination: exitDest, route, shelters: [], exitZone: { name: null, level: 'Evacuation Order', isFire: false } });
+      expect(screen.queryByRole('button', { name: 'Back to shelters' })).not.toBeInTheDocument();
+    });
+
+    it('says it is finding the way out while routing', () => {
+      renderPanel({ status: 'routing', exitZone: { name: null, level: 'Evacuation Order', isFire: false } });
+      expect(screen.getByTestId('route-status')).toHaveTextContent('Finding the way out of the evacuation zone…');
+    });
   });
 
   it('shows each shelter kind label (FEMA reads Evacuation Center)', () => {

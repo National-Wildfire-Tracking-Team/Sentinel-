@@ -26,6 +26,7 @@ const MapBottomBar = memo(forwardRef(function MapBottomBar({
   return (
     <div
       ref={ref}
+      data-map-bottom-bar
       className={`absolute bottom-4 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1 px-2 py-1.5 bg-white/90 dark:bg-sentinel-900/90 backdrop-blur-sm border border-sentinel-200 dark:border-sentinel-600 shadow-2xl shadow-black/10 dark:shadow-black/60 ${
         dockedAttached ? 'rounded-b-2xl border-t-0' : 'rounded-2xl'
       }`}

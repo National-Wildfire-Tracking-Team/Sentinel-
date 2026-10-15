@@ -23,7 +23,9 @@ export function createOrs(loadApiKey) {
         metrics: ['duration', 'distance'],
       });
     },
-    async directions({ origin, destination, avoid }) {
+    // preference 'fastest' leans on major roads (used to leave an evacuation zone);
+    // omitted, ORS uses its default ('recommended').
+    async directions({ origin, destination, avoid, preference }) {
       const api_key = await loadApiKey();
       const client = new Openrouteservice.Directions({ api_key, timeout: TIMEOUT_MS });
       return client.calculate({
@@ -32,6 +34,7 @@ export function createOrs(loadApiKey) {
         format: 'geojson',
         instructions: true,
         ...(avoid ? { avoid_polygons: avoid } : {}),
+        ...(preference ? { preference } : {}),
       });
     },
   };

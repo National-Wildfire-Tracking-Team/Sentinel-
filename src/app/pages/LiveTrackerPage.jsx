@@ -475,7 +475,7 @@ export default function LiveTrackerPage() {
     geoJSON: hotspotsGeoJSON,
     loading: hotspotsLoading,
     refresh: refreshHotspots,
-  } = useFireHotspots(US_BOUNDS, wildfireDataEnabled);
+  } = useFireHotspots(US_BOUNDS, wildfireDataEnabled || (routeToSafetyActive && mapReady));
 
   const {
     geoJSON: ngfsGeoJSON,
@@ -488,7 +488,7 @@ export default function LiveTrackerPage() {
     incidentDotsGeoJSON,
     loading: perimetersLoading,
     refresh: refreshPerimeters,
-  } = useMergedFireData(5, wildfireDataEnabled, true);
+  } = useMergedFireData(5, wildfireDataEnabled || (routeToSafetyActive && mapReady), true);
 
   const {
     incidents: calFireIncidents,
@@ -602,10 +602,12 @@ export default function LiveTrackerPage() {
   // Active evacuation zones from the CalOES hosted view and IPAWS.
   // Gated on the evacZones layer toggle so the 5-minute CalOES/IPAWS poll
   // stops once the user turns the layer off (was previously always-on).
+  // Navigation also needs them (Nearest Safety Area routes out of a zone the
+  // start is in) even when the layer is hidden; drawing stays on the toggle.
   const {
     geoJSON: officialEvacZonesGeoJSON,
     refresh: refreshEvacZones,
-  } = useCombinedEvacZones(layers.evacZones && mapReady);
+  } = useCombinedEvacZones((layers.evacZones || routeToSafetyActive) && mapReady);
 
   // Reporter-drawn evacuation zones (Supabase, active only) — community
   // overlay, deferred to the tertiary tier so it doesn't compete with the
@@ -1345,6 +1347,7 @@ export default function LiveTrackerPage() {
     home,
     perimetersGeoJSON: nearbyMapGeoJSON.perimeters,
     evacZonesGeoJSON,
+    hotspotsGeoJSON,
   });
   const closeRouteToSafety = useCallback(() => setLayer('routeToSafety', false), [setLayer]);
   // Same validity rule the hook uses before routing from Home.
