@@ -59,6 +59,8 @@ import { featureCollectionsBounds, polygonCentroid } from '../utils/geoUtils';
 import { incidentsToGeoJSON } from '../api/inciweb';
 import { mergeIrwinAndCalFireIncidents } from '../utils/mergeIncidents';
 import { incidentIdsFor, joinAliasIds, parseAliasIds } from '../utils/incidentAliases';
+import { officialIdsForReport, reportIdsForName } from '../utils/reportIncidentLinks';
+import { parseLatestAcreage, parseLatestContainment } from '../utils/formatUtils';
 
 // Components
 import Header from '../components/Header/Header';
@@ -280,6 +282,29 @@ function filterActiveFiresGeoJSON(geoJSON, { containedKey }) {
       const contained = Number(f.properties[containedKey]) || 0;
       return contained < 95;
     }),
+  };
+}
+
+/**
+ * A reporter's incident joined to the official (CAL FIRE / IRWIN) incident
+ * of the same fire: the official ids ride along as aliases so the report's
+ * panel reads evacuations, shelters and updates saved under them, and the
+ * feed's evacuation fields back the panel's evacuation cards when no
+ * reporter has entered any.
+ */
+function linkReportToOfficial(report, incidents, reports) {
+  const officialIds = officialIdsForReport(report, incidents);
+  const otherReportIds = reportIdsForName(report.title, reports).filter(id => id !== String(report.id));
+  if (!officialIds.length && !otherReportIds.length) return report;
+  const key = getFireMatchKey(report.title);
+  const official = incidents.find(inc => getFireMatchKey(inc.name) === key) || {};
+  return {
+    ...report,
+    aliasIds: parseAliasIds([...officialIds, ...otherReportIds]).filter(id => id !== String(report.id)),
+    evacuation_summary: official.evacuation_summary,
+    evacuation_orders: official.evacuation_orders,
+    evacuation_warnings: official.evacuation_warnings,
+    evacuation_order_lines: official.evacuation_order_lines,
   };
 }
 
@@ -854,18 +879,27 @@ export default function LiveTrackerPage() {
             && pointNearGeometry([lng, lat], f.geometry, REPORT_PERIMETER_BUFFER_DEG);
         });
         if (!match) return f;
+        // Reporter-supplied size/containment wins over the feed, as it does
+        // for the incident dot (see mergedIncidents below).
+        const reportAcres = parseLatestAcreage(match.description);
+        const reportContained = parseLatestContainment(match.description);
         return {
           ...f,
           properties: {
             ...f.properties,
             IncidentName: key ? f.properties.IncidentName : match.title,
-            _aliasIds: joinAliasIds(f.properties.UniqueFireIdentifier, f.properties._aliasIds, match.id),
+            _aliasIds: joinAliasIds(
+              f.properties.UniqueFireIdentifier, f.properties._aliasIds,
+              reportIdsForName(match.title, approvedReports), match.id,
+            ),
             _reportId: match.id,
+            ...(reportAcres != null ? { GISAcres: reportAcres } : null),
+            ...(reportContained != null ? { PercentContained: reportContained } : null),
           },
         };
       }),
     };
-  }, [freshPerimetersGeoJSON, reporterReports]);
+  }, [freshPerimetersGeoJSON, reporterReports, approvedReports]);
 
   // Incident dots: drop 100%-contained fires stale for 3+ days, and unconditionally
   // drop any dot that hasn't been updated in 30 days.
@@ -887,21 +921,6 @@ export default function LiveTrackerPage() {
       ? filterActiveFiresGeoJSON(namedPerimetersGeoJSON, { containedKey: 'PercentContained' })
       : namedPerimetersGeoJSON
   ), [isFocused, namedPerimetersGeoJSON]);
-
-  // One dot per fire: a report already represented by a perimeter's centroid
-  // dot (see namedPerimetersGeoJSON) isn't drawn again. Perimeters without a
-  // centroid dot (historical, stale or fully contained) don't claim it.
-  const userReportsGeoJSON = useMemo(() => {
-    const coveredReportIds = new Set();
-    (filteredPerimetersGeoJSON?.features || []).forEach(f => {
-      const p = f.properties;
-      if (p._reportId && !p.isHistoricalMapping && !p.isStaleFire && !p.HideFromCentroid
-        && (Number(p.PercentContained) || 0) < 100) {
-        coveredReportIds.add(p._reportId);
-      }
-    });
-    return reportsToGeoJSON(reporterReports.filter(r => !coveredReportIds.has(r.id)));
-  }, [reporterReports, filteredPerimetersGeoJSON]);
 
   // ── Perimeter-only incidents for sidebar ──
   // Some fires have perimeter polygons (NIFC/WFIGS) but no matching
@@ -989,10 +1008,11 @@ export default function LiveTrackerPage() {
       if (!key || !reporterByKey.has(key)) return inc;
 
       const report = reporterByKey.get(key);
-      // Extract acreage from reporter description if the reporter supplied it
-      // (format: "Acreage: <number>").
-      const reportAcresMatch = /^Acreage:\s*(\d+\.?\d*)/mi.exec(report.description || '');
-      const reportAcres = reportAcresMatch ? Math.round(Number(reportAcresMatch[1])) : null;
+      // A reporter's latest acreage / containment (from their Post Update
+      // entries) overrides the external value, so reporters can keep a fire
+      // current after CAL FIRE or IRWIN takes it over.
+      const reportAcres = parseLatestAcreage(report.description);
+      const reportContained = parseLatestContainment(report.description);
 
       return {
         ...inc,
@@ -1002,16 +1022,38 @@ export default function LiveTrackerPage() {
         lng: Number(report.longitude) || inc.lng,
         // Reporter-provided acreage overrides the external value when present.
         acres: reportAcres ?? inc.acres,
+        contained: reportContained ?? inc.contained,
         // Attach reporter metadata so downstream components can reference it.
         hasReporterData: true,
         reportId: report.id,
-        // Evacuations/updates a reporter entered on their own report belong to this fire too.
-        aliasIds: parseAliasIds([...(inc.aliasIds || []), report.id]),
+        // Evacuations/updates a reporter entered on their own report (or a
+        // repeat report of the same fire) belong to this fire too.
+        aliasIds: parseAliasIds([...(inc.aliasIds || []), report.id, ...reportIdsForName(report.title, approvedReports)]),
         reportDescription: report.description,
         reportedAt: report.created_at,
       };
     });
-  }, [allIncidents, reporterReports]);
+  }, [allIncidents, reporterReports, approvedReports]);
+
+  // One dot per fire: a report already represented by a perimeter's centroid
+  // dot (see namedPerimetersGeoJSON) isn't drawn again. Perimeters without a
+  // centroid dot (historical, stale or fully contained) don't claim it.
+  // The reporter's dot replaces the official one once CAL FIRE / IRWIN lists
+  // the fire, so it carries that incident's ids (evacuations, shelters and
+  // updates saved there) and its feed evacuation fields.
+  const userReportsGeoJSON = useMemo(() => {
+    const coveredReportIds = new Set();
+    (filteredPerimetersGeoJSON?.features || []).forEach(f => {
+      const p = f.properties;
+      if (p._reportId && !p.isHistoricalMapping && !p.isStaleFire && !p.HideFromCentroid
+        && (Number(p.PercentContained) || 0) < 100) {
+        coveredReportIds.add(p._reportId);
+      }
+    });
+    return reportsToGeoJSON(reporterReports
+      .filter(r => !coveredReportIds.has(r.id))
+      .map(r => linkReportToOfficial(r, allIncidents, approvedReports)));
+  }, [reporterReports, filteredPerimetersGeoJSON, allIncidents, approvedReports]);
 
   // ── Shared incident/alert deep link ──
   // FireDetailPanel's Share button writes ?incident=<id> (fires, perimeters,
@@ -1118,7 +1160,7 @@ export default function LiveTrackerPage() {
 
     const reportMatch = approvedReports.find((r) => String(r.id) === incidentId);
     if (reportMatch) {
-      selectFire({ type: 'user-report', ...reportMatch });
+      selectFire({ type: 'user-report', ...linkReportToOfficial(reportMatch, allIncidents, approvedReports) });
       flyToFire(reportMatch);
       sharedLinkResolvedRef.current = true;
       return;
@@ -1149,7 +1191,7 @@ export default function LiveTrackerPage() {
     // Not found in anything loaded so far — leave unresolved and retry as
     // more data comes in, until the give-up timeout below fires.
   }, [
-    mapReady, alerts, mergedIncidents, hotspotsGeoJSON, namedPerimetersGeoJSON, approvedReports,
+    mapReady, alerts, mergedIncidents, allIncidents, hotspotsGeoJSON, namedPerimetersGeoJSON, approvedReports,
     activeHazardEvents, nhcCyclones, selectFire, flyToFire, setViewport,
   ]);
 

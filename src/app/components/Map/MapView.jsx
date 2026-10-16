@@ -286,7 +286,13 @@ function buildFeatureRecord(feature, lngLat, alerts, { floodPanel = null } = {})
       };
     }
 
-    case 'user-reports-circle':
+    case 'user-reports-circle': {
+      let evacuationLines;
+      try {
+        evacuationLines = p.evacuation_order_lines_json ? JSON.parse(p.evacuation_order_lines_json) : [];
+      } catch {
+        evacuationLines = [];
+      }
       return {
         type:        'user-report',
         id:          p.id,
@@ -297,7 +303,14 @@ function buildFeatureRecord(feature, lngLat, alerts, { floodPanel = null } = {})
         lng:         lngLat.lng,
         created_at:  p.created_at,
         user_id:     p.user_id,
+        // The official incident this report was linked to (LiveTrackerPage).
+        evacuation_summary:     p.evacuation_summary,
+        evacuation_orders:      num(p.evacuation_orders) || 0,
+        evacuation_warnings:    num(p.evacuation_warnings) || 0,
+        evacuation_order_lines: evacuationLines,
+        aliasIds:               parseAliasIds(p.alias_ids),
       };
+    }
 
     case 'hazard-events-circle':
       return {
