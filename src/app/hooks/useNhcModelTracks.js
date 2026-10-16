@@ -1,13 +1,14 @@
 /**
  * useNhcModelTracks.js
  * Latest-cycle spaghetti model tracks for one storm (see api/nhcModelTracks.js)
- * while they're shown on the map; refreshes every 10 minutes.
+ * while they're shown on the map; refreshes every 5 minutes, the service's own
+ * revalidation interval.
  */
 
 import { useEffect, useState } from 'react';
 import { fetchModelTracks } from '../api/nhcModelTracks';
 
-const REFRESH_MS = 10 * 60 * 1000;
+const REFRESH_MS = 5 * 60 * 1000;
 
 /** @returns {{ status: 'idle'|'loading'|'ready'|'error', data: object|null }} */
 export function useNhcModelTracks(atcfId) {

@@ -148,7 +148,8 @@ async function handleLandOwnership(url, res) {
     const data = await getCached(quantizeBbox(bbox));
     jsonResponse(res, data, 200, { 'Cache-Control': 'public, max-age=300' });
   } catch (err) {
-    jsonResponse(res, { error: err instanceof Error ? err.message : String(err) }, 502);
+    console.error('[california-land-ownership-proxy] upstream fetch failed:', err);
+    jsonResponse(res, { error: 'Upstream fetch failed' }, 502);
   }
 }
 

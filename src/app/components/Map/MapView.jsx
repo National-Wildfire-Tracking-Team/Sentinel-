@@ -76,6 +76,16 @@ const HAS_MAPBOX_TOKEN = Boolean(MAPBOX_TOKEN.trim());
 // Quick helper if you don't already have one exported from utils
 const num = (val) => Number(val);
 
+// Match the NOMADS host exactly — a substring test would also match
+// e.g. https://evil.example/?nomads.ncep.noaa.gov.
+function isNomadsUrl(url) {
+  try {
+    return new URL(url).hostname === 'nomads.ncep.noaa.gov';
+  } catch {
+    return false;
+  }
+}
+
 /**
  * FEMA flood-zone record for FireDetailPanel. The FIRM panel under the click
  * (a separate, transparent layer) supplies panel number and effective date;
@@ -611,7 +621,7 @@ export default function MapView({
 
   // Popup for a tropical system clicked on the map ({ kind: 'storm' | 'outlook',
   // system, via, lngLat }). The spaghetti model tracks it (or the detail
-  // panel) can turn on live in app state: nhcModelTracks = { atcfId, group }.
+  // panel) can turn on live in app state: nhcModelTracks = { atcfId, models, groups }.
   const [stormPopup, setStormPopup] = useState(null);
   const nhcCyclones = useMemo(() => buildCyclones(nhcForecastPointsGeoJSON), [nhcForecastPointsGeoJSON]);
   const nhcOutlookSystems = useMemo(
@@ -1086,7 +1096,7 @@ export default function MapView({
     'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
 
   const transformRequest = useCallback((url, resourceType) => {
-    if (resourceType === 'Tile' && url.includes('nomads.ncep.noaa.gov')) {
+    if (resourceType === 'Tile' && isNomadsUrl(url)) {
       if (hrrRateLimiter.tryAcquire()) {
         return { url };
       }
@@ -1345,7 +1355,7 @@ export default function MapView({
 
         {/* Spaghetti model tracks, turned on from a storm's map popup */}
         {nhcModelTracks && modelTrackData.data && (isWeatherTab || isAllHazardTab) && (
-          <NhcModelTracksLayer data={modelTrackData.data} group={nhcModelTracks.group} />
+          <NhcModelTracksLayer data={modelTrackData.data} selection={nhcModelTracks} />
         )}
 
         {/* Fire hotspot points – rendered last (top) */}

@@ -39,6 +39,19 @@ describe('secret', () => {
     expect(() => parseOrsSecret('{nope')).toThrow(/not valid JSON/);
     expect(() => parseOrsSecret('{"other":"x"}')).toThrow(/ORS_API_KEY/);
   });
+  it.each([
+    ['', 'empty'],
+    ['{nope', 'invalid_json'],
+    ['{"other":"x"}', 'missing_field'],
+    // Console Key/value with the API key typed into the key box, value left blank.
+    ['{"5b3ce3597851110001cf6248abc":""}', 'key_in_name'],
+  ])('tags %s as OrsSecretError (%s) without echoing the secret', (raw, reason) => {
+    let err;
+    try { parseOrsSecret(raw); } catch (e) { err = e; }
+    expect(err.name).toBe('OrsSecretError');
+    expect(err.reason).toBe(reason);
+    expect(err.message).not.toContain('5b3ce');
+  });
   it('loads once and retries after a failure', async () => {
     const get = vi.fn()
       .mockRejectedValueOnce(new Error('throttled'))

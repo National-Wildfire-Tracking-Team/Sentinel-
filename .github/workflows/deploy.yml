@@ -9,14 +9,17 @@ concurrency:
   group: deploy-main
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
   deploy:
     name: Build and Deploy to Netlify
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: 24
           cache: npm
@@ -52,11 +55,18 @@ jobs:
           # data-services CloudFront at /ors-routing; see its README.md.
           # Unset: the panel says routing isn't configured.
           VITE_ORS_ROUTING_URL: ${{ secrets.VITE_ORS_ROUTING_URL }}
+          # HAFS hurricane-model fields on the Models tab — see cloud/hafs/README.md.
+          # Unset, the Models tab simply doesn't offer HAFS.
+          VITE_HAFS_URL: ${{ secrets.VITE_HAFS_URL }}
+          # NHC hurricane model guidance — see cloud/hurricane-models/README.md.
+          # Unset the secret to fall back to reading the a-deck in the browser
+          # through /api/nws/nhc-atcf, no code change needed.
+          VITE_HURRICANE_MODELS_URL: ${{ secrets.VITE_HURRICANE_MODELS_URL }}
       # Snapshot the marketing pages as static HTML for crawlers (see
       # scripts/prerender.mjs). Deliberately run here rather than as part of
       # `npm run build` itself, so netlify.toml's own build command (used
       # for deploy-preview/branch-deploy contexts) is unaffected.
-      - uses: actions/cache@v4
+      - uses: actions/cache@v5
         id: playwright-cache
         with:
           path: ~/.cache/ms-playwright

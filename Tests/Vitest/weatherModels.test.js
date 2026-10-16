@@ -185,12 +185,12 @@ describe('Models tab links', () => {
 
   it('round-trips through the query parser', () => {
     const parsed = parseModelsQuery(modelsHref({ lat: 28.5383, lon: -81.3792, place: 'Orlando, FL', model: 'compare' }).slice(1));
-    expect(parsed).toEqual({ location: { lat: 28.5383, lon: -81.3792, place: 'Orlando, FL' }, mode: 'compare', variable: null, view: 'swipe' });
+    expect(parsed).toEqual({ location: { lat: 28.5383, lon: -81.3792, place: 'Orlando, FL' }, mode: 'compare', variable: null, view: 'swipe', storm: null });
   });
 
   it('ignores non-Models links and bad input', () => {
     expect(parseModelsQuery('?incident=123')).toBeNull();
-    expect(parseModelsQuery('?tab=models&lat=95&lon=0')).toEqual({ location: null, mode: 'hrrr', variable: null, view: 'swipe' });
+    expect(parseModelsQuery('?tab=models&lat=95&lon=0')).toEqual({ location: null, mode: 'hrrr', variable: null, view: 'swipe', storm: null });
     expect(parseModelsQuery('?tab=models&lat=1&lon=1&model=ecmwf').mode).toBe('hrrr');
   });
 });

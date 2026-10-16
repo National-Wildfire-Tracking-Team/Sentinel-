@@ -47,6 +47,7 @@ import { SERVICES, LWA_LAYER_ACCOUNT, LWA_LAYER_NAME, LWA_LAYER_VERSION } from '
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import { WEATHER_MODELS, fieldsBucketName } from './weather-models-stack.mjs';
 import { MRMS, mrmsBucketName } from './mrms-stack.mjs';
+import { HAFS } from './hafs-stack.mjs';
 
 const CLOUD_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../cloud');
 const LOG_RETENTION = logs.RetentionDays.TWO_WEEKS;
@@ -124,12 +125,12 @@ export class DataServicesStack extends Stack {
    * @param {string} id
    * @param {import('aws-cdk-lib').StackProps & {
    *   allowedOrigins: string, nwsUserAgent: string, alarmEmail?: string, monthlyBudgetUsd?: number,
-   *   weatherModelsFunctionUrl?: string, mrms?: boolean,
+   *   weatherModelsFunctionUrl?: string, mrms?: boolean, hafsFunctionUrl?: string,
    * }} props
    */
   constructor(scope, id, props) {
     super(scope, id, props);
-    const { allowedOrigins, nwsUserAgent, alarmEmail, monthlyBudgetUsd, weatherModelsFunctionUrl, mrms, supabaseUrl = '', supabaseAnonKey = '' } = props;
+    const { allowedOrigins, nwsUserAgent, alarmEmail, monthlyBudgetUsd, weatherModelsFunctionUrl, mrms, hafsFunctionUrl, supabaseUrl = '', supabaseAnonKey = '' } = props;
 
     Tags.of(this).add('project', 'sentinel');
     Tags.of(this).add('component', 'data-services');
@@ -311,6 +312,38 @@ export class DataServicesStack extends Stack {
       Annotations.of(this).acknowledgeWarning('@aws-cdk/aws-cloudfront-origins:updateImportedBucketPolicyOac');
     }
 
+    // Sentinel HAFS (HafsStack, same region): hurricane-model frames rendered
+    // on request. Its own cache policy: frames say max-age 1 y, immutable,
+    // which the shared policy would cap at a day, and the key needs neither
+    // Origin (every response is `*`) nor the query (the service refuses one).
+    // Origin Shield: one render per frame, whichever edge asks first.
+    if (hafsFunctionUrl) {
+      behaviors[`${HAFS.pathPrefix}/*`] = {
+        origin: new CrossRegionFunctionUrlOrigin(hafsFunctionUrl, new cloudfront.FunctionUrlOriginAccessControl(this, 'HafsOac', {
+          originAccessControlName: 'sentinel-hafs',
+        }), {
+          readTimeout: Duration.seconds(HAFS.timeoutSeconds),
+          originShieldRegion: HAFS.region,
+        }),
+        viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+        allowedMethods: cloudfront.AllowedMethods.ALLOW_GET_HEAD_OPTIONS,
+        cachedMethods: cloudfront.CachedMethods.CACHE_GET_HEAD,
+        cachePolicy: new cloudfront.CachePolicy(this, 'HafsCachePolicy', {
+          comment: 'Sentinel HAFS: honour origin Cache-Control (immutable frames), key on path only',
+          defaultTtl: Duration.seconds(0),
+          minTtl: Duration.seconds(0),
+          maxTtl: Duration.days(365),
+          queryStringBehavior: cloudfront.CacheQueryStringBehavior.none(),
+          headerBehavior: cloudfront.CacheHeaderBehavior.none(),
+          cookieBehavior: cloudfront.CacheCookieBehavior.none(),
+          enableAcceptEncodingGzip: true,
+          enableAcceptEncodingBrotli: true,
+        }),
+        originRequestPolicy: cloudfront.OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER,
+        compress: true,
+      };
+    }
+
     const webAcl = this.#webAcl();
     const distribution = new cloudfront.Distribution(this, 'Distribution', {
       ...(webAcl ? { webAclId: webAcl.attrArn } : {}),
@@ -332,16 +365,8 @@ export class DataServicesStack extends Stack {
     this.distribution = distribution;
 
     // Function URLs created since late 2025 need lambda:InvokeFunction as
-    // well as lambda:InvokeFunctionUrl for CloudFront OAC. CDK adds only the
-    // latter, so grant the former here, scoped to this distribution.
-    for (const svc of SERVICES) {
-      new lambda.CfnPermission(this, `${svc.id}InvokeFromCloudFront`, {
-        action: 'lambda:InvokeFunction',
-        principal: 'cloudfront.amazonaws.com',
-        functionName: this.functions[svc.dir].functionArn,
-        sourceArn: `arn:${this.partition}:cloudfront::${this.account}:distribution/${distribution.distributionId}`,
-      });
-    }
+    // well as lambda:InvokeFunctionUrl for CloudFront OAC; FunctionUrlOrigin
+    // has granted both (scoped to this distribution) since aws-cdk-lib 2.273.
 
     new cloudwatch.Alarm(this, 'CloudFront5xxRate', {
       alarmDescription: 'More than 5% of Sentinel data-service responses are 5xx (all services, at the edge).',
@@ -397,6 +422,12 @@ export class DataServicesStack extends Stack {
       new CfnOutput(this, 'MrmsBaseUrl', {
         description: `Value for ${MRMS.frontendEnvVar}`,
         value: `https://${distribution.distributionDomainName}${MRMS.pathPrefix}`,
+      });
+    }
+    if (hafsFunctionUrl) {
+      new CfnOutput(this, 'HafsBaseUrl', {
+        description: `Value for ${HAFS.frontendEnvVar}`,
+        value: `https://${distribution.distributionDomainName}${HAFS.pathPrefix}`,
       });
     }
     new CfnOutput(this, 'DistributionId', {
@@ -463,9 +494,11 @@ export class DataServicesStack extends Stack {
   /** Allow-listed headers for per-user API behaviors (ors-routing). */
   #apiOriginRequestPolicy() {
     this.apiOrp ??= new cloudfront.OriginRequestPolicy(this, 'OrsRoutingOriginRequestPolicy', {
-      comment: 'Per-user API: auth + OAC body hash + CORS preflight + viewer IP; never Host/Authorization',
+      comment: 'Per-user API: auth + CORS preflight + viewer IP; never Host/Authorization',
+      // No x-amz-content-sha256: CloudFront rejects it in a policy. OAC uses the
+      // viewer's value to sign the origin request and sends it on by itself.
       headerBehavior: cloudfront.OriginRequestHeaderBehavior.allowList(
-        'x-sentinel-auth', 'x-amz-content-sha256', 'Content-Type', 'Origin',
+        'x-sentinel-auth', 'Content-Type', 'Origin',
         'Access-Control-Request-Method', 'Access-Control-Request-Headers', 'CloudFront-Viewer-Address',
       ),
       queryStringBehavior: cloudfront.OriginRequestQueryStringBehavior.none(),

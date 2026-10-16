@@ -55,11 +55,14 @@ const ModelFieldTimeline = forwardRef(function ModelFieldTimeline({ bottomBarWid
     </div>
   );
 
+  const isHafs = mode === 'hafs';
   if (!timeline.length || !validTime) {
+    const error = isHafs ? (wm.hafs.catalogError || wm.hafs.detailError) : wm.manifestError;
+    const idle = isHafs && wm.hafs.catalog && !wm.hafs.sel ? 'No HAFS runs right now' : 'Loading model runs…';
     return frame(
       <div className="flex items-center gap-2 px-3 py-2">
-        <span className={`min-w-0 flex-1 text-xs ${wm.manifestError ? 'text-red-300' : 'text-sentinel-300'}`}>
-          {wm.manifestError ? `Model fields unavailable: ${wm.manifestError.message}` : 'Loading model runs…'}
+        <span className={`min-w-0 flex-1 text-xs ${error ? 'text-red-300' : 'text-sentinel-300'}`}>
+          {error ? `Model fields unavailable: ${error.message}` : idle}
         </span>
       </div>
     );
@@ -69,6 +72,9 @@ const ModelFieldTimeline = forwardRef(function ModelFieldTimeline({ bottomBarWid
   const now = nowIndex(timeline.map((t) => ({ validTime: t })));
   const jumps = jumpTargets(timeline);
   const hourModels = mode === 'compare' ? ['hrrr', 'gfs'] : [mode];
+  const hourLabel = isHafs
+    ? `+${wm.hafs.frame?.hour ?? '—'} h`
+    : hourModels.map((m) => `${mode === 'compare' ? `${m.toUpperCase()} ` : ''}+${hourAt(manifest, m, validTime)} h`).join(' · ');
   const max = timeline.length - 1;
 
   return frame(
@@ -85,7 +91,7 @@ const ModelFieldTimeline = forwardRef(function ModelFieldTimeline({ bottomBarWid
         <div className="min-w-[8rem] flex-1 leading-tight">
           <div className="truncate text-sm font-semibold">{localTime(validTime, { month: 'short', day: 'numeric', minute: '2-digit' })}</div>
           <div className="truncate text-[10px] text-sentinel-300 tabular-nums">
-            valid {zulu(validTime)} · {hourModels.map((m) => `${mode === 'compare' ? `${m.toUpperCase()} ` : ''}+${hourAt(manifest, m, validTime)} h`).join(' · ')}
+            valid {zulu(validTime)} · {hourLabel}
           </div>
         </div>
       </div>
