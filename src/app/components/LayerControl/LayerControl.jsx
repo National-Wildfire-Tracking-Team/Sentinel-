@@ -12,7 +12,6 @@ import { useApp } from '../../context/AppContext';
 import { trackSentinelUse } from '../../../shared/utils/analytics';
 import LayerPanelSection from './LayerPanelSection';
 import ModelLayerPanel from '../WeatherModels/ModelLayerPanel';
-import NhcTropicalControls from './NhcTropicalControls';
 
 /** Layer row definitions — grouped under tab-specific sections below */
 const LAYER_DEFS = {
@@ -28,7 +27,7 @@ const LAYER_DEFS = {
   wpcEro:    { label: 'Excessive Rainfall Outlook', sublabel: 'WPC Day 1-3 flash-flood risk',      icon: CloudRain,  color: '#38bdf8' },
   wpcWssi:   { label: 'Winter Storm Severity',      sublabel: 'WPC Day 1-3 overall impact',        icon: Snowflake,  color: '#93c5fd' },
   wpcQpf:    { label: 'Precipitation Forecast',     sublabel: 'WPC Day 1-3 QPF (24hr)',            icon: Droplets,   color: '#0ea5e9' },
-  wpcFronts: { label: 'Surface Analysis Fronts',    sublabel: 'WPC Day 1-3 fronts & troughs',       icon: Wind,       color: '#a78bfa' },
+  wpcFronts: { label: 'Surface Analysis Fronts',    sublabel: 'WPC live analysis · fronts, highs & lows',       icon: Wind,       color: '#a78bfa' },
   rawsStations:      { label: 'RAWS Stations',       sublabel: 'Fire weather stations',       icon: Thermometer,  color: '#f97316' },
   airNowMonitors:    { label: 'Air Quality Monitors', sublabel: 'EPA AirNow sensor network',  icon: Activity,     color: '#38bdf8' },
   weatherAlerts:     { label: 'NWS & mesoscale',     sublabel: 'NWS alerts + SPC & WPC MDs', icon: Wind,         color: '#ef4444' },
@@ -36,13 +35,14 @@ const LAYER_DEFS = {
   damageAssessment:  { label: 'Damage assessment',    sublabel: 'NWS DAT · surveys, last 30 days', icon: Hexagon,    color: '#dc2626' },
   spcWeatherOutlooks: { label: 'SPC outlooks',     sublabel: 'Convective severe weather outlook',    icon: AlertTriangle, color: '#f59e0b' },
   mrms:              { label: 'MRMS Radar',          sublabel: 'NOAA Multi-Radar/Multi-Sensor · 2-min updates', icon: Radar, color: '#22c55e' },
+  radarSites:        { label: 'Radar Site',          sublabel: 'NEXRAD & TDWR stations · click a site for its radar', icon: Radar, color: '#9ca3af' },
   satellite:         { label: 'Satellite',           sublabel: 'NOAA GOES-East/West · bands, regions & loops', icon: Satellite, color: '#8b5cf6' },
   aqi:               { label: 'AQI Heatmap',          sublabel: 'EPA AirNow gradient overlay',  icon: Wind,         color: '#3b82f6' },
   smoke:             { label: 'Smoke Forecast',      sublabel: 'NOAA HRRR',                   icon: CloudRain,    color: '#94a3b8' },
   waterGauges:        { label: 'Water Gauges',        sublabel: 'NOAA NWPS river & coastal gauges', icon: Droplets, color: '#1e90ff' },
   floodHazard:        { label: 'Flood Hazard',        sublabel: 'FEMA National Flood Hazard Layer · zoom in for zones', icon: Waves, color: '#00c8f0' },
   wildfireCameras:   { label: 'Live CA Cameras',      sublabel: 'Caltrans District CCTV · click for live feed', icon: Camera, color: '#14b8a6' },
-  nhcTropical:      { label: 'NHC Tropical', sublabel: 'Storms, outlook, wind & surge · choose parts below', icon: Waypoints, color: '#4dffff' },
+  nhcTropical:      { label: 'NHC Tropical', sublabel: 'Storms, outlook, wind & surge · parts in its drawer', icon: Waypoints, color: '#4dffff' },
   fireBehaviorModeling: { label: 'Fire Behavior Modeling', sublabel: 'Spread projection · select a fire', icon: TrendingUp, color: '#ff3b1f' },
   routeToSafety: { label: 'Navigation', sublabel: 'Nearest open shelters · hazard-avoiding routes', icon: Navigation, color: '#22c55e' },
 };
@@ -125,8 +125,8 @@ const TAB_SECTIONS = {
       title: 'Radar & satellite',
       groups: [
         {
-          // MRMS always shows; its pop-up controls (MrmsPanel) explain when VITE_MRMS_URL isn't set.
-          layers: ['mrms', 'satellite'],
+          // MRMS always shows; its pull-up controls (MrmsPanel) explain when VITE_MRMS_URL isn't set.
+          layers: ['mrms', 'radarSites', 'satellite'],
         },
       ],
     },
@@ -283,13 +283,16 @@ const WPC_DAYS = [
   { key: 'day3', label: 'Day 3' },
 ];
 
+// Fronts add the live surface analysis ("Now") ahead of the forecast days.
+const FRONTS_DAYS = [{ key: 'now', label: 'Now' }, ...WPC_DAYS];
+
 /**
  * Shared Day 1-3 selector for the WPC outlook layers (ERO, WSSI, QPF,
  * fronts) — same inline-under-the-toggle pattern as FireRiskDaySelector,
  * parameterized so the four layers don't each need a near-duplicate
  * component.
  */
-function WpcDaySelector({ layerKey, product, subtitle, accentColor }) {
+function WpcDaySelector({ layerKey, product, subtitle, accentColor, days = WPC_DAYS, heading = 'Forecast Day' }) {
   const { layers, wpcOutlookDay, setWpcOutlookDay } = useApp();
 
   if (!layers[layerKey]) {
@@ -303,7 +306,7 @@ function WpcDaySelector({ layerKey, product, subtitle, accentColor }) {
       <div className="flex items-center justify-between mb-2">
         <div>
           <div className="text-[10px] font-semibold uppercase tracking-wider text-sentinel-300">
-            Forecast Day
+            {heading}
           </div>
           <div className="text-[10px] text-sentinel-400 mt-0.5">
             {subtitle}
@@ -311,8 +314,8 @@ function WpcDaySelector({ layerKey, product, subtitle, accentColor }) {
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-1">
-        {WPC_DAYS.map(({ key, label }) => {
+      <div className="grid gap-1" style={{ gridTemplateColumns: `repeat(${days.length}, minmax(0, 1fr))` }}>
+        {days.map(({ key, label }) => {
           const active = activeDay === key;
           return (
             <button
@@ -562,7 +565,6 @@ const LayerControl = memo(function LayerControl({
                                 locked={lockedLayerKeys.has(layerKey)}
                               />
 
-                              {layerKey === 'nhcTropical' && <NhcTropicalControls />}
                               {layerKey === 'fireRiskOutlook' && (
                                 <FireRiskDaySelector />
                               )}
@@ -576,7 +578,7 @@ const LayerControl = memo(function LayerControl({
                                 <WpcDaySelector layerKey="wpcQpf" product="qpf" subtitle="WPC Precipitation Forecast" accentColor="#0ea5e9" />
                               )}
                               {layerKey === 'wpcFronts' && (
-                                <WpcDaySelector layerKey="wpcFronts" product="fronts" subtitle="WPC Surface Analysis Fronts" accentColor="#a78bfa" />
+                                <WpcDaySelector layerKey="wpcFronts" product="fronts" subtitle="WPC surface analysis (now) or forecast chart" accentColor="#a78bfa" days={FRONTS_DAYS} heading="Analysis time" />
                               )}
                             </div>
                           );

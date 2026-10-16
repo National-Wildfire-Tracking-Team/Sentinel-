@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import LayerControl from '../../src/app/components/LayerControl/LayerControl';
+import NhcTropicalControls from '../../src/app/components/LayerControl/NhcTropicalControls';
 import { useApp } from '../../src/app/context/AppContext';
 
 vi.mock('../../src/app/context/AppContext', () => ({
@@ -141,11 +142,18 @@ describe('LayerControl — NHC Tropical', () => {
     return () => useApp.mockImplementation(original);
   };
 
-  it.each(['weather', 'allhazard'])('offers every NHC product under one row on the %s tab', (tab) => {
+  it.each(['weather', 'allhazard'])('offers one NHC row on the %s tab, with its parts in the drawer, not the panel', (tab) => {
     const restore = withApp({ layers: { nhcTropical: true, nhcTrack: true }, nhcWindProbKt: 34 });
     renderPanel({ activeMapTab: tab });
     expect(screen.getAllByRole('button', { name: /Toggle NHC/ })).toHaveLength(1);
     expect(screen.queryByText('Tropical (NHC)')).not.toBeInTheDocument();
+    expect(screen.queryByRole('switch', { name: /Storm track/ })).not.toBeInTheDocument();
+    restore();
+  });
+
+  it('offers every NHC product in the NHC Tropical drawer', () => {
+    const restore = withApp({ layers: { nhcTropical: true, nhcTrack: true }, nhcWindProbKt: 34 });
+    render(<NhcTropicalControls />);
     for (const name of ['Storm track', 'Forecast cone', 'Coastal watches & warnings', 'Areas of interest',
       'Wind probabilities', 'Wind radii', 'Arrival of TS winds', 'Storm surge flooding']) {
       expect(screen.getByRole('switch', { name: new RegExp(name) })).toBeInTheDocument();
@@ -157,8 +165,7 @@ describe('LayerControl — NHC Tropical', () => {
 
   it('hides the parts while the row is off', () => {
     const restore = withApp({ layers: { nhcTropical: false } });
-    renderPanel({ activeMapTab: 'weather' });
-    expect(screen.getByRole('button', { name: /Toggle NHC/ })).toBeInTheDocument();
+    render(<NhcTropicalControls />);
     expect(screen.queryByRole('switch', { name: /Storm track/ })).not.toBeInTheDocument();
     restore();
   });
@@ -167,7 +174,7 @@ describe('LayerControl — NHC Tropical', () => {
     const toggleLayer = vi.fn();
     const setNhcWindProbKt = vi.fn();
     const restore = withApp({ layers: { nhcTropical: true, nhcWindProb: true }, nhcWindProbKt: 34, toggleLayer, setNhcWindProbKt });
-    renderPanel({ activeMapTab: 'weather' });
+    render(<NhcTropicalControls />);
     fireEvent.click(screen.getByRole('switch', { name: /Wind radii/ }));
     expect(toggleLayer).toHaveBeenCalledWith('nhcWindRadii');
     fireEvent.click(screen.getByRole('button', { name: /64 kt/ }));
@@ -218,5 +225,29 @@ describe('LayerControl — Navigation (Pro)', () => {
     for (const label of ['Active Fires', 'Evacuation Zones', 'Fire Hotspots']) {
       expect(screen.getByText(label)).toBeInTheDocument();
     }
+  });
+});
+
+describe('LayerControl — Radar Site', () => {
+  it('offers the Radar Site toggle on the weather tab, off by default', () => {
+    renderPanel({ activeMapTab: 'weather' });
+    const toggle = screen.getByRole('button', { name: 'Toggle Radar Site' });
+    expect(toggle.getAttribute('aria-pressed')).not.toBe('true');
+    expect(screen.getByText(/NEXRAD & TDWR stations/)).toBeInTheDocument();
+  });
+
+  it.each(['wildfire', 'allhazard'])('does not offer the Radar Site toggle on the %s tab', (tab) => {
+    renderPanel({ activeMapTab: tab });
+    expect(screen.queryByRole('button', { name: 'Toggle Radar Site' })).not.toBeInTheDocument();
+  });
+
+  it('toggles the radarSites layer key', () => {
+    const toggleLayer = vi.fn();
+    const base = useApp();
+    useApp.mockReturnValue({ ...base, toggleLayer });
+    renderPanel({ activeMapTab: 'weather' });
+    fireEvent.click(screen.getByRole('button', { name: 'Toggle Radar Site' }));
+    expect(toggleLayer).toHaveBeenCalledWith('radarSites');
+    useApp.mockReset();
   });
 });

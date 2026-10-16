@@ -1,8 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { useEffect, useRef, useState } from 'react';
-import { SatelliteProvider, satellitePanelOpenAfter, useSatelliteContext } from '../../src/app/context/SatelliteContext';
-import SatellitePanel, { SatelliteShowControlsPill } from '../../src/app/components/Map/SatellitePanel';
+import { SatelliteProvider, useSatelliteContext } from '../../src/app/context/SatelliteContext';
+import SatellitePanel from '../../src/app/components/Map/SatellitePanel';
 import GOESLayer from '../../src/app/components/Map/layers/GOESLayer';
 import SatelliteStormFocus from '../../src/app/components/Map/SatelliteStormFocus';
 import { SatelliteLegendSection } from '../../src/app/components/Legend/Legend';
@@ -35,19 +34,11 @@ function mockSources({ iem = 'ok', gibs = 'ok' } = {}) {
   });
 }
 
-/** The page's wiring: layer toggles drive whether the panel is open. */
+/** The page's wiring: the Satellite toggle drives the layer; its controls live in the dock's Satellite tab. */
 function Page({ layers, overlays, selected = null }) {
-  const [open, setOpen] = useState(false);
-  const prev = useRef({});
-  useEffect(() => {
-    const before = prev.current;
-    prev.current = layers;
-    setOpen((o) => satellitePanelOpenAfter(before, layers, o));
-  }, [layers]);
   return (
-    <SatelliteProvider active={Boolean(layers.satellite)} panelOpen={open} onPanelOpenChange={setOpen}>
+    <SatelliteProvider active={Boolean(layers.satellite)}>
       <SatellitePanel overlays={overlays} />
-      <SatelliteShowControlsPill />
       <SatelliteStormFocus selected={selected} />
       <GOESLayer />
       <SatelliteLegendSection />
@@ -70,7 +61,7 @@ beforeEach(() => {
 afterEach(() => vi.restoreAllMocks());
 
 describe('Satellite panel', () => {
-  it('pops open when Satellite is selected and shows the default imagery', async () => {
+  it('has its controls when Satellite is selected and shows the default imagery', async () => {
     mockSources();
     const { rerender } = render(<Page layers={{ satellite: false }} />);
     expect(screen.queryByRole('group', { name: 'Satellite controls' })).toBeNull();
@@ -87,28 +78,18 @@ describe('Satellite panel', () => {
     expect(screen.queryByText(/GOES-East · CONUS · Visible/)).toBeNull();
   });
 
-  it('hides its controls from beside Recent loop, and a pill brings them back', async () => {
+  it('has no hide/show controls buttons (the dock tab opens and closes it)', async () => {
     mockSources();
-    const { rerender } = render(<Page layers={{ satellite: false }} />);
-    rerender(<Page layers={{ satellite: true }} />);
-    expect(screen.queryByRole('button', { name: 'Show controls' })).toBeNull();
+    render(<Page layers={{ satellite: true }} />);
     await waitFor(() => expect(screen.getByText('Recent loop')).toBeInTheDocument());
-
-    fireEvent.click(screen.getByRole('button', { name: 'Hide controls' }));
-    expect(screen.queryByRole('group', { name: 'Satellite controls' })).toBeNull();
-    expect(sources()).toHaveLength(1); // imagery stays on
-
-    fireEvent.click(screen.getByRole('button', { name: 'Show controls' }));
-    expect(screen.getByRole('group', { name: 'Satellite controls' })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Show controls' })).toBeNull();
+    expect(screen.queryByRole('button', { name: /Hide controls|Show controls/ })).toBeNull();
   });
 
-  it('closes when another layer with controls is selected, leaving the imagery on', () => {
+  it('keeps its controls when another layer with controls is selected (each has its own tab)', () => {
     mockSources();
-    const { rerender } = render(<Page layers={{ satellite: false }} />);
-    rerender(<Page layers={{ satellite: true }} />);
+    const { rerender } = render(<Page layers={{ satellite: true }} />);
     rerender(<Page layers={{ satellite: true, spcWeatherOutlooks: true }} />);
-    expect(screen.queryByRole('group', { name: 'Satellite controls' })).toBeNull();
+    expect(screen.getByRole('group', { name: 'Satellite controls' })).toBeInTheDocument();
     expect(sources()).toHaveLength(1);
   });
 

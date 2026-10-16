@@ -382,3 +382,48 @@ describe('RouteToSafetyPanel', () => {
     });
   });
 });
+
+describe('RouteToSafetyPanel — dragging', () => {
+  const header = () => screen.getByRole('region', { name: 'Navigation' }).querySelector('header');
+  const panel = () => screen.getByRole('region', { name: 'Navigation' });
+
+  it('moves with the pointer while its header is held, and stops on release', () => {
+    renderPanel({ shelters: [shelter] });
+    const h = header();
+    h.setPointerCapture = vi.fn();
+    fireEvent.pointerDown(h, { pointerId: 1, button: 0, buttons: 1, clientX: 100, clientY: 100 });
+    fireEvent.pointerMove(h, { pointerId: 1, buttons: 1, clientX: 60, clientY: 140 });
+    expect(panel().style.transform).toBe('translate(-40px, 40px)');
+    fireEvent.pointerUp(h, { pointerId: 1, clientX: 60, clientY: 140 });
+    fireEvent.pointerMove(h, { pointerId: 1, buttons: 0, clientX: 0, clientY: 0 });
+    expect(panel().style.transform).toBe('translate(-40px, 40px)');
+  });
+
+  it('stops following if the release was missed, and leaves header buttons working', () => {
+    const onClose = vi.fn();
+    render(<RouteToSafetyPanel state={{ ...base, shelters: [shelter] }} actions={actions()} onClose={onClose} hasHome />);
+    const h = header();
+    h.setPointerCapture = vi.fn();
+    fireEvent.pointerDown(h, { pointerId: 1, button: 0, buttons: 1, clientX: 100, clientY: 100 });
+    fireEvent.pointerMove(h, { pointerId: 1, buttons: 0, clientX: 300, clientY: 300 }); // no button held
+    expect(panel().style.transform).toBe('');
+
+    const close = screen.getByRole('button', { name: 'Close Navigation' });
+    fireEvent.pointerDown(close, { pointerId: 2, button: 0, buttons: 1, clientX: 10, clientY: 10 });
+    fireEvent.pointerMove(h, { pointerId: 2, buttons: 1, clientX: 90, clientY: 90 });
+    expect(panel().style.transform).toBe(''); // pressing a control doesn't start a drag
+    fireEvent.click(close);
+    expect(onClose).toHaveBeenCalled();
+  });
+
+  it('goes back to its corner on a header double-click', () => {
+    renderPanel({ shelters: [shelter] });
+    const h = header();
+    h.setPointerCapture = vi.fn();
+    fireEvent.pointerDown(h, { pointerId: 1, button: 0, buttons: 1, clientX: 100, clientY: 100 });
+    fireEvent.pointerMove(h, { pointerId: 1, buttons: 1, clientX: 50, clientY: 50 });
+    fireEvent.pointerUp(h, { pointerId: 1 });
+    fireEvent.doubleClick(h);
+    expect(panel().style.transform).toBe('');
+  });
+});

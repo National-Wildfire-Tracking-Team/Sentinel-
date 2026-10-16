@@ -5,12 +5,11 @@
  *   - Exclusive day pill selector (Day 1 / Day 2 / Day 3)
  *   - Loading spinner + valid-time label
  *
- * Docked flush above MapBottomBar and matched to its width, so every
- * bottom-bar control grows out of the same bar instead of floating
- * independently.
+ * Shown in the bottom bar's pull-up sheet (DockSheet, via MapDockSheet)
+ * under its own tab while the layer is on.
  */
 
-import { memo, forwardRef } from 'react';
+import { memo } from 'react';
 import { OUTLOOK_TYPES } from '../../api/spcOutlooks';
 
 // Icon paths (inline SVG) keyed by outlook type
@@ -81,16 +80,14 @@ function Spinner() {
   );
 }
 
-const SPCOutlookSelector = memo(forwardRef(function SPCOutlookSelector({
+const SPCOutlookSelector = memo(function SPCOutlookSelector({
   outlookType,
   onOutlookTypeChange,
   activeDay,
   onActiveDayChange,
   loading = false,
   validTime = null,
-  bottomBarWidth,
-  bottomBarHeight,
-}, ref) {
+}) {
   const currentTypeDef = OUTLOOK_TYPES.find(t => t.key === outlookType);
   const supportedDays  = currentTypeDef ? currentTypeDef.days : DAYS.map(d => d.key);
   const colors = TYPE_COLORS[outlookType] || TYPE_COLORS.categorical;
@@ -117,19 +114,7 @@ const SPCOutlookSelector = memo(forwardRef(function SPCOutlookSelector({
     : null;
 
   return (
-    <div
-      ref={ref}
-      role="group"
-      aria-label="SPC outlook selector"
-      className="absolute bottom-20 left-1/2 -translate-x-1/2 z-20 w-[min(34rem,calc(100vw-2rem))]
-                    bg-sentinel-900 border border-sentinel-600 rounded-t-2xl shadow-2xl shadow-black/60 ring-1 ring-white/10
-                    overflow-hidden animate-dock-rise"
-      style={{
-        width: bottomBarWidth ? `${bottomBarWidth}px` : undefined,
-        bottom: bottomBarHeight ? `${bottomBarHeight + 16}px` : undefined,
-        maxWidth: 'calc(100vw - 1rem)',
-      }}
-    >
+    <div role="group" aria-label="SPC outlook selector">
 
         {/* ── Type tab bar ── */}
         <div className="flex items-stretch border-b border-sentinel-700">
@@ -218,5 +203,5 @@ const SPCOutlookSelector = memo(forwardRef(function SPCOutlookSelector({
         </div>
     </div>
   );
-}));
+});
 export default SPCOutlookSelector;

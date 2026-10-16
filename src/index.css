@@ -392,3 +392,18 @@ html:not(.dark):not(.site-theme) .btn-glass-fire-adaptive:hover {
 @media (prefers-reduced-motion: reduce) {
   .btn-glass-fire:active { transform: none; }
 }
+
+/* Live map bottom bar: the first step of pulling up the controls sheet (DockSheet)
+   folds the bar's curved top corners out to square (and fades its top edge),
+   so the panel then rises from a straight edge with nothing overhanging.
+   DockSheet sets --dock-sheet-fold (0 curved → 1 square) on the map
+   container per frame, so no transition here. */
+[data-map-bottom-bar][data-sheet-aware] {
+  --bar-round: calc(1 - var(--dock-sheet-fold, 0));
+  border-top-left-radius: calc(1rem * var(--bar-round));
+  border-top-right-radius: calc(1rem * var(--bar-round));
+  border-top-color: rgb(var(--sentinel-200) / var(--bar-round));
+}
+.dark [data-map-bottom-bar][data-sheet-aware] {
+  border-top-color: rgb(var(--sentinel-600) / var(--bar-round));
+}
