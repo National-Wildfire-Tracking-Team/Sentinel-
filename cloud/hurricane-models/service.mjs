@@ -364,7 +364,7 @@ export function createRouter({ store, activeStorms, limiter, log = () => {}, now
     let hit = rendered.get(key);
     if (!hit) {
       const json = JSON.stringify(body);
-      hit = { json, etag: `"${createHash('sha1').update(json).digest('base64url').slice(0, 27)}"` };
+      hit = { json, etag: `"${createHash('sha256').update(json).digest('base64url').slice(0, 27)}"` };
       rendered.set(key, hit);
       if (rendered.size > 128) rendered.delete(rendered.keys().next().value);
     }

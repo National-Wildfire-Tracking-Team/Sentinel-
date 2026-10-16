@@ -76,6 +76,16 @@ const HAS_MAPBOX_TOKEN = Boolean(MAPBOX_TOKEN.trim());
 // Quick helper if you don't already have one exported from utils
 const num = (val) => Number(val);
 
+// Match the NOMADS host exactly — a substring test would also match
+// e.g. https://evil.example/?nomads.ncep.noaa.gov.
+function isNomadsUrl(url) {
+  try {
+    return new URL(url).hostname === 'nomads.ncep.noaa.gov';
+  } catch {
+    return false;
+  }
+}
+
 /**
  * FEMA flood-zone record for FireDetailPanel. The FIRM panel under the click
  * (a separate, transparent layer) supplies panel number and effective date;
@@ -1086,7 +1096,7 @@ export default function MapView({
     'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
 
   const transformRequest = useCallback((url, resourceType) => {
-    if (resourceType === 'Tile' && url.includes('nomads.ncep.noaa.gov')) {
+    if (resourceType === 'Tile' && isNomadsUrl(url)) {
       if (hrrRateLimiter.tryAcquire()) {
         return { url };
       }

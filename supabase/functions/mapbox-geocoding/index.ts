@@ -129,7 +129,8 @@ Deno.serve(async (req: Request) => {
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    return jsonResponse({ error: message }, 500);
+    console.error('[mapbox-geocoding] handler error:', message);
+    return jsonResponse({ error: 'Internal error' }, 500);
   }
 });
 
