@@ -833,7 +833,8 @@ async function handleMerged(url, res) {
     const { perimeters, dots } = await computeMerged({ minAcres, includeInactive });
     jsonResponse(res, { perimeters, dots }, 200, { 'Cache-Control': 'public, max-age=60' });
   } catch (err) {
-    jsonResponse(res, { error: err instanceof Error ? err.message : String(err) }, 502);
+    console.error('[fire-perimeters-merge] upstream fetch failed:', err);
+    jsonResponse(res, { error: 'Upstream fetch failed' }, 502);
   }
 }
 

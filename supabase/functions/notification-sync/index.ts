@@ -90,7 +90,7 @@ Deno.serve(async (req: Request) => {
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     log('job_claim_failed', { error: message });
-    return jsonResponse({ ok: false, error: message }, 500);
+    return jsonResponse({ ok: false, error: 'Internal error' }, 500);
   }
   if (!claimed) {
     log('job_skipped', { reason: 'already running' });
@@ -121,6 +121,6 @@ Deno.serve(async (req: Request) => {
     const message = err instanceof Error ? err.message : String(err);
     log('job_failed', { error: message });
     await clients.releaseJob(false, message).catch(() => {});
-    return jsonResponse({ ok: false, error: message }, 500);
+    return jsonResponse({ ok: false, error: 'Internal error' }, 500);
   }
 });

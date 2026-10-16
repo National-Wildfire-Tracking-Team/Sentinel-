@@ -45,7 +45,7 @@ if (problems.length) {
 
 console.log(
   `ors-routing (dev) on http://127.0.0.1:${process.env.PORT} — ORS key from ${
-    process.env.ORS_API_KEY ? 'cloud/ors-routing/.env.local' : `AWS secret "${process.env.ORS_SECRET_ID}" (${process.env.AWS_REGION})`
+    process.env.ORS_API_KEY ? 'cloud/ors-routing/.env.local' : 'AWS Secrets Manager'
   }`,
 );
 await import('./index.mjs');

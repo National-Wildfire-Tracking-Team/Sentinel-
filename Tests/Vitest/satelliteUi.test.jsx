@@ -27,7 +27,7 @@ function mockSources({ iem = 'ok', gibs = 'ok' } = {}) {
       if (iem === 'down') throw new TypeError('Failed to fetch');
       return new Response(JSON.stringify({ meta: { valid: SCAN } }));
     }
-    if (u.includes('gibs.earthdata.nasa.gov')) {
+    if (new URL(u, 'http://localhost').hostname === 'gibs.earthdata.nasa.gov') {
       if (gibs === 'down') return new Response('', { status: 503 });
       return new Response(DOMAIN);
     }

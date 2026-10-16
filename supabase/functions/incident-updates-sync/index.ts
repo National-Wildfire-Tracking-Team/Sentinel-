@@ -412,7 +412,7 @@ Deno.serve(async (_req: Request) => {
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error(`[${JOB_NAME}] claim failed:`, message);
-    return jsonResponse({ ok: false, error: message }, 500);
+    return jsonResponse({ ok: false, error: 'Internal error' }, 500);
   }
 
   if (!claimed) {
@@ -430,6 +430,6 @@ Deno.serve(async (_req: Request) => {
     const message = err instanceof Error ? err.message : String(err);
     console.error(`[${JOB_NAME}] fatal:`, message);
     await releaseJob(false, message).catch(() => {});
-    return jsonResponse({ ok: false, error: message }, 500);
+    return jsonResponse({ ok: false, error: 'Internal error' }, 500);
   }
 });

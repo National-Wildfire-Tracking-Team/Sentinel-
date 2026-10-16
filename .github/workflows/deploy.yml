@@ -9,6 +9,9 @@ concurrency:
   group: deploy-main
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
   deploy:
     name: Build and Deploy to Netlify

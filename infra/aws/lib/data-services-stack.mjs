@@ -365,16 +365,8 @@ export class DataServicesStack extends Stack {
     this.distribution = distribution;
 
     // Function URLs created since late 2025 need lambda:InvokeFunction as
-    // well as lambda:InvokeFunctionUrl for CloudFront OAC. CDK adds only the
-    // latter, so grant the former here, scoped to this distribution.
-    for (const svc of SERVICES) {
-      new lambda.CfnPermission(this, `${svc.id}InvokeFromCloudFront`, {
-        action: 'lambda:InvokeFunction',
-        principal: 'cloudfront.amazonaws.com',
-        functionName: this.functions[svc.dir].functionArn,
-        sourceArn: `arn:${this.partition}:cloudfront::${this.account}:distribution/${distribution.distributionId}`,
-      });
-    }
+    // well as lambda:InvokeFunctionUrl for CloudFront OAC; FunctionUrlOrigin
+    // has granted both (scoped to this distribution) since aws-cdk-lib 2.273.
 
     new cloudwatch.Alarm(this, 'CloudFront5xxRate', {
       alarmDescription: 'More than 5% of Sentinel data-service responses are 5xx (all services, at the edge).',
