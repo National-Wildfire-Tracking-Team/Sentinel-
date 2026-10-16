@@ -36,10 +36,10 @@ function initialState() {
 }
 
 /**
- * @param {{ active: boolean, panelOpen?: boolean, onPanelOpenChange?: (open: boolean) => void, children: any }} props
+ * @param {{ active: boolean, children: any }} props
  *   active: the layer is on and its tab is shown
  */
-export function SatelliteProvider({ active, panelOpen = false, onPanelOpenChange, children }) {
+export function SatelliteProvider({ active, children }) {
   const [initial] = useState(initialState);
   const [selection, setSelection] = useState(initial.selection);
   const [notice, setNotice] = useState(initial.notice);
@@ -174,8 +174,6 @@ export function SatelliteProvider({ active, panelOpen = false, onPanelOpenChange
     if (url.href !== window.location.href) window.history.replaceState(window.history.state, '', url);
   }, [active, selection]);
 
-  const openPanel = useCallback(() => onPanelOpenChange?.(true), [onPanelOpenChange]);
-  const closePanel = useCallback(() => onPanelOpenChange?.(false), [onPanelOpenChange]);
 
   let error = null;
   if (active) {
@@ -225,30 +223,11 @@ export function SatelliteProvider({ active, panelOpen = false, onPanelOpenChange
     focus,
     focusBounds,
     focusOnStorm,
-    panelOpen: active && panelOpen,
-    openPanel,
-    closePanel,
   }), [active, selection, satellite, regionDef, productDef, setSatellite, setRegion, setSatelliteRegion, setProduct, notice, dismissNotice,
     source, imageTime, metaLoading, tilesLoading, error, reportTileError, retry, reloadKey, canLoop, loopHours, frames,
-    frame, index, live, playing, setFrame, goLive, togglePlaying, step, opacity, focus, focusBounds, focusOnStorm, panelOpen, openPanel, closePanel]);
+    frame, index, live, playing, setFrame, goLive, togglePlaying, step, opacity, focus, focusBounds, focusOnStorm]);
 
   return <SatelliteContext.Provider value={value}>{children}</SatelliteContext.Provider>;
-}
-
-/**
- * Layers whose own controls take the dock (or the same spot) above the bottom
- * bar. Switching one on after the Satellite layer hides the satellite
- * controls; the imagery stays on.
- */
-export const SATELLITE_DOCK_RIVALS = ['spcWeatherOutlooks', 'fireWeatherOutlooks', 'ndgdSmokeForecast', 'mrms'];
-
-/** Whether the satellite controls should be open after the layer toggles change from `prev` to `next`. */
-export function satellitePanelOpenAfter(prev, next, open) {
-  const switchedOn = (key) => Boolean(next[key]) && !prev[key];
-  if (!next.satellite) return false;
-  if (switchedOn('satellite')) return true;
-  if (SATELLITE_DOCK_RIVALS.some(switchedOn)) return false;
-  return open;
 }
 
 /** null outside the provider (e.g. in isolated component tests). */

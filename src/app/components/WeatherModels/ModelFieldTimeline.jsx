@@ -4,13 +4,12 @@
  * animation. Every step swaps the field frame (and wind) on the map; the
  * next frames are pre-fetched by the map layer, so playback doesn't stall.
  *
- * Docked flush above MapBottomBar and matched to its width, the same way
- * the SPC outlook selector docks on the Weather tab, so the scrubber and
- * the bar's layer pop-up read as one control area. The model and variable
- * are chosen in that pop-up, from the bar's Variables button.
+ * Shown in the bottom bar's pull-up sheet (DockSheet, via MapDockSheet)
+ * under the Models tab's "Forecast Time" tab. The model and variable are
+ * chosen in the bar's Variables pop-up.
  */
 
-import { forwardRef, useEffect } from 'react';
+import { useEffect } from 'react';
 import { Pause, Play } from 'lucide-react';
 import { useWeatherModelsContext } from '../../context/WeatherModelsContext';
 import { hourAt } from '../../api/modelFields';
@@ -20,7 +19,7 @@ import { useTimeFormat } from '../../hooks/useTimeFormat';
 
 const FRAME_MS = 650;
 
-const ModelFieldTimeline = forwardRef(function ModelFieldTimeline({ bottomBarWidth, bottomBarHeight }, ref) {
+export default function ModelFieldTimeline() {
   useTimeFormat();
   const wm = useWeatherModelsContext();
   const { timeline = [], validTime, setValidTime, playing, setPlaying, manifest, mode } = wm ?? {};
@@ -36,21 +35,8 @@ const ModelFieldTimeline = forwardRef(function ModelFieldTimeline({ bottomBarWid
 
   if (!wm) return null;
 
-  // Same frame as SPCOutlookSelector: flush on the bar's top edge, the bar's width.
   const frame = (children) => (
-    <div
-      ref={ref}
-      role="group"
-      aria-label="Model forecast time"
-      className="dark absolute bottom-20 left-1/2 -translate-x-1/2 z-20 w-[min(34rem,calc(100vw-2rem))]
-                 bg-sentinel-900 border border-sentinel-600 rounded-t-2xl shadow-2xl shadow-black/60 ring-1 ring-white/10
-                 overflow-hidden text-white animate-dock-rise"
-      style={{
-        width: bottomBarWidth ? `${bottomBarWidth}px` : undefined,
-        bottom: bottomBarHeight ? `${bottomBarHeight + 16}px` : undefined,
-        maxWidth: 'calc(100vw - 1rem)',
-      }}
-    >
+    <div role="group" aria-label="Model forecast time" className="dark text-white">
       {children}
     </div>
   );
@@ -124,6 +110,4 @@ const ModelFieldTimeline = forwardRef(function ModelFieldTimeline({ bottomBarWid
       </div>
     </>
   );
-});
-
-export default ModelFieldTimeline;
+}

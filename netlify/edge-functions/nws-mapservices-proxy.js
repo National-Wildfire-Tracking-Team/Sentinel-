@@ -36,6 +36,9 @@ export const ROUTES = {
   'wpc-wssi': { path: `${VECTOR}/outlooks/wpc_wssi/MapServer`, tier: 'outlook' },
   'wpc-qpf': { path: `${VECTOR}/precip/wpc_qpf/MapServer`, tier: 'outlook' },
   'wpc-fronts': { path: `${VECTOR}/outlooks/natl_fcst_wx_chart/MapServer`, tier: 'outlook' },
+  // Not ArcGIS: WPC's coded surface analysis bulletin (fronts + highs/lows
+  // with central pressure), reissued every 3 hours. No CORS upstream.
+  'wpc-codsus': { origin: 'https://www.wpc.ncep.noaa.gov', path: '/discussions', tier: 'active' },
 
   // CPC monthly drought outlook — slowest-moving product here, but kept on
   // the outlook tier rather than static so a re-issue still lands promptly.

@@ -1,6 +1,8 @@
 /**
  * NdgdSmokeTimeSlider.jsx
  * Hour selector for NOAA NDGD smoke forecast (matches feature todate).
+ * Shown in the bottom bar's pull-up sheet (DockSheet, via MapDockSheet)
+ * under its own tab while the layer is on.
  */
 
 import { memo } from 'react';
@@ -33,11 +35,8 @@ const NdgdSmokeTimeSlider = memo(function NdgdSmokeTimeSlider({
   if (forecastHoursMs.length < 2) return null;
 
   return (
-    <div
-      className="absolute bottom-20 left-1/2 -translate-x-1/2 z-20 pointer-events-auto
-                 w-[min(22rem,calc(100vw-8rem))] animate-dock-rise"
-    >
-      <div className="bg-sentinel-900/95 backdrop-blur-md border border-sentinel-700/80 rounded-xl shadow-2xl px-3 py-2">
+    <div role="group" aria-label="Smoke forecast hour">
+      <div className="px-3 pt-1 pb-2.5">
         <div className="flex items-center justify-between gap-2 mb-1.5">
           <span className="text-[10px] font-bold text-sentinel-400 uppercase tracking-widest shrink-0">
             Smoke forecast
