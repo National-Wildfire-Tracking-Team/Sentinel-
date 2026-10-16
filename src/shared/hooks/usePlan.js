@@ -4,7 +4,7 @@
  *
  * Plans:
  *   free  – permanent free tier; core situational awareness
- *   plus  – Sentinel Plus ($7.99/mo or $69.99/yr); fire spread rings + 10 saved locations
+ *   plus  – Sentinel Plus ($7.99/mo or $69/yr); fire spread rings + 10 saved locations
  *   pro   – Sentinel Pro ($14.99/mo or $149/yr); unlimited locations, critical infrastructure,
  *           land ownership and Route to Safety
  *

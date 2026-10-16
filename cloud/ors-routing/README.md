@@ -22,9 +22,16 @@ Matrix 500/day + 40/min) with ~10% headroom plus per-user caps.
 | Var | Meaning |
 | --- | --- |
 | `SUPABASE_URL`, `SUPABASE_ANON_KEY` | Public Supabase project URL + anon key |
-| `ORS_SECRET_ID` | Secrets Manager secret holding the ORS key (default `Routing`); plain string or JSON `{ "ORS_API_KEY": … }` |
+| `ORS_SECRET_ID` | Secrets Manager secret holding the ORS key (default `Routing`); plain string or JSON `{ "ORS_API_KEY": … }`. In the console's Key/value editor: `ORS_API_KEY` on the left, the key on the right |
 | `ORS_API_KEY` | Local dev only: skips Secrets Manager |
 | `ALLOWED_ORIGINS` | CORS allow-list (comma-separated) |
+
+If the key can't be read, every route fails with 502 `routing_upstream_failed`
+(the app says "Routing is unavailable right now") and the log line
+`upstream_failed` carries `kind: "OrsSecretError"` plus a `reason`:
+`empty`, `invalid_json`, `missing_field`, or `key_in_name` (the key was typed
+into the left box with the right box blank). Fix the secret; no redeploy is
+needed, since a failed load is retried on the next request.
 
 ## Local run
 

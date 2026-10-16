@@ -18,8 +18,8 @@ jobs:
       VITE_SUPABASE_URL: https://placeholder.supabase.co
       VITE_SUPABASE_ANON_KEY: placeholder-anon-key
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: 24
           cache: npm
@@ -33,7 +33,7 @@ jobs:
       - name: Determine if E2E should run
         id: e2e-gate
         run: echo "run=${{ github.event.pull_request.base.ref == 'Main' || github.event.pull_request.base.ref == 'stage' || github.event.pull_request.base.ref == 'dev' }}" >> "$GITHUB_OUTPUT"
-      - uses: actions/cache@v4
+      - uses: actions/cache@v5
         id: playwright-cache
         if: steps.e2e-gate.outputs.run == 'true'
         with:
@@ -43,7 +43,7 @@ jobs:
         if: steps.e2e-gate.outputs.run == 'true' && steps.playwright-cache.outputs.cache-hit != 'true'
       - run: npm run test:e2e
         if: steps.e2e-gate.outputs.run == 'true'
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         if: always() && steps.e2e-gate.outputs.run == 'true'
         with:
           name: playwright-report
@@ -58,8 +58,8 @@ jobs:
       run:
         working-directory: cloud/weather-models
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v6
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v7
       # Offline: the tests build synthetic Icechunk datasets in memory and
       # never read the real HRRR/GFS buckets.
       - run: uv run --python 3.13 --with-requirements requirements-dev.txt pytest
@@ -72,8 +72,8 @@ jobs:
       run:
         working-directory: infra/aws
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: 24
           cache: npm

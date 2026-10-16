@@ -226,7 +226,8 @@ only; [README](../../cloud/ors-routing/README.md)). It's part of
 - **ORS key.** A Secrets Manager secret named `Routing` in **us-east-1**,
   encrypted with the default `aws/secretsmanager` key (a customer-managed key
   would also need a `kms:Decrypt` grant, which the stack doesn't add). Plain
-  string, or JSON `{ "ORS_API_KEY": "…" }`. Create it before the first deploy:
+  string, or JSON `{ "ORS_API_KEY": "…" }` (console Key/value: `ORS_API_KEY` in the
+  left box, the key in the right). Create it before the first deploy:
   `aws secretsmanager create-secret --region us-east-1 --name Routing --secret-string '<key>'`.
   Only the ors-routing runtime role can read it.
 - **Supabase.** The function needs the project URL and anon key (both public,

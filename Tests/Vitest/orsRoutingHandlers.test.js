@@ -110,6 +110,14 @@ describe('nearest privacy and logging', () => {
     expect(calls.some((c) => c[1] === 'upstream_failed' && c[2].path === 'route' && c[2].status === 500)).toBe(true);
     expect(JSON.stringify(calls)).not.toContain('abc');
   });
+
+  it('logs why the ORS key could not be read', async () => {
+    const log = vi.fn();
+    const hh = createHandlers({ supabase, ors, shelterSources, nearestCache: new TtlCache({ ttlMs: 1000 }), routeCache: new TtlCache({ ttlMs: 1000 }), log });
+    ors.directions.mockRejectedValue(Object.assign(new Error('ORS secret has the key in a field name'), { name: 'OrsSecretError', reason: 'key_in_name' }));
+    expect((await hh.route(AUTH, { origin, destination: dest, avoid: null })).status).toBe(502);
+    expect(log.mock.calls.some((c) => c[1] === 'upstream_failed' && c[2].kind === 'OrsSecretError' && c[2].reason === 'key_in_name')).toBe(true);
+  });
 });
 
 describe('route', () => {
