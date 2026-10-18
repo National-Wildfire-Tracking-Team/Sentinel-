@@ -148,6 +148,7 @@ const ALL_HAZARD_LAYER_PRESET = {
   schoolsUniversities: false,
   landOwnership: false,
   floodHazard: false,
+  radarSites: false,
   nhcTropical: true, // on by default; the Weather preset turns it off
 };
 
@@ -1557,7 +1558,7 @@ export default function LiveTrackerPage() {
 
   const satelliteActive = Boolean(layers.satellite) && activeMapTab !== MAP_TABS.models;
   const mrmsActive = Boolean(layers.mrms) && activeMapTab === MAP_TABS.weather;
-  const radarSitesActive = Boolean(layers.radarSites) && activeMapTab === MAP_TABS.weather;
+  const radarSitesActive = Boolean(layers.radarSites) && (activeMapTab === MAP_TABS.weather || activeMapTab === MAP_TABS.allhazard);
   // Pull-up controls sheet (MapDockSheet): every layer control that docks on the
   // bottom bar lives in it. Settled height incl. its tabs (0 when no tab is shown).
   const [dockSheetHeight, setDockSheetHeight] = useState(0);

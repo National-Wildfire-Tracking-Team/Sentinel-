@@ -1,6 +1,6 @@
 /**
  * RadarSiteContext.jsx
- * State for the Weather tab's Radar Site layer: the NEXRAD/TDWR station list,
+ * State for the Weather and All Hazards tabs' Radar Site layer: the NEXRAD/TDWR station list,
  * which single station is selected, and that station's latest Level 3 scan
  * (see api/nexradLevel3.js; data source as used by supercell-wx).
  *

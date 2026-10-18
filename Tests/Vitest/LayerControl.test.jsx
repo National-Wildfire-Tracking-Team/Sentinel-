@@ -229,15 +229,15 @@ describe('LayerControl — Navigation (Pro)', () => {
 });
 
 describe('LayerControl — Radar Site', () => {
-  it('offers the Radar Site toggle on the weather tab, off by default', () => {
-    renderPanel({ activeMapTab: 'weather' });
+  it.each(['weather', 'allhazard'])('offers the Radar Site toggle on the %s tab, off by default', (tab) => {
+    renderPanel({ activeMapTab: tab });
     const toggle = screen.getByRole('button', { name: 'Toggle Radar Site' });
     expect(toggle.getAttribute('aria-pressed')).not.toBe('true');
     expect(screen.getByText(/NEXRAD & TDWR stations/)).toBeInTheDocument();
   });
 
-  it.each(['wildfire', 'allhazard'])('does not offer the Radar Site toggle on the %s tab', (tab) => {
-    renderPanel({ activeMapTab: tab });
+  it('does not offer the Radar Site toggle on the wildfire tab', () => {
+    renderPanel({ activeMapTab: 'wildfire' });
     expect(screen.queryByRole('button', { name: 'Toggle Radar Site' })).not.toBeInTheDocument();
   });
 

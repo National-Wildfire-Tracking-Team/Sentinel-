@@ -82,7 +82,7 @@ const TAB_SECTIONS = {
       title: 'Monitoring & imagery',
       groups: [
         {
-          layers: ['ndgdSmokeForecast', 'smoke', 'droughtOutlook', 'airNowMonitors', 'aqi', 'satellite', 'lightning', 'rawsStations', 'windParticles'],
+          layers: ['ndgdSmokeForecast', 'smoke', 'droughtOutlook', 'airNowMonitors', 'aqi', 'radarSites', 'satellite', 'lightning', 'rawsStations', 'windParticles'],
         },
       ],
     },
