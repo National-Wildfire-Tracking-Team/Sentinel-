@@ -77,6 +77,16 @@ const HAS_MAPBOX_TOKEN = Boolean(MAPBOX_TOKEN.trim());
 // Quick helper if you don't already have one exported from utils
 const num = (val) => Number(val);
 
+// Match the NOMADS host exactly — a substring test would also match
+// e.g. https://evil.example/?nomads.ncep.noaa.gov.
+function isNomadsUrl(url) {
+  try {
+    return new URL(url).hostname === 'nomads.ncep.noaa.gov';
+  } catch {
+    return false;
+  }
+}
+
 /**
  * FEMA flood-zone record for FireDetailPanel. The FIRM panel under the click
  * (a separate, transparent layer) supplies panel number and effective date;
@@ -277,7 +287,13 @@ function buildFeatureRecord(feature, lngLat, alerts, { floodPanel = null } = {})
       };
     }
 
-    case 'user-reports-circle':
+    case 'user-reports-circle': {
+      let evacuationLines;
+      try {
+        evacuationLines = p.evacuation_order_lines_json ? JSON.parse(p.evacuation_order_lines_json) : [];
+      } catch {
+        evacuationLines = [];
+      }
       return {
         type:        'user-report',
         id:          p.id,
@@ -288,7 +304,14 @@ function buildFeatureRecord(feature, lngLat, alerts, { floodPanel = null } = {})
         lng:         lngLat.lng,
         created_at:  p.created_at,
         user_id:     p.user_id,
+        // The official incident this report was linked to (LiveTrackerPage).
+        evacuation_summary:     p.evacuation_summary,
+        evacuation_orders:      num(p.evacuation_orders) || 0,
+        evacuation_warnings:    num(p.evacuation_warnings) || 0,
+        evacuation_order_lines: evacuationLines,
+        aliasIds:               parseAliasIds(p.alias_ids),
       };
+    }
 
     case 'hazard-events-circle':
       return {
@@ -1055,7 +1078,7 @@ export default function MapView({
     'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
 
   const transformRequest = useCallback((url, resourceType) => {
-    if (resourceType === 'Tile' && url.includes('nomads.ncep.noaa.gov')) {
+    if (resourceType === 'Tile' && isNomadsUrl(url)) {
       if (hrrRateLimiter.tryAcquire()) {
         return { url };
       }

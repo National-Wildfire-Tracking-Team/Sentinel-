@@ -156,7 +156,7 @@ describe('buildUpstreamUrl', () => {
 
   it('prefers a route-specific origin over the proxy default', () => {
     const url = buildUpstreamUrl(ROUTES.elsewhere, ORIGIN, '/0/query', search(''));
-    expect(url.startsWith('https://other.example')).toBe(true);
+    expect(new URL(url).origin).toBe('https://other.example');
   });
 
   it('drops params that are not on the allowlist', () => {
@@ -305,7 +305,7 @@ describe('createProxy', () => {
   it('never lets the caller choose the upstream host', async () => {
     const spy = mockUpstream('{}');
     await makeProxy()(get('/api/test/outlooks/1/query?geometry=x'));
-    expect(spy.mock.calls[0][0].startsWith(ORIGIN)).toBe(true);
+    expect(new URL(spy.mock.calls[0][0]).origin).toBe(ORIGIN);
   });
 
   it('turns an upstream error status into an uncached 502', async () => {

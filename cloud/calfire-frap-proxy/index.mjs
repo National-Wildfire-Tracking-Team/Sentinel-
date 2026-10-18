@@ -148,7 +148,8 @@ async function handlePerimeters(url, res) {
     const filtered = filterFeatures(raw, { minYear, minAcres });
     jsonResponse(res, filtered, 200, { 'Cache-Control': 'public, max-age=300' });
   } catch (err) {
-    jsonResponse(res, { error: err instanceof Error ? err.message : String(err) }, 502);
+    console.error('[calfire-frap-proxy] upstream fetch failed:', err);
+    jsonResponse(res, { error: 'Upstream fetch failed' }, 502);
   }
 }
 

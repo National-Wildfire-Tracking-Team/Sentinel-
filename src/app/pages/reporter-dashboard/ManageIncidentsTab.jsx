@@ -6,7 +6,7 @@
  * viewer edit, post an operational update, or delete it.
  */
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useMemo } from 'react';
 import {
   MapPin, ChevronDown, ChevronUp, Clock, Activity, Pencil, Trash2,
   RefreshCw, Send, AlertCircle, CheckCircle2, User, Search, Loader2, RotateCcw, Siren,
@@ -25,6 +25,7 @@ import PhotoPickerButton from '../../components/PhotoAttachments/PhotoPickerButt
 import IncidentLocationPicker from '../../components/Map/IncidentLocationPicker';
 import { POSTABLE_UPDATE_TYPES, UPDATE_TYPE_LABELS } from '../../components/FireDetailPanel/incidentDetailModel';
 import IncidentEvacShelterEditor from './IncidentEvacShelterEditor';
+import { officialIdsForReport, reportIdsForName } from '../../utils/reportIncidentLinks';
 import {
   INPUT_CLS, LABEL_CLS, SECTION_CLS, StatusBadge, MAPBOX_TOKEN, geocodeViaDirect,
   reverseGeocodeViaDirect,
@@ -80,7 +81,12 @@ function toCoordinate(value) {
     : Number(value);
 }
 
-function IncidentCard({ report, profile, userId, onRefresh }) {
+/**
+ * @param {string[]} aliasIds  Ids of the official incident (CAL FIRE / IRWIN)
+ *   and other reports of the same fire, so evacuations and shelters entered
+ *   there show up and are edited here too.
+ */
+function IncidentCard({ report, aliasIds, profile, userId, onRefresh }) {
   useTimeFormat();
   const [expanded, setExpanded] = useState(false);
   const [mode, setMode] = useState('view'); // 'view' | 'edit' | 'update' | 'evac' | 'confirm-delete'
@@ -723,7 +729,7 @@ function IncidentCard({ report, profile, userId, onRefresh }) {
 
           {/* EVACUATIONS & SHELTERS */}
           {mode === 'evac' && (
-            <IncidentEvacShelterEditor incidentId={report.id} profile={profile} userId={userId} />
+            <IncidentEvacShelterEditor incidentId={report.id} aliasIds={aliasIds} profile={profile} userId={userId} />
           )}
 
           {/* CONFIRM DELETE */}
@@ -773,7 +779,17 @@ function IncidentCard({ report, profile, userId, onRefresh }) {
   );
 }
 
-export default function ManageIncidentsTab({ reports, loading, profile, userId, onRefresh }) {
+/**
+ * @param {object[]} externalIncidents  Merged IRWIN/CAL FIRE incidents
+ *   (useExternalIncidents); a report with the same fire name is linked to them.
+ */
+export default function ManageIncidentsTab({ reports, externalIncidents = [], loading, profile, userId, onRefresh }) {
+  const aliasIdsByReport = useMemo(() => new Map(reports.map((r) => [
+    r.id,
+    [...new Set([...officialIdsForReport(r, externalIncidents), ...reportIdsForName(r.title, reports)])]
+      .filter((id) => id !== String(r.id)),
+  ])), [reports, externalIncidents]);
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -801,6 +817,7 @@ export default function ManageIncidentsTab({ reports, loading, profile, userId, 
             <IncidentCard
               key={report.id}
               report={report}
+              aliasIds={aliasIdsByReport.get(report.id)}
               profile={profile}
               userId={userId}
               onRefresh={onRefresh}

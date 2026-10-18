@@ -194,7 +194,7 @@ Deno.serve(async (req: Request) => {
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error('[stripe-webhook] handler error:', message);
-    return jsonResponse({ error: message }, 500);
+    return jsonResponse({ error: 'Internal error' }, 500);
   }
 
   return jsonResponse({ received: true });

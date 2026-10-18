@@ -130,7 +130,8 @@ Deno.serve(async (req: Request) => {
     return jsonResponse({ url: session.url });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    return jsonResponse({ error: message }, 500);
+    console.error('[stripe-checkout] handler error:', message);
+    return jsonResponse({ error: 'Internal error' }, 500);
   }
 });
 

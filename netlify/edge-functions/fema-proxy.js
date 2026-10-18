@@ -202,12 +202,13 @@ export default async (request) => {
       }
     );
   } catch (err) {
+    console.error("[fema-proxy] IPAWS fetch failed:", err);
     return new Response(
       JSON.stringify({
         updatedAt: null,
         sourceUrl: IPAWS_RECENT_URL,
         count: 0,
-        lastError: err instanceof Error ? err.message : String(err),
+        lastError: "Upstream fetch failed",
         alerts: [],
       }),
       {
