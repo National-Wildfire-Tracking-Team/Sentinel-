@@ -19,6 +19,7 @@ const MapBottomBar = memo(forwardRef(function MapBottomBar({
   onMeasureActivate,
   onMeasureClose,
   dockedPanelClearance = 0,
+  dockedAttached = false,
 }, ref) {
   const isAllHazardTab = activeMapTab === 'allhazard';
 
@@ -28,6 +29,8 @@ const MapBottomBar = memo(forwardRef(function MapBottomBar({
       data-map-bottom-bar
       // Top corners and edge fold square as the controls sheet is pulled up (index.css)
       data-sheet-aware=""
+      // A panel docked open on the bar (the Models forecast time) keeps them square.
+      style={dockedAttached ? { '--dock-sheet-fold': 1 } : undefined}
       className={`absolute bottom-4 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1 px-2 py-1.5 bg-white/90 dark:bg-sentinel-900/90 backdrop-blur-sm border border-sentinel-200 dark:border-sentinel-600 shadow-2xl shadow-black/10 dark:shadow-black/60 rounded-2xl`}
     >
       <LayerControl

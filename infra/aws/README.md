@@ -39,6 +39,7 @@ Defaults are in `bin/sentinel.mjs`. Override any of them with `-c sentinel:<key>
 | `existingOidcProviderArn` | *(none)* | Set this if the account already has a GitHub OIDC provider |
 | `weatherModels` | `disabled` | `enabled` adds `SentinelWeatherModels` and the `/weather-models/*` route. In CI it's the `AWS_WEATHER_MODELS` repo variable. |
 | `distributionId` | *(none)* | After the first deploy, set it to the `DistributionId` output to narrow the weather-models invoke permission from "CloudFront in this account" to this one distribution. In CI it's `AWS_DISTRIBUTION_ID`. |
+| `lightning` | `disabled` | `enabled` adds `SentinelLightning` (us-east-1) and the `/lightning/*` route. In CI it's the `AWS_LIGHTNING` repo variable. See `cloud/lightning/README.md`. |
 | `mrms` | `disabled` | `enabled` adds `SentinelMrms` (us-east-1) and the `/mrms/*` route. In CI it's the `AWS_MRMS` repo variable. With `distributionId` set, the frames bucket is readable only by that distribution. |
 | `hafs` | `disabled` | `enabled` adds `SentinelHafs` (us-east-1) and the `/hafs/*` route. In CI it's the `AWS_HAFS` repo variable. With `distributionId` set, only that distribution may invoke it. |
 | `hafsReservedConcurrency` | `0` (no cap) | Caps concurrent HAFS frame renders. Same unreserved-concurrency rule as below. |

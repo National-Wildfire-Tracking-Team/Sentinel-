@@ -12,6 +12,8 @@ import { useApp } from '../../context/AppContext';
 import { trackSentinelUse } from '../../../shared/utils/analytics';
 import LayerPanelSection from './LayerPanelSection';
 import ModelLayerPanel from '../WeatherModels/ModelLayerPanel';
+import { useWeatherModelsContext } from '../../context/WeatherModelsContext';
+import { LIGHTNING_URL } from '../../api/lightning';
 
 /** Layer row definitions — grouped under tab-specific sections below */
 const LAYER_DEFS = {
@@ -36,6 +38,8 @@ const LAYER_DEFS = {
   spcWeatherOutlooks: { label: 'SPC outlooks',     sublabel: 'Convective severe weather outlook',    icon: AlertTriangle, color: '#f59e0b' },
   mrms:              { label: 'MRMS Radar',          sublabel: 'NOAA Multi-Radar/Multi-Sensor · 2-min updates', icon: Radar, color: '#22c55e' },
   radarSites:        { label: 'Radar Site',          sublabel: 'NEXRAD & TDWR stations · click a site for its radar', icon: Radar, color: '#9ca3af' },
+  // Shown even before cloud/lightning is deployed, saying so (as MRMS does), so the toggle is never missing.
+  lightning:         { label: 'Lightning',           sublabel: LIGHTNING_URL ? 'NOAA GOES satellites · last 15 minutes' : 'NOAA GOES satellites · not set up for this build yet', icon: Zap, color: '#ffe14d' },
   satellite:         { label: 'Satellite',           sublabel: 'NOAA GOES-East/West · bands, regions & loops', icon: Satellite, color: '#8b5cf6' },
   aqi:               { label: 'AQI Heatmap',          sublabel: 'EPA AirNow gradient overlay',  icon: Wind,         color: '#3b82f6' },
   smoke:             { label: 'Smoke Forecast',      sublabel: 'NOAA HRRR',                   icon: CloudRain,    color: '#94a3b8' },
@@ -44,6 +48,8 @@ const LAYER_DEFS = {
   wildfireCameras:   { label: 'Live CA Cameras',      sublabel: 'Caltrans District CCTV · click for live feed', icon: Camera, color: '#14b8a6' },
   nhcTropical:      { label: 'NHC Tropical', sublabel: 'Storms, outlook, wind & surge · parts in its drawer', icon: Waypoints, color: '#4dffff' },
   fireBehaviorModeling: { label: 'Fire Behavior Modeling', sublabel: 'Spread projection · select a fire', icon: TrendingUp, color: '#ff3b1f' },
+  // Not an AppContext layer: shared with the Models tab's own toggle (WindParticlesToggle).
+  windParticles: { label: 'Wind Particles', sublabel: 'Animated wind flow · current model hour', icon: Wind, color: '#ff5a00' },
   routeToSafety: { label: 'Navigation', sublabel: 'Nearest open shelters · hazard-avoiding routes', icon: Navigation, color: '#22c55e' },
 };
 
@@ -76,7 +82,7 @@ const TAB_SECTIONS = {
       title: 'Monitoring & imagery',
       groups: [
         {
-          layers: ['ndgdSmokeForecast', 'smoke', 'droughtOutlook', 'airNowMonitors', 'aqi', 'satellite', 'rawsStations'],
+          layers: ['ndgdSmokeForecast', 'smoke', 'droughtOutlook', 'airNowMonitors', 'aqi', 'satellite', 'lightning', 'rawsStations', 'windParticles'],
         },
       ],
     },
@@ -114,7 +120,7 @@ const TAB_SECTIONS = {
       title: 'Monitoring',
       groups: [
         {
-          layers: ['waterGauges', 'rawsStations', 'airNowMonitors', 'wildfireCameras'],
+          layers: ['waterGauges', 'rawsStations', 'airNowMonitors', 'wildfireCameras', 'windParticles'],
         },
       ],
     },
@@ -126,7 +132,7 @@ const TAB_SECTIONS = {
       groups: [
         {
           // MRMS always shows; its pull-up controls (MrmsPanel) explain when VITE_MRMS_URL isn't set.
-          layers: ['mrms', 'radarSites', 'satellite'],
+          layers: ['mrms', 'radarSites', 'satellite', 'lightning', 'windParticles'],
         },
       ],
     },
@@ -151,9 +157,9 @@ const TAB_SECTIONS = {
   ],
 };
 
-function LayerToggle({ layerKey, label, sublabel, icon: Icon, locked, onToggle }) {
+function LayerToggle({ layerKey, label, sublabel, icon: Icon, locked, onToggle, active: activeOverride }) {
   const { layers, toggleLayer } = useApp();
-  const active = layers[layerKey];
+  const active = activeOverride ?? layers[layerKey];
   const handleClick = onToggle || (() => {
     if (!active) trackSentinelUse('layer_toggle', { layer: layerKey });
     toggleLayer(layerKey);
@@ -274,6 +280,26 @@ function FireRiskDaySelector() {
       <span>+7 days</span>
     </div>
     </div>
+  );
+}
+
+/** Wind particles live in the Models state, so this one setting is the same on every tab. */
+function WindParticlesToggle({ label, sublabel, icon }) {
+  const wm = useWeatherModelsContext();
+  if (!wm) return null;
+  const { particles, setParticles } = wm;
+  return (
+    <LayerToggle
+      layerKey="windParticles"
+      label={label}
+      sublabel={sublabel}
+      icon={icon}
+      active={particles}
+      onToggle={() => {
+        if (!particles) trackSentinelUse('layer_toggle', { layer: 'windParticles' });
+        setParticles(!particles);
+      }}
+    />
   );
 }
 
@@ -553,6 +579,9 @@ const LayerControl = memo(function LayerControl({
                           if (!def) return null;
                           const label = (typeof layerRef === 'object' && layerRef.label) || def.label;
                           const sublabel = (typeof layerRef === 'object' && layerRef.sublabel) || def.sublabel;
+                          if (layerKey === 'windParticles') {
+                            return <WindParticlesToggle key={layerKey} label={label} sublabel={sublabel} icon={def.icon} />;
+                          }
                           return (
                             <div key={layerKey}>
                               <LayerToggle

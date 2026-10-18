@@ -68,6 +68,7 @@ import HazardEventsLayer from './layers/HazardEventsLayer';
 import DamageAssessmentLayer from './layers/DamageAssessmentLayer';
 import MrmsLayer from './layers/MrmsLayer';
 import RadarSitesLayer, { RadarSiteSweepLayer, RADAR_SITES_PILL_ID } from './layers/RadarSitesLayer';
+import LightningLayer from './layers/LightningLayer';
 import { parseAliasIds } from '../../utils/incidentAliases';
 import { ndgdFeatureToDateMs } from '../../utils/ndgdSmokeHours';
 
@@ -515,7 +516,7 @@ const STORM_CLICK_LAYERS = {
  * @param {Object|null} [props.nearbyRadiusGeoJSON] Near-me radius circle (Home Setup radius around live GPS)
  * @param {'wildfire'|'weather'|'allhazard'|'models'} [props.activeMapTab]
  * @param {Function}    [props.onModelPick]  Models tab: a map click picks the forecast point ({lat, lon})
- * @param {Function}    [props.modelOverlay] Models tab: ({ mapStyle, mapboxAccessToken }) => children rendered inside the map
+ * @param {Function|React.ReactNode} [props.modelOverlay] Rendered inside the map: on the Models tab ({ mapStyle, mapboxAccessToken }) => children; elsewhere the wind particles
  * @param {React.ReactNode} [props.routeOverlay] All Hazards Route to Safety layer, rendered inside the map
  * @param {Function}    [props.onRoutePick]  Route to Safety "pick a point": a map click sets the destination ({lng, lat})
  */
@@ -1447,6 +1448,9 @@ export default function MapView({
           perimeterCentroidsGeoJSON={perimeterCentroidsGeoJSON}
           visible={showFireIncidents}
         />
+
+        {/* GOES GLM lightning, last 15 minutes — layerStack.js keeps it above alerts and radar */}
+        <LightningLayer visible={(isWeatherTab || isAllHazardTab) && Boolean(layers.lightning)} />
 
         {/* Radar Site station pills — layerStack.js keeps them above fire points */}
         <RadarSitesLayer />

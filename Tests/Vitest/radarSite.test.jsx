@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { bunzip2 } from '../../src/app/utils/bzip2';
-import { parseLevel3, levelToDbz } from '../../src/app/utils/nexradLevel3';
+import { parseLevel3, levelToValue } from '../../src/app/utils/nexradLevel3';
 import { buildSweep, scanBounds } from '../../src/app/utils/radarSweep';
-import { keyTime, latestScanKey } from '../../src/app/api/nexradLevel3';
+import { downStations, keyTime, latestScanKey } from '../../src/app/api/nexradLevel3';
 
 const b64 = (s) => new Uint8Array(Buffer.from(s, 'base64'));
 
@@ -27,7 +27,7 @@ function symbology() {
 const BZ_SYMBOLOGY = 'QlpoOTFBWSZTWcb0b30AACbgYezQQAAEBBAAAIAAAKAAVEaAACU9QkeoxqeUGJaV9EhxwwkMIWFjXu2y3lSbQjSC6BS6Tp4u5IpwoSGN6N76';
 
 /** A Level 3 TZ0-style product: WMO header + message header + PDB + symbology. */
-function product({ compressed }) {
+function product({ compressed, code = 180, scaleOffset = null }) {
   const wmo = new TextEncoder().encode('SDUS54 KOUN 151950\r\r\nTZ0DAL\r\r\n');
   const head = new DataView(new ArrayBuffer(120));
   head.setInt16(0, 180); // message code
@@ -35,14 +35,19 @@ function product({ compressed }) {
   head.setInt32(20, 32926); // lat ×1000
   head.setInt32(24, -96968); // lon ×1000
   head.setInt16(28, 622);
-  head.setInt16(30, 180); // product code
+  head.setInt16(30, code); // product code
   head.setInt16(34, 90); // VCP
   head.setInt16(40, 20377); // 2025-10-15 (Julian day, 1 = 1970-01-01)
   head.setInt32(42, 19 * 3600 + 45 * 60 + 58);
   head.setInt16(58, 5); // 0.5°
-  head.setInt16(60, -320); // min -32.0 dBZ
-  head.setInt16(62, 5); // 0.5 dBZ steps
-  head.setInt16(64, 254);
+  if (scaleOffset) {
+    head.setFloat32(60, scaleOffset[0]); // dual-pol: float scale, offset
+    head.setFloat32(64, scaleOffset[1]);
+  } else {
+    head.setInt16(60, -320); // min -32.0 dBZ
+    head.setInt16(62, 5); // 0.5 dBZ steps
+    head.setInt16(64, 254);
+  }
   const sym = compressed ? b64(BZ_SYMBOLOGY) : symbology();
   if (compressed) head.setInt16(100, 1);
   else head.setInt32(108, 60); // symbology offset in halfwords
@@ -69,13 +74,27 @@ describe('parseLevel3', () => {
     const scan = parseLevel3(product({ compressed }));
     expect(scan).toMatchObject({
       productCode: 180, lat: 32.926, lon: -96.968, vcp: 90, elevation: 0.5,
-      dbzMin: -32, dbzInc: 0.5, gateKm: 0.15, firstGate: 0, gates: 8,
+      valueMin: -32, valueInc: 0.5, gateKm: 0.15, firstGate: 0, gates: 8,
     });
     expect(new Date(scan.time).toISOString()).toBe('2025-10-15T19:45:58.000Z');
     expect(scan.radials).toHaveLength(4);
     expect(scan.radials[1]).toMatchObject({ start: 90, width: 90 });
-    expect(levelToDbz(scan.radials[0].data[3], scan)).toBe(40);
-    expect(levelToDbz(scan.radials[1].data[0], scan)).toBeNull();
+    expect(levelToValue(scan.radials[0].data[3], scan)).toBe(40);
+    expect(levelToValue(scan.radials[1].data[0], scan)).toBeNull();
+  });
+
+  it('reads velocity like reflectivity, in m/s', () => {
+    const scan = parseLevel3(product({ compressed: false, code: 154 }));
+    expect(scan).toMatchObject({ productCode: 154, gateKm: 0.25 });
+  });
+
+  it.each([
+    [161, [300, -60.5], 2, (2 + 60.5) / 300], // correlation coefficient
+    [159, [16, 128], 144, 1], // differential reflectivity, dB
+  ])('reads dual-pol product %i through its float scale and offset', (code, so, level, value) => {
+    const scan = parseLevel3(product({ compressed: false, code, scaleOffset: so }));
+    expect(scan.gateKm).toBe(0.25);
+    expect(levelToValue(level, scan)).toBeCloseTo(value, 6);
   });
 
   it('rejects unsupported products', () => {
@@ -105,6 +124,15 @@ describe('buildSweep', () => {
     expect(Array.from(sweep.palette.subarray(146 * 4, 147 * 4))).toEqual([0xe5, 0xbc, 0x00, 255]);
     expect(sweep.palette[0 * 4 + 3]).toBe(0);
     expect(sweep.palette[1 * 4 + 3]).toBe(0);
+  });
+
+  it('colours velocity with range-folded gates in purple', () => {
+    const scan = parseLevel3(product({ compressed: false, code: 182 }));
+    const { palette } = buildSweep(scan);
+    expect(Array.from(palette.subarray(4, 8))).toEqual([0x7d, 0x2f, 0xbf, 255]);
+    expect(palette[3]).toBe(0); // below threshold stays transparent
+    // Level 2 is −32 m/s here: strongly inbound → green
+    expect(palette[2 * 4 + 1]).toBeGreaterThan(palette[2 * 4]);
   });
 
   it('bounds the full coverage circle on the sphere', () => {
@@ -141,6 +169,22 @@ describe('latestScanKey', () => {
     expect(fetchMock.mock.calls[1][0]).toContain('prefix=DAL_TZ0_2026_10_14_23_');
   });
 
+  it.each([
+    ['velocity', 'KTLX', 'wsr88d', 'TLX_N0G_'],
+    ['cc', 'KTLX', 'wsr88d', 'TLX_N0C_'],
+    ['zdr', 'KTLX', 'wsr88d', 'TLX_N0X_'],
+    ['velocity', 'TDAL', 'tdwr', 'DAL_TV0_'],
+  ])('lists the %s product for %s', async (kind, id, type, prefix) => {
+    const fetchMock = vi.fn(async () => listing([`${prefix}2026_10_15_19_50_39`]));
+    vi.stubGlobal('fetch', fetchMock);
+    await latestScanKey({ id, type }, { kind, now: Date.UTC(2026, 9, 15, 19, 55) });
+    expect(fetchMock.mock.calls[0][0]).toContain(`prefix=${prefix}2026_10_15_19_`);
+  });
+
+  it('has no correlation coefficient or ZDR for TDWR', async () => {
+    await expect(latestScanKey({ id: 'TDAL', type: 'tdwr' }, { kind: 'cc' })).rejects.toThrow(/Unsupported/);
+  });
+
   it('returns null when the station has no recent scans', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => listing([])));
     expect(await latestScanKey({ id: 'RODN', type: 'wsr88d' })).toBeNull();
@@ -156,7 +200,8 @@ describe('RadarSiteProvider', () => {
 
   it('loads only the selected station and never shows a previous station\'s scan', async () => {
     vi.doMock('../../src/app/api/nexradLevel3', () => ({
-      SITE_PRODUCT: { wsr88d: { code: 'N0B', label: 'Base Reflectivity' } },
+      siteProduct: () => ({ code: 'N0B', label: 'Base Reflectivity' }),
+      fetchDownStations: vi.fn(async () => new Set()),
       latestScanKey: vi.fn(async (site) => `${site.id.slice(1)}_N0B_2026_10_15_20_00_00`),
       fetchScan: vi.fn(async (key) => key),
     }));
@@ -191,5 +236,77 @@ describe('RadarSiteProvider', () => {
     act(() => result.current.clearSite());
     expect(result.current.scan).toBeNull();
     expect(result.current.sweep).toBeNull();
+  });
+
+  it('switches product, never showing the previous product\'s scan, and keeps TDWRs on reflectivity for CC/ZDR', async () => {
+    vi.doMock('../../src/app/api/nexradLevel3', async (orig) => {
+      const real = await orig();
+      return {
+        ...real,
+        latestScanKey: vi.fn(async (site, { kind }) => `${site.id.slice(1)}_${real.siteProduct(site, kind).code}_2026_10_15_20_00_00`),
+        fetchScan: vi.fn(async (key) => key),
+        fetchDownStations: vi.fn(async () => new Set(['KTLX'])),
+      };
+    });
+    vi.doMock('../../src/app/utils/radarSiteRender', () => ({
+      warmRadarScanWorker: vi.fn(),
+      decodeSweepAsync: vi.fn(async (key) => ({ scan: { time: Date.now(), key }, sweep: { key } })),
+    }));
+
+    const { renderHook, act, waitFor } = await import('@testing-library/react');
+    const { RadarSiteProvider, useRadarSiteContext } = await import('../../src/app/context/RadarSiteContext');
+    const wrapper = ({ children }) => <RadarSiteProvider active>{children}</RadarSiteProvider>;
+    const seen = [];
+    const { result } = renderHook(() => {
+      const v = useRadarSiteContext();
+      seen.push([v.kind, v.scan?.key ?? null]);
+      return v;
+    }, { wrapper });
+    await waitFor(() => expect(result.current.sites?.length).toBeGreaterThan(100));
+
+    act(() => result.current.selectSite('KTLX'));
+    await waitFor(() => expect(result.current.scan?.key).toBe('TLX_N0B_2026_10_15_20_00_00'));
+    await waitFor(() => expect(result.current.siteDown).toBe(true));
+    expect(result.current.downIds.has('KTLX')).toBe(true);
+    act(() => result.current.setKind('velocity'));
+    await waitFor(() => expect(result.current.scan?.key).toBe('TLX_N0G_2026_10_15_20_00_00'));
+    expect(result.current.product.label).toBe('Base Velocity');
+    expect(seen.filter(([kind, key]) => kind === 'velocity' && key?.includes('_N0B_'))).toEqual([]);
+
+    act(() => result.current.setKind('cc'));
+    await waitFor(() => expect(result.current.scan?.key).toBe('TLX_N0C_2026_10_15_20_00_00'));
+    const tdwr = result.current.sites.find((s) => s.type === 'tdwr');
+    act(() => result.current.selectSite(tdwr.id));
+    await waitFor(() => expect(result.current.scan?.key).toBe(`${tdwr.id.slice(1)}_TZ0_2026_10_15_20_00_00`));
+    expect(result.current.kind).toBe('reflectivity');
+    expect(result.current.chosenKind).toBe('cc');
+  });
+});
+
+describe('downStations', () => {
+  const NOW = Date.parse('2026-10-18T18:45:00Z');
+  const station = (id, stationType, rda, lastL2) => ({
+    properties: { id, stationType, rda: rda && { properties: rda }, latency: { levelTwoLastReceivedTime: lastL2 } },
+  });
+  const ok = { status: 'Operate', operabilityStatus: 'RDA - On-line' };
+
+  it('flags inoperable radars, non-operating ones, and WSR-88Ds silent for 30 minutes', () => {
+    const down = downStations({
+      features: [
+        station('KLCH', 'WSR-88D', ok, '2026-10-18T18:40:59+00:00'),
+        station('KILN', 'WSR-88D', { status: 'Start-Up', operabilityStatus: 'RDA - Inoperable' }, '2026-10-16T00:00:00+00:00'),
+        station('KLGX', 'WSR-88D', { status: 'Operate', operabilityStatus: 'RDA - Maintenance Action Mandatory' }, '2026-10-17T07:33:00+00:00'),
+        station('KSHV', 'WSR-88D', ok, '2026-10-18T18:00:00+00:00'),
+        station('TTPA', 'TDWR', { status: 'Operate', operabilityStatus: 'RDA - Inoperable' }, '2000-01-01T00:00:00+00:00'),
+        station('TFLL', 'TDWR', ok, '2000-01-01T00:00:00+00:00'), // TDWRs don't send Level 2
+        station('RODN', 'WSR-88D', null, null), // no status: not called down
+      ],
+    }, NOW);
+    expect([...down].sort()).toEqual(['KILN', 'KLGX', 'KSHV', 'TTPA']);
+  });
+
+  it('tolerates an empty or missing feed', () => {
+    expect(downStations(null).size).toBe(0);
+    expect(downStations({ features: [] }).size).toBe(0);
   });
 });
