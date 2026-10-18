@@ -69,7 +69,7 @@ import Sidebar from '../components/Sidebar/Sidebar';
 import MapView from '../components/Map/MapView';
 import MapBottomBar from '../components/BottomBar/MapBottomBar';
 import WeatherModelsPanel from '../components/WeatherModels/WeatherModelsPanel';
-import WeatherModelsMapLayer from '../components/WeatherModels/WeatherModelsMapLayer';
+import WeatherModelsMapLayer, { WindParticlesOverlay } from '../components/WeatherModels/WeatherModelsMapLayer';
 import ModelFieldLegend from '../components/WeatherModels/ModelFieldLegend';
 import ModelLegend from '../components/WeatherModels/ModelLegend';
 import { ROOT_VARS as MODEL_COLOR_VARS } from '../components/WeatherModels/modelTheme';
@@ -90,6 +90,7 @@ import Legend from '../components/Legend/Legend';
 import { MapScaleDock } from '../components/Map/MapScaleBar';
 import { APP_VERSION } from '../version';
 import MapDockSheet from '../components/Map/MapDockSheet';
+import ModelFieldTimeline from '../components/WeatherModels/ModelFieldTimeline';
 import SatelliteStormFocus from '../components/Map/SatelliteStormFocus';
 import { drawsCentroidDot } from '../components/Map/layers/perimeterCentroids';
 import { ndgdForecastHours } from '../utils/ndgdSmokeHours';
@@ -147,6 +148,7 @@ const ALL_HAZARD_LAYER_PRESET = {
   schoolsUniversities: false,
   landOwnership: false,
   floodHazard: false,
+  radarSites: false,
   nhcTropical: true, // on by default; the Weather preset turns it off
 };
 
@@ -185,6 +187,7 @@ const WEATHER_LAYER_PRESET = {
   nhcTropical: false,
   mrms: true,
   radarSites: false,
+  lightning: false,
 };
 
 // Models tab: HRRR/GFS model output only. Every operational layer (alerts,
@@ -1555,7 +1558,7 @@ export default function LiveTrackerPage() {
 
   const satelliteActive = Boolean(layers.satellite) && activeMapTab !== MAP_TABS.models;
   const mrmsActive = Boolean(layers.mrms) && activeMapTab === MAP_TABS.weather;
-  const radarSitesActive = Boolean(layers.radarSites) && activeMapTab === MAP_TABS.weather;
+  const radarSitesActive = Boolean(layers.radarSites) && (activeMapTab === MAP_TABS.weather || activeMapTab === MAP_TABS.allhazard);
   // Pull-up controls sheet (MapDockSheet): every layer control that docks on the
   // bottom bar lives in it. Settled height incl. its tabs (0 when no tab is shown).
   const [dockSheetHeight, setDockSheetHeight] = useState(0);
@@ -1582,7 +1585,22 @@ export default function LiveTrackerPage() {
     setNdgdSmokeHourIndex((i) => Math.min(i, ndgdForecastHoursMs.length - 1));
   }, [ndgdForecastHoursMs]);
 
-  const totalDockedHeight = dockSheetHeight;
+  // Models tab: the forecast-time scrubber stays docked open on the bar (no drawer).
+  const modelsTimeShowing = activeMapTab === MAP_TABS.models;
+  const modelsTimeRef = useRef(null);
+  const [modelsTimeHeight, setModelsTimeHeight] = useState(0);
+  useEffect(() => {
+    const el = modelsTimeRef.current;
+    if (!el) {
+      setModelsTimeHeight(0);
+      return undefined;
+    }
+    const observer = new ResizeObserver(() => setModelsTimeHeight(el.getBoundingClientRect().height));
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [modelsTimeShowing]);
+
+  const totalDockedHeight = dockSheetHeight + (modelsTimeShowing ? modelsTimeHeight : 0);
   const layerPanelDockClearance = totalDockedHeight ? totalDockedHeight + 8 : 0;
 
   return (
@@ -1681,7 +1699,7 @@ export default function LiveTrackerPage() {
             wpcPressureCentersGeoJSON={wpcPressureCentersGeoJSON}
             wpcMpdGeoJSON={wpcMpdGeoJSON}
             onModelPick={activeMapTab === MAP_TABS.models ? handleModelPick : undefined}
-            modelOverlay={activeMapTab === MAP_TABS.models ? (p) => <WeatherModelsMapLayer {...p} /> : null}
+            modelOverlay={activeMapTab === MAP_TABS.models ? (p) => <WeatherModelsMapLayer {...p} /> : <WindParticlesOverlay />}
             routeOverlay={routeOverlay}
             onRoutePick={routeToSafetyActive && routeToSafety.picking ? routeToSafety.actions.pickPoint : undefined}
           />
@@ -1743,10 +1761,25 @@ export default function LiveTrackerPage() {
             onMeasureActivate={onMeasureActivate}
             onMeasureClose={onMeasureClose}
             dockedPanelClearance={layerPanelDockClearance}
+            dockedAttached={modelsTimeShowing}
           />
 
+          {modelsTimeShowing && (
+            <div
+              ref={modelsTimeRef}
+              className="absolute left-1/2 -translate-x-1/2 z-20 overflow-hidden rounded-t-2xl border border-b-0 border-sentinel-600 bg-sentinel-900 shadow-2xl shadow-black/60 animate-dock-rise"
+              style={{
+                bottom: 16 + mapBottomBarSize.height,
+                width: mapBottomBarSize.width ? `max(${mapBottomBarSize.width}px, min(24rem, calc(100vw - 1rem)))` : 'min(24rem, calc(100vw - 1rem))',
+                maxWidth: 'calc(100vw - 1rem)',
+              }}
+            >
+              <ModelFieldTimeline />
+            </div>
+          )}
+
           <SatelliteStormFocus selected={selectedFire} />
-          {/* Every docked layer control (and the Models forecast time) as pull-up tabs on the bar */}
+          {/* Every docked layer control as pull-up tabs on the bar */}
           <MapDockSheet
             activeMapTab={activeMapTab}
             layers={layers}

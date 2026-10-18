@@ -65,6 +65,8 @@ const initialState = {
     mrms: false,
     /** NEXRAD/TDWR radar site pills (Weather tab); the selected site and its scan live in RadarSiteContext */
     radarSites: false,
+    /** GOES GLM lightning flashes, last 15 minutes (Weather and All Hazards tabs), via cloud/lightning */
+    lightning: false,
     /** NHC tropical layers (Weather and All-hazard tabs): one panel
      *  row (nhcTropical) turns the set on/off; the rest pick its parts. On by
      *  default: storms were a permanent layer before they became switchable. */

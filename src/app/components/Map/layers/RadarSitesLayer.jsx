@@ -1,7 +1,8 @@
 /**
  * RadarSitesLayer.jsx
  * Radar Site layer (Weather tab): every NEXRAD (WSR-88D) and TDWR station as
- * a small gray pill holding its station ID (RadarSitesLayer, pinned near the
+ * a small pill holding its station ID (gray; red when NWS reports it down;
+ * the selected one in the Weather tab's blue) (RadarSitesLayer, pinned near the
  * top by layerStack.js), and the latest sweep from the one selected station
  * (RadarSiteSweepLayer: true polar gates via a custom WebGL layer, beneath
  * place labels with the other radar imagery).
@@ -16,11 +17,13 @@ import { useEffect, useMemo, useState } from 'react';
 import { Layer, Source, useMap } from 'react-map-gl';
 import { useRadarSiteContext } from '../../../context/RadarSiteContext';
 import { createRadarSweepLayer } from './radarSweepLayer';
+import { DBZ_MAX } from '../../../utils/radarSweep';
 
 export const RADAR_SITES_PILL_ID = 'radar-sites-pill';
 
 const PILL = 'radar-site-pill';
 const PILL_SELECTED = 'radar-site-pill-selected';
+const PILL_DOWN = 'radar-site-pill-down';
 const EMPTY = { type: 'FeatureCollection', features: [] };
 
 const SWEEP_LAYER_ID = 'radar-site-sweep';
@@ -56,7 +59,8 @@ function pillImage({ fill, stroke }) {
 
 const PILL_STYLES = {
   [PILL]: { fill: 'rgba(75, 85, 99, 0.88)', stroke: 'rgba(255, 255, 255, 0.28)' },
-  [PILL_SELECTED]: { fill: 'rgba(229, 231, 235, 0.96)', stroke: 'rgba(255, 255, 255, 1)' },
+  [PILL_SELECTED]: { fill: 'rgba(2, 132, 199, 0.96)', stroke: 'rgba(255, 255, 255, 0.9)' }, // sky-600, the Weather tab
+  [PILL_DOWN]: { fill: 'rgba(220, 38, 38, 0.9)', stroke: 'rgba(255, 255, 255, 0.35)' }, // red-600
 };
 
 function usePillImages() {
@@ -120,6 +124,16 @@ export function RadarSiteSweepLayer() {
   }, [current, show, layer]);
 
   useEffect(() => { layer.setSweep(sweep); }, [layer, sweep]);
+  const low = radar?.dbzLow ?? 0;
+  const high = radar?.dbzHigh ?? DBZ_MAX;
+  const opacity = radar?.opacity ?? 1;
+  // The Reflectivity Gates filter is in dBZ: other products draw every gate.
+  const filtered = radar?.kind === 'reflectivity';
+  useEffect(() => {
+    if (filtered) layer.setValueRange(low, high >= DBZ_MAX ? null : high);
+    else layer.setValueRange(null, null);
+  }, [layer, filtered, low, high]);
+  useEffect(() => { layer.setOpacity(opacity); }, [layer, opacity]);
 
   return null;
 }
@@ -128,16 +142,16 @@ export function RadarSiteSweepLayer() {
 export default function RadarSitesLayer() {
   const radar = useRadarSiteContext();
   usePillImages();
-  const { active, sites, selectedId } = radar ?? {};
+  const { active, sites, selectedId, downIds } = radar ?? {};
 
   const geoJSON = useMemo(() => (sites ? {
     type: 'FeatureCollection',
     features: sites.map((s) => ({
       type: 'Feature',
       geometry: { type: 'Point', coordinates: [s.lon, s.lat] },
-      properties: { id: s.id, type: s.type, place: s.place, state: s.state },
+      properties: { id: s.id, type: s.type, place: s.place, state: s.state, down: Boolean(downIds?.has(s.id)) },
     })),
-  } : EMPTY), [sites]);
+  } : EMPTY), [sites, downIds]);
 
   const vis = active ? 'visible' : 'none';
   const selected = selectedId ?? '';
@@ -153,7 +167,7 @@ export default function RadarSitesLayer() {
           'text-font': ['DIN Pro Medium', 'Arial Unicode MS Regular'],
           'text-size': 10,
           'text-letter-spacing': 0.04,
-          'icon-image': ['case', ['==', ['get', 'id'], selected], PILL_SELECTED, PILL],
+          'icon-image': ['case', ['==', ['get', 'id'], selected], PILL_SELECTED, ['get', 'down'], PILL_DOWN, PILL],
           'icon-text-fit': 'both',
           'icon-text-fit-padding': [1, 3, 1, 3],
           // Placed first, so the selected station wins collisions; the rest thin out when zoomed out.
@@ -161,7 +175,7 @@ export default function RadarSitesLayer() {
           'icon-padding': 1,
         }}
         paint={{
-          'text-color': ['case', ['==', ['get', 'id'], selected], '#111827', '#f9fafb'],
+          'text-color': '#ffffff',
         }}
       />
     </Source>

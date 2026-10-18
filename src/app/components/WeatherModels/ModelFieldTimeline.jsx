@@ -4,8 +4,8 @@
  * animation. Every step swaps the field frame (and wind) on the map; the
  * next frames are pre-fetched by the map layer, so playback doesn't stall.
  *
- * Shown in the bottom bar's pull-up sheet (DockSheet, via MapDockSheet)
- * under the Models tab's "Forecast Time" tab. The model and variable are
+ * Docked open on the bottom bar's top edge on the Models tab (always shown,
+ * not a pull-up drawer; see LiveTrackerPage). The model and variable are
  * chosen in the bar's Variables pop-up.
  */
 

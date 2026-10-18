@@ -1,9 +1,9 @@
 /**
  * MapDockSheet.jsx
  * The live map's pull-up controls sheet (DockSheet): every layer control that
- * docks on the bottom bar lives here, one tab per layer that is on (plus the
- * Models tab's forecast time). Several can be on at once; each keeps its own
- * tab. Lives inside the layer providers so a tab's grabber can pulse while
+ * docks on the bottom bar lives here, one tab per layer that is on. Several
+ * can be on at once; each keeps its own tab. (The Models tab's forecast time
+ * isn't a drawer: it stays docked open on the bar, see LiveTrackerPage.) Lives inside the layer providers so a tab's grabber can pulse while
  * that layer is loading.
  *
  * To give another layer slider controls, add its tab here.
@@ -20,7 +20,6 @@ import SatellitePanel from './SatellitePanel';
 import SPCOutlookSelector from './SPCOutlookSelector';
 import FireWeatherOutlookSelector from './FireWeatherOutlookSelector';
 import NdgdSmokeTimeSlider from './NdgdSmokeTimeSlider';
-import ModelFieldTimeline from '../WeatherModels/ModelFieldTimeline';
 import NhcTropicalControls from '../LayerControl/NhcTropicalControls';
 
 /** A station's scan is loading. */
@@ -46,9 +45,6 @@ const MapDockSheet = memo(function MapDockSheet({
   const isWeatherish = activeMapTab === 'weather' || activeMapTab === 'allhazard';
 
   const tabs = [];
-  if (activeMapTab === 'models') {
-    tabs.push({ id: 'modelTime', label: 'Forecast Time', content: <ModelFieldTimeline /> });
-  }
   if (mrms?.active) {
     tabs.push({ id: 'mrms', label: 'MRMS Radar', loading: Boolean(mrms.loading && !mrms.manifest), content: <MrmsPanel /> });
   }

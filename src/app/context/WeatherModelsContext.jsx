@@ -3,6 +3,8 @@
  * State for the live map's Models tab: which model (HRRR / GFS / Compare),
  * which compare view (swipe / difference), which variable, which valid time,
  * playback, wind particles, and the point the user clicked to inspect.
+ * Wind particles are one setting shared by every map tab: off the Models tab
+ * they draw the current hour of HRRR (or GFS, if that's the chosen model).
  *
  * The field manifest (what runs, hours and variables exist) is refreshed
  * every 5 minutes while the tab is open, so a new model run shows up without
@@ -61,8 +63,10 @@ export function WeatherModelsProvider({ active, onOpen, apiRef, children }) {
   const loadManifest = useCallback(() => loadFieldManifest()
     .then((manifest) => { setManifestState({ manifest, error: null }); return manifest; }), []);
 
+  // Wind particles can be on from any map tab, so they keep the manifest fresh too.
+  const live = active || particles;
   useEffect(() => {
-    if (!active || !WEATHER_MODEL_SERVICE_URL) return undefined;
+    if (!live || !WEATHER_MODEL_SERVICE_URL) return undefined;
     let cancelled = false;
     const load = () => loadFieldManifest()
       .then((manifest) => { if (!cancelled) setManifestState({ manifest, error: null }); })
@@ -70,7 +74,7 @@ export function WeatherModelsProvider({ active, onOpen, apiRef, children }) {
     load();
     const id = setInterval(load, MANIFEST_REFRESH_MS);
     return () => { cancelled = true; clearInterval(id); };
-  }, [active]);
+  }, [live]);
 
   // Before the tab is opened: connect to the CDN now, and fetch the manifest
   // once the page is idle, so opening the tab doesn't wait on either.

@@ -7,6 +7,11 @@
  * edges follow the beam and the range rings: no north-up pixels, no
  * filtering, no blending between gates.
  *
+ * Only gates whose value is inside the set range are drawn (setValueRange: the
+ * "Reflectivity Gates" L…H on reflectivity, everything otherwise), at the
+ * chosen opacity (setOpacity). Range-folded gates (level 1) skip the range
+ * and draw in the palette's level-1 colour, which only velocity sets.
+ *
  * With globe projection or terrain, Mapbox drapes the layer by calling
  * renderToTile once per tile; otherwise render() draws with the camera matrix.
  */
@@ -36,6 +41,9 @@ uniform usampler2D u_az;      // R16UI: 3600 × 1, radial index + 1 per 0.1°
 uniform sampler2D u_palette;  // RGBA8: 256 × 1
 uniform vec2 u_site;          // station lat, lon (radians)
 uniform vec3 u_gate;          // gate km, first gate, gate count
+uniform vec2 u_value;         // level → value: value at level 2, value per level
+uniform vec2 u_range;         // values shown: low, high
+uniform float u_opacity;
 in vec2 v_merc;
 out vec4 fragColor;
 const float PI = 3.141592653589793;
@@ -59,10 +67,17 @@ void main() {
   if (row == 0u) discard;
 
   uint level = texelFetch(u_data, ivec2(gate, int(row) - 1), 0).r;
+  if (level == 0u) discard;
+  if (level >= 2u) {
+    float value = u_value.x + float(int(level) - 2) * u_value.y;
+    if (value < u_range.x || value > u_range.y) discard;
+  }
   vec4 color = texelFetch(u_palette, ivec2(int(level), 0), 0);
   if (color.a == 0.0) discard;
-  fragColor = color; // opaque, so already premultiplied
+  fragColor = vec4(color.rgb * u_opacity, u_opacity); // premultiplied
 }`;
+
+const NO_LIMIT = 1e9;
 
 const lngToX = (lng) => (lng + 180) / 360;
 const latToY = (lat) => {
@@ -84,7 +99,7 @@ function compile(gl, type, source) {
 
 /**
  * @param {string} id  map layer id
- * @returns {import('mapbox-gl').CustomLayerInterface & { setSweep(sweep: object|null): void }}
+ * @returns {import('mapbox-gl').CustomLayerInterface & { setSweep(sweep: object|null): void, setValueRange(low: number|null, high: number|null): void, setOpacity(o: number): void }}
  */
 export function createRadarSweepLayer(id) {
   let map = null;
@@ -97,6 +112,8 @@ export function createRadarSweepLayer(id) {
   let sweep = null;
   let uploaded = null; // sweep currently in the textures
   let redrape = false;
+  let range = [-NO_LIMIT, NO_LIMIT]; // values shown: low, high
+  let opacity = 1;
 
   function upload() {
     if (uploaded === sweep) return;
@@ -132,6 +149,9 @@ export function createRadarSweepLayer(id) {
     if (tile) gl.uniform3f(loc.tile, 2 ** tile.z, tile.x, tile.y);
     gl.uniform2f(loc.site, (sweep.lat * Math.PI) / 180, (sweep.lon * Math.PI) / 180);
     gl.uniform3f(loc.gate, sweep.gateKm, sweep.firstGate, sweep.gates);
+    gl.uniform2f(loc.value, sweep.valueMin ?? 0, sweep.valueInc ?? 0);
+    gl.uniform2f(loc.range, range[0], range[1]);
+    gl.uniform1f(loc.opacity, opacity);
 
     const units = [[tex.data, loc.data], [tex.az, loc.az], [tex.palette, loc.palette]];
     units.forEach(([t, l], i) => {
@@ -178,6 +198,9 @@ export function createRadarSweepLayer(id) {
         palette: gl.getUniformLocation(prog, 'u_palette'),
         site: gl.getUniformLocation(prog, 'u_site'),
         gate: gl.getUniformLocation(prog, 'u_gate'),
+        value: gl.getUniformLocation(prog, 'u_value'),
+        range: gl.getUniformLocation(prog, 'u_range'),
+        opacity: gl.getUniformLocation(prog, 'u_opacity'),
       };
       vao = gl.createVertexArray();
       gl.bindVertexArray(vao);
@@ -221,6 +244,23 @@ export function createRadarSweepLayer(id) {
     setSweep(next) {
       if (next === sweep) return;
       sweep = next;
+      redrape = true;
+      map?.triggerRepaint();
+    },
+
+    /** Show only gates from low to high (null: no limit on that side). */
+    setValueRange(low, high) {
+      const next = [low ?? -NO_LIMIT, high ?? NO_LIMIT];
+      if (next[0] === range[0] && next[1] === range[1]) return;
+      range = next;
+      redrape = true;
+      map?.triggerRepaint();
+    },
+
+    /** 0 (transparent) … 1 (opaque). */
+    setOpacity(next) {
+      if (next === opacity) return;
+      opacity = next;
       redrape = true;
       map?.triggerRepaint();
     },

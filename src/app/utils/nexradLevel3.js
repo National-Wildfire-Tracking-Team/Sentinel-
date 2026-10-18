@@ -1,19 +1,25 @@
 /**
  * nexradLevel3.js
  * Decoder for the NEXRAD Level 3 digital radial products used by the Radar
- * Site layer (NOAA/NWS ICD 2620001): WSR-88D super-res base reflectivity
- * (N0B, code 153) and TDWR digital base reflectivity (TZ0, code 180). Both
- * carry a bzip2-compressed symbology block holding one Digital Radial Data
- * Array packet (code 16): one byte per range gate per radial.
+ * Site layer (NOAA/NWS ICD 2620001). WSR-88D: base reflectivity (N0B, 153),
+ * base velocity (N0G, 154), differential reflectivity (N0X, 159) and
+ * correlation coefficient (N0C, 161). TDWR: base reflectivity (TZ0, 180)
+ * and base velocity (TV0, 182). All carry a bzip2-compressed symbology block
+ * holding one Digital Radial Data Array packet (code 16): one byte per range
+ * gate per radial.
  *
  * Data levels: 0 = below threshold, 1 = range folded, 2..255 map linearly
- * to dBZ through the product's (minimum, increment) threshold halfwords.
+ * to the product's value (dBZ, m/s, dB or unitless CC). Reflectivity and
+ * velocity give it as (minimum, increment) ×10 threshold halfwords; the
+ * dual-pol products as float scale and offset: value = (level − offset) / scale.
  */
 
 import { bunzip2 } from './bzip2';
 
 /** Range-gate size (km) per supported product code */
-const GATE_KM = { 153: 0.25, 180: 0.15 };
+const GATE_KM = { 153: 0.25, 154: 0.25, 159: 0.25, 161: 0.25, 180: 0.15, 182: 0.15 };
+/** Dual-pol products: threshold halfwords 31–34 hold float scale and offset. */
+const SCALE_OFFSET = new Set([159, 161]);
 
 // Offsets from the start of the message header (ICD Figure 3-6)
 const MSG_HEADER_BYTES = 18;
@@ -45,14 +51,14 @@ function nexradTime(julianDay, seconds) {
 }
 
 /**
- * Parse a Level 3 N0B / TZ0 product.
+ * Parse a Level 3 N0B / N0G / N0X / N0C / TZ0 / TV0 product.
  * @param {ArrayBuffer|Uint8Array} input  raw file bytes
  * @returns {{
  *   productCode: number, lat: number, lon: number, heightFt: number, vcp: number,
  *   elevation: number, time: number,
  *   gateKm: number, firstGate: number, gates: number,
  *   radials: { start: number, width: number, data: Uint8Array }[],
- *   dbzMin: number, dbzInc: number,
+ *   valueMin: number, valueInc: number,  value at level 2, value per level
  * }}
  */
 export function parseLevel3(input) {
@@ -73,10 +79,17 @@ export function parseLevel3(input) {
     vcp: view.getInt16(OFF.vcp),
     elevation: view.getInt16(OFF.elevAngle) / 10,
     time: nexradTime(view.getInt16(OFF.volDate), view.getInt32(OFF.volTime)),
-    dbzMin: view.getInt16(OFF.thresholdMin) / 10,
-    dbzInc: view.getInt16(OFF.thresholdInc) / 10,
     gateKm,
   };
+  if (SCALE_OFFSET.has(productCode)) {
+    const scale = view.getFloat32(OFF.thresholdMin);
+    const offset = view.getFloat32(OFF.thresholdMin + 4);
+    header.valueMin = (2 - offset) / scale;
+    header.valueInc = 1 / scale;
+  } else {
+    header.valueMin = view.getInt16(OFF.thresholdMin) / 10;
+    header.valueInc = view.getInt16(OFF.thresholdInc) / 10;
+  }
 
   // Symbology block: bzip2-compressed (p8 = 1) or raw, starting right after the PDB.
   const compressed = view.getInt16(OFF.compression) === 1;
@@ -114,8 +127,8 @@ export function parseLevel3(input) {
   return { ...header, firstGate, gates, radials };
 }
 
-/** dBZ for a data level (null for below-threshold / range-folded). */
-export function levelToDbz(level, scan) {
+/** Product value (dBZ, m/s, dB, CC) for a data level (null for below-threshold / range-folded). */
+export function levelToValue(level, scan) {
   if (level < 2) return null;
-  return scan.dbzMin + (level - 2) * scan.dbzInc;
+  return scan.valueMin + (level - 2) * scan.valueInc;
 }

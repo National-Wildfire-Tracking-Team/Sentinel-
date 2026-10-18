@@ -46,7 +46,20 @@ const newsletters = [
   },
   {
     title: 'v1.00.02 Update',
-    sections: [{ body: 'Newsletter content for this issue is coming soon.' }],
+    sections: [
+      {
+        heading: 'Toolkit Drawer Improvements',
+        body: 'As more features necessitate the use of individual settings, a new toolkit drawer system has been implemented. The new toolkit drawer was designed to make it easier to change feature settings with multiple in use.',
+      },
+      {
+        heading: 'Site Radar Now Available for All Users',
+        body: 'All users have already had access to MRMS composite radar, but, to make local radar scans more accurate, individual radar sites have been added. Try it out on both the Weather and All Hazards tabs now.',
+      },
+      {
+        heading: 'Lightning Detection Added',
+        body: 'Lightning detection is now live and available for free for all users.',
+      },
+    ],
   },
 ];
 
