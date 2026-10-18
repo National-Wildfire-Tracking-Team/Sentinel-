@@ -48,6 +48,9 @@ function isAvoid(a) {
   return true;
 }
 
+/** Route preferences a client may ask for; anything else is rejected. */
+const PREFERENCES = new Set(['fastest', 'recommended']);
+
 const asResponse = (err) => ({ status: err.status, body: err.body });
 
 export function createHandlers({ supabase, ors, shelterSources, nearestCache, routeCache, log = () => {}, now = Date.now }) {
@@ -131,12 +134,16 @@ export function createHandlers({ supabase, ors, shelterSources, nearestCache, ro
       const origin = body?.origin;
       const destination = body?.destination;
       const avoid = body?.avoid ?? null;
+      const preference = body?.preference ?? null;
       if (!isLngLat(origin) || !isLngLat(destination)) throw bad('origin and destination must be [lng, lat]');
+      if (preference !== null && !PREFERENCES.has(preference)) throw bad('preference must be "fastest" or "recommended"');
+      // Only passed on when asked for, so plain routes keep their call shape and cache key.
+      const pref = preference ? { preference } : {};
       if (!isAvoid(avoid)) throw bad(`avoid must be a Polygon/MultiPolygon (≤ ${MAX_AVOID_POLYGONS} polygons, ≤ ${MAX_AVOID_VERTICES} vertices) or null`);
 
       const { jwt } = await authorize(supabase, headers);
 
-      const key = createHash('sha256').update(JSON.stringify({ origin, destination, avoid })).digest('hex');
+      const key = createHash('sha256').update(JSON.stringify({ origin, destination, avoid, ...pref })).digest('hex');
       const cached = routeCache.get(key);
       if (cached) return { status: 200, body: cached };
 
@@ -147,7 +154,7 @@ export function createHandlers({ supabase, ors, shelterSources, nearestCache, ro
         // false both when none were sent (nothing near the trip) and when the
         // no-avoid fallback below was used; the client warns only for the latter
         // (useRouteToSafety: hazardWarning = Boolean(avoid) && !avoidedHazards).
-        result = { route: await ors.directions({ origin, destination, avoid }), avoidedHazards: Boolean(avoid) };
+        result = { route: await ors.directions({ origin, destination, avoid, ...pref }), avoidedHazards: Boolean(avoid) };
       } catch (err) {
         if (!isNoRoute(err)) throw mapUpstream(err, 'route');
         if (!avoid) return { status: 422, body: { error: 'no_route' } };
@@ -160,7 +167,7 @@ export function createHandlers({ supabase, ors, shelterSources, nearestCache, ro
           throw quotaErr;
         }
         try {
-          result = { route: await ors.directions({ origin, destination, avoid: null }), avoidedHazards: false };
+          result = { route: await ors.directions({ origin, destination, avoid: null, ...pref }), avoidedHazards: false };
         } catch (retryErr) {
           if (isNoRoute(retryErr)) return { status: 422, body: { error: 'no_route' } };
           throw mapUpstream(retryErr, 'route');

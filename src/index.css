@@ -392,3 +392,69 @@ html:not(.dark):not(.site-theme) .btn-glass-fire-adaptive:hover {
 @media (prefers-reduced-motion: reduce) {
   .btn-glass-fire:active { transform: none; }
 }
+
+/* Live map bottom bar: the first step of pulling up the controls sheet (DockSheet)
+   folds the bar's curved top corners out to square (and fades its top edge),
+   so the panel then rises from a straight edge with nothing overhanging.
+   DockSheet sets --dock-sheet-fold (0 curved → 1 square) on the map
+   container per frame, so no transition here. */
+[data-map-bottom-bar][data-sheet-aware] {
+  --bar-round: calc(1 - var(--dock-sheet-fold, 0));
+  border-top-left-radius: calc(1rem * var(--bar-round));
+  border-top-right-radius: calc(1rem * var(--bar-round));
+  border-top-color: rgb(var(--sentinel-200) / var(--bar-round));
+}
+.dark [data-map-bottom-bar][data-sheet-aware] {
+  border-top-color: rgb(var(--sentinel-600) / var(--bar-round));
+}
+
+/* Radar Site drawer sliders (RadarSitePanel): the track is drawn behind the
+   input, so the input itself is just a white thumb. Two .radar-range--dual
+   inputs share one track; only their thumbs take the pointer. */
+.radar-range {
+  -webkit-appearance: none;
+  appearance: none;
+  display: block;
+  width: 100%;
+  height: 1rem;
+  margin: 0;
+  background: transparent;
+  cursor: pointer;
+}
+.radar-range::-webkit-slider-runnable-track { height: 1rem; background: transparent; }
+.radar-range::-moz-range-track { height: 1rem; background: transparent; }
+.radar-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 1rem;
+  height: 1rem;
+  border-radius: 9999px;
+  background: #fff;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.5);
+  cursor: grab;
+  transition: transform 100ms ease-out;
+}
+.radar-range::-moz-range-thumb {
+  width: 1rem;
+  height: 1rem;
+  border: 0;
+  border-radius: 9999px;
+  background: #fff;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.5);
+  cursor: grab;
+  transition: transform 100ms ease-out;
+}
+.radar-range:active::-webkit-slider-thumb { transform: scale(1.15); cursor: grabbing; }
+.radar-range:active::-moz-range-thumb { transform: scale(1.15); cursor: grabbing; }
+.radar-range:focus-visible { outline: none; }
+.radar-range:focus-visible::-webkit-slider-thumb { outline: 2px solid #38bdf8; outline-offset: 2px; }
+.radar-range:focus-visible::-moz-range-thumb { outline: 2px solid #38bdf8; outline-offset: 2px; }
+.radar-range--dual { position: absolute; inset: 0; pointer-events: none; }
+.radar-range--dual::-webkit-slider-thumb { pointer-events: auto; }
+.radar-range--dual::-moz-range-thumb { pointer-events: auto; }
+@media (prefers-reduced-motion: reduce) {
+  /* One selector per rule: a browser drops a whole rule over a pseudo-element it doesn't know. */
+  .radar-range::-webkit-slider-thumb { transition: none; }
+  .radar-range::-moz-range-thumb { transition: none; }
+  .radar-range:active::-webkit-slider-thumb { transform: none; }
+  .radar-range:active::-moz-range-thumb { transform: none; }
+}

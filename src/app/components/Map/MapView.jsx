@@ -13,12 +13,14 @@ import MapZoomControl from './MapZoomControl';
 import { useApp } from '../../context/AppContext';
 import { useAppStatus } from '../../context/AppStatusContext';
 import { useViewport } from '../../context/ViewportContext';
+import { initialViewport, conusPadding, conusFitStep } from '../../utils/conusView';
 import { usePreferences } from '../../context/PreferencesContext';
 import { useWeatherModelsContext } from '../../context/WeatherModelsContext';
 import MapFeaturePopup from './MapFeaturePopup';
 import StormMapPopup from './StormMapPopup';
 import NhcModelTracksLayer from './layers/NhcModelTracksLayer';
 import { useSatelliteContext } from '../../context/SatelliteContext';
+import { useRadarSiteContext } from '../../context/RadarSiteContext';
 import { useNhcModelTracks } from '../../hooks/useNhcModelTracks';
 import { buildCyclones, buildOutlookSystems } from '../../api/nhcTropicalWeather';
 import SpotlightMaskLayer from './layers/SpotlightMaskLayer';
@@ -42,19 +44,16 @@ import SPCOutlookLayer from './layers/SPCOutlookLayer';
 import StormMotionVectorLayer from './layers/StormMotionVectorLayer';
 import EvacuationZonesLayer from './layers/EvacuationZonesLayer';
 import { MeasurementLayer, MeasurementPanel } from './MeasurementTool';
-import SPCOutlookSelector from './SPCOutlookSelector';
 import RAWSLayer from './layers/RAWSLayer';
 import AirNowMonitorsLayer from './layers/AirNowMonitorsLayer';
 import DroughtOutlookLayer from './layers/DroughtOutlookLayer';
 import NdgdSmokeForecastLayer from './layers/NdgdSmokeForecastLayer';
-import NdgdSmokeTimeSlider from './NdgdSmokeTimeSlider';
 import FireWeatherOutlookLayer from './layers/FireWeatherOutlookLayer';
 import WpcEroLayer from './layers/WpcEroLayer';
 import WpcWssiLayer from './layers/WpcWssiLayer';
 import WpcQpfLayer from './layers/WpcQpfLayer';
 import WpcFrontsLayer from './layers/WpcFrontsLayer';
 import WpcMesoscaleDiscussionLayer from './layers/WpcMesoscaleDiscussionLayer';
-import FireWeatherOutlookSelector from './FireWeatherOutlookSelector';
 import CriticalInfrastructureLayer from './layers/CriticalInfrastructureLayer';
 import NationalMapCollegesLayer from './layers/NationalMapCollegesLayer';
 import CaliforniaLandOwnershipLayer from './layers/CaliforniaLandOwnershipLayer';
@@ -68,7 +67,10 @@ import CalFirePerimetersLayer from './layers/CalFirePerimetersLayer';
 import HazardEventsLayer from './layers/HazardEventsLayer';
 import DamageAssessmentLayer from './layers/DamageAssessmentLayer';
 import MrmsLayer from './layers/MrmsLayer';
+import RadarSitesLayer, { RadarSiteSweepLayer, RADAR_SITES_PILL_ID } from './layers/RadarSitesLayer';
+import LightningLayer from './layers/LightningLayer';
 import { parseAliasIds } from '../../utils/incidentAliases';
+import { ndgdFeatureToDateMs } from '../../utils/ndgdSmokeHours';
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN || '';
 const HAS_MAPBOX_TOKEN = Boolean(MAPBOX_TOKEN.trim());
@@ -286,7 +288,13 @@ function buildFeatureRecord(feature, lngLat, alerts, { floodPanel = null } = {})
       };
     }
 
-    case 'user-reports-circle':
+    case 'user-reports-circle': {
+      let evacuationLines;
+      try {
+        evacuationLines = p.evacuation_order_lines_json ? JSON.parse(p.evacuation_order_lines_json) : [];
+      } catch {
+        evacuationLines = [];
+      }
       return {
         type:        'user-report',
         id:          p.id,
@@ -297,7 +305,14 @@ function buildFeatureRecord(feature, lngLat, alerts, { floodPanel = null } = {})
         lng:         lngLat.lng,
         created_at:  p.created_at,
         user_id:     p.user_id,
+        // The official incident this report was linked to (LiveTrackerPage).
+        evacuation_summary:     p.evacuation_summary,
+        evacuation_orders:      num(p.evacuation_orders) || 0,
+        evacuation_warnings:    num(p.evacuation_warnings) || 0,
+        evacuation_order_lines: evacuationLines,
+        aliasIds:               parseAliasIds(p.alias_ids),
       };
+    }
 
     case 'hazard-events-circle':
       return {
@@ -404,15 +419,6 @@ function buildFeatureRecord(feature, lngLat, alerts, { floodPanel = null } = {})
   }
 }
 
-/** NDGD GeoJSON uses epoch ms in `todate` / `Todate` for the valid forecast hour */
-function ndgdFeatureToDateMs(feature) {
-  const p = feature?.properties;
-  if (!p) return null;
-  const raw = p.todate ?? p.Todate;
-  const n = Number(raw);
-  return Number.isFinite(n) ? n : null;
-}
-
 // ─── Base map styles ──────────────────────────────────────────────────────────
 // 'satellite' uses Mapbox's Standard Satellite ("Worldview") style — photoreal
 // satellite imagery with native support for 3D terrain, buildings, and lighting.
@@ -476,12 +482,6 @@ const STORM_CLICK_LAYERS = {
  * @param {object|null} props.damageAssessmentLinesGeoJSON
  * @param {object|null} props.damageAssessmentPolygonsGeoJSON
  * @param {object|null} props.spcOutlooksGeoJSON
- * @param {string}      [props.spcOutlookType]       - active outlook type key
- * @param {string}      [props.spcActiveDay]         - active day key e.g. 'day1'
- * @param {boolean}     [props.spcOutlooksLoading]
- * @param {string|null} [props.spcValidTime]
- * @param {Function}    [props.onSpcOutlookTypeChange]
- * @param {Function}    [props.onSpcActiveDayChange]
  * @param {object|null} props.spcMdGeoJSON
  * @param {object|null} props.userReportsGeoJSON
  * @param {object|null} props.hazardEventsGeoJSON
@@ -512,14 +512,11 @@ const STORM_CLICK_LAYERS = {
  * @param {object|null} [props.nhcWindHazards] - from useNhcWindHazards
  * @param {object|null} props.fireWeatherOutlooksGeoJSON
  * @param {string}      [props.fireWxOutlookType]
- * @param {string}      [props.fireWxActiveDay]
- * @param {Function}    [props.onFireWxOutlookTypeChange]
- * @param {Function}    [props.onFireWxActiveDayChange]
  * @param {Array}       [props.savedLocations]
  * @param {Object|null} [props.nearbyRadiusGeoJSON] Near-me radius circle (Home Setup radius around live GPS)
  * @param {'wildfire'|'weather'|'allhazard'|'models'} [props.activeMapTab]
  * @param {Function}    [props.onModelPick]  Models tab: a map click picks the forecast point ({lat, lon})
- * @param {Function}    [props.modelOverlay] Models tab: ({ mapStyle, mapboxAccessToken }) => children rendered inside the map
+ * @param {Function|React.ReactNode} [props.modelOverlay] Rendered inside the map: on the Models tab ({ mapStyle, mapboxAccessToken }) => children; elsewhere the wind particles
  * @param {React.ReactNode} [props.routeOverlay] All Hazards Route to Safety layer, rendered inside the map
  * @param {Function}    [props.onRoutePick]  Route to Safety "pick a point": a map click sets the destination ({lng, lat})
  */
@@ -541,12 +538,6 @@ export default function MapView({
   damageAssessmentLinesGeoJSON,
   damageAssessmentPolygonsGeoJSON,
   spcOutlooksGeoJSON,
-  spcOutlookType = 'categorical',
-  spcActiveDay = 'day1',
-  spcOutlooksLoading = false,
-  spcValidTime = null,
-  onSpcOutlookTypeChange,
-  onSpcActiveDayChange,
   spcMdGeoJSON,
   userReportsGeoJSON,
   hazardEventsGeoJSON,
@@ -577,9 +568,6 @@ export default function MapView({
   nhcWindHazards = null,
   fireWeatherOutlooksGeoJSON,
   fireWxOutlookType = 'winds_low_humidity',
-  fireWxActiveDay = 'day1',
-  onFireWxOutlookTypeChange,
-  onFireWxActiveDayChange,
   savedLocations = [],
   nearbyRadiusGeoJSON = null,
   measureActive = false,
@@ -592,23 +580,27 @@ export default function MapView({
   wpcWssiGeoJSON,
   wpcQpfGeoJSON,
   wpcFrontsGeoJSON,
+  wpcPressureCentersGeoJSON,
   wpcMpdGeoJSON,
   onMapLoad,
-  mapBottomBarWidth,
-  mapBottomBarHeight,
   // The satellite panel holds the dock above the bottom bar: other layers' docked controls step aside.
-  satelliteDocked = false,
-  spcOutlookPanelRef,
-  fireWxOutlookPanelRef,
+  ndgdForecastHoursMs = [],
+  ndgdSmokeHourIndex = 0,
   onModelPick,
   modelOverlay = null,
   routeOverlay = null,
   onRoutePick,
 }) {
   const { layers, setLayer, selectedFire, selectFire, selectGauge, selectCamera, sidebarOpen, locationGranted, layerPanelOpen, closeLayerPanel, nhcModelTracks } = useApp();
+  const radarSites = useRadarSiteContext();
+  const radarSitesActive = Boolean(radarSites?.active && radarSites.sites);
+  const selectRadarSite = radarSites?.selectSite;
   const satellite = useSatelliteContext();
   const { alerts, userLocation, setUserLocation } = useAppStatus();
   const { viewport, setViewport } = useViewport();
+  // Read on map load: still the opening camera means nothing has moved it yet.
+  const viewportRef = useRef(viewport);
+  useEffect(() => { viewportRef.current = viewport; }, [viewport]);
   const { prefs: displayPrefs } = usePreferences();
   const mapRef = useRef(null);
   // Data Picker: Center (the default) reads the middle of the screen; Mouse reads the clicked spot.
@@ -673,9 +665,6 @@ export default function MapView({
     [showFireIncidents, perimetersGeoJSON],
   );
 
-  /** NDGD smoke: which forecast hour (index into sorted unique `todate` values) */
-  const [ndgdSmokeHourIndex, setNdgdSmokeHourIndex] = useState(0);
-
   // Layer-panel Tropical switches → NHCTropicalWeatherLayer groups.
   const nhcShow = useMemo(() => ({
     cone: Boolean(layers.nhcTropical && layers.nhcCone),
@@ -689,22 +678,6 @@ export default function MapView({
     arrival: Boolean(layers.nhcTropical && layers.nhcArrival),
     surge: Boolean(layers.nhcTropical && layers.nhcSurge),
   }), [layers.nhcTropical, layers.nhcWindProb, layers.nhcWindRadii, layers.nhcArrival, layers.nhcSurge]);
-
-  const ndgdForecastHoursMs = useMemo(() => {
-    const feats = ndgdSmokeForecastGeoJSON?.features;
-    if (!feats?.length) return [];
-    const seen = new Set();
-    for (const f of feats) {
-      const ms = ndgdFeatureToDateMs(f);
-      if (ms != null) seen.add(ms);
-    }
-    return Array.from(seen).sort((a, b) => a - b);
-  }, [ndgdSmokeForecastGeoJSON]);
-
-  useEffect(() => {
-    if (!ndgdForecastHoursMs.length) return;
-    setNdgdSmokeHourIndex((i) => Math.min(i, ndgdForecastHoursMs.length - 1));
-  }, [ndgdForecastHoursMs]);
 
   const ndgdSmokeFilteredGeoJSON = useMemo(() => {
     const feats = ndgdSmokeForecastGeoJSON?.features;
@@ -837,11 +810,12 @@ export default function MapView({
     if ((isWeatherTab || isAllHazardTab) && layers.wpcWssi && wpcWssiGeoJSON?.features?.length) ids.push('wpc-wssi-fill');
     if ((isWeatherTab || isAllHazardTab) && layers.wpcQpf && wpcQpfGeoJSON?.features?.length) ids.push('wpc-qpf-fill');
     if ((isWeatherTab || isAllHazardTab) && layers.wpcFronts && wpcFrontsGeoJSON?.features?.length) {
-      ids.push('wpc-fronts-solid', 'wpc-fronts-dashed', 'wpc-fronts-stationary-line');
+      ids.push('wpc-fronts-solid', 'wpc-fronts-dashed', 'wpc-fronts-squall');
     }
     if ((isWeatherTab || isAllHazardTab) && layers.weatherAlerts && wpcMpdGeoJSON?.features?.length) ids.push('wpc-mpd-fill');
+    if (radarSitesActive) ids.push(RADAR_SITES_PILL_ID);
     return ids;
-  }, [measureActive, isWildfireTab, isWeatherTab, isAllHazardTab, layers.fireHotspots, layers.incidentLocations, layers.aqi,
+  }, [measureActive, radarSitesActive, isWildfireTab, isWeatherTab, isAllHazardTab, layers.fireHotspots, layers.incidentLocations, layers.aqi,
       layers.weatherAlerts, layers.spcWeatherOutlooks, layers.stormReports, layers.evacZones, spcMdGeoJSON,
       layers.rawsStations, layers.airNowMonitors, layers.droughtOutlook, layers.ndgdSmokeForecast, layers.fireWeatherOutlooks,
       layers.damageAssessment,
@@ -901,6 +875,15 @@ export default function MapView({
     if (!features?.length) {
       selectFire(null);
       selectGauge(null);
+      setFeaturePopup(null);
+      return;
+    }
+
+    // Radar site pills are small targets that often sit inside alert
+    // polygons, so a pill under the click wins over whatever is on top.
+    const radarPill = features.find((f) => f.layer.id === RADAR_SITES_PILL_ID);
+    if (radarPill) {
+      selectRadarSite?.(radarPill.properties.id);
       setFeaturePopup(null);
       return;
     }
@@ -1039,7 +1022,7 @@ export default function MapView({
       mouseLngLat: evt.lngLat,
       anchorFeature: records[0].feature,
     });
-  }, [measureActive, alerts, selectFire, selectGauge, selectCamera, layerPanelOpen, closeLayerPanel, onModelPick, onRoutePick, nhcCyclones, nhcOutlookSystems, pickAtCenter]);
+  }, [measureActive, alerts, selectFire, selectGauge, selectCamera, selectRadarSite, layerPanelOpen, closeLayerPanel, onModelPick, onRoutePick, nhcCyclones, nhcOutlookSystems, pickAtCenter]);
 
   // Center picker: once a model point is being inspected, panning keeps it on the screen center.
   useEffect(() => {
@@ -1110,50 +1093,74 @@ export default function MapView({
     setViewport(evt.viewState);
   }, [setViewport]);
 
+  // Opening view: frame the lower 48 between the header (the map's top edge)
+  // and the bottom bar, as tight as it fits. Fitted on the live map so the
+  // globe's curvature is accounted for. Skipped if anything already moved the
+  // camera (a shared incident link, the user panning).
+  //
+  // The map's size can change after load (the Red Flag Warning banner drops in
+  // above it once alerts arrive, or is dismissed), so it re-frames on resize for
+  // as long as the camera is still the one it framed.
+  const autoFrameRef = useRef(null);
+  const frameRunRef = useRef(0);
+  const frameConus = useCallback(async (map) => {
+    const run = ++frameRunRef.current;
+    const canvas = map.getContainer().getBoundingClientRect();
+    const bar = document.querySelector('[data-map-bottom-bar]')?.getBoundingClientRect();
+    // Map bottom edge (it bleeds past the page) up to the top of the bottom bar.
+    const padding = conusPadding(bar ? Math.max(0, canvas.bottom - bar.top) : undefined);
+    const nextFrame = () => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+    for (let i = 0; i < 4; i += 1) {
+      let step;
+      try {
+        step = conusFitStep(map, padding);
+      } catch {
+        return;
+      }
+      if (!step || !Number.isFinite(step.camera.zoom)) return;
+      if (step.done) return;
+      autoFrameRef.current = step.camera;
+      setViewport(step.camera);
+      // Let react-map-gl apply the camera before measuring again.
+      await nextFrame();
+      if (run !== frameRunRef.current || !isAutoFramed()) return;
+    }
+  }, [setViewport]);
+  // True while the camera is still the one frameConus set (nothing else moved it).
+  function isAutoFramed() {
+    const framed = autoFrameRef.current;
+    const v = viewportRef.current;
+    return Boolean(framed) && Math.abs(v.longitude - framed.longitude) < 1e-4
+      && Math.abs(v.latitude - framed.latitude) < 1e-4 && Math.abs(v.zoom - framed.zoom) < 1e-3;
+  }
   const handleMapLoad = useCallback((e) => {
+    const map = e?.target;
+    if (viewportRef.current === initialViewport && typeof map?.project === 'function') {
+      frameConus(map);
+      map.on('resize', () => {
+        // Next frame: react-map-gl syncs the camera after the resize event.
+        if (isAutoFramed()) requestAnimationFrame(() => frameConus(map));
+        else autoFrameRef.current = null;
+      });
+      // Mapbox doesn't always notice its container shrinking when the banner
+      // pushes it down, leaving the canvas taller than the space it has.
+      if (typeof ResizeObserver !== 'undefined') {
+        const container = map.getContainer();
+        let last = container.clientHeight;
+        const ro = new ResizeObserver(() => {
+          if (container.clientHeight === last) return;
+          last = container.clientHeight;
+          map.resize();
+        });
+        ro.observe(container);
+        map.once('remove', () => ro.disconnect());
+      }
+    }
     onMapLoad?.(e);
-  }, [onMapLoad]);
+  }, [onMapLoad, frameConus]);
 
   return (
     <div className="absolute inset-0 bg-sentinel-900">
-      {/* Wildfire tab: fire weather outlook selector only (convective uses combined control on weather tab) —
-          docks flush above MapBottomBar, same as the SPC outlook selector on the Weather/All Hazards tabs. */}
-      {isWildfireTab && layers.fireWeatherOutlooks && !satelliteDocked && (
-        <FireWeatherOutlookSelector
-          ref={fireWxOutlookPanelRef}
-          outlookType={fireWxOutlookType}
-          onOutlookTypeChange={onFireWxOutlookTypeChange}
-          activeDay={fireWxActiveDay}
-          onActiveDayChange={onFireWxActiveDayChange}
-          bottomBarWidth={mapBottomBarWidth}
-          bottomBarHeight={mapBottomBarHeight}
-        />
-      )}
-
-      {isWildfireTab && layers.ndgdSmokeForecast && !satelliteDocked && (
-        <NdgdSmokeTimeSlider
-          forecastHoursMs={ndgdForecastHoursMs}
-          valueIndex={ndgdSmokeHourIndex}
-          onIndexChange={setNdgdSmokeHourIndex}
-        />
-      )}
-
-      {/* Weather + All Hazards tabs: SPC convective outlook selector — docks
-          flush above MapBottomBar. */}
-      {(isWeatherTab || isAllHazardTab) && layers.spcWeatherOutlooks && !satelliteDocked && (
-        <SPCOutlookSelector
-          ref={spcOutlookPanelRef}
-          outlookType={spcOutlookType}
-          onOutlookTypeChange={onSpcOutlookTypeChange}
-          activeDay={spcActiveDay}
-          onActiveDayChange={onSpcActiveDayChange}
-          loading={spcOutlooksLoading}
-          validTime={spcValidTime}
-          bottomBarWidth={mapBottomBarWidth}
-          bottomBarHeight={mapBottomBarHeight}
-        />
-      )}
-
       <Map
         key={mapType}
         ref={mapRef}
@@ -1202,6 +1209,10 @@ export default function MapView({
         {/* NOAA MRMS radar (Weather tab). Visibility, product and frame come
             from MrmsContext, which is active only on the Weather tab with the layer on. */}
         <MrmsLayer />
+
+        {/* Radar Site (Weather tab): the selected station's Level 3 sweep. Its
+            station pills render near the top of the stack, below. */}
+        <RadarSiteSweepLayer />
 
         {/* FEMA flood hazard zones — contextual, so it sits directly above base
             imagery and below alerts, perimeters, incidents, and evac zones */}
@@ -1317,6 +1328,7 @@ export default function MapView({
         {/* WPC surface-analysis fronts (Day 1-3) */}
         <WpcFrontsLayer
           geoJSON={wpcFrontsGeoJSON}
+          centers={wpcPressureCentersGeoJSON}
           visible={(isWeatherTab || isAllHazardTab) && layers.wpcFronts}
         />
 
@@ -1436,6 +1448,12 @@ export default function MapView({
           perimeterCentroidsGeoJSON={perimeterCentroidsGeoJSON}
           visible={showFireIncidents}
         />
+
+        {/* GOES GLM lightning, last 15 minutes — layerStack.js keeps it above alerts and radar */}
+        <LightningLayer visible={(isWeatherTab || isAllHazardTab) && Boolean(layers.lightning)} />
+
+        {/* Radar Site station pills — layerStack.js keeps them above fire points */}
+        <RadarSitesLayer />
 
         {/* Near-me radius — the Home Setup radius around the live location */}
         {nearbyRadiusGeoJSON && (

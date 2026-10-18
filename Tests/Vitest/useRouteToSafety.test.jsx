@@ -14,6 +14,9 @@ beforeEach(() => {
     findNearestShelters: vi.fn().mockResolvedValue({ shelters: [shelter], partial: false }),
     requestRoute: vi.fn().mockResolvedValue({ route, avoidedHazards: true }),
     buildAvoidPolygons: vi.fn().mockReturnValue({ avoid: null, startsInsideHazard: false, endsInsideHazard: false }),
+    findEvacExit: vi.fn().mockReturnValue(null),
+    preferMajorRoads: vi.fn(async (exit) => exit.candidates),
+    nearestMajorRoad: vi.fn().mockResolvedValue(null),
   };
 });
 
@@ -308,6 +311,140 @@ describe('useRouteToSafety', () => {
       await waitFor(() => expect(result.current.status).toBe('routed'));
       expect(deps.getPosition).not.toHaveBeenCalled();
       expect(result.current.destination).toMatchObject({ name: 'High School' });
+    });
+
+    describe('inside an evacuation zone', () => {
+      const exit = {
+        zone: { name: 'Zone 7', level: 'Evacuation Order', isFire: true },
+        candidates: [
+          { point: [-121.01, 38], distanceKm: 1.2, bearing: 270 },
+          { point: [-121, 38.02], distanceKm: 2.5, bearing: 0 },
+        ],
+      };
+
+      it('routes to the nearest exit instead of a shelter', async () => {
+        const evacZonesGeoJSON = { type: 'FeatureCollection', features: [] };
+        const hotspotsGeoJSON = { type: 'FeatureCollection', features: [] };
+        const { result } = render({ evacZonesGeoJSON, hotspotsGeoJSON });
+        await waitFor(() => expect(result.current.status).toBe('ready'));
+        deps.findEvacExit.mockReturnValue(exit);
+        await act(() => result.current.actions.nearestSafety());
+        await waitFor(() => expect(result.current.status).toBe('routed'));
+        expect(deps.findEvacExit).toHaveBeenLastCalledWith({ origin: [-121, 38], evacZones: evacZonesGeoJSON, perimeters: null, hotspots: hotspotsGeoJSON });
+        expect(deps.requestRoute).toHaveBeenCalledTimes(1);
+        expect(deps.requestRoute).toHaveBeenLastCalledWith({ origin: [-121, 38], destination: [-121.01, 38], avoid: null, preference: 'fastest' }, expect.any(Object));
+        expect(result.current.destination).toMatchObject({ lng: -121.01, lat: 38, name: 'Outside evacuation zone' });
+        expect(result.current.exitZone).toEqual(exit.zone);
+      });
+
+      it('works from a manually entered From too', async () => {
+        const { result } = render();
+        await waitFor(() => expect(result.current.status).toBe('ready'));
+        await act(() => result.current.actions.useCoordinates({ lat: 38.5, lng: -121.5, label: 'Start St' }));
+        await waitFor(() => expect(result.current.status).toBe('ready'));
+        deps.findEvacExit.mockReturnValue(exit);
+        deps.getPosition.mockClear();
+        await act(() => result.current.actions.nearestSafety());
+        await waitFor(() => expect(result.current.status).toBe('routed'));
+        expect(deps.getPosition).not.toHaveBeenCalled();
+        expect(deps.findEvacExit).toHaveBeenLastCalledWith(expect.objectContaining({ origin: [-121.5, 38.5] }));
+        expect(result.current.destination).toMatchObject({ name: 'Outside evacuation zone' });
+      });
+
+      it('tries a major-road exit first', async () => {
+        const { result } = render();
+        await waitFor(() => expect(result.current.status).toBe('ready'));
+        const withPool = { ...exit, pool: exit.candidates, accepts: () => true, passesFire: () => false };
+        deps.findEvacExit.mockReturnValue(withPool);
+        deps.preferMajorRoads.mockImplementation(async (e, lookup) => {
+          await lookup([-121.01, 38]);
+          return [{ point: [-121.03, 38.01], major: true }, ...e.candidates];
+        });
+        await act(() => result.current.actions.nearestSafety());
+        await waitFor(() => expect(result.current.status).toBe('routed'));
+        expect(deps.nearestMajorRoad).toHaveBeenCalledWith([-121.01, 38], expect.objectContaining({ signal: expect.any(Object) }));
+        expect(result.current.destination).toMatchObject({ lng: -121.03, lat: 38.01 });
+        expect(result.current.hazardWarning).toBe(false);
+      });
+
+      it('skips a major-road route that passes a fire for the next exit', async () => {
+        const { result } = render();
+        await waitFor(() => expect(result.current.status).toBe('ready'));
+        const passesFire = vi.fn().mockReturnValueOnce(true).mockReturnValue(false);
+        deps.findEvacExit.mockReturnValue({ ...exit, pool: exit.candidates, accepts: () => true, passesFire });
+        deps.preferMajorRoads.mockResolvedValue([{ point: [-121.03, 38.01], major: true }, exit.candidates[0]]);
+        await act(() => result.current.actions.nearestSafety());
+        await waitFor(() => expect(result.current.status).toBe('routed'));
+        expect(deps.requestRoute).toHaveBeenCalledTimes(2);
+        expect(result.current.destination).toMatchObject({ lng: -121.01, lat: 38 });
+        expect(result.current.hazardWarning).toBe(false);
+      });
+
+      it('uses a fire-passing major-road route, with the warning, when nothing else is reachable', async () => {
+        const { result } = render();
+        await waitFor(() => expect(result.current.status).toBe('ready'));
+        deps.findEvacExit.mockReturnValue({ ...exit, pool: exit.candidates, accepts: () => true, passesFire: () => true });
+        deps.preferMajorRoads.mockResolvedValue([{ point: [-121.03, 38.01], major: true }, exit.candidates[0]]);
+        deps.requestRoute
+          .mockResolvedValueOnce({ route, avoidedHazards: true })
+          .mockRejectedValueOnce(Object.assign(new Error('no_route'), { kind: 'no_route' }));
+        await act(() => result.current.actions.nearestSafety());
+        await waitFor(() => expect(result.current.status).toBe('routed'));
+        expect(result.current.destination).toMatchObject({ lng: -121.03, lat: 38.01 });
+        expect(result.current.hazardWarning).toBe(true);
+      });
+
+      it('falls back to the plain exits when the road lookup fails', async () => {
+        const { result } = render();
+        await waitFor(() => expect(result.current.status).toBe('ready'));
+        deps.findEvacExit.mockReturnValue({ ...exit, pool: exit.candidates, accepts: () => true, passesFire: () => false });
+        deps.preferMajorRoads.mockRejectedValue(new Error('network'));
+        await act(() => result.current.actions.nearestSafety());
+        await waitFor(() => expect(result.current.status).toBe('routed'));
+        expect(result.current.destination).toMatchObject({ lng: -121.01, lat: 38 });
+      });
+
+      it('moves on to the next exit when no road reaches the nearest', async () => {
+        const { result } = render();
+        await waitFor(() => expect(result.current.status).toBe('ready'));
+        deps.findEvacExit.mockReturnValue(exit);
+        deps.requestRoute.mockRejectedValueOnce(Object.assign(new Error('no_route'), { kind: 'no_route' }));
+        await act(() => result.current.actions.nearestSafety());
+        await waitFor(() => expect(result.current.status).toBe('routed'));
+        expect(deps.requestRoute).toHaveBeenCalledTimes(2);
+        expect(result.current.destination).toMatchObject({ lng: -121, lat: 38.02 });
+      });
+
+      it('stops at a quota error instead of trying every exit', async () => {
+        const { result } = render();
+        await waitFor(() => expect(result.current.status).toBe('ready'));
+        deps.findEvacExit.mockReturnValue(exit);
+        deps.requestRoute.mockRejectedValueOnce(new RoutingError('quota', { scope: 'user', window: 'day' }));
+        await act(() => result.current.actions.nearestSafety());
+        await waitFor(() => expect(result.current.status).toBe('error'));
+        expect(deps.requestRoute).toHaveBeenCalledTimes(1);
+        expect(result.current.error.kind).toBe('quota');
+      });
+
+      it('reports no route when no exit is reachable', async () => {
+        const { result } = render();
+        await waitFor(() => expect(result.current.status).toBe('ready'));
+        deps.findEvacExit.mockReturnValue(exit);
+        deps.requestRoute.mockRejectedValue(Object.assign(new Error('no_route'), { kind: 'no_route' }));
+        await act(() => result.current.actions.nearestSafety());
+        await waitFor(() => expect(result.current.status).toBe('error'));
+        expect(result.current.error.kind).toBe('no_route');
+      });
+
+      it('choosing a shelter afterwards clears the zone note', async () => {
+        const { result } = render();
+        await waitFor(() => expect(result.current.status).toBe('ready'));
+        deps.findEvacExit.mockReturnValue(exit);
+        await act(() => result.current.actions.nearestSafety());
+        await waitFor(() => expect(result.current.exitZone).not.toBeNull());
+        await act(() => result.current.actions.selectShelter(shelter));
+        expect(result.current.exitZone).toBeNull();
+      });
     });
 
     it('with no shelters nearby it stops at the (empty) list', async () => {

@@ -1,9 +1,10 @@
 /**
  * NhcTropicalControls.jsx
- * Under the single "NHC Tropical" row in the layer panel, while it's on: one
+ * NHC Tropical settings, in the bottom bar's pull-up sheet (DockSheet, via
+ * MapDockSheet) under the "NHC Tropical" tab while that layer is on: one
  * switch per NHC product, in two groups, with the wind-probability threshold
- * picker nested under its switch. The row turns the whole set on or off;
- * these choose which parts draw.
+ * picker nested under its switch. The layer panel's single "NHC Tropical" row
+ * turns the whole set on or off; these choose which parts draw.
  */
 
 import { memo } from 'react';
@@ -62,7 +63,7 @@ const NhcTropicalControls = memo(function NhcTropicalControls() {
   if (!layers.nhcTropical) return null;
 
   return (
-    <div className="px-2 py-2 bg-sentinel-800/70 border-t border-sentinel-700 space-y-2">
+    <div className="px-2 pt-1 pb-2.5 space-y-2" role="group" aria-label="NHC Tropical settings">
       {NHC_SUBLAYER_GROUPS.map((group) => (
         <div key={group.label} role="group" aria-label={group.label}>
           <div className="px-1.5 pb-0.5 text-[9px] font-semibold uppercase tracking-wider text-sentinel-400">{group.label}</div>

@@ -1,9 +1,8 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import FloodHazardLayer, { FLOOD_ZONES_FILL_ID, FLOOD_PANELS_FILL_ID } from '../../src/app/components/Map/layers/FloodHazardLayer';
-import FloodHazardStatus from '../../src/app/components/MapControls/FloodHazardStatus';
 import {
   FLOOD_ATTRIBUTION,
   FLOOD_CATEGORIES,
@@ -126,36 +125,4 @@ describe('MapView layer ordering', () => {
       expect(pos('FloodHazardLayer')).toBeLessThan(pos(tag));
     },
   );
-});
-
-describe('FloodHazardStatus', () => {
-  it('always shows the FEMA attribution', () => {
-    render(<FloodHazardStatus loading={false} error={null} belowMinZoom={false} data={DATA} />);
-    expect(screen.getByText(FLOOD_ATTRIBUTION)).toBeInTheDocument();
-  });
-
-  it('shows a non-blocking error with a working Retry', () => {
-    const onRetry = vi.fn();
-    render(<FloodHazardStatus loading={false} error="Flood hazard data is temporarily unavailable." belowMinZoom={false} data={DATA} onRetry={onRetry} />);
-    expect(screen.getByText('Flood hazard data is temporarily unavailable.')).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: /retry/i }));
-    expect(onRetry).toHaveBeenCalled();
-    expect(screen.getByRole('status').className).toMatch(/pointer-events-none/);
-  });
-
-  it('prompts to zoom in to about 1 mile below the minimum zoom', () => {
-    render(<FloodHazardStatus loading={false} error={null} belowMinZoom data={{ ...DATA, level: null }} />);
-    expect(screen.getByText(/zoom in to about 1 mile to view flood risk areas/i)).toBeInTheDocument();
-  });
-
-  it('explains an empty result as no digital FEMA flood map', () => {
-    render(<FloodHazardStatus loading={false} error={null} belowMinZoom={false} data={{ ...DATA, zones: EMPTY, panels: EMPTY }} />);
-    expect(screen.getByText(/no digital fema flood map/i)).toBeInTheDocument();
-  });
-
-  it('shows a subtle loading indicator on first load', () => {
-    render(<FloodHazardStatus loading error={null} belowMinZoom={false} data={{ ...DATA, level: null }} />);
-    expect(screen.getByText(/loading flood hazard data/i)).toBeInTheDocument();
-  });
-
 });

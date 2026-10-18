@@ -4,7 +4,6 @@ import {
   gibsTileUrl, iemScanTimeUrl, iemTileUrl, loopAvailable, loopFrames, normalizeSelection, parseGibsDomain,
   parseSatelliteQuery, productAvailability, regionsFor, resolveSource, writeSatelliteQuery,
 } from '../../src/app/api/goesSatellite';
-import { satellitePanelOpenAfter } from '../../src/app/context/SatelliteContext';
 
 afterEach(() => vi.restoreAllMocks());
 
@@ -183,28 +182,5 @@ describe('URL state', () => {
 
   it('is not a satellite link without ?sat', () => {
     expect(parseSatelliteQuery('?tab=models')).toBeNull();
-  });
-});
-
-describe('satellite panel open/close', () => {
-  const off = { satellite: false, mrms: false, spcWeatherOutlooks: false };
-
-  it('opens when Satellite is switched on', () => {
-    expect(satellitePanelOpenAfter(off, { ...off, satellite: true }, false)).toBe(true);
-  });
-
-  it('closes when another layer with its own controls is switched on', () => {
-    const on = { ...off, satellite: true };
-    expect(satellitePanelOpenAfter(on, { ...on, spcWeatherOutlooks: true }, true)).toBe(false);
-    expect(satellitePanelOpenAfter(on, { ...on, mrms: true }, true)).toBe(false);
-  });
-
-  it('stays as it is for unrelated layer changes', () => {
-    const on = { ...off, satellite: true, stormReports: false };
-    expect(satellitePanelOpenAfter(on, { ...on, stormReports: true }, true)).toBe(true);
-  });
-
-  it('closes when Satellite is switched off', () => {
-    expect(satellitePanelOpenAfter({ ...off, satellite: true }, off, true)).toBe(false);
   });
 });

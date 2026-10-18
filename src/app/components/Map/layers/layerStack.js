@@ -7,7 +7,7 @@
  * of everything. applyLayerStack moves these groups to the top, bottom to top:
  *
  *   NWS alerts → evacuation zones → fire perimeters → fire points
- *   → map tools (Route to Safety, measurement, selection spotlight)
+ *   → surface fronts, then highs/lows → lightning → radar site pills → map tools (Route to Safety, measurement, selection spotlight)
  *   → country/state borders
  *
  * Every other layer stays below, in its existing order. Groups match layers
@@ -19,6 +19,10 @@ const STACK_GROUPS = [
   (s) => s === 'evac-zones',
   (s) => s === 'fire-perimeters' || s === 'fire-perimeter-centroids',
   (s) => s === 'incident-locations',
+  (s) => s === 'wpc-fronts',
+  (s) => s === 'wpc-pressure-centers',
+  (s) => s === 'lightning',
+  (s) => s === 'radar-sites',
   (s) => s.startsWith('route-safety-') || s.startsWith('measure-') || s.startsWith('selected-feature-spotlight'),
   (s) => s === 'country-outlines' || s === 'state-boundaries',
 ];

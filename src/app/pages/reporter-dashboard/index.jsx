@@ -31,6 +31,7 @@ import ManageIncidentsTab from './ManageIncidentsTab';
 import ExternalIncidentsTab from './ExternalIncidentsTab';
 import EvacZonesTab from './EvacZonesTab';
 import EventReportsTab from './EventReportsTab';
+import { useExternalIncidents } from './useExternalIncidents';
 
 const TAB_META = {
   add:       { title: 'Add New Incident', subtitle: 'Submit a new wildfire incident. Complete all required (*) fields and click Submit.' },
@@ -50,6 +51,9 @@ export default function ReporterDashboardPage() {
   const { zones: allEvacZones, loading: evacZonesLoading, refresh: refreshEvacZones } = useReporterEvacZones('all');
   const { reports: allReports, loading: reportsLoading, refresh: refreshReports } = useFireReports('all');
   const { events: allHazardEvents, refresh: refreshHazardEvents } = useHazardEvents('all');
+  // Manage links reporter incidents to the CAL FIRE / IRWIN incident CAL FIRE
+  // later lists for the same fire; External lists them.
+  const external = useExternalIncidents(activeTab === 'manage' || activeTab === 'external');
 
   const manageableReports = useMemo(
     () => allReports.filter((r) => r.status !== 'rejected'),
@@ -269,6 +273,7 @@ export default function ReporterDashboardPage() {
         {activeTab === 'manage' && (
           <ManageIncidentsTab
             reports={manageableReports}
+            externalIncidents={external.incidents}
             loading={reportsLoading}
             profile={profile}
             userId={user.id}
@@ -276,7 +281,16 @@ export default function ReporterDashboardPage() {
           />
         )}
         {activeTab === 'external' && (
-          <ExternalIncidentsTab profile={profile} userId={user.id} />
+          <ExternalIncidentsTab
+            profile={profile}
+            userId={user.id}
+            incidents={external.incidents}
+            loading={external.loading}
+            error={external.error}
+            onRefresh={external.refresh}
+            reports={manageableReports}
+            onReportsRefresh={refreshReports}
+          />
         )}
         {activeTab === 'evaczones' && (
           <EvacZonesTab

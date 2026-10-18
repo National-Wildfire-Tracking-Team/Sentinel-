@@ -27,7 +27,7 @@ import { usePreloadFrames } from '../../hooks/usePreloadFrames';
 import ModelInspectPopup from './ModelInspectPopup';
 import SwipeCompare from './SwipeCompare';
 import WindParticles from './WindParticles';
-import { zulu } from './modelTheme';
+import { nowIndex, zulu } from './modelTheme';
 import { hafsBase, hafsFrameUrl } from '../../api/hafs';
 import { hafsPrefetchPlan } from '../../utils/hafsSelection';
 
@@ -185,4 +185,26 @@ function HafsOverlay() {
     model: sel.model, cycle: sel.cycle, storm: sel.storm.id, domain: sel.domain, field: variable, hour: frame.hour,
   });
   return <ModelFieldLayer key={`hafs-${sel.domain}`} id="wm-hafs-field" url={url} coordinates={frame.coordinates} paint={paint} />;
+}
+
+/**
+ * The other map tabs: just the wind particles (when on), from the current
+ * hour of HRRR, or GFS if that's the model chosen on the Models tab.
+ */
+export function WindParticlesOverlay() {
+  const wm = useWeatherModelsContext();
+  const base = fieldsBase();
+  const manifest = wm?.manifest;
+  if (!wm?.particles || !manifest || !base) return null;
+  const model = wm.mode === 'gfs' ? 'gfs' : 'hrrr';
+  const m = manifest.models[model];
+  const times = m?.current.validTimes ?? [];
+  if (!m?.wind || !times.length) return null;
+  const hour = hourAt(manifest, model, times[nowIndex(times.map((t) => ({ validTime: t })))]);
+  if (hour == null) return null;
+  return (
+    <ModelLayerBoundary>
+      <WindParticles url={windUrl(base, manifest, model, hour)} coordinates={m.wind.coordinates} range={m.wind.range} />
+    </ModelLayerBoundary>
+  );
 }

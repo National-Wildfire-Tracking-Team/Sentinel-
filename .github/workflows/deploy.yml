@@ -51,6 +51,7 @@ jobs:
           # service isn't configured; nothing else in the app changes.
           VITE_WEATHER_MODEL_SERVICE_URL: ${{ secrets.VITE_WEATHER_MODEL_SERVICE_URL }}
           VITE_MRMS_URL: ${{ secrets.VITE_MRMS_URL }}
+          VITE_LIGHTNING_URL: ${{ secrets.VITE_LIGHTNING_URL }}
           # Navigation (Route to Safety, Pro) — cloud/ors-routing behind the
           # data-services CloudFront at /ors-routing; see its README.md.
           # Unset: the panel says routing isn't configured.

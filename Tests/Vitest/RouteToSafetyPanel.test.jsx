@@ -12,7 +12,7 @@ vi.mock('../../src/app/utils/geocode', () => ({
 
 const base = {
   status: 'ready', origin: [-121, 38], originLabel: 'My location', shelters: [], partial: false,
-  destination: null, route: null, avoidedHazards: false, hazardWarning: false, startsInsideHazard: false, picking: false, error: null,
+  destination: null, route: null, avoidedHazards: false, hazardWarning: false, startsInsideHazard: false, exitZone: null, picking: false, error: null,
 };
 const actions = () => ({
   useMyLocation: vi.fn(), useHome: vi.fn(), useAddress: vi.fn(), useCoordinates: vi.fn(), selectShelter: vi.fn(),
@@ -331,6 +331,36 @@ describe('RouteToSafetyPanel', () => {
     expect(screen.queryByText(/passes through or near an active hazard/)).toBeNull();
   });
 
+  describe('routed out of an evacuation zone', () => {
+    const exitDest = { lng: -121.01, lat: 38, name: 'Outside evacuation zone' };
+
+    it('explains a fire-zone exit and heads away from fire', () => {
+      renderPanel({ status: 'routed', destination: exitDest, route, exitZone: { name: 'Zone 7', level: 'Evacuation Order', isFire: true } });
+      expect(screen.getByTestId('exit-zone-note')).toHaveTextContent(
+        "You're inside a fire Evacuation Order (Zone 7). This is the quickest way out, heading away from nearby fires. "
+        + 'Always avoid active fires, thick smoke significantly reducing visibility, and flooded roadways.',
+      );
+    });
+
+    it('explains a non-fire exit', () => {
+      renderPanel({ status: 'routed', destination: exitDest, route, exitZone: { name: null, level: 'Evacuation Warning', isFire: false } });
+      expect(screen.getByTestId('exit-zone-note')).toHaveTextContent(
+        "You're inside an Evacuation Warning. This is the quickest way out of the zone. "
+        + 'Always avoid active fires, thick smoke significantly reducing visibility, and flooded roadways.',
+      );
+    });
+
+    it('hides Back to shelters when no shelter list was loaded', () => {
+      renderPanel({ status: 'routed', destination: exitDest, route, shelters: [], exitZone: { name: null, level: 'Evacuation Order', isFire: false } });
+      expect(screen.queryByRole('button', { name: 'Back to shelters' })).not.toBeInTheDocument();
+    });
+
+    it('says it is finding the way out while routing', () => {
+      renderPanel({ status: 'routing', exitZone: { name: null, level: 'Evacuation Order', isFire: false } });
+      expect(screen.getByTestId('route-status')).toHaveTextContent('Finding the way out of the evacuation zone…');
+    });
+  });
+
   it('shows each shelter kind label (FEMA reads Evacuation Center)', () => {
     const sentinelOther = { ...shelter, id: 'sentinel:2', source: 'sentinel', name: 'Church Hall', kind: 'other' };
     renderPanel({ shelters: [shelter, sentinelOther] });
@@ -350,5 +380,50 @@ describe('RouteToSafetyPanel', () => {
       expect(screen.getByText(`You've reached today's routing limit. It resets at ${expected}.`)).toBeInTheDocument();
       expect(screen.queryByText(/UTC/)).toBeNull();
     });
+  });
+});
+
+describe('RouteToSafetyPanel — dragging', () => {
+  const header = () => screen.getByRole('region', { name: 'Navigation' }).querySelector('header');
+  const panel = () => screen.getByRole('region', { name: 'Navigation' });
+
+  it('moves with the pointer while its header is held, and stops on release', () => {
+    renderPanel({ shelters: [shelter] });
+    const h = header();
+    h.setPointerCapture = vi.fn();
+    fireEvent.pointerDown(h, { pointerId: 1, button: 0, buttons: 1, clientX: 100, clientY: 100 });
+    fireEvent.pointerMove(h, { pointerId: 1, buttons: 1, clientX: 60, clientY: 140 });
+    expect(panel().style.transform).toBe('translate(-40px, 40px)');
+    fireEvent.pointerUp(h, { pointerId: 1, clientX: 60, clientY: 140 });
+    fireEvent.pointerMove(h, { pointerId: 1, buttons: 0, clientX: 0, clientY: 0 });
+    expect(panel().style.transform).toBe('translate(-40px, 40px)');
+  });
+
+  it('stops following if the release was missed, and leaves header buttons working', () => {
+    const onClose = vi.fn();
+    render(<RouteToSafetyPanel state={{ ...base, shelters: [shelter] }} actions={actions()} onClose={onClose} hasHome />);
+    const h = header();
+    h.setPointerCapture = vi.fn();
+    fireEvent.pointerDown(h, { pointerId: 1, button: 0, buttons: 1, clientX: 100, clientY: 100 });
+    fireEvent.pointerMove(h, { pointerId: 1, buttons: 0, clientX: 300, clientY: 300 }); // no button held
+    expect(panel().style.transform).toBe('');
+
+    const close = screen.getByRole('button', { name: 'Close Navigation' });
+    fireEvent.pointerDown(close, { pointerId: 2, button: 0, buttons: 1, clientX: 10, clientY: 10 });
+    fireEvent.pointerMove(h, { pointerId: 2, buttons: 1, clientX: 90, clientY: 90 });
+    expect(panel().style.transform).toBe(''); // pressing a control doesn't start a drag
+    fireEvent.click(close);
+    expect(onClose).toHaveBeenCalled();
+  });
+
+  it('goes back to its corner on a header double-click', () => {
+    renderPanel({ shelters: [shelter] });
+    const h = header();
+    h.setPointerCapture = vi.fn();
+    fireEvent.pointerDown(h, { pointerId: 1, button: 0, buttons: 1, clientX: 100, clientY: 100 });
+    fireEvent.pointerMove(h, { pointerId: 1, buttons: 1, clientX: 50, clientY: 50 });
+    fireEvent.pointerUp(h, { pointerId: 1 });
+    fireEvent.doubleClick(h);
+    expect(panel().style.transform).toBe('');
   });
 });

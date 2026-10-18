@@ -4,12 +4,12 @@
  *   - Outlook type tabs (Wind & RH / Dry Lightning)
  *   - Day pill selector (Day 1 – Day 8)
  *
- * Docked flush above MapBottomBar and matched to its width — mirrors
- * SPCOutlookSelector.jsx so every bottom-bar control grows out of the same
- * bar instead of floating independently.
+ * Shown in the bottom bar's pull-up sheet (DockSheet, via MapDockSheet)
+ * under its own tab while the layer is on.
+ * Mirrors SPCOutlookSelector.jsx.
  */
 
-import { memo, forwardRef } from 'react';
+import { memo } from 'react';
 import { FIRE_WX_OUTLOOK_TYPES, FIRE_WX_DAYS, FIRE_WX_LAYER_ID_MAP } from '../../api/spcFireWeatherOutlooks';
 
 const TYPE_ICONS = {
@@ -35,14 +35,12 @@ const TYPE_DESCRIPTIONS = {
   dry_thunderstorm:   'Isolated/Scattered dry thunderstorm risk (lightning with little rain)',
 };
 
-const FireWeatherOutlookSelector = memo(forwardRef(function FireWeatherOutlookSelector({
+const FireWeatherOutlookSelector = memo(function FireWeatherOutlookSelector({
   outlookType,
   onOutlookTypeChange,
   activeDay,
   onActiveDayChange,
-  bottomBarWidth,
-  bottomBarHeight,
-}, ref) {
+}) {
   const colors = TYPE_COLORS[outlookType] || TYPE_COLORS.winds_low_humidity;
 
   function handleTypeChange(newType) {
@@ -81,22 +79,9 @@ const FireWeatherOutlookSelector = memo(forwardRef(function FireWeatherOutlookSe
   }
 
   return (
-    <div
-      ref={ref}
-      role="group"
-      aria-label="SPC Fire Weather Outlook selector"
-      className="absolute bottom-20 left-1/2 -translate-x-1/2 z-20 w-[min(34rem,calc(100vw-2rem))]
-                    bg-sentinel-900 border border-sentinel-600 rounded-t-2xl shadow-2xl shadow-black/60 ring-1 ring-white/10
-                    overflow-hidden animate-dock-rise"
-      style={{
-        width: bottomBarWidth ? `${bottomBarWidth}px` : undefined,
-        bottom: bottomBarHeight ? `${bottomBarHeight + 16}px` : undefined,
-        maxWidth: 'calc(100vw - 1rem)',
-      }}
-    >
-      {/* Capped so a short viewport never pushes this above the header —
-          content scrolls internally instead of growing the popup taller. */}
-      <div className="max-h-[45vh] overflow-y-auto">
+    <div role="group" aria-label="SPC Fire Weather Outlook selector">
+      {/* The dock sheet caps its height and scrolls this when it doesn't fit. */}
+      <div>
         {/* ── Type tab bar ── */}
         <div className="flex items-stretch border-b border-sentinel-700">
           {FIRE_WX_OUTLOOK_TYPES.map(type => {
@@ -140,6 +125,6 @@ const FireWeatherOutlookSelector = memo(forwardRef(function FireWeatherOutlookSe
       </div>
     </div>
   );
-}));
+});
 
 export default FireWeatherOutlookSelector;

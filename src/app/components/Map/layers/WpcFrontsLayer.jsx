@@ -1,144 +1,113 @@
 /**
  * WpcFrontsLayer.jsx
- * Renders WPC surface-analysis fronts (Day 1-3) using standardized surface
- * chart symbology: cold (blue triangles), warm (red semicircles), occluded
- * (purple, alternating semicircle/triangle), stationary (alternating red
- * semicircle / blue triangle on opposite sides) — plus trough (amber
- * dashed, no pips). The colored/dashed line itself is drawn by two Layers
- * split on the pre-computed `dashed` boolean (line-dasharray isn't
- * data-driven in MapLibre); the pips are a separate symbol layer built by
- * `buildFrontPipPoints`, since a repeating line-pattern can't rotate to
- * follow a curving line.
+ * WPC surface fronts and pressure centers drawn the way NOAA's surface
+ * analysis maps draw them:
+ *   - fronts as repeating line patterns (frontSymbols.js): blue triangles
+ *     (cold), red semicircles (warm), purple alternating (occluded),
+ *     red/blue alternating on opposite sides (stationary), open brown
+ *     semicircles (dryline) — symbols facing the way the front moves;
+ *   - troughs as dashed brown lines, squall lines as dash-dot purple;
+ *   - highs as a blue "H" and lows as a red "L", with the central pressure
+ *     (mb) beneath when the source gives it (the live analysis does).
  */
 
-import { memo, useEffect, useMemo, useState } from 'react';
+import { memo, useEffect } from 'react';
 import { Source, Layer, useMap } from 'react-map-gl';
-import { buildFrontPipPoints, buildIconSvg, buildStationaryLineSegments, FRONT_ICON_DEFS } from './frontSymbols';
+import { FRONT_PATTERNS, PATTERN_BY_TYPE, TILE_HEIGHT, renderFrontPattern } from './frontSymbols';
 
 const EMPTY_GEOJSON = { type: 'FeatureCollection', features: [] };
 
-const LINE_COLOR_FALLBACK = [
-  'match', ['get', 'frontType'],
-  'COLD',       '#2E6FDB',
-  'WARM',       '#DB2E2E',
-  'STATIONARY', '#9B59B6',
-  'OCCLUDED',   '#7B4FA6',
-  'TROUGH',     '#D97706',
-  '#9B59B6',
+const PATTERNED = ['has', ['get', 'frontType'], ['literal', PATTERN_BY_TYPE]];
+const LINE_PATTERN = ['get', ['get', 'frontType'], ['literal', PATTERN_BY_TYPE]];
+// The pattern tile is scaled to the line's width, so this sets the symbols' size.
+const PATTERN_WIDTH = ['interpolate', ['linear'], ['zoom'], 2, TILE_HEIGHT * 0.75, 5, TILE_HEIGHT, 8, TILE_HEIGHT * 1.15, 11, TILE_HEIGHT * 1.3];
+const PLAIN_WIDTH = ['interpolate', ['linear'], ['zoom'], 2, 1.6, 6, 2.4, 10, 3.2];
+
+const HL_COLOR = ['match', ['get', 'kind'], 'H', '#0050FF', '#FF0000'];
+const HL_TEXT = [
+  'case',
+  ['!=', ['get', 'pressure'], null],
+  ['format', ['get', 'kind'], { 'font-scale': 1 }, '\n', {}, ['to-string', ['get', 'pressure']], { 'font-scale': 0.5 }],
+  ['get', 'kind'],
 ];
 
-const LINE_COLOR = ['case', ['!=', ['get', 'color'], null], ['get', 'color'], LINE_COLOR_FALLBACK];
-// Stationary fronts are rendered by their own alternating red/blue segment
-// layer below, so they're filtered out of both of these.
-const NOT_STATIONARY = ['!=', ['get', 'frontType'], 'STATIONARY'];
-const LINE_WIDTH = ['interpolate', ['linear'], ['zoom'], 3, 2.2, 7, 3.4, 10, 4.6];
-const PIP_ICON_SIZE = ['interpolate', ['linear'], ['zoom'], 3, 0.7, 7, 1.05, 10, 1.4];
-
-const WpcFrontsLayer = memo(function WpcFrontsLayer({ geoJSON, visible }) {
-  const { current: map } = useMap();
-  const [iconsReady, setIconsReady] = useState(false);
-  const vis = visible ? 'visible' : 'none';
-
+/** Register the pattern tiles with the map, and again whenever the style reloads. */
+function useFrontPatterns() {
+  const { current } = useMap();
   useEffect(() => {
-    if (!map) return;
+    const map = current?.getMap();
+    if (!map) return undefined;
+    const add = (id) => {
+      if (!FRONT_PATTERNS[id] || map.hasImage(id)) return;
+      const { image, options } = renderFrontPattern(id);
+      map.addImage(id, image, options);
+    };
+    const addAll = () => Object.keys(FRONT_PATTERNS).forEach(add);
+    const onMissing = (e) => add(e.id);
+    if (map.isStyleLoaded()) addAll();
+    map.on('style.load', addAll);
+    map.on('styleimagemissing', onMissing);
+    return () => {
+      map.off('style.load', addAll);
+      map.off('styleimagemissing', onMissing);
+    };
+  }, [current]);
+}
 
-    function registerIcons() {
-      const entries = Object.entries(FRONT_ICON_DEFS);
-      const missing = entries.filter(([id]) => !map.hasImage(id));
-      if (missing.length === 0) {
-        setIconsReady(true);
-        return;
-      }
-      let pending = missing.length;
-      missing.forEach(([id, def]) => {
-        const img = new Image(22, 32);
-        img.onload = () => {
-          if (!map.hasImage(id)) {
-            try {
-              map.addImage(id, img);
-            } catch {
-              // ignore — style may have reloaded mid-flight
-            }
-          }
-          pending -= 1;
-          if (pending <= 0) setIconsReady(true);
-        };
-        img.src = `data:image/svg+xml;base64,${btoa(buildIconSvg(def))}`;
-      });
-    }
-
-    function onStyleData() {
-      const missingAny = Object.keys(FRONT_ICON_DEFS).some((id) => !map.hasImage(id));
-      if (missingAny) {
-        setIconsReady(false);
-        registerIcons();
-      }
-    }
-
-    map.on('styledata', onStyleData);
-    if (map.isStyleLoaded()) registerIcons();
-
-    return () => map.off('styledata', onStyleData);
-  }, [map]);
-
-  const pipGeoJSON = useMemo(() => buildFrontPipPoints(geoJSON || EMPTY_GEOJSON), [geoJSON]);
-  const stationaryGeoJSON = useMemo(
-    () => buildStationaryLineSegments(geoJSON || EMPTY_GEOJSON),
-    [geoJSON]
-  );
+const WpcFrontsLayer = memo(function WpcFrontsLayer({ geoJSON, centers, visible }) {
+  useFrontPatterns();
+  const vis = visible ? 'visible' : 'none';
 
   return (
     <>
       <Source id="wpc-fronts" type="geojson" data={geoJSON || EMPTY_GEOJSON}>
-        <Layer
-          id="wpc-fronts-solid"
-          type="line"
-          source="wpc-fronts"
-          filter={['all', ['!=', ['get', 'dashed'], true], NOT_STATIONARY]}
-          layout={{ visibility: vis, 'line-cap': 'round', 'line-join': 'round' }}
-          paint={{ 'line-color': LINE_COLOR, 'line-opacity': 0.9, 'line-width': LINE_WIDTH }}
-        />
+        {/* Troughs (dashed brown) and squall lines (dash-dot purple): no symbols */}
         <Layer
           id="wpc-fronts-dashed"
           type="line"
-          source="wpc-fronts"
-          filter={['all', ['==', ['get', 'dashed'], true], NOT_STATIONARY]}
-          layout={{ visibility: vis, 'line-cap': 'round', 'line-join': 'round' }}
+          filter={['all', ['!', PATTERNED], ['==', ['get', 'frontType'], 'TROUGH']]}
+          layout={{ visibility: vis, 'line-cap': 'butt', 'line-join': 'round' }}
+          paint={{ 'line-color': ['coalesce', ['get', 'color'], '#D2691E'], 'line-width': PLAIN_WIDTH, 'line-dasharray': [3, 2] }}
+        />
+        <Layer
+          id="wpc-fronts-squall"
+          type="line"
+          filter={['==', ['get', 'frontType'], 'SQUALL']}
+          layout={{ visibility: vis, 'line-cap': 'butt', 'line-join': 'round' }}
+          paint={{ 'line-color': ['coalesce', ['get', 'color'], '#A020F0'], 'line-width': PLAIN_WIDTH, 'line-dasharray': [4, 1.5, 1, 1.5] }}
+        />
+        {/* Cold, warm, occluded, stationary, dryline: line + symbols in one pattern */}
+        <Layer
+          id="wpc-fronts-solid"
+          type="line"
+          filter={PATTERNED}
+          layout={{ visibility: vis, 'line-cap': 'butt', 'line-join': 'round' }}
+          paint={{ 'line-pattern': LINE_PATTERN, 'line-width': PATTERN_WIDTH }}
+        />
+      </Source>
+
+      {/* Highs and lows */}
+      <Source id="wpc-pressure-centers" type="geojson" data={centers || EMPTY_GEOJSON}>
+        <Layer
+          id="wpc-pressure-centers-label"
+          type="symbol"
+          layout={{
+            visibility: vis,
+            'text-field': HL_TEXT,
+            'text-font': ['DIN Pro Bold', 'Arial Unicode MS Bold'],
+            'text-size': ['interpolate', ['linear'], ['zoom'], 2, 20, 6, 28, 10, 34],
+            'text-line-height': 0.95,
+            'text-anchor': 'top',
+            'text-offset': [0, -0.55], // the letter's center on the point, pressure beneath
+            'text-allow-overlap': true,
+            'text-ignore-placement': true,
+          }}
           paint={{
-            'line-color': LINE_COLOR,
-            'line-opacity': 0.9,
-            'line-width': LINE_WIDTH,
-            'line-dasharray': [2, 1.5],
+            'text-color': HL_COLOR,
+            'text-halo-color': 'rgba(255,255,255,0.9)',
+            'text-halo-width': 1.4,
           }}
         />
-      </Source>
-      <Source id="wpc-fronts-stationary" type="geojson" data={stationaryGeoJSON}>
-        <Layer
-          id="wpc-fronts-stationary-line"
-          type="line"
-          source="wpc-fronts-stationary"
-          layout={{ visibility: vis, 'line-cap': 'round', 'line-join': 'round' }}
-          paint={{ 'line-color': ['get', 'color'], 'line-opacity': 0.9, 'line-width': LINE_WIDTH }}
-        />
-      </Source>
-      <Source id="wpc-fronts-pips" type="geojson" data={pipGeoJSON}>
-        {iconsReady && (
-          <Layer
-            id="wpc-fronts-pips-symbol"
-            type="symbol"
-            source="wpc-fronts-pips"
-            layout={{
-              visibility: vis,
-              'icon-image': ['get', 'icon'],
-              'icon-rotate': ['get', 'bearing'],
-              'icon-rotation-alignment': 'map',
-              'icon-anchor': 'bottom',
-              'icon-size': PIP_ICON_SIZE,
-              'icon-allow-overlap': true,
-              'icon-ignore-placement': true,
-            }}
-          />
-        )}
       </Source>
     </>
   );

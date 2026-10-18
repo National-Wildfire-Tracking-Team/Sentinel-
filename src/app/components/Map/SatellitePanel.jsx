@@ -1,20 +1,14 @@
 /**
  * SatellitePanel.jsx
- * Compact satellite controls that pop up from the bottom bar (where the
- * Layers button lives) while the Satellite layer is on: satellite, region
- * and product pickers, what is shown and when, the recent-imagery loop,
- * opacity, and what's drawn over the imagery (NHC storms and areas of
- * interest).
- *
- * Docked flush above MapBottomBar and matched to its width, like the SPC
- * outlook selector, so it grows out of the same bar as every other layer's
- * controls. The page decides when it shows (it shares the dock with other
- * layers' controls); "Hide controls" hides the controls, not the imagery, and
- * SatelliteShowControlsPill brings them back.
+ * Satellite controls, shown in the bottom bar's pull-up sheet (DockSheet, via
+ * MapDockSheet) under the "Satellite" tab while the Satellite layer is on:
+ * satellite, region and product pickers, what is shown and when, the
+ * recent-imagery loop, opacity, and what's drawn over the imagery (NHC
+ * storms and areas of interest).
  */
 
-import { memo, forwardRef } from 'react';
-import { AlertTriangle, Crosshair, EyeOff, Loader2, RotateCw, Satellite, SlidersHorizontal, Wind, X } from 'lucide-react';
+import { memo } from 'react';
+import { AlertTriangle, Crosshair, Loader2, RotateCw, Satellite, Wind, X } from 'lucide-react';
 import { useSatelliteContext } from '../../context/SatelliteContext';
 import {
   LOOP_HOURS, PRODUCTS, PRODUCT_GROUPS, SATELLITES, productAvailability, regionsFor,
@@ -24,19 +18,6 @@ import FrameScrubber from '../LayerControl/FrameScrubber';
 const SELECT_CLS = 'min-w-0 flex-1 rounded-lg border border-sentinel-600 bg-sentinel-800 px-2 py-1 text-xs font-medium text-white '
   + 'focus:outline-none focus:border-violet-500/70 cursor-pointer';
 const LABEL_CLS = 'text-[10px] font-semibold uppercase tracking-wider text-sentinel-400';
-
-function HideControlsButton({ onClick }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      title="Hide controls (imagery stays on)"
-      className="inline-flex shrink-0 items-center gap-1 rounded-md border border-sentinel-600 bg-sentinel-900 px-2 py-0.5 text-[10px] font-semibold text-sentinel-200 transition-colors hover:bg-sentinel-700 hover:text-white active:scale-[0.97]"
-    >
-      <EyeOff size={11} aria-hidden /> Hide controls
-    </button>
-  );
-}
 
 // One option value per satellite + scan sector, e.g. "goes-west:alaska".
 const pairValue = (satelliteId, regionId) => `${satelliteId}:${regionId}`;
@@ -78,13 +59,13 @@ function OverlaysRow({ tropical, onFocus }) {
   );
 }
 
-const SatellitePanel = memo(forwardRef(function SatellitePanel({ bottomBarWidth, bottomBarHeight, overlays }, ref) {
+const SatellitePanel = memo(function SatellitePanel({ overlays }) {
   const sat = useSatelliteContext();
-  if (!sat?.panelOpen) return null;
+  if (!sat?.active) return null;
   const {
     selection, region, setSatelliteRegion, setProduct, notice, dismissNotice,
     source, loading, error, retry, canLoop, loopHours, setLoopHours, frames, frame, index, live,
-    playing, setFrame, goLive, togglePlaying, step, opacity, setOpacity, closePanel, focusBounds,
+    playing, setFrame, goLive, togglePlaying, step, opacity, setOpacity, focusBounds,
   } = sat;
 
   // Scan sectors only; a "zoom to" area still shows if a shared link opened on one.
@@ -97,19 +78,7 @@ const SatellitePanel = memo(forwardRef(function SatellitePanel({ bottomBarWidth,
   };
 
   return (
-    <div
-      ref={ref}
-      role="group"
-      aria-label="Satellite controls"
-      className="absolute bottom-20 left-1/2 -translate-x-1/2 z-20
-                 bg-sentinel-900 border border-sentinel-600 rounded-t-2xl shadow-2xl shadow-black/60 ring-1 ring-white/10
-                 overflow-hidden animate-dock-rise"
-      style={{
-        width: bottomBarWidth ? `max(${bottomBarWidth}px, min(24rem, calc(100vw - 1rem)))` : 'min(24rem, calc(100vw - 1rem))',
-        bottom: bottomBarHeight ? `${bottomBarHeight + 16}px` : undefined,
-        maxWidth: 'calc(100vw - 1rem)',
-      }}
-    >
+    <div role="group" aria-label="Satellite controls">
       <div className="flex items-center gap-2 px-3 pt-2.5 pb-2 border-b border-sentinel-700">
         <Satellite size={14} className="shrink-0 text-violet-300" aria-hidden />
         <select
@@ -146,7 +115,7 @@ const SatellitePanel = memo(forwardRef(function SatellitePanel({ bottomBarWidth,
         </span>
       </div>
 
-      <div className="px-3 py-2.5 space-y-2.5 max-h-[min(55vh,26rem)] overflow-y-auto">
+      <div className="px-3 py-2.5 space-y-2.5">
         {notice && (
           <div className="flex items-start gap-1.5 rounded-lg border border-amber-700/60 bg-amber-950/60 px-2 py-1.5 text-[11px] text-amber-100" role="status">
             <AlertTriangle size={12} className="mt-0.5 shrink-0 text-amber-300" aria-hidden />
@@ -173,7 +142,6 @@ const SatellitePanel = memo(forwardRef(function SatellitePanel({ bottomBarWidth,
           <div className="space-y-1.5">
             <div className="flex items-center justify-between gap-2">
               <span className={LABEL_CLS}>Recent loop</span>
-              <HideControlsButton onClick={closePanel} />
               <div className="flex items-center gap-1" role="group" aria-label="Loop length">
                 {LOOP_HOURS.map((h) => {
                   const active = h === loopHours;
@@ -214,11 +182,8 @@ const SatellitePanel = memo(forwardRef(function SatellitePanel({ bottomBarWidth,
             )}
           </div>
         ) : (
-          <div className="flex items-start gap-2">
-            <div className="flex-1 text-[10px] leading-snug text-sentinel-400">
-              Latest scan only. Loops are available for True Color, Visible, Clean IR, Fire Temperature, Air Mass and Dust outside the mesoscale sectors.
-            </div>
-            <HideControlsButton onClick={closePanel} />
+          <div className="text-[10px] leading-snug text-sentinel-400">
+            Latest scan only. Loops are available for True Color, Visible, Clean IR, Fire Temperature, Air Mass and Dust outside the mesoscale sectors.
           </div>
         )}
 
@@ -240,29 +205,6 @@ const SatellitePanel = memo(forwardRef(function SatellitePanel({ bottomBarWidth,
       </div>
     </div>
   );
-}));
+});
 
 export default SatellitePanel;
-
-/**
- * While the Satellite layer is on but its controls are hidden: a small pill
- * just above the bottom bar (and above whatever else is docked on it) that
- * brings them back.
- */
-export const SatelliteShowControlsPill = memo(function SatelliteShowControlsPill({ bottomOffset = 0 }) {
-  const sat = useSatelliteContext();
-  if (!sat?.active || sat.panelOpen) return null;
-  return (
-    <button
-      type="button"
-      onClick={sat.openPanel}
-      className="absolute left-1/2 -translate-x-1/2 z-20 inline-flex items-center gap-1.5 rounded-full
-                 border border-sentinel-600 bg-sentinel-900/90 backdrop-blur-sm px-3 py-1 text-[11px] font-semibold text-white
-                 shadow-lg shadow-black/40 transition-[transform,background-color] hover:bg-sentinel-800 active:scale-[0.97] animate-fade-in"
-      style={{ bottom: bottomOffset }}
-    >
-      <SlidersHorizontal size={12} className="text-violet-300" aria-hidden />
-      Show controls
-    </button>
-  );
-});

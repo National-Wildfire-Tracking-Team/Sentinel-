@@ -63,6 +63,10 @@ const initialState = {
     wpcFronts: false,
     /** NOAA MRMS radar (Weather tab); product, frame and opacity live in MrmsContext */
     mrms: false,
+    /** NEXRAD/TDWR radar site pills (Weather tab); the selected site and its scan live in RadarSiteContext */
+    radarSites: false,
+    /** GOES GLM lightning flashes, last 15 minutes (Weather and All Hazards tabs), via cloud/lightning */
+    lightning: false,
     /** NHC tropical layers (Weather and All-hazard tabs): one panel
      *  row (nhcTropical) turns the set on/off; the rest pick its parts. On by
      *  default: storms were a permanent layer before they became switchable. */
@@ -85,7 +89,7 @@ const initialState = {
   // Currently selected 7-day fire risk forecast (1-7)
   fireRiskDay: 1,
   // Active day ('day1'|'day2'|'day3') per WPC outlook layer
-  wpcOutlookDay: { ero: 'day1', wssi: 'day1', qpf: 'day1', fronts: 'day1' },
+  wpcOutlookDay: { ero: 'day1', wssi: 'day1', qpf: 'day1', fronts: 'now' }, // fronts 'now' = live surface analysis
   // Currently clicked/selected fire feature (hotspot or perimeter)
   selectedFire: null,
   // Currently selected water gauge (properties from map feature)
@@ -94,8 +98,9 @@ const initialState = {
   selectedCamera: null,
   // Sidebar open/closed (left panel) — closed by default, opened via the top-left corner buttons
   sidebarOpen: false,
-  // Layer control panel open/closed (right panel)
-  layerPanelOpen: true,
+  // Layer control panel open/closed (right panel) — closed on first open of the map;
+  // the Layers button opens it
+  layerPanelOpen: false,
   // Placeholder "future features" panel open/closed (top-left corner button 1)
   futurePanelOpen: false,
   // Account center panel open/closed (top-left corner button 3)

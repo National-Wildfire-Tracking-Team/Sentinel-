@@ -128,6 +128,26 @@ describe('route', () => {
     expect(supabase.consumeQuota).toHaveBeenCalledWith('jwt', 'directions');
   });
 
+  it('passes a fastest preference through, including on the no-avoid retry', async () => {
+    ors.directions.mockRejectedValueOnce(orsError(404)).mockResolvedValueOnce(fc);
+    await h.route(AUTH, { origin, destination: dest, avoid: square, preference: 'fastest' });
+    expect(ors.directions).toHaveBeenNthCalledWith(1, { origin, destination: dest, avoid: square, preference: 'fastest' });
+    expect(ors.directions).toHaveBeenNthCalledWith(2, { origin, destination: dest, avoid: null, preference: 'fastest' });
+  });
+
+  it('caches routes per preference', async () => {
+    await h.route(AUTH, { origin, destination: dest, avoid: null });
+    await h.route(AUTH, { origin, destination: dest, avoid: null, preference: 'fastest' });
+    expect(ors.directions).toHaveBeenCalledTimes(2);
+  });
+
+  it('rejects an unknown preference before auth', async () => {
+    const r = await h.route(AUTH, { origin, destination: dest, avoid: null, preference: 'scenic' });
+    expect(r.status).toBe(400);
+    expect(supabase.consumeQuota).not.toHaveBeenCalled();
+    expect(ors.directions).not.toHaveBeenCalled();
+  });
+
   it('retries once without avoid (taking a second unit) when ORS finds no avoiding route', async () => {
     ors.directions.mockRejectedValueOnce(orsError(404)).mockResolvedValueOnce(fc);
     const r = await h.route(AUTH, { origin, destination: dest, avoid: square });

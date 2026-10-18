@@ -9,6 +9,15 @@
  * route (1–2 Directions units). From and To can be set in either order: a To
  * chosen before there's a start waits (no quota) and routes once one is set. Nothing
  * re-routes on map moves or data refreshes.
+ *
+ * Nearest Safety Area from inside an active evacuation zone (any level) skips
+ * the shelter and routes to the nearest point outside the zone instead; in a
+ * fire zone, only exits leading away from nearby fires count (see evacExit).
+ * Exits on a major road (motorway/trunk/primary, via Mapbox) are tried first and
+ * routed with ORS's 'fastest' preference, which favours major roads; a major-road
+ * route that runs past a fire is set aside for the next exit. Exits are tried one
+ * route at a time, stopping at the first good one, so the usual cost is the same
+ * 1–2 Directions units as a shelter (at most three routes when exits fail).
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -28,6 +37,8 @@ const INITIAL = {
   // a plain route. No nearby hazards (avoid null) is not a warning.
   hazardWarning: false,
   startsInsideHazard: false,
+  // Set while routing out of an evacuation zone: { name, level, isFire }.
+  exitZone: null,
   picking: false,
   error: null,
 };
@@ -54,7 +65,12 @@ const DEFAULT_DEPS = {
   // Lazy: routingHazards pulls in @turf/buffer (and JSTS). Load it only when
   // someone actually routes, so it stays out of the entry chunk.
   buildAvoidPolygons: async (args) => (await import('../utils/routingHazards')).buildAvoidPolygons(args),
+  findEvacExit: async (args) => (await import('../utils/evacExit')).findEvacExit(args),
+  preferMajorRoads: async (exit, lookup) => (await import('../utils/evacExit')).preferMajorRoads(exit, lookup),
+  nearestMajorRoad: async (point, opts) => (await import('../utils/majorRoads')).nearestMajorRoad(point, opts),
 };
+
+export const EXIT_LABEL = 'Outside evacuation zone';
 
 const toError = (err) => ({
   kind: err?.kind || 'upstream',
@@ -65,7 +81,7 @@ const toError = (err) => ({
 
 const validHome = (home) => Boolean(home) && Number.isFinite(home.longitude) && Number.isFinite(home.latitude);
 
-export function useRouteToSafety({ enabled, home, perimetersGeoJSON, evacZonesGeoJSON, deps = DEFAULT_DEPS }) {
+export function useRouteToSafety({ enabled, home, perimetersGeoJSON, evacZonesGeoJSON, hotspotsGeoJSON, deps = DEFAULT_DEPS }) {
   const [state, setState] = useState(INITIAL);
   // Bumped on every new request and on disable; late results from an older
   // generation are dropped (toggle off / tab switch mid-request).
@@ -81,7 +97,7 @@ export function useRouteToSafety({ enabled, home, perimetersGeoJSON, evacZonesGe
   const autoNearestRef = useRef(false);
   // Latest props/state for stable callbacks (no re-subscribe on data refresh).
   const latest = useRef({});
-  latest.current = { enabled, home, perimetersGeoJSON, evacZonesGeoJSON, deps, origin: state.origin, originLabel: state.originLabel, shelters: state.shelters, status: state.status, destination: state.destination };
+  latest.current = { enabled, home, perimetersGeoJSON, evacZonesGeoJSON, hotspotsGeoJSON, deps, origin: state.origin, originLabel: state.originLabel, shelters: state.shelters, status: state.status, destination: state.destination };
 
   const begin = useCallback(() => {
     abortRef.current?.abort();
@@ -101,10 +117,8 @@ export function useRouteToSafety({ enabled, home, perimetersGeoJSON, evacZonesGe
       if (!live(gen)) return;
       setState((s) => ({ ...s, status: 'ready', shelters: shelters || [], partial: Boolean(partial) }));
       if (autoNearestRef.current) {
-        // Shelters come back ranked by drive time; the first is the closest reachable one.
         autoNearestRef.current = false;
-        const best = (shelters || [])[0];
-        if (best) await routeToRef.current({ lng: best.lng, lat: best.lat, name: best.name }, origin);
+        await routeNearestRef.current(origin, shelters);
         return;
       }
       // Destination already chosen: route to it now that there's a start.
@@ -122,7 +136,7 @@ export function useRouteToSafety({ enabled, home, perimetersGeoJSON, evacZonesGe
     destRef.current = destination;
     const { gen, signal } = begin();
     lastActionRef.current = () => routeTo(destination, origin);
-    setState((s) => ({ ...s, status: 'routing', destination, route: null, hazardWarning: false, error: null, picking: false }));
+    setState((s) => ({ ...s, status: 'routing', destination, route: null, hazardWarning: false, exitZone: null, error: null, picking: false }));
     const dest = [destination.lng, destination.lat];
     try {
       const { avoid, startsInsideHazard } = await d.buildAvoidPolygons({ perimeters, evacZones, origin, destination: dest });
@@ -144,6 +158,90 @@ export function useRouteToSafety({ enabled, home, perimetersGeoJSON, evacZonesGe
   }, [begin]);
   const routeToRef = useRef(routeTo);
   routeToRef.current = routeTo;
+
+  // Out of an evacuation zone: major-road exits first, then the nearest plain
+  // ones, keeping the first route that works. Only "no route" moves on to the
+  // next exit; quota and other errors stop, so a failure never burns through
+  // several requests. A major-road route passing a fire is held back and only
+  // used (with the hazard warning) if nothing else is reachable.
+  const routeToExit = useCallback(async (origin, exit) => {
+    const { deps: d, perimetersGeoJSON: perimeters, evacZonesGeoJSON: evacZones } = latest.current;
+    destRef.current = null;
+    const { gen, signal } = begin();
+    lastActionRef.current = () => routeToExit(origin, exit);
+    setState((s) => ({
+      ...s, status: 'routing', destination: null, route: null, avoidedHazards: false, hazardWarning: false,
+      startsInsideHazard: false, exitZone: exit.zone, picking: false, error: null,
+    }));
+    const finish = ({ point, res, avoid, nearFire = false }) => {
+      const destination = { lng: point[0], lat: point[1], name: EXIT_LABEL };
+      destRef.current = destination;
+      setState((s) => ({
+        ...s,
+        status: 'routed',
+        destination,
+        route: res.route,
+        avoidedHazards: Boolean(res.avoidedHazards),
+        hazardWarning: nearFire || (Boolean(avoid) && !res.avoidedHazards),
+      }));
+    };
+    try {
+      const candidates = d.preferMajorRoads && exit.pool
+        ? await Promise.resolve()
+          .then(() => d.preferMajorRoads(exit, (pt) => d.nearestMajorRoad(pt, { signal })))
+          .catch(() => exit.candidates)
+        : exit.candidates;
+      if (!live(gen)) return;
+      let heldBack = null;
+      for (const { point, major } of candidates) {
+        const { avoid } = await d.buildAvoidPolygons({ perimeters, evacZones, origin, destination: point });
+        if (!live(gen)) return;
+        let res;
+        try {
+          res = await d.requestRoute({ origin, destination: point, avoid, preference: 'fastest' }, { signal });
+        } catch (err) {
+          if (err?.kind === 'no_route') continue;
+          throw err;
+        }
+        if (!live(gen)) return;
+        if (major && exit.passesFire?.(res.route?.features?.[0]?.geometry?.coordinates)) {
+          heldBack ??= { point, res, avoid, nearFire: true };
+          continue;
+        }
+        finish({ point, res, avoid });
+        return;
+      }
+      if (!live(gen)) return;
+      if (heldBack) finish(heldBack);
+      else setState((s) => ({ ...s, status: 'error', error: { kind: 'no_route' } }));
+    } catch (err) {
+      if (!live(gen) || err?.name === 'AbortError') return;
+      setState((s) => ({ ...s, status: 'error', error: toError(err) }));
+    }
+  }, [begin]);
+
+  // Nearest Safety Area from a known start: out of the evacuation zone if the
+  // start is in one, otherwise to the closest shelter (ranked by drive time).
+  // Returns false when there was nothing to route to yet (no shelters loaded).
+  const routeNearest = useCallback(async (origin, shelters) => {
+    const { deps: d, perimetersGeoJSON: perimeters, evacZonesGeoJSON: evacZones, hotspotsGeoJSON: hotspots } = latest.current;
+    const gen = genRef.current;
+    const exit = await Promise.resolve()
+      .then(() => d.findEvacExit({ origin, evacZones, perimeters, hotspots }))
+      .catch(() => null);
+    // Another action started while the zone check ran: it wins.
+    if (gen !== genRef.current) return true;
+    if (exit?.candidates?.length) {
+      await routeToExit(origin, exit);
+      return true;
+    }
+    const best = shelters?.[0];
+    if (!best) return false;
+    await routeTo({ lng: best.lng, lat: best.lat, name: best.name }, origin);
+    return true;
+  }, [routeTo, routeToExit]);
+  const routeNearestRef = useRef(routeNearest);
+  routeNearestRef.current = routeNearest;
 
   // Set the destination; route now if a start is ready, otherwise keep it
   // until one is (no quota spent while waiting).
@@ -201,11 +299,8 @@ export function useRouteToSafety({ enabled, home, perimetersGeoJSON, evacZonesGe
       return;
     }
     if (origin && originLabel !== 'My location') {
-      const best = shelters?.[0];
-      if (best) {
-        autoNearestRef.current = false;
-        await routeTo({ lng: best.lng, lat: best.lat, name: best.name }, origin);
-      } else {
+      autoNearestRef.current = false;
+      if (!(await routeNearest(origin, shelters))) {
         autoNearestRef.current = true;
         await search(origin, originLabel);
       }
@@ -215,7 +310,7 @@ export function useRouteToSafety({ enabled, home, perimetersGeoJSON, evacZonesGe
     autoNearestRef.current = true;
     await locate({ deviceOnly: true });
     lastActionRef.current = () => nearestSafety();
-  }, [locate, search, routeTo]);
+  }, [locate, search, routeNearest]);
 
   const searchAddress = useCallback(async (text) => {
     const q = String(text || '').trim();
@@ -263,7 +358,7 @@ export function useRouteToSafety({ enabled, home, perimetersGeoJSON, evacZonesGe
     lastActionRef.current = () => routeToAddress(q);
     setState((s) => ({
       ...s, status: 'routing', destination: null, route: null, avoidedHazards: false, hazardWarning: false,
-      startsInsideHazard: false, picking: false, error: null,
+      startsInsideHazard: false, exitZone: null, picking: false, error: null,
     }));
     const hit = await Promise.resolve()
       .then(() => latest.current.deps.geocode(q))
@@ -338,7 +433,7 @@ export function useRouteToSafety({ enabled, home, perimetersGeoJSON, evacZonesGe
         destRef.current = null;
         setState((s) => ({
           ...s, status: 'ready', destination: null, route: null, avoidedHazards: false, hazardWarning: false,
-          startsInsideHazard: false, picking: false, error: null,
+          startsInsideHazard: false, exitZone: null, picking: false, error: null,
         }));
       }),
       pickPoint: guard(({ lng, lat }) => routeTo({ lng, lat, name: 'Dropped pin' })),

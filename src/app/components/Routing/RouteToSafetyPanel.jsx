@@ -3,10 +3,14 @@
  * All Hazards → Navigation (Pro; internally "Route to Safety"). A translucent sheet over the map:
  * From and To address lines (type-ahead suggestions; From also takes current
  * location or Home), nearest open shelters ranked by drive time, and the chosen
- * route with steps, an Open in Maps handoff and the safety disclaimer.
+ * route with steps, an Open in Maps handoff and the safety disclaimer. From inside
+ * an evacuation zone, Nearest Safety Area routes out of the zone (see useRouteToSafety).
+ *
+ * Drag it anywhere over the map by its header (useDraggablePanel); double-click
+ * the header to put it back in its corner.
  */
 
-import { memo, useEffect, useState } from 'react';
+import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { AlertTriangle, ChevronDown, ChevronLeft, Home, Loader2, LocateFixed, MapPin, Navigation, RotateCw, X } from 'lucide-react';
 import { SHELTER_KIND_LABELS, directionsUrl } from '../FireDetailPanel/incidentDetailModel';
 import { reverseGeocode } from '../../utils/geocode';
@@ -45,12 +49,93 @@ function errorMessage(error, hasMapsUrl) {
   }
 }
 
+export const EXIT_SAFETY_COPY = 'Always avoid active fires, thick smoke significantly reducing visibility, and flooded roadways.';
+
+/** Why this route goes to the zone edge rather than a shelter. */
+function exitZoneCopy({ name, level, isFire }) {
+  const where = name ? `${level} (${name})` : level;
+  return isFire
+    ? `You're inside a fire ${where}. This is the quickest way out, heading away from nearby fires. ${EXIT_SAFETY_COPY}`
+    : `You're inside an ${where}. This is the quickest way out of the zone. ${EXIT_SAFETY_COPY}`;
+}
+
 // The two buttons beside From and To share one size so they line up as a pair.
 const sideButtonClass = 'inline-flex items-center justify-center gap-1 shrink-0 w-[6.5rem] min-h-[40px] px-2 py-1 rounded-lg text-[11px] font-semibold leading-tight text-center active:scale-[0.97] transition-transform duration-100';
 
 const chipClass = 'inline-flex items-center gap-1 min-h-[36px] px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-white/15 active:scale-[0.97] transition-transform duration-100';
 
 const fmtCoords = ([lng, lat]) => `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+
+const MARGIN = 8; // px kept between the panel and the map's edges
+const HEADER_VISIBLE = 56; // a panel taller than the map keeps at least its header on screen
+
+/**
+ * Drag a floating panel by a handle: it follows the pointer 1:1 from where it
+ * was grabbed (pointer capture, so it keeps tracking off the handle), only
+ * while the button is held, and stays inside its positioned parent. The
+ * offset is applied straight to the DOM as a transform, so dragging never
+ * re-renders the panel.
+ */
+function useDraggablePanel() {
+  const panelRef = useRef(null);
+  const offset = useRef({ x: 0, y: 0 });
+  const drag = useRef(null);
+
+  const place = useCallback((x, y) => {
+    const el = panelRef.current;
+    if (!el) return;
+    const parent = el.offsetParent?.getBoundingClientRect();
+    if (parent && parent.width) {
+      const r = el.getBoundingClientRect();
+      const baseLeft = r.left - offset.current.x;
+      const baseTop = r.top - offset.current.y;
+      const minX = parent.left + MARGIN - baseLeft;
+      const maxX = parent.right - MARGIN - r.width - baseLeft;
+      const minY = parent.top + MARGIN - baseTop;
+      const maxY = Math.max(minY, (r.height + 2 * MARGIN <= parent.height
+        ? parent.bottom - MARGIN - r.height
+        : parent.bottom - HEADER_VISIBLE) - baseTop);
+      x = Math.min(Math.max(x, minX), Math.max(minX, maxX));
+      y = Math.min(Math.max(y, minY), maxY);
+    }
+    offset.current = { x, y };
+    el.style.transform = x || y ? `translate(${x}px, ${y}px)` : '';
+  }, []);
+
+  // Keep it on screen when the window shrinks.
+  useEffect(() => {
+    const onResize = () => place(offset.current.x, offset.current.y);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, [place]);
+
+  const end = (e) => {
+    if (drag.current && (!e || e.pointerId === drag.current.pointerId)) drag.current = null;
+  };
+
+  const handleProps = {
+    onPointerDown: (e) => {
+      // Controls in the header keep working as controls.
+      if (e.button !== 0 || e.target.closest('button, input, a, select, textarea')) return;
+      e.currentTarget.setPointerCapture?.(e.pointerId);
+      drag.current = { pointerId: e.pointerId, x: e.clientX, y: e.clientY, ox: offset.current.x, oy: offset.current.y };
+    },
+    onPointerMove: (e) => {
+      const d = drag.current;
+      if (!d || e.pointerId !== d.pointerId) return;
+      if (e.buttons === 0) { end(e); return; } // missed the release: stop following
+      place(d.ox + e.clientX - d.x, d.oy + e.clientY - d.y);
+    },
+    onPointerUp: end,
+    onPointerCancel: end,
+    onLostPointerCapture: end,
+    onDoubleClick: (e) => {
+      if (!e.target.closest('button, input, a, select, textarea')) place(0, 0);
+    },
+  };
+
+  return { panelRef, handleProps };
+}
 
 /** When the start is the device location, show its street address (or coordinates until/unless one resolves). */
 function useDeviceLabel(origin, active) {
@@ -74,6 +159,7 @@ function useDeviceLabel(origin, active) {
 
 const RouteToSafetyPanel = memo(function RouteToSafetyPanel({ state, actions, onClose, hasHome }) {
   const [stepsOpen, setStepsOpen] = useState(false);
+  const { panelRef, handleProps } = useDraggablePanel();
   const busy = state.status === 'locating' || state.status === 'searching' || state.status === 'routing';
   const feature = state.route?.features?.[0];
   const summary = feature?.properties?.summary;
@@ -91,7 +177,7 @@ const RouteToSafetyPanel = memo(function RouteToSafetyPanel({ state, actions, on
   const findingLocation = state.status === 'locating' && !originLabel;
   const noLocation = state.status === 'error' && state.error?.kind === 'location';
   let statusText = '';
-  if (state.status === 'routing') statusText = 'Finding a route…';
+  if (state.status === 'routing') statusText = state.exitZone ? 'Finding the way out of the evacuation zone…' : 'Finding a route…';
   else if (state.status === 'locating') statusText = originLabel ? 'Finding that address…' : 'Finding your location…';
   else if (state.status === 'searching') statusText = 'Finding open shelters…';
   // The header already shows "Finding your location…"; keep it out of the body.
@@ -105,12 +191,19 @@ const RouteToSafetyPanel = memo(function RouteToSafetyPanel({ state, actions, on
 
   return (
     <section
+      ref={panelRef}
       aria-label="Navigation"
       className="route-safety-panel absolute top-20 right-4 z-30 w-[min(calc(100vw-2rem),360px)] max-h-[calc(100dvh-var(--map-bottom-stack,6rem)-6rem)]
                  overflow-y-auto rounded-2xl border border-white/10 bg-sentinel-900/80 backdrop-blur-xl backdrop-saturate-150
                  shadow-2xl shadow-black/60 text-white animate-dock-rise"
     >
-      <header className="flex items-center gap-2 px-4 pt-3 pb-2">
+      {/* The header is the drag handle (a short grabber bar hints at it). */}
+      <header
+        {...handleProps}
+        title="Drag to move · double-click to reset"
+        className="relative flex items-center gap-2 px-4 pt-3.5 pb-2 cursor-grab active:cursor-grabbing touch-none select-none"
+      >
+        <span aria-hidden="true" className="absolute top-1.5 left-1/2 -translate-x-1/2 h-[3px] w-9 rounded-full bg-white/25" />
         <Navigation size={16} className="text-green-400" />
         <h2 className="flex-1 min-w-0 text-[15px] font-semibold tracking-[-0.01em]">Navigation</h2>
         {findingLocation && (
@@ -178,7 +271,8 @@ const RouteToSafetyPanel = memo(function RouteToSafetyPanel({ state, actions, on
                     onSubmitText={actions.routeToAddress}
                   />
                 </div>
-                {/* One tap: your location → closest open shelter, routed around active hazards. */}
+                {/* One tap: your start → out of the evacuation zone you're in (away from fire),
+                    else the closest open shelter, routed around active hazards. */}
                 <button type="button" onClick={actions.nearestSafety} aria-label="Nearest Safety Area (Beta)"
                   className={`${sideButtonClass} relative bg-green-600/80 text-white hover:bg-green-600`}>
                   Nearest Safety Area
@@ -264,12 +358,19 @@ const RouteToSafetyPanel = memo(function RouteToSafetyPanel({ state, actions, on
 
       {state.status === 'routed' && (
         <div className="px-4 py-3 space-y-2">
-          <div className="-ml-2">{backButton}</div>
+          {/* Routed out of a zone without a shelter search: there's no list to go back to. */}
+          {(!state.exitZone || hasShelters) && <div className="-ml-2">{backButton}</div>}
           {Number.isFinite(summary?.duration) && Number.isFinite(summary?.distance) && (
             <div className="text-xl font-semibold tracking-[-0.02em]">{fmtMin(summary.duration)} · {fmtMi(summary.distance)}</div>
           )}
           {state.hazardWarning && (
             <p className="flex gap-1.5 text-xs text-amber-300"><AlertTriangle size={13} className="shrink-0 mt-px" />This route passes through or near an active hazard. Follow official evacuation orders.</p>
+          )}
+          {state.exitZone && (
+            <p data-testid="exit-zone-note" className="flex gap-1.5 text-xs text-amber-300">
+              <AlertTriangle size={13} className="shrink-0 mt-px" />
+              <span>{exitZoneCopy(state.exitZone)}</span>
+            </p>
           )}
           {state.startsInsideHazard && (
             <p className="flex gap-1.5 text-xs text-amber-300"><AlertTriangle size={13} className="shrink-0 mt-px" />You're starting inside an active hazard area. Leave by the safest route officials direct.</p>

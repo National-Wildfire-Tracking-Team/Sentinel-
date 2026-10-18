@@ -74,6 +74,6 @@ export function findNearestShelters({ origin, radiusKm = DEFAULT_RADIUS_KM }, op
   return post('/shelters/nearest', { origin, radiusKm }, opts);
 }
 
-export function requestRoute({ origin, destination, avoid }, opts) {
-  return post('/route', { origin, destination, avoid: avoid ?? null }, opts);
+export function requestRoute({ origin, destination, avoid, preference }, opts) {
+  return post('/route', { origin, destination, avoid: avoid ?? null, ...(preference ? { preference } : {}) }, opts);
 }

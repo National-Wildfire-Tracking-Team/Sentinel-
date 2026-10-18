@@ -1,241 +1,139 @@
 /**
  * frontSymbols.js
- * Builds the standardized surface-analysis "pip" symbols (semicircles for
- * warm fronts, triangles for cold fronts, both alternating for occluded/
- * stationary fronts) that sit on top of the WPC front lines.
+ * NOAA/WPC surface-analysis front symbology as repeating line patterns:
  *
- * MapLibre can't rotate a repeating line-pattern to follow a curving line,
- * so the pips are generated as a separate point layer: walk each front's
- * LineString at a fixed geographic spacing, and at each sample emit a point
- * whose `bearing` property points the icon perpendicular to the line (base
- * flush against the line, symbol bulging to one side) via
- * `icon-rotation-alignment: 'map'`.
+ *   cold        blue line, blue triangles
+ *   warm        red line, red semicircles
+ *   occluded    purple line, alternating purple triangles and semicircles, same side
+ *   stationary  alternating blue (triangle) / red (semicircle) stretches,
+ *               triangles on one side, semicircles on the other
+ *   dryline     brown line, open semicircles
+ *   trough, squall line: dashed lines without symbols (drawn by WpcFrontsLayer)
+ *
+ * Each pattern tile is the line itself plus its symbols, so a Mapbox
+ * `line-pattern` repeats it along the front: the symbols follow every curve,
+ * keep a steady on-screen spacing at any zoom, and a stationary front's red
+ * and blue stretches always sit under their own symbol.
+ *
+ * Which way the symbols face: WPC lists every front's points so its symbols
+ * sit on the LEFT of the line as you walk the points (the side it is moving
+ * toward). Mapbox lays a line pattern's tile bottom edge on that left side
+ * (checked against the live analysis: cold triangles face the warm sector,
+ * stationary triangles face the warm air), so symbols are drawn on the tile's
+ * bottom half; stationary fronts put their warm semicircles on the top half,
+ * facing the cold air.
  */
 
-const EARTH_RADIUS_KM = 6371;
-const PIP_SPACING_KM = 120;
-
-function toRad(deg) {
-  return (deg * Math.PI) / 180;
-}
-function toDeg(rad) {
-  return (rad * 180) / Math.PI;
-}
-function normalizeBearing(deg) {
-  return ((deg % 360) + 360) % 360;
-}
-
-function haversineKm([lng1, lat1], [lng2, lat2]) {
-  const dLat = toRad(lat2 - lat1);
-  const dLng = toRad(lng2 - lng1);
-  const a =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
-  return EARTH_RADIUS_KM * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-}
-
-function initialBearing([lng1, lat1], [lng2, lat2]) {
-  const phi1 = toRad(lat1);
-  const phi2 = toRad(lat2);
-  const dLng = toRad(lng2 - lng1);
-  const y = Math.sin(dLng) * Math.cos(phi2);
-  const x = Math.cos(phi1) * Math.sin(phi2) - Math.sin(phi1) * Math.cos(phi2) * Math.cos(dLng);
-  return normalizeBearing(toDeg(Math.atan2(y, x)));
-}
-
-/** Sample a single line's coordinates at fixed arc-length intervals, returning {lngLat, bearing}. */
-function sampleLine(coords, spacingKm) {
-  if (!Array.isArray(coords) || coords.length < 2) return [];
-
-  const segLengths = [];
-  let totalKm = 0;
-  for (let i = 0; i < coords.length - 1; i += 1) {
-    const len = haversineKm(coords[i], coords[i + 1]);
-    segLengths.push(len);
-    totalKm += len;
-  }
-  if (totalKm < spacingKm * 0.5) return [];
-
-  const samples = [];
-  let target = spacingKm * 0.5;
-  let cursorKm = 0;
-  let segIdx = 0;
-
-  while (target < totalKm && segIdx < segLengths.length) {
-    const segLen = segLengths[segIdx];
-    if (segLen <= 0 || cursorKm + segLen < target) {
-      cursorKm += segLen;
-      segIdx += 1;
-      continue;
-    }
-    const [a, b] = [coords[segIdx], coords[segIdx + 1]];
-    const t = (target - cursorKm) / segLen;
-    const lngLat = [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
-    samples.push({ lngLat, bearing: initialBearing(a, b) });
-    target += spacingKm;
-  }
-  return samples;
-}
-
-function lineStringsOf(geometry) {
-  if (!geometry) return [];
-  if (geometry.type === 'LineString') return [geometry.coordinates];
-  if (geometry.type === 'MultiLineString') return geometry.coordinates;
-  return [];
-}
-
-/** Split a line's coordinates into sub-lines at the given arc-length distances (km). */
-function splitLineByDistances(coords, boundaries) {
-  if (!boundaries.length) return [coords];
-
-  const segments = [];
-  let current = [coords[0]];
-  let cursorKm = 0;
-  let boundaryIdx = 0;
-
-  for (let i = 0; i < coords.length - 1; i += 1) {
-    const segStart = coords[i];
-    const segEnd = coords[i + 1];
-    const segLen = haversineKm(segStart, segEnd);
-    const segStartKm = cursorKm;
-    const segEndKm = cursorKm + segLen;
-
-    while (
-      boundaryIdx < boundaries.length &&
-      boundaries[boundaryIdx] > segStartKm &&
-      boundaries[boundaryIdx] < segEndKm &&
-      segLen > 0
-    ) {
-      const t = (boundaries[boundaryIdx] - segStartKm) / segLen;
-      const splitPoint = [
-        segStart[0] + (segEnd[0] - segStart[0]) * t,
-        segStart[1] + (segEnd[1] - segStart[1]) * t,
-      ];
-      current.push(splitPoint);
-      segments.push(current);
-      current = [splitPoint];
-      boundaryIdx += 1;
-    }
-    current.push(segEnd);
-    cursorKm = segEndKm;
-  }
-  segments.push(current);
-  return segments;
-}
-
-// icon id -> which side of the line's local travel direction the pip bulges
-// toward. Kept per-type below since stationary fronts flip sides per pip.
-const RIGHT_SIDE = 90;
-const LEFT_SIDE = -90;
-
-/** Decide the icon + side for the nth pip along a front of the given type. */
-function pipForIndex(frontType, idx) {
-  switch (frontType) {
-    case 'WARM':
-      return { icon: 'sentinel-front-semicircle-red', side: RIGHT_SIDE };
-    case 'COLD':
-      return { icon: 'sentinel-front-triangle-blue', side: RIGHT_SIDE };
-    case 'OCCLUDED':
-      return idx % 2 === 0
-        ? { icon: 'sentinel-front-semicircle-purple', side: RIGHT_SIDE }
-        : { icon: 'sentinel-front-triangle-purple', side: RIGHT_SIDE };
-    case 'STATIONARY':
-      return idx % 2 === 0
-        ? { icon: 'sentinel-front-semicircle-red', side: RIGHT_SIDE }
-        : { icon: 'sentinel-front-triangle-blue', side: LEFT_SIDE };
-    default:
-      return null;
-  }
-}
-
-/**
- * Build a Point FeatureCollection of pip symbols for a fronts GeoJSON layer.
- * Front types with no standard pip (e.g. TROUGH) are skipped — those stay
- * dashed-line-only.
- */
-export function buildFrontPipPoints(geoJSON) {
-  const features = [];
-  for (const feature of geoJSON?.features || []) {
-    const frontType = feature?.properties?.frontType;
-    if (!frontType || frontType === 'TROUGH') continue;
-
-    const lines = lineStringsOf(feature.geometry);
-    let idx = 0;
-    for (const coords of lines) {
-      const samples = sampleLine(coords, PIP_SPACING_KM);
-      for (const sample of samples) {
-        const pip = pipForIndex(frontType, idx);
-        idx += 1;
-        if (!pip) continue;
-        features.push({
-          type: 'Feature',
-          geometry: { type: 'Point', coordinates: sample.lngLat },
-          properties: {
-            icon: pip.icon,
-            bearing: normalizeBearing(sample.bearing + pip.side),
-          },
-        });
-      }
-    }
-  }
-  return { type: 'FeatureCollection', features };
-}
-
-// Pip shapes are drawn pointing "up" (bearing 0), base flush with the
-// bottom edge of the viewBox, so `icon-anchor: 'bottom'` sits the flat edge
-// on the line and `icon-rotate` swings the bulge to whichever side.
-const TRIANGLE_PATH = 'M18 30 L4 30 L11 8 Z';
-const SEMICIRCLE_PATH = 'M4 30 A7 7 0 0 1 18 30 Z';
-
-export const FRONT_ICON_DEFS = {
-  'sentinel-front-triangle-blue':      { path: TRIANGLE_PATH,   fill: '#2E6FDB' },
-  'sentinel-front-semicircle-red':     { path: SEMICIRCLE_PATH, fill: '#DB2E2E' },
-  'sentinel-front-triangle-purple':    { path: TRIANGLE_PATH,   fill: '#7B4FA6' },
-  'sentinel-front-semicircle-purple':  { path: SEMICIRCLE_PATH, fill: '#7B4FA6' },
+export const NOAA_FRONT_COLORS = {
+  cold: '#0050FF',
+  warm: '#FF0000',
+  occluded: '#A020F0',
+  dryline: '#C28A3A',
 };
 
-// Same reds/blues used by the warm/cold pips, so a stationary front's line
-// color always matches the symbol sitting on that stretch of it.
-const STATIONARY_RED = '#DB2E2E';
-const STATIONARY_BLUE = '#2E6FDB';
+// Tile geometry, CSS px (drawn at PIXEL_RATIO). Width must give a power-of-two image width.
+const PIXEL_RATIO = 2;
+export const TILE_HEIGHT = 24; // the line layer's width is scaled against this
+const MID = TILE_HEIGHT / 2; // the front line runs along the tile's middle
+const LINE = 3; // front line thickness
+const TRI_BASE = 12;
+const TRI_HEIGHT = 9;
+const SEMI_R = 6;
 
-/**
- * Build the alternating red/blue line segments for stationary fronts — one
- * segment per pip, split at the same arc-length spacing used to place the
- * pips, so each colored stretch of line lines up with the shape sitting on
- * it (red under each semicircle, blue under each triangle).
- */
-export function buildStationaryLineSegments(geoJSON) {
-  const features = [];
-  for (const feature of geoJSON?.features || []) {
-    if (feature?.properties?.frontType !== 'STATIONARY') continue;
+// Tile half, relative to the direction WPC lists the points (see above)
+const LEFT = 1; // bottom half: the side the front is moving toward
+const RIGHT = -1; // top half
 
-    for (const coords of lineStringsOf(feature.geometry)) {
-      if (coords.length < 2) continue;
-      const pipCount = sampleLine(coords, PIP_SPACING_KM).length;
-      const boundaries = Array.from(
-        { length: Math.max(pipCount - 1, 0) },
-        (_, i) => PIP_SPACING_KM * (i + 1)
-      );
-      const segments = splitLineByDistances(coords, boundaries);
-      segments.forEach((segCoords, i) => {
-        if (segCoords.length < 2) return;
-        features.push({
-          type: 'Feature',
-          geometry: { type: 'LineString', coordinates: segCoords },
-          properties: {
-            frontType: 'STATIONARY',
-            color: i % 2 === 0 ? STATIONARY_RED : STATIONARY_BLUE,
-          },
-        });
-      });
-    }
-  }
-  return { type: 'FeatureCollection', features };
+function triangle(ctx, cx, side, color) {
+  ctx.beginPath();
+  ctx.moveTo(cx - TRI_BASE / 2, MID);
+  ctx.lineTo(cx + TRI_BASE / 2, MID);
+  ctx.lineTo(cx, MID + side * TRI_HEIGHT);
+  ctx.closePath();
+  ctx.fillStyle = color;
+  ctx.fill();
 }
 
-export function buildIconSvg({ path, fill }) {
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 22 32" width="22" height="32">
-    <path d="${path}" fill="${fill}" stroke="rgba(0,0,0,0.35)" stroke-width="1"/>
-  </svg>`;
+function semicircle(ctx, cx, side, color, { open = false } = {}) {
+  ctx.beginPath();
+  // Bulge away from the line toward `side`
+  // Canvas y grows downward: angles 0→π sweep the bottom half, π→2π the top.
+  ctx.arc(cx, MID, SEMI_R, side === RIGHT ? Math.PI : 0, side === RIGHT ? 2 * Math.PI : Math.PI);
+  if (open) {
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1.6;
+    ctx.stroke();
+    return;
+  }
+  ctx.closePath();
+  ctx.fillStyle = color;
+  ctx.fill();
+}
+
+function line(ctx, x0, x1, color) {
+  ctx.fillStyle = color;
+  ctx.fillRect(x0, MID - LINE / 2, x1 - x0, LINE);
+}
+
+/** Pattern id → { width (CSS px), draw(ctx) } */
+export const FRONT_PATTERNS = {
+  'noaa-front-cold': {
+    width: 32,
+    draw(ctx) {
+      line(ctx, 0, 32, NOAA_FRONT_COLORS.cold);
+      triangle(ctx, 16, LEFT, NOAA_FRONT_COLORS.cold);
+    },
+  },
+  'noaa-front-warm': {
+    width: 32,
+    draw(ctx) {
+      line(ctx, 0, 32, NOAA_FRONT_COLORS.warm);
+      semicircle(ctx, 16, LEFT, NOAA_FRONT_COLORS.warm);
+    },
+  },
+  'noaa-front-occluded': {
+    width: 64,
+    draw(ctx) {
+      line(ctx, 0, 64, NOAA_FRONT_COLORS.occluded);
+      triangle(ctx, 16, LEFT, NOAA_FRONT_COLORS.occluded);
+      semicircle(ctx, 48, LEFT, NOAA_FRONT_COLORS.occluded);
+    },
+  },
+  'noaa-front-stationary': {
+    width: 64,
+    draw(ctx) {
+      line(ctx, 0, 32, NOAA_FRONT_COLORS.cold);
+      triangle(ctx, 16, LEFT, NOAA_FRONT_COLORS.cold);
+      line(ctx, 32, 64, NOAA_FRONT_COLORS.warm);
+      semicircle(ctx, 48, RIGHT, NOAA_FRONT_COLORS.warm);
+    },
+  },
+  'noaa-front-dryline': {
+    width: 32,
+    draw(ctx) {
+      line(ctx, 0, 32, NOAA_FRONT_COLORS.dryline);
+      semicircle(ctx, 16, LEFT, NOAA_FRONT_COLORS.dryline, { open: true });
+    },
+  },
+};
+
+/** frontType → pattern id (types without symbols are absent) */
+export const PATTERN_BY_TYPE = {
+  COLD: 'noaa-front-cold',
+  WARM: 'noaa-front-warm',
+  OCCLUDED: 'noaa-front-occluded',
+  STATIONARY: 'noaa-front-stationary',
+  DRYLINE: 'noaa-front-dryline',
+};
+
+/** Render one pattern tile. @returns {{ image: ImageData, options: { pixelRatio: number } }} */
+export function renderFrontPattern(id) {
+  const def = FRONT_PATTERNS[id];
+  const canvas = document.createElement('canvas');
+  canvas.width = def.width * PIXEL_RATIO;
+  canvas.height = TILE_HEIGHT * PIXEL_RATIO;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(PIXEL_RATIO, PIXEL_RATIO);
+  def.draw(ctx);
+  return { image: ctx.getImageData(0, 0, canvas.width, canvas.height), options: { pixelRatio: PIXEL_RATIO } };
 }
