@@ -51,11 +51,6 @@ jobs:
           role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
           aws-region: us-east-1
       - name: cdk ${{ inputs.action }}
-        env:
-          # ors-routing: the same Supabase URL + anon key the frontend build uses
-          # (secrets, see deploy.yml). bin/sentinel.mjs fails synth if either is empty.
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
         run: |
           # AWS_WEATHER_MODELS=enabled adds SentinelWeatherModels (us-west-2,
           # deployed first as a dependency) and the /weather-models/* route.
@@ -63,10 +58,11 @@ jobs:
           # AWS_MRMS=enabled adds SentinelMrms (us-east-1, deployed first) and the /mrms/* route.
           # AWS_HAFS=enabled adds SentinelHafs (us-east-1, deployed first) and the /hafs/* route.
           # AWS_LIGHTNING=enabled adds SentinelLightning (us-east-1, deployed first) and the /lightning/* route.
+          # AWS_FIRE_DANGER=enabled adds SentinelFireDanger (us-east-1, deployed first) and the /fire-danger/* route.
           CTX=(-c "sentinel:alarmEmail=${{ vars.AWS_ALARM_EMAIL }}" -c "sentinel:nwsUserAgent=${{ vars.NWS_USER_AGENT }}"
                -c "sentinel:weatherModels=${{ vars.AWS_WEATHER_MODELS }}" -c "sentinel:distributionId=${{ vars.AWS_DISTRIBUTION_ID }}"
                -c "sentinel:mrms=${{ vars.AWS_MRMS }}" -c "sentinel:hafs=${{ vars.AWS_HAFS }}"
-               -c "sentinel:lightning=${{ vars.AWS_LIGHTNING }}"
+               -c "sentinel:lightning=${{ vars.AWS_LIGHTNING }}" -c "sentinel:fireDanger=${{ vars.AWS_FIRE_DANGER }}"
                -c "sentinel:supabaseUrl=${SUPABASE_URL}" -c "sentinel:supabaseAnonKey=${SUPABASE_ANON_KEY}")
           if [ "${{ inputs.action }}" = "deploy" ]; then
             npx cdk deploy SentinelDataServices "${CTX[@]}" --require-approval never --outputs-file cdk-outputs.json

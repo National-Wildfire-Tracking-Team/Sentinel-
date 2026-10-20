@@ -41,7 +41,7 @@ describe('parseLightning', () => {
   });
 
   it('builds the versioned base URL', () => {
-    expect(lightningBase('https://cdn.example/lightning/')).toBe('https://cdn.example/lightning/v1');
+    expect(lightningBase('https://p.supabase.co/storage/v1/object/public/lightning/')).toBe('https://p.supabase.co/storage/v1/object/public/lightning/v1');
     expect(lightningBase(null)).toBeNull();
   });
 

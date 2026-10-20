@@ -6,6 +6,8 @@
  * fallback script share it unchanged.
  */
 
+import { sfpQueryUrl } from './fireDangerAlerts.js';
+
 const IRWIN_URL =
   'https://services3.arcgis.com/T4QMspbfLg3qTGWY/ArcGIS/rest/services' +
   '/WFIGS_Incident_Locations_Current/FeatureServer/0/query';
@@ -28,10 +30,12 @@ class HttpError extends Error {
 
 /**
  * @param {{ supabaseUrl: string, serviceRoleKey: string, resendApiKey: string,
- *           fromEmail: string, jobName: string }} config
+ *           fromEmail: string, jobName: string, fireDangerUrl?: string }} config
+ *   fireDangerUrl: the cloud/fire-danger CDN base (VITE_FIRE_DANGER_URL's value);
+ *   without it the 100-hour fuel moisture check is skipped.
  */
 export function createNotificationSyncClients(config) {
-  const { supabaseUrl, serviceRoleKey, resendApiKey, fromEmail, jobName } = config;
+  const { supabaseUrl, serviceRoleKey, resendApiKey, fromEmail, jobName, fireDangerUrl = '' } = config;
 
   const headers = (extra = {}) => ({
     apikey: serviceRoleKey,
@@ -85,6 +89,29 @@ export function createNotificationSyncClients(config) {
       });
       if (!resp.ok) throw new HttpError(`NWS active alerts failed: ${resp.status}`, resp.status);
       return (await resp.json()).features || [];
+    },
+
+    /** One day (1-7) of NWCG 7-day Significant Fire Potential areas, as GeoJSON Features. */
+    async fetchFirePotential(day) {
+      const resp = await fetch(sfpQueryUrl(day), { signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS) });
+      if (!resp.ok) throw new HttpError(`NWCG fire potential day ${day} failed: ${resp.status}`, resp.status);
+      const data = await resp.json();
+      if (data?.error) throw new Error(`NWCG fire potential day ${day}: ${data.error.message || 'service error'}`);
+      return data.features || [];
+    },
+
+    /** FEMS station values published by cloud/fire-danger, or null when not configured. */
+    async fetchFireDangerStations() {
+      if (!fireDangerUrl) return null;
+      const base = fireDangerUrl.replace(/\/+$/, '');
+      const mResp = await fetch(`${base}/v1/manifest.json`, { signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS) });
+      if (!mResp.ok) throw new HttpError(`fire danger manifest failed: ${mResp.status}`, mResp.status);
+      const manifest = await mResp.json();
+      const path = manifest?.products?.stations?.path;
+      if (!path) return null;
+      const sResp = await fetch(`${base}/v1/${path}`, { signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS) });
+      if (!sResp.ok) throw new HttpError(`fire danger stations failed: ${sResp.status}`, sResp.status);
+      return { stations: await sResp.json(), latestObservedDate: manifest.sources?.fems?.latestObservedDate ?? null };
     },
 
     /** Active alerts whose area (zone or polygon) contains the point. */

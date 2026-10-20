@@ -28,7 +28,20 @@ const initialState = {
     stormReports:      false,
     spcWeatherOutlooks: false,
     fireWeatherOutlooks: false,
+    /** NWCG 7-day Significant Fire Potential (Fire Danger & Fuels); day in fireRiskDay, data in FireDangerContext */
     fireRiskOutlook: false,
+    /** LANDFIRE FBFM40 fuel models (Fire Danger & Fuels); a static yearly map, not fuel moisture */
+    fuelModels: false,
+    /** FEMS NFDRS station values (Fire Danger & Fuels); at most one on, the field each colours stations by */
+    fdErc: false,
+    fdBi: false,
+    fdSc: false,
+    fdDeadFm: false,
+    fdLiveFm: false,
+    /** USGS Wildland Fire Potential Index forecast (Fire Danger & Fuels); a USGS model grid, day in FireDangerContext */
+    wfpi: false,
+    /** Measured live fuel moisture field samples (NWCC mirror of FEMS; WA/OR/ID/MT/WY/SD/ND) */
+    lfmSamples: false,
     /** Caltrans District CCTV — live California highway camera locations */
     wildfireCameras:   false,
     evacZones:         true,
@@ -50,7 +63,7 @@ const initialState = {
     /** Rothermel-based spread projection rings for the selected fire */
     fireBehaviorModeling: false,
     /** Route to Safety (All Hazards, Pro): nearest open shelters + hazard-avoiding
-     *  routes via cloud/ors-routing. Never restored as on — every activation
+     *  routes via the ors-routing Edge Function. Never restored as on — every activation
      *  spends ORS quota, so it only turns on from an explicit tap. */
     routeToSafety: false,
     /** WPC Excessive Rainfall Outlook (Day 1-3) */

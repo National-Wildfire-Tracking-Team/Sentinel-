@@ -42,6 +42,7 @@ async function main() {
     resendApiKey: RESEND_API_KEY,
     fromEmail: RESEND_FROM_EMAIL,
     jobName: JOB_NAME,
+    fireDangerUrl: process.env.FIRE_DANGER_URL ?? '',
   });
 
   if (!(await clients.claimJob(STALE_AFTER_SECONDS))) {

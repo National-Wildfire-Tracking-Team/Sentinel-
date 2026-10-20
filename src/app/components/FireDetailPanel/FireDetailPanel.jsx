@@ -28,6 +28,7 @@ import { FLOOD_ATTRIBUTION, floodCategoryMeta, floodZoneDescription, floodZoneRo
 import { fetchSpcMdText, fetchWpcMpdText } from '../../api/mesoscaleDiscussionText';
 import { DISTURBANCE_COLORS, WATCH_WARNING_COLORS } from '../../api/nhcTropicalWeather';
 import { useTimeFormat } from '../../hooks/useTimeFormat';
+import FireDangerPointDetail from './FireDangerPointDetail';
 
 // Fire-related detail types that represent a user opening a tracked wildfire
 // incident (as opposed to AQI stations, weather alerts, evac zones, etc).
@@ -1553,6 +1554,7 @@ const FireDetailPanel = memo(function FireDetailPanel({ nhc = null }) {
              selectedFire.type === 'hazard-event'            ? 'Event Report' :
              selectedFire.type === 'nhc-invest'              ? 'NHC Invest' :
              selectedFire.type === 'nhc-watch-warning'        ? 'NHC Watch/Warning' :
+             selectedFire.type === 'fire-danger-point'        ? 'Fire Danger & Fuels' :
              'Fire Detail'}
           </span>
           <div className="flex items-center gap-1">
@@ -1594,10 +1596,12 @@ const FireDetailPanel = memo(function FireDetailPanel({ nhc = null }) {
           {selectedFire.type === 'hazard-event'            && <HazardEventDetail       fire={selectedFire} />}
           {selectedFire.type === 'nhc-invest'              && <NhcInvestDetail        fire={selectedFire} />}
           {selectedFire.type === 'nhc-watch-warning'        && <NhcWatchWarningDetail  fire={selectedFire} />}
+          {selectedFire.type === 'fire-danger-point'        && <FireDangerPointDetail  fire={selectedFire} />}
           {![
             'hotspot', 'perimeter', 'incident', 'aqi', 'weather-alert', 'user-report',
             'evacuation-zone', 'reporter-evacuation-zone', 'transmission-line',
             'gas-pipeline', 'national-map-college', 'flood-hazard', 'hazard-event', 'nhc-invest', 'nhc-watch-warning',
+            'fire-danger-point',
           ].includes(selectedFire.type) && (
             <div className="flex flex-col items-center justify-center py-10 text-center gap-3">
               <Info size={24} className="text-sentinel-600" />
