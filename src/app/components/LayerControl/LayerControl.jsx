@@ -6,7 +6,7 @@
 
 import { useState, memo, useMemo, useEffect } from 'react';
 import {
-  Layers, Flame, Gauge, Trees, Wind, CloudRain, CloudLightning, Radar, AlertTriangle, Ruler, Hexagon, Satellite, Thermometer, Activity, Droplets, Zap, Lock, GraduationCap, History, TrendingUp, Camera, Snowflake, Landmark, Waves, Waypoints, Navigation,
+  Layers, Flame, Gauge, Trees, Wind, CloudRain, CloudLightning, Radar, AlertTriangle, Ruler, Hexagon, Satellite, Thermometer, Activity, Droplets, Zap, Lock, GraduationCap, History, TrendingUp, Camera, Snowflake, Landmark, Waves, Waypoints, Navigation, Plane,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { trackSentinelUse } from '../../../shared/utils/analytics';
@@ -67,6 +67,7 @@ const LAYER_DEFS = {
   floodHazard:        { label: 'Flood Hazard',        sublabel: 'FEMA National Flood Hazard Layer · zoom in for zones', icon: Waves, color: '#00c8f0' },
   wildfireCameras:   { label: 'Live CA Cameras',      sublabel: 'Caltrans District CCTV · click for live feed', icon: Camera, color: '#14b8a6' },
   nhcTropical:      { label: 'NHC Tropical', sublabel: 'Storms, outlook, wind & surge · parts in its drawer', icon: Waypoints, color: '#4dffff' },
+  awc:              { label: 'Aviation Weather Center', sublabel: 'METAR & TAF, SIGMETs, PIREPs & more · parts in its drawer', icon: Plane, color: '#38bdf8' },
   fireBehaviorModeling: { label: 'Fire Behavior Modeling', sublabel: 'Spread projection · select a fire', icon: TrendingUp, color: '#ff3b1f' },
   // Not an AppContext layer: shared with the Models tab's own toggle (WindParticlesToggle).
   windParticles: { label: 'Wind Particles', sublabel: 'Animated wind flow · current model hour', icon: Wind, color: '#ff5a00' },
@@ -93,7 +94,7 @@ const TAB_SECTIONS = {
       title: 'Weather hazards',
       groups: [
         {
-          layers: ['weatherAlerts', 'nhcTropical', 'stormReports', 'damageAssessment', 'waterGauges', 'floodHazard', 'spcWeatherOutlooks', 'fireWeatherOutlooks', 'wpcEro', 'wpcWssi', 'wpcQpf', 'wpcFronts'],
+          layers: ['weatherAlerts', 'nhcTropical', 'awc', 'stormReports', 'damageAssessment', 'waterGauges', 'floodHazard', 'spcWeatherOutlooks', 'fireWeatherOutlooks', 'wpcEro', 'wpcWssi', 'wpcQpf', 'wpcFronts'],
         },
       ],
     },
@@ -185,7 +186,7 @@ const TAB_SECTIONS = {
       title: 'Weather hazards',
       groups: [
         {
-          layers: ['weatherAlerts', 'nhcTropical', 'stormReports', 'damageAssessment', 'waterGauges', 'floodHazard', 'rawsStations'],
+          layers: ['weatherAlerts', 'nhcTropical', 'awc', 'stormReports', 'damageAssessment', 'waterGauges', 'floodHazard', 'rawsStations'],
         },
       ],
     },

@@ -77,6 +77,7 @@ import { WeatherModelsProvider } from '../context/WeatherModelsContext';
 import { MrmsProvider } from '../context/MrmsContext';
 import { FireDangerProvider } from '../context/FireDangerContext';
 import { RadarSiteProvider } from '../context/RadarSiteContext';
+import { AwcProvider } from '../context/AwcContext';
 import { SatelliteProvider } from '../context/SatelliteContext';
 import { parseSatelliteQuery } from '../api/goesSatellite';
 import { parseModelsQuery } from '../utils/weatherModelsLink';
@@ -139,6 +140,7 @@ const WILDFIRE_LAYER_PRESET = {
   fdLiveFm: false,
   wfpi: false,
   lfmSamples: false,
+  awc: false,
 };
 
 const ALL_HAZARD_LAYER_PRESET = {
@@ -215,6 +217,7 @@ const WEATHER_LAYER_PRESET = {
   mrms: true,
   radarSites: false,
   lightning: false,
+  awc: false,
 };
 
 // Models tab: HRRR/GFS model output only. Every operational layer (alerts,
@@ -1587,6 +1590,7 @@ export default function LiveTrackerPage() {
   const mrmsActive = Boolean(layers.mrms) && activeMapTab === MAP_TABS.weather;
   const fireDangerTab = activeMapTab === MAP_TABS.wildfire || activeMapTab === MAP_TABS.allhazard;
   const radarSitesActive = Boolean(layers.radarSites) && (activeMapTab === MAP_TABS.weather || activeMapTab === MAP_TABS.allhazard);
+  const awcActive = Boolean(layers.awc) && (activeMapTab === MAP_TABS.weather || activeMapTab === MAP_TABS.allhazard);
   // Pull-up controls sheet (MapDockSheet): every layer control that docks on the
   // bottom bar lives in it. Settled height incl. its tabs (0 when no tab is shown).
   const [dockSheetHeight, setDockSheetHeight] = useState(0);
@@ -1656,6 +1660,7 @@ export default function LiveTrackerPage() {
       <MrmsProvider active={mrmsActive}>
       <FireDangerProvider active={fireDangerTab}>
       <RadarSiteProvider active={radarSitesActive}>
+      <AwcProvider active={awcActive}>
       <SatelliteProvider active={satelliteActive}>
       <div
         className={`flex-1 relative overflow-x-clip ${MODEL_COLOR_VARS}`}
@@ -1861,6 +1866,7 @@ export default function LiveTrackerPage() {
           </Suspense>
       </div>
       </SatelliteProvider>
+      </AwcProvider>
       </RadarSiteProvider>
       </FireDangerProvider>
       </MrmsProvider>

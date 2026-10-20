@@ -5,6 +5,7 @@ import https from 'node:https';
 import { ROUTES as NWS_MAPSERVICE_ROUTES } from './netlify/edge-functions/nws-mapservices-proxy.js';
 import { ROUTES as WEATHER_GOV_ROUTES } from './netlify/edge-functions/weather-gov-proxy.js';
 import { ROUTES as ARCGIS_ROUTES } from './netlify/edge-functions/arcgis-proxy.js';
+import { ROUTES as AWC_ROUTES } from './netlify/edge-functions/awc-proxy.js';
 
 // Dev/preview twin of netlify/edge-functions/nws-mapservices-proxy.js: one
 // proxy entry per route, so /api/nws/<key>/... reaches the same upstream
@@ -66,6 +67,32 @@ const weatherGovProxy = Object.fromEntries(
       agent: noaaAgent,
       headers: { 'User-Agent': 'Mozilla/5.0 (compatible; SentinelWildfireTracker/1.0)' },
       rewrite: (path) => route.path + path.slice(prefix.length),
+    }];
+  })
+);
+
+// Dev/preview twin of netlify/edge-functions/awc-proxy.js (/api/awc/<route>/...).
+// aviationweather.gov errors on any query param its spec doesn't document,
+// so only each route's own `params` are passed on, as the edge proxy does.
+const awcProxy = Object.fromEntries(
+  Object.entries(AWC_ROUTES).map(([key, route]) => {
+    const prefix = `/api/awc/${key}`;
+    return [`^${prefix}(/|\\?|$)`, {
+      target: 'https://aviationweather.gov',
+      changeOrigin: true,
+      secure: true,
+      // AWC's front door also closes idle sockets ("socket hang up" on reuse).
+      agent: noaaAgent,
+      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; SentinelWildfireTracker/1.0)' },
+      rewrite: (path) => {
+        const [pathname, query = ''] = (route.path + path.slice(prefix.length)).split('?');
+        const params = new URLSearchParams();
+        for (const [k, v] of new URLSearchParams(query)) {
+          if (route.params.includes(k)) params.append(k, v);
+        }
+        const qs = params.toString().replace(/%2C/g, ',');
+        return qs ? `${pathname}?${qs}` : pathname;
+      },
     }];
   })
 );
@@ -178,6 +205,7 @@ export default defineConfig({
       ...nwsMapServiceProxy,
       ...weatherGovProxy,
       ...arcgisProxy,
+      ...awcProxy,
       // NWPS – api.water.noaa.gov lacks CORS headers; dev server proxies same paths as Netlify edge fn
       '/api/nwps': {
         target: 'https://api.water.noaa.gov/nwps/v1',
@@ -274,6 +302,7 @@ export default defineConfig({
       ...nwsMapServiceProxy,
       ...weatherGovProxy,
       ...arcgisProxy,
+      ...awcProxy,
       '/api/nwps': {
         target: 'https://api.water.noaa.gov/nwps/v1',
         changeOrigin: true,

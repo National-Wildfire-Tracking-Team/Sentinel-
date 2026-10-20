@@ -23,6 +23,8 @@ import SPCOutlookSelector from './SPCOutlookSelector';
 import FireWeatherOutlookSelector from './FireWeatherOutlookSelector';
 import NdgdSmokeTimeSlider from './NdgdSmokeTimeSlider';
 import NhcTropicalControls from '../LayerControl/NhcTropicalControls';
+import AwcControls from '../LayerControl/AwcControls';
+import { useAwcContext } from '../../context/AwcContext';
 
 /** A station's scan is loading. */
 const radarSiteLoading = (r) => Boolean(r.site) && (r.status === 'idle' || (r.status === 'loading' && !r.scan));
@@ -44,6 +46,7 @@ const MapDockSheet = memo(function MapDockSheet({
   const radarSite = useRadarSiteContext();
   const satellite = useSatelliteContext();
   const fireDanger = useFireDangerContext();
+  const awc = useAwcContext();
   const isWildfire = activeMapTab === 'wildfire';
   const isWeatherish = activeMapTab === 'weather' || activeMapTab === 'allhazard';
 
@@ -62,6 +65,10 @@ const MapDockSheet = memo(function MapDockSheet({
   }
   if (isWeatherish && layers.nhcTropical) {
     tabs.push({ id: 'nhcTropical', label: 'NHC Tropical', content: <NhcTropicalControls /> });
+  }
+  if (isWeatherish && layers.awc) {
+    const awcLoading = Boolean(awc && Object.values(awc.status).some((s) => s.loading));
+    tabs.push({ id: 'awc', label: 'Aviation Weather', loading: awcLoading, content: <AwcControls /> });
   }
   if (isWeatherish && layers.spcWeatherOutlooks) {
     tabs.push({ id: 'spcOutlooks', label: 'SPC Outlook', loading: Boolean(spc.loading), content: <SPCOutlookSelector {...spc} /> });

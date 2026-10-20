@@ -75,6 +75,9 @@ import FireDangerStationsLayer, { STATIONS_CIRCLE_ID } from './layers/FireDanger
 import { useFireDangerContext } from '../../context/FireDangerContext';
 import RadarSitesLayer, { RadarSiteSweepLayer, RADAR_SITES_PILL_ID } from './layers/RadarSitesLayer';
 import LightningLayer from './layers/LightningLayer';
+import AwcLayers from './layers/AwcLayers';
+import { awcInteractiveLayerIds, buildAwcRecord } from './layers/awcRecords';
+import { useAwcContext } from '../../context/AwcContext';
 import { parseAliasIds } from '../../utils/incidentAliases';
 import { ndgdFeatureToDateMs } from '../../utils/ndgdSmokeHours';
 
@@ -173,6 +176,9 @@ function mergeFireDangerRecords(records) {
 
 function buildFeatureRecord(feature, lngLat, alerts, { floodPanel = null, fireDanger = null } = {}) {
   const p = feature.properties;
+
+  // Aviation Weather Center layers (AwcLayers): every one opens AwcDetail.
+  if (feature.layer.id.startsWith('awc-src-')) return buildAwcRecord(feature, lngLat);
 
   switch (feature.layer.id) {
     case SFP_FILL_ID:
@@ -651,6 +657,7 @@ export default function MapView({
   const satellite = useSatelliteContext();
   const fireDanger = useFireDangerContext();
   const fireDangerOn = Boolean(fireDanger?.anyOn);
+  const awc = useAwcContext();
   const { alerts, userLocation, setUserLocation } = useAppStatus();
   const { viewport, setViewport } = useViewport();
   // Read on map load: still the opening camera means nothing has moved it yet.
@@ -872,8 +879,9 @@ export default function MapView({
     }
     if ((isWeatherTab || isAllHazardTab) && layers.weatherAlerts && wpcMpdGeoJSON?.features?.length) ids.push('wpc-mpd-fill');
     if (radarSitesActive) ids.push(RADAR_SITES_PILL_ID);
+    ids.push(...awcInteractiveLayerIds(awc));
     return ids;
-  }, [measureActive, radarSitesActive, isWildfireTab, isWeatherTab, isAllHazardTab, layers.fireHotspots, layers.incidentLocations, layers.aqi,
+  }, [measureActive, radarSitesActive, awc, isWildfireTab, isWeatherTab, isAllHazardTab, layers.fireHotspots, layers.incidentLocations, layers.aqi,
       layers.weatherAlerts, layers.spcWeatherOutlooks, layers.stormReports, layers.evacZones, spcMdGeoJSON,
       layers.rawsStations, layers.airNowMonitors, layers.droughtOutlook, layers.ndgdSmokeForecast, layers.fireWeatherOutlooks,
       layers.damageAssessment,
@@ -1401,6 +1409,10 @@ export default function MapView({
           centers={wpcPressureCentersGeoJSON}
           visible={(isWeatherTab || isAllHazardTab) && layers.wpcFronts}
         />
+
+        {/* Aviation Weather Center: hazard shapes, navigation, PIREPs and airport
+            weather dots (Weather and All Hazards tabs; AwcContext gates them) */}
+        <AwcLayers />
 
         {/* WPC Mesoscale Precipitation Discussions — part of the weatherAlerts
             ("NWS & mesoscale") layer alongside SPC MDs; hidden on the wildfire tab */}

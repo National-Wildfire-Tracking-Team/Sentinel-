@@ -15,6 +15,7 @@ import { Grip, ChevronRight, X } from 'lucide-react';
 import { getGeometryCenter } from '../../utils/mapGeometry';
 import { nwsAlertColor } from '../../utils/nwsColors';
 import { categoryColor } from '../../api/nhcTropicalWeather';
+import { awcAccentColor } from '../../api/awc/awc';
 import SpotlightMaskLayer from './layers/SpotlightMaskLayer';
 import { useDragOffset } from './usePopupDrag';
 
@@ -37,6 +38,7 @@ const TYPE_LABELS = {
   'flood-hazard': 'FEMA flood hazard',
   'nhc-storm': 'Tropical cyclone',
   'fire-danger-point': 'Fire danger & fuels',
+  awc: 'Aviation weather',
 };
 
 function getTitle(item) {
@@ -52,6 +54,7 @@ function getAccentColor(item) {
   if (item.type === 'weather-alert') return nwsAlertColor(item.eventType);
   if (item.type === 'nhc-storm') return categoryColor(item.category);
   if (item.type === 'fire-danger-point' && item.sfp?.sfpColor) return item.sfp.sfpColor;
+  if (item.type === 'awc') return awcAccentColor(item) ?? DEFAULT_ACCENT;
   return DEFAULT_ACCENT;
 }
 

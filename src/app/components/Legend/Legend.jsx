@@ -32,6 +32,9 @@ import { WFPI_CLASSES } from '../../api/fireDanger/wfpi';
 import { LIGHTNING_AGES, LIGHTNING_ATTRIBUTION } from '../../api/lightning';
 import { useSatelliteContext } from '../../context/SatelliteContext';
 import { LEGENDS as SATELLITE_LEGENDS, attributionFor } from '../../api/goesSatellite';
+import {
+  AWC_HAZARD_TOGGLES, FLIGHT_CATEGORY_COLORS, FLIGHT_CATEGORY_LABELS, PIREP_SEVERITY_COLORS, PIREP_SEVERITY_LABELS, hazardStyle,
+} from '../../api/awc/awc';
 
 const CONTAINMENT_SCALE = [
   { color: CONTAINMENT_RED, label: 'Uncontained (0%)' },
@@ -114,6 +117,22 @@ function ClusterRow({ ringColor, label }) {
           strokeLinejoin="round"
         />
         <text x="12" y="18" textAnchor="middle" fontSize="8" fontWeight="700" fill="#ffffff">5</text>
+      </svg>
+      <span className="text-sentinel-700 dark:text-sentinel-100 text-[11px]">{label}</span>
+    </div>
+  );
+}
+
+/** A wind barb as the Airport weather layer draws it: staff from the station, lines on the clockwise side. */
+function BarbRow({ parts, label }) {
+  return (
+    <div className="flex items-center gap-2">
+      <svg viewBox="0 0 30 14" className="w-7 h-3.5 shrink-0 text-sentinel-700 dark:text-white" aria-hidden>
+        <circle cx="26" cy="7" r="2.5" fill={FLIGHT_CATEGORY_COLORS.VFR} />
+        <line x1="26" y1="7" x2="3" y2="7" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+        {parts === 'half' && <line x1="7" y1="7" x2="4.8" y2="2.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />}
+        {parts === 'full' && <line x1="3" y1="7" x2="0.8" y2="1" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />}
+        {parts === 'flag' && <path d="M3 7 L0.8 1 L8 7 Z" fill="currentColor" />}
       </svg>
       <span className="text-sentinel-700 dark:text-sentinel-100 text-[11px]">{label}</span>
     </div>
@@ -572,6 +591,34 @@ const Legend = memo(function Legend({
             {layers.wpcFronts && (
               <Section title="WPC Surface Analysis Fronts">
                 {WPC_FRONTS_SCALE.map(row => <ColorRow key={row.label} {...row} />)}
+              </Section>
+            )}
+
+            {layers.awc && layers.awcMetarTaf && (
+              <Section title="Airport Weather (AWC)">
+                {['VFR', 'MVFR', 'IFR', 'LIFR'].map((c) => (
+                  <ColorRow key={c} color={FLIGHT_CATEGORY_COLORS[c]} label={FLIGHT_CATEGORY_LABELS[c]} />
+                ))}
+                <div className="pt-1 mt-1 border-t border-sentinel-200 dark:border-sentinel-700" />
+                <div className="text-sentinel-500 dark:text-sentinel-300 text-[10px] mb-1">Wind barb points to where the wind blows from</div>
+                <BarbRow parts="half" label="Short line · 5 kt" />
+                <BarbRow parts="full" label="Long line · 10 kt" />
+                <BarbRow parts="flag" label="Flag · 50 kt" />
+              </Section>
+            )}
+
+            {layers.awc && layers.awcPirep && (
+              <Section title="Pilot Reports (AWC)">
+                {PIREP_SEVERITY_LABELS.map((label, i) => <ColorRow key={label} color={PIREP_SEVERITY_COLORS[i]} label={`${label} turbulence or icing`} />)}
+                <div className="text-sentinel-500 dark:text-sentinel-400 text-[10px]">Red ring: urgent report</div>
+              </Section>
+            )}
+
+            {layers.awc && ['awcSigmetUs', 'awcSigmetIntl', 'awcCwa', 'awcGairmetSierra', 'awcGairmetTango', 'awcGairmetZulu', 'awcAirmetAk', 'awcTcf'].some((k) => layers[k]) && (
+              <Section title="Aviation Hazards (AWC)">
+                {AWC_HAZARD_TOGGLES.filter((t) => layers[t.key]).map((t) => (
+                  <ColorRow key={t.key} color={hazardStyle(t.hz[0]).color} label={t.label} />
+                ))}
               </Section>
             )}
 
