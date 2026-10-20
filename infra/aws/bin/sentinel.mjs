@@ -18,6 +18,10 @@
  * HAFS (SentinelHafs) renders hurricane-model frames from NOAA's HAFS bucket
  * in us-east-1 and is served at /hafs/*. Opt-in: `sentinel:hafs=enabled`.
  *
+ * Fire Danger (SentinelFireDanger) publishes USDA Forest Service FEMS NFDRS
+ * station values every 3 hours, served at /fire-danger/*. Opt-in:
+ * `sentinel:fireDanger=enabled`.
+ *
  * Settings come from cdk.json context and can be overridden per deploy, e.g.
  *   npx cdk deploy SentinelDataServices -c sentinel:alarmEmail=ops@example.org
  */
@@ -29,6 +33,7 @@ import { WEATHER_MODELS, WeatherModelsStack } from '../lib/weather-models-stack.
 import { MrmsStack } from '../lib/mrms-stack.mjs';
 import { LightningStack } from '../lib/lightning-stack.mjs';
 import { HafsStack } from '../lib/hafs-stack.mjs';
+import { FireDangerStack } from '../lib/fire-danger-stack.mjs';
 
 // Defaults live here, not in cdk.json: an empty `-c sentinel:key=` (an
 // unset GitHub variable in deploy-aws.yml) replaces cdk.json context
@@ -50,6 +55,7 @@ const DEFAULTS = {
   allowMissingSupabase: 'false', // 'true' lets a local synth/diff run without the two above
   hafs: 'disabled', // 'enabled' adds SentinelHafs and the /hafs/* route
   hafsReservedConcurrency: '0', // >0 caps concurrent frame renders (needs spare account concurrency)
+  fireDanger: 'disabled', // 'enabled' adds SentinelFireDanger and the /fire-danger/* route
 };
 
 const app = new App();
@@ -104,6 +110,17 @@ if (lightningEnabled) {
   });
 }
 
+const fireDangerEnabled = ctx('fireDanger') === 'enabled';
+let fireDanger;
+if (fireDangerEnabled) {
+  fireDanger = new FireDangerStack(app, 'SentinelFireDanger', {
+    env,
+    description: 'Sentinel Fire Danger: USDA Forest Service FEMS NFDRS station values (Lambda + S3, us-east-1)',
+    alarmEmail: ctx('alarmEmail'),
+    distributionId: ctx('distributionId') || undefined,
+  });
+}
+
 let hafs;
 if (ctx('hafs') === 'enabled') {
   hafs = new HafsStack(app, 'SentinelHafs', {
@@ -126,6 +143,7 @@ const dataServices = new DataServicesStack(app, 'SentinelDataServices', {
   weatherModelsFunctionUrl: weatherModels?.functionUrl.url,
   mrms: mrmsEnabled,
   lightning: lightningEnabled,
+  fireDanger: fireDangerEnabled,
   supabaseUrl: ctx('supabaseUrl'),
   supabaseAnonKey: ctx('supabaseAnonKey'),
   hafsFunctionUrl: hafs?.functionUrl.url,
@@ -133,6 +151,7 @@ const dataServices = new DataServicesStack(app, 'SentinelDataServices', {
 // Deploying the distribution deploys SentinelMrms first (its bucket backs /mrms/*), as CI deploys only SentinelDataServices.
 if (mrms) dataServices.addDependency(mrms);
 if (lightning) dataServices.addDependency(lightning);
+if (fireDanger) dataServices.addDependency(fireDanger);
 // SentinelHafs deploys first too: the distribution reads its Function URL (a same-region stack export).
 
 new GithubDeployStack(app, 'SentinelGithubDeploy', {

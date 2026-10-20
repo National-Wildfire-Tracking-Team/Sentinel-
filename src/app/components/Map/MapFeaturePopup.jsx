@@ -36,10 +36,12 @@ const TYPE_LABELS = {
   'national-map-college': 'School / university',
   'flood-hazard': 'FEMA flood hazard',
   'nhc-storm': 'Tropical cyclone',
+  'fire-danger-point': 'Fire danger & fuels',
 };
 
 function getTitle(item) {
   if (item.type === 'weather-alert') return item.eventType || item.headline || 'Weather alert';
+  if (item.type === 'fire-danger-point') return item.sfp?.sfpLabel ? `Fire potential: ${item.sfp.sfpLabel}` : TYPE_LABELS[item.type];
   return item.name || item.title || item.zoneName || TYPE_LABELS[item.type] || 'Item';
 }
 
@@ -49,6 +51,7 @@ function getAccentColor(item) {
   if (item.historical) return HISTORICAL_ACCENT;
   if (item.type === 'weather-alert') return nwsAlertColor(item.eventType);
   if (item.type === 'nhc-storm') return categoryColor(item.category);
+  if (item.type === 'fire-danger-point' && item.sfp?.sfpColor) return item.sfp.sfpColor;
   return DEFAULT_ACCENT;
 }
 

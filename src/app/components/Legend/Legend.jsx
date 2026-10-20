@@ -24,6 +24,11 @@ import {
 } from '../../api/nhcTropicalWeather';
 import { useMrmsContext } from '../../context/MrmsContext';
 import { mrmsLegendRows } from '../../api/mrms';
+import { useFireDangerContext } from '../../context/FireDangerContext';
+import { SFP_CLASSES, SFP_NOT_UPDATED } from '../../api/fireDanger/significantFirePotential';
+import { fuelLegendGroups } from '../../api/fireDanger/landfireFuels';
+import { STATION_FIELDS, rampStops } from '../../api/fireDanger/stations';
+import { WFPI_CLASSES } from '../../api/fireDanger/wfpi';
 import { LIGHTNING_AGES, LIGHTNING_ATTRIBUTION } from '../../api/lightning';
 import { useSatelliteContext } from '../../context/SatelliteContext';
 import { LEGENDS as SATELLITE_LEGENDS, attributionFor } from '../../api/goesSatellite';
@@ -216,6 +221,92 @@ function MrmsLegendSection() {
       <div className="text-sentinel-500 dark:text-sentinel-400 text-[10px] pt-1 mt-1 border-t border-sentinel-200 dark:border-sentinel-700 leading-snug">{spec.description}</div>
       <div className="text-sentinel-500 text-[9px] leading-snug">{mrms.manifest.attribution}</div>
     </Section>
+  );
+}
+
+// Fire Danger & Fuels: NIFC's 7-day legend as published, and LANDFIRE fuel
+// groups (each row's strip shows that group's models in LANDFIRE colours).
+const SFP_LEGEND_ROWS = Object.values(SFP_CLASSES).map(({ color, label }) => ({ color, label }));
+const FUEL_LEGEND_GROUPS = fuelLegendGroups();
+
+function FireDangerLegendSections() {
+  const fd = useFireDangerContext();
+  if (!fd?.anyOn) return null;
+  return (
+    <>
+      {fd.sfpOn && (
+        <Section title={`Significant Fire Potential · Day ${fd.sfp.day}`}>
+          {SFP_LEGEND_ROWS.map((row) => <ColorRow key={row.label} {...row} />)}
+          <div className="flex items-center gap-2">
+            <span className="w-3 h-3 rounded-sm shrink-0 border border-dashed border-sentinel-400" style={{ backgroundColor: `${SFP_NOT_UPDATED.color}40` }} />
+            <span className="text-sentinel-700 dark:text-sentinel-100 text-[11px]">{SFP_NOT_UPDATED.label}</span>
+          </div>
+          <div className="text-sentinel-500 text-[9px] leading-snug pt-1">Official NWCG Predictive Services outlook, by area</div>
+        </Section>
+      )}
+      {fd.wfpiOn && (
+        <Section title={`Fire Potential Index (USGS) · Day ${fd.wfpi.day}`}>
+          <div>
+            <div className="flex h-2 overflow-hidden rounded-sm">
+              {WFPI_CLASSES.map(([hi, color]) => <span key={hi} className="h-full flex-1" style={{ backgroundColor: color }} />)}
+            </div>
+            <div className="flex justify-between text-[10px] text-sentinel-500 dark:text-sentinel-300 mt-0.5 tabular-nums">
+              <span>0</span><span>50</span><span>100</span><span>141+</span>
+            </div>
+          </div>
+          <div className="text-sentinel-500 text-[9px] leading-snug pt-1">USGS&apos;s legend. Agricultural land, water, snow and barren ground carry no index. A USGS model, not NFDRS.</div>
+        </Section>
+      )}
+      {fd.stationsOn && fd.stations.field && (() => {
+        const meta = STATION_FIELDS[fd.stations.field];
+        const stops = rampStops(fd.stations.field);
+        const colors = stops.filter((_, i) => i % 2 === 1);
+        return (
+          <Section title={`${meta.label} (stations)`}>
+            <div>
+              <div className="h-2 rounded-sm" style={{ background: `linear-gradient(to right, ${colors.join(', ')})` }} />
+              <div className="flex justify-between text-[10px] text-sentinel-500 dark:text-sentinel-300 mt-0.5 tabular-nums">
+                <span>{meta.range[0]}{meta.unit}{meta.kind === 'moisture' ? ' (dry)' : ''}</span>
+                <span>{meta.range[1]}{meta.unit}{meta.kind === 'moisture' ? '' : '+'}</span>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="w-3 h-3 rounded-full shrink-0 border-[1.5px] border-sentinel-400" />
+              <span className="text-sentinel-700 dark:text-sentinel-100 text-[11px]">No current value</span>
+            </div>
+            <div className="text-sentinel-500 text-[9px] leading-snug pt-1">
+              Display scale, not a danger class. NFDRS 2016 fuel model Y via FEMS{meta.source === 'modelled' ? '; live moisture is modelled, not measured' : ''}.
+            </div>
+          </Section>
+        );
+      })()}
+      {fd.samplesOn && (
+        <Section title="Live fuel moisture samples">
+          <div className="flex items-center gap-2">
+            <span className="w-3 h-3 rounded-full shrink-0 border border-white" style={{ backgroundColor: '#a855f7' }} />
+            <span className="text-sentinel-700 dark:text-sentinel-100 text-[11px]">Sampled in the last 2 weeks</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="w-3 h-3 rounded-full shrink-0 border border-white/60" style={{ backgroundColor: '#a855f759' }} />
+            <span className="text-sentinel-700 dark:text-sentinel-100 text-[11px]">Older sample (up to 60 days)</span>
+          </div>
+          <div className="text-sentinel-500 text-[9px] leading-snug pt-1">Measured at the site. Mostly WA, OR, ID, MT, WY, SD, ND.</div>
+        </Section>
+      )}
+      {fd.fuelsOn && (
+        <Section title="Fuel models (LANDFIRE FBFM40)">
+          {FUEL_LEGEND_GROUPS.map((g) => (
+            <div key={g.id} className="flex items-center gap-2" title={g.models.map((m) => `${m.model} ${m.name}`).join('\n')}>
+              <span className="flex h-3 w-10 shrink-0 overflow-hidden rounded-sm">
+                {g.models.map((m) => <span key={m.model} className="h-full flex-1" style={{ backgroundColor: m.color }} />)}
+              </span>
+              <span className="text-sentinel-700 dark:text-sentinel-100 text-[11px]">{g.label}</span>
+            </div>
+          ))}
+          <div className="text-sentinel-500 text-[9px] leading-snug pt-1">Static fuel type map, not current fuel moisture. Click the map for the model at a point.</div>
+        </Section>
+      )}
+    </>
   );
 }
 
@@ -440,6 +531,8 @@ const Legend = memo(function Legend({
                 {FIRE_WX_LIGHTNING_SCALE.map(row => <ColorRow key={row.label} {...row} />)}
               </Section>
             )}
+
+            <FireDangerLegendSections />
 
             {layers.wpcEro && (
               <Section title="WPC Excessive Rainfall Outlook">

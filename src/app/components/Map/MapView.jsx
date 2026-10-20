@@ -67,6 +67,12 @@ import CalFirePerimetersLayer from './layers/CalFirePerimetersLayer';
 import HazardEventsLayer from './layers/HazardEventsLayer';
 import DamageAssessmentLayer from './layers/DamageAssessmentLayer';
 import MrmsLayer from './layers/MrmsLayer';
+import SignificantFirePotentialLayer, { SFP_FILL_ID } from './layers/SignificantFirePotentialLayer';
+import FuelModelLayer from './layers/FuelModelLayer';
+import WfpiLayer from './layers/WfpiLayer';
+import FieldSamplesLayer, { SAMPLES_CIRCLE_ID } from './layers/FieldSamplesLayer';
+import FireDangerStationsLayer, { STATIONS_CIRCLE_ID } from './layers/FireDangerStationsLayer';
+import { useFireDangerContext } from '../../context/FireDangerContext';
 import RadarSitesLayer, { RadarSiteSweepLayer, RADAR_SITES_PILL_ID } from './layers/RadarSitesLayer';
 import LightningLayer from './layers/LightningLayer';
 import { parseAliasIds } from '../../utils/incidentAliases';
@@ -130,10 +136,54 @@ function buildFloodHazardRecord(zoneProps, lngLat, panelProps) {
  * gauges, cameras, SPC MDs / WPC MPDs) — those stay handled directly in
  * handleClick.
  */
-function buildFeatureRecord(feature, lngLat, alerts, { floodPanel = null } = {}) {
+/**
+ * The Fire Danger & Fuels inspection record for a clicked point. `sfpProps`
+ * are the clicked fire potential area's properties, or null when the click
+ * missed every area (or that layer is off); the panel then shows what else
+ * is known at the point.
+ */
+function buildFireDangerPointRecord(lngLat, sfpProps, fireDanger, station = null, sampleSite = null) {
+  return {
+    type:         'fire-danger-point',
+    id:           `fire-danger-${lngLat.lat.toFixed(4)},${lngLat.lng.toFixed(4)}`,
+    lat:          lngLat.lat,
+    lng:          lngLat.lng,
+    sfp:          sfpProps ?? null,
+    sfpDay:       fireDanger?.sfp?.day ?? null,
+    sfpFetchedAt: fireDanger?.sfp?.fetchedAt ?? null,
+    // A clicked FEMS station; otherwise the panel finds the nearest one.
+    station:      station ?? null,
+    // A clicked fuel moisture sample site; otherwise the panel finds the nearest one.
+    sampleSite:   sampleSite ?? null,
+  };
+}
+
+/** One click can hit a fire potential area and a station: show them as one inspection. */
+function mergeFireDangerRecords(records) {
+  const fd = records.filter((r) => r.record.type === 'fire-danger-point');
+  if (fd.length < 2) return records;
+  const merged = { ...fd[0].record };
+  for (const { record } of fd.slice(1)) {
+    merged.sfp = merged.sfp ?? record.sfp;
+    merged.station = merged.station ?? record.station;
+    merged.sampleSite = merged.sampleSite ?? record.sampleSite;
+  }
+  return [{ record: merged, feature: fd[0].feature }, ...records.filter((r) => r.record.type !== 'fire-danger-point')];
+}
+
+function buildFeatureRecord(feature, lngLat, alerts, { floodPanel = null, fireDanger = null } = {}) {
   const p = feature.properties;
 
   switch (feature.layer.id) {
+    case SFP_FILL_ID:
+      return buildFireDangerPointRecord(lngLat, p, fireDanger);
+
+    case STATIONS_CIRCLE_ID:
+      return buildFireDangerPointRecord(lngLat, null, fireDanger, p);
+
+    case SAMPLES_CIRCLE_ID:
+      return buildFireDangerPointRecord(lngLat, null, fireDanger, null, p);
+
     case FLOOD_ZONES_FILL_ID:
       return buildFloodHazardRecord(p, lngLat, floodPanel);
 
@@ -596,6 +646,8 @@ export default function MapView({
   const radarSitesActive = Boolean(radarSites?.active && radarSites.sites);
   const selectRadarSite = radarSites?.selectSite;
   const satellite = useSatelliteContext();
+  const fireDanger = useFireDangerContext();
+  const fireDangerOn = Boolean(fireDanger?.anyOn);
   const { alerts, userLocation, setUserLocation } = useAppStatus();
   const { viewport, setViewport } = useViewport();
   // Read on map load: still the opening camera means nothing has moved it yet.
@@ -790,6 +842,9 @@ export default function MapView({
     if (floodHazardVisible && floodHazardData?.zones?.features?.length) ids.push(FLOOD_ZONES_FILL_ID);
     if (floodHazardVisible && floodHazardData?.panels?.features?.length) ids.push(FLOOD_PANELS_FILL_ID);
     if ((isWildfireTab || isAllHazardTab) && layers.fireWeatherOutlooks && fireWeatherOutlooksGeoJSON) ids.push('fire-weather-outlook-fill');
+    if (fireDanger?.sfpOn && fireDanger.sfp.data) ids.push(SFP_FILL_ID);
+    if (fireDanger?.stationsOn && fireDanger.stations.data) ids.push(STATIONS_CIRCLE_ID);
+    if (fireDanger?.samplesOn && fireDanger.samples.data) ids.push(SAMPLES_CIRCLE_ID);
     if (isWeatherTab || isAllHazardTab) {
       if (nhcDisturbanceAreasGeoJSON?.features?.length) ids.push('nhc-disturbance-fill');
       if (nhcDisturbancePointsGeoJSON?.features?.length) ids.push('nhc-disturbance-circle');
@@ -834,7 +889,8 @@ export default function MapView({
       floodHazardVisible, floodHazardData,
       layers.waterGauges, waterGaugesGeoJSON,
       layers.wildfireCameras, californiaCamerasGeoJSON,
-      hazardEventsGeoJSON]);
+      hazardEventsGeoJSON, fireDanger?.sfpOn, fireDanger?.sfp?.data, fireDanger?.stationsOn, fireDanger?.stations?.data,
+      fireDanger?.samplesOn, fireDanger?.samples?.data]);
 
   // Clear a stale click popup when layers change
   useEffect(() => {
@@ -873,9 +929,11 @@ export default function MapView({
     setStormPopup(null);
     const features = evt.features;
     if (!features?.length) {
-      selectFire(null);
       selectGauge(null);
       setFeaturePopup(null);
+      // Fire Danger & Fuels: any point on the map can be inspected (the fuel
+      // model raster has no features to click).
+      selectFire(fireDangerOn ? buildFireDangerPointRecord(evt.lngLat, null, fireDanger) : null);
       return;
     }
 
@@ -958,17 +1016,18 @@ export default function MapView({
     // that features stacked at the same point — e.g. an evac zone over a
     // fire perimeter — all surface, deduped by layer + id.
     const seen = new Set();
-    const records = [];
+    let records = [];
     const floodPanelFeature = features.find((f) => f.layer.id === FLOOD_PANELS_FILL_ID);
     const floodPanel = floodPanelFeature?.properties ?? null;
     for (const f of features) {
-      const record = buildFeatureRecord(f, evt.lngLat, alerts, { floodPanel });
+      const record = buildFeatureRecord(f, evt.lngLat, alerts, { floodPanel, fireDanger });
       if (!record) continue;
       const key = `${f.layer.id}:${record.id}`;
       if (seen.has(key)) continue;
       seen.add(key);
       records.push({ record, feature: f });
     }
+    records = mergeFireDangerRecords(records);
     // Clicked inside a FIRM panel but on nothing else: still worth telling
     // the user there's no shaded FEMA flood hazard here, with panel details.
     if (records.length === 0 && floodPanelFeature) {
@@ -1005,7 +1064,7 @@ export default function MapView({
     if (outlook) records.push({ record: { ...outlook, type: 'nhc-invest' }, feature: outlookFeature });
 
     if (records.length === 0) {
-      selectFire(null);
+      selectFire(fireDangerOn ? buildFireDangerPointRecord(evt.lngLat, null, fireDanger) : null);
       setFeaturePopup(null);
       return;
     }
@@ -1022,7 +1081,7 @@ export default function MapView({
       mouseLngLat: evt.lngLat,
       anchorFeature: records[0].feature,
     });
-  }, [measureActive, alerts, selectFire, selectGauge, selectCamera, selectRadarSite, layerPanelOpen, closeLayerPanel, onModelPick, onRoutePick, nhcCyclones, nhcOutlookSystems, pickAtCenter]);
+  }, [measureActive, alerts, selectFire, selectGauge, selectCamera, selectRadarSite, layerPanelOpen, closeLayerPanel, onModelPick, onRoutePick, nhcCyclones, nhcOutlookSystems, pickAtCenter, fireDanger, fireDangerOn]);
 
   // Center picker: once a model point is being inspected, panning keeps it on the screen center.
   useEffect(() => {
@@ -1209,6 +1268,14 @@ export default function MapView({
         {/* NOAA MRMS radar (Weather tab). Visibility, product and frame come
             from MrmsContext, which is active only on the Weather tab with the layer on. */}
         <MrmsLayer />
+
+        {/* Fire Danger & Fuels (Wildfire and All Hazards tabs). On/off, day and
+            opacity come from FireDangerContext; the fuel raster sits beneath labels. */}
+        <FuelModelLayer />
+        <WfpiLayer />
+        <SignificantFirePotentialLayer />
+        <FireDangerStationsLayer />
+        <FieldSamplesLayer />
 
         {/* Radar Site (Weather tab): the selected station's Level 3 sweep. Its
             station pills render near the top of the stack, below. */}

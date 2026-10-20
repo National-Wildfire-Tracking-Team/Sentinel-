@@ -4,6 +4,7 @@ import react from '@vitejs/plugin-react';
 import https from 'node:https';
 import { ROUTES as NWS_MAPSERVICE_ROUTES } from './netlify/edge-functions/nws-mapservices-proxy.js';
 import { ROUTES as WEATHER_GOV_ROUTES } from './netlify/edge-functions/weather-gov-proxy.js';
+import { ROUTES as ARCGIS_ROUTES } from './netlify/edge-functions/arcgis-proxy.js';
 
 // Dev/preview twin of netlify/edge-functions/nws-mapservices-proxy.js: one
 // proxy entry per route, so /api/nws/<key>/... reaches the same upstream
@@ -26,6 +27,29 @@ const nwsMapServiceProxy = Object.fromEntries(
       // WPC's server rejects some browser agents (e.g. headless Chrome) with 403.
       headers: { 'User-Agent': 'Mozilla/5.0 (compatible; SentinelWildfireTracker/1.0)' },
       rewrite: (path) => route.path + path.slice(prefix.length),
+    }];
+  })
+);
+
+// Dev/preview twin of netlify/edge-functions/arcgis-proxy.js (/api/arcgis/<route>/...),
+// each route pinned to its own ArcGIS origin as in production.
+const arcgisProxy = Object.fromEntries(
+  Object.entries(ARCGIS_ROUTES).map(([key, route]) => {
+    const prefix = `/api/arcgis/${key}`;
+    return [`^${prefix}(/|\\?|$)`, {
+      target: route.origin ?? 'https://services.arcgis.com',
+      changeOrigin: true,
+      secure: true,
+      // forcedParams are added upstream as the edge proxy does (buildUpstreamUrl).
+      rewrite: (path) => {
+        const rewritten = route.path + path.slice(prefix.length);
+        if (!route.forcedParams) return rewritten;
+        const [pathname, query = ''] = rewritten.split('?');
+        const params = new URLSearchParams(query);
+        for (const [k, v] of Object.entries(route.forcedParams)) params.set(k, v);
+        return `${pathname}?${params.toString().replace(/%2C/g, ',')}`;
+      },
+      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; SentinelWildfireTracker/1.0)' },
     }];
   })
 );
@@ -159,6 +183,7 @@ export default defineConfig({
       },
       ...nwsMapServiceProxy,
       ...weatherGovProxy,
+      ...arcgisProxy,
       // NWPS – api.water.noaa.gov lacks CORS headers; dev server proxies same paths as Netlify edge fn
       '/api/nwps': {
         target: 'https://api.water.noaa.gov/nwps/v1',
@@ -254,6 +279,7 @@ export default defineConfig({
       },
       ...nwsMapServiceProxy,
       ...weatherGovProxy,
+      ...arcgisProxy,
       '/api/nwps': {
         target: 'https://api.water.noaa.gov/nwps/v1',
         changeOrigin: true,

@@ -6,7 +6,7 @@
 
 import { useState, memo, useMemo, useEffect } from 'react';
 import {
-  Layers, Flame, Wind, CloudRain, CloudLightning, Radar, AlertTriangle, Ruler, Hexagon, Satellite, Thermometer, Activity, Droplets, Zap, Lock, GraduationCap, History, TrendingUp, Camera, Snowflake, Landmark, Waves, Waypoints, Navigation,
+  Layers, Flame, Gauge, Trees, Wind, CloudRain, CloudLightning, Radar, AlertTriangle, Ruler, Hexagon, Satellite, Thermometer, Activity, Droplets, Zap, Lock, GraduationCap, History, TrendingUp, Camera, Snowflake, Landmark, Waves, Waypoints, Navigation,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { trackSentinelUse } from '../../../shared/utils/analytics';
@@ -14,6 +14,12 @@ import LayerPanelSection from './LayerPanelSection';
 import ModelLayerPanel from '../WeatherModels/ModelLayerPanel';
 import { useWeatherModelsContext } from '../../context/WeatherModelsContext';
 import { LIGHTNING_URL } from '../../api/lightning';
+import { FIRE_DANGER_URL, STATION_LAYER_KEYS } from '../../api/fireDanger/stations';
+
+function stationSublabel(text) {
+  // Shown even before cloud/fire-danger is deployed, saying so (as Lightning does).
+  return FIRE_DANGER_URL ? text : 'NFDRS stations · not set up for this build yet';
+}
 
 /** Layer row definitions — grouped under tab-specific sections below */
 const LAYER_DEFS = {
@@ -25,7 +31,21 @@ const LAYER_DEFS = {
   ndgdSmokeForecast: { label: 'Smoke Concentration', sublabel: 'NOAA NDGD hourly (48h)',      icon: CloudRain,    color: '#eab308' },
   droughtOutlook:    { label: 'Drought Outlook',     sublabel: 'NOAA CPC Monthly Outlook',    icon: Droplets,     color: '#f59e0b' },
   fireWeatherOutlooks: { label: 'Fire Weather Outlooks', sublabel: 'SPC Day 1-8 fire weather', icon: Zap,          color: '#ff6b35' },
-  fireRiskOutlook: { label: '7-day Fire Risk', sublabel: 'NIFC/NWCG Significant Fire Potential', icon: Flame, color: '#f97316' },
+  // An official outlook, not an NFDRS adjective danger rating: named for what it is.
+  fireRiskOutlook: { label: 'Significant Fire Potential', sublabel: 'NWCG 7-day outlook · official · by area', icon: Gauge, color: '#f97316' },
+  // FEMS NFDRS station values: one row per field; turning one on turns the others off.
+  fdErc: { label: 'Energy Release Component', sublabel: stationSublabel('ERC at NFDRS stations · FEMS'), icon: Flame, color: '#f97316' },
+  fdBi: { label: 'Burning Index', sublabel: stationSublabel('BI at NFDRS stations · FEMS'), icon: Flame, color: '#f97316' },
+  fdSc: { label: 'Spread Component', sublabel: stationSublabel('SC at NFDRS stations · FEMS'), icon: Wind, color: '#f97316' },
+  fdDeadFm: { label: 'Dead Fuel Moisture', sublabel: stationSublabel('1-, 10-, 100-, 1000-hour at NFDRS stations'), icon: Droplets, color: '#38bdf8' },
+  fdLiveFm: { label: 'Live Fuel Moisture', sublabel: stationSublabel('Herb & woody, NFDRS-modelled at stations'), icon: Droplets, color: '#22c55e' },
+  wfpi: {
+    label: 'Fire Potential Index (gridded)',
+    sublabel: FIRE_DANGER_URL ? 'USGS WFPI 7-day forecast · a USGS model, not NFDRS' : 'USGS WFPI 7-day forecast · dates not set up for this build yet',
+    icon: Layers, color: '#ef4444',
+  },
+  lfmSamples: { label: 'Live Fuel Moisture Samples', sublabel: 'Measured in the field · WA, OR, ID, MT, WY, SD, ND only', icon: Droplets, color: '#a855f7' },
+  fuelModels: { label: 'Fuel Types & Models', sublabel: 'LANDFIRE 40 fuel models · static map, not moisture', icon: Trees, color: '#84cc16' },
   wpcEro:    { label: 'Excessive Rainfall Outlook', sublabel: 'WPC Day 1-3 flash-flood risk',      icon: CloudRain,  color: '#38bdf8' },
   wpcWssi:   { label: 'Winter Storm Severity',      sublabel: 'WPC Day 1-3 overall impact',        icon: Snowflake,  color: '#93c5fd' },
   wpcQpf:    { label: 'Precipitation Forecast',     sublabel: 'WPC Day 1-3 QPF (24hr)',            icon: Droplets,   color: '#0ea5e9' },
@@ -73,7 +93,16 @@ const TAB_SECTIONS = {
       title: 'Weather hazards',
       groups: [
         {
-          layers: ['weatherAlerts', 'nhcTropical', 'stormReports', 'damageAssessment', 'waterGauges', 'floodHazard', 'spcWeatherOutlooks', 'fireWeatherOutlooks', 'fireRiskOutlook', 'wpcEro', 'wpcWssi', 'wpcQpf', 'wpcFronts'],
+          layers: ['weatherAlerts', 'nhcTropical', 'stormReports', 'damageAssessment', 'waterGauges', 'floodHazard', 'spcWeatherOutlooks', 'fireWeatherOutlooks', 'wpcEro', 'wpcWssi', 'wpcQpf', 'wpcFronts'],
+        },
+      ],
+    },
+    {
+      id: 'ah-fire-danger',
+      title: 'Fire Danger & Fuels',
+      groups: [
+        {
+          layers: ['fireRiskOutlook', 'wfpi', ...STATION_LAYER_KEYS, 'lfmSamples', 'fuelModels'],
         },
       ],
     },
@@ -104,13 +133,28 @@ const TAB_SECTIONS = {
       ],
     },
     {
+      id: 'wf-fire-danger',
+      title: 'Fire Danger & Fuels',
+      groups: [
+        {
+          layers: [
+            'fireRiskOutlook',
+            'wfpi',
+            ...STATION_LAYER_KEYS,
+            'lfmSamples',
+            'fuelModels',
+            { key: 'fireWeatherOutlooks', label: 'Fire Weather Forecast', sublabel: 'SPC Day 1-8 fire weather outlook' },
+          ],
+        },
+      ],
+    },
+    {
       id: 'wf-evac',
       title: 'Outlooks',
       groups: [
         {
           layers: [
-            'fireRiskOutlook', 'ndgdSmokeForecast', 'droughtOutlook',
-            { key: 'fireWeatherOutlooks', label: 'SPC outlook', sublabel: 'SPC Day 1-8 fire weather' },
+            'ndgdSmokeForecast', 'droughtOutlook',
           ],
         },
       ],
@@ -379,7 +423,7 @@ const LayerControl = memo(function LayerControl({
   onMeasureClose,
   dockedPanelClearance = 0,
 }) {
-  const { layerPanelOpen, toggleLayerPanel } = useApp();
+  const { layerPanelOpen, toggleLayerPanel, layers, setLayer } = useApp();
   const [collapsed, setCollapsed] = useState({});
 
   const infraLayers = useMemo(() => [
@@ -448,6 +492,13 @@ const LayerControl = memo(function LayerControl({
   }, [activeMapTab]);
 
   const toggleGroup = (key) => setCollapsed((c) => ({ ...c, [key]: !c[key] }));
+
+  // Station layers colour the same points by one field, so only one is on at a time.
+  const toggleStationLayer = (key) => {
+    const turningOn = !layers[key];
+    if (turningOn) trackSentinelUse('layer_toggle', { layer: key });
+    STATION_LAYER_KEYS.forEach((k) => setLayer(k, turningOn && k === key));
+  };
 
   const isModelsTab = activeMapTab === 'models';
 
@@ -592,6 +643,7 @@ const LayerControl = memo(function LayerControl({
                                 icon={def.icon}
                                 color={def.color}
                                 locked={lockedLayerKeys.has(layerKey)}
+                                onToggle={STATION_LAYER_KEYS.includes(layerKey) ? () => toggleStationLayer(layerKey) : undefined}
                               />
 
                               {layerKey === 'fireRiskOutlook' && (

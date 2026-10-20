@@ -48,6 +48,7 @@ import * as s3 from 'aws-cdk-lib/aws-s3';
 import { WEATHER_MODELS, fieldsBucketName } from './weather-models-stack.mjs';
 import { MRMS, mrmsBucketName } from './mrms-stack.mjs';
 import { LIGHTNING, lightningBucketName } from './lightning-stack.mjs';
+import { FIRE_DANGER, fireDangerBucketName } from './fire-danger-stack.mjs';
 import { HAFS } from './hafs-stack.mjs';
 
 const CLOUD_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../cloud');
@@ -126,12 +127,12 @@ export class DataServicesStack extends Stack {
    * @param {string} id
    * @param {import('aws-cdk-lib').StackProps & {
    *   allowedOrigins: string, nwsUserAgent: string, alarmEmail?: string, monthlyBudgetUsd?: number,
-   *   weatherModelsFunctionUrl?: string, mrms?: boolean, lightning?: boolean, hafsFunctionUrl?: string,
+   *   weatherModelsFunctionUrl?: string, mrms?: boolean, lightning?: boolean, fireDanger?: boolean, hafsFunctionUrl?: string,
    * }} props
    */
   constructor(scope, id, props) {
     super(scope, id, props);
-    const { allowedOrigins, nwsUserAgent, alarmEmail, monthlyBudgetUsd, weatherModelsFunctionUrl, mrms, lightning, hafsFunctionUrl, supabaseUrl = '', supabaseAnonKey = '' } = props;
+    const { allowedOrigins, nwsUserAgent, alarmEmail, monthlyBudgetUsd, weatherModelsFunctionUrl, mrms, lightning, fireDanger, hafsFunctionUrl, supabaseUrl = '', supabaseAnonKey = '' } = props;
 
     Tags.of(this).add('project', 'sentinel');
     Tags.of(this).add('component', 'data-services');
@@ -313,6 +314,39 @@ export class DataServicesStack extends Stack {
       Annotations.of(this).acknowledgeWarning('@aws-cdk/aws-cloudfront-origins:updateImportedBucketPolicyOac');
     }
 
+    // Sentinel Fire Danger & Fuels (FireDangerStack, same region): immutable
+    // run files and a manifest (max-age 300), which CACHING_OPTIMIZED honours.
+    // JSON, so compressed at the edge.
+    if (fireDanger) {
+      const fireDangerBucket = s3.Bucket.fromBucketAttributes(this, 'FireDangerBucket', {
+        bucketName: fireDangerBucketName(this.account),
+        region: FIRE_DANGER.region,
+      });
+      behaviors[`${FIRE_DANGER.pathPrefix}/*`] = {
+        origin: origins.S3BucketOrigin.withOriginAccessControl(fireDangerBucket, {
+          originAccessControl: new cloudfront.S3OriginAccessControl(this, 'FireDangerOac', {
+            originAccessControlName: 'sentinel-fire-danger',
+          }),
+        }),
+        viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+        allowedMethods: cloudfront.AllowedMethods.ALLOW_GET_HEAD_OPTIONS,
+        cachedMethods: cloudfront.CachedMethods.CACHE_GET_HEAD,
+        cachePolicy: cloudfront.CachePolicy.CACHING_OPTIMIZED,
+        functionAssociations: [{
+          function: new cloudfront.Function(this, 'FireDangerCors', {
+            runtime: cloudfront.FunctionRuntime.JS_2_0,
+            comment: 'Fire danger: always Access-Control-Allow-Origin: * (public data)',
+            code: cloudfront.FunctionCode.fromInline(
+              "function handler(event) { var r = event.response; r.headers['access-control-allow-origin'] = { value: '*' }; return r; }",
+            ),
+          }),
+          eventType: cloudfront.FunctionEventType.VIEWER_RESPONSE,
+        }],
+        compress: true,
+      };
+      Annotations.of(this).acknowledgeWarning('@aws-cdk/aws-cloudfront-origins:updateImportedBucketPolicyOac');
+    }
+
     // Sentinel lightning (LightningStack, same region): one rolling flashes
     // file, stored gzipped (CloudFront passes Content-Encoding through). It
     // says max-age 30, which CACHING_OPTIMIZED honours.
@@ -399,8 +433,18 @@ export class DataServicesStack extends Stack {
     this.distribution = distribution;
 
     // Function URLs created since late 2025 need lambda:InvokeFunction as
-    // well as lambda:InvokeFunctionUrl for CloudFront OAC; FunctionUrlOrigin
-    // has granted both (scoped to this distribution) since aws-cdk-lib 2.273.
+    // well as lambda:InvokeFunctionUrl for CloudFront OAC. FunctionUrlOrigin
+    // still adds only the latter (checked against the synthesized template on
+    // aws-cdk-lib 2.273), so grant the former here, scoped to this distribution.
+    // Removing these would cut CloudFront off from every data service.
+    for (const svc of SERVICES) {
+      new lambda.CfnPermission(this, `${svc.id}InvokeFromCloudFront`, {
+        action: 'lambda:InvokeFunction',
+        principal: 'cloudfront.amazonaws.com',
+        functionName: this.functions[svc.dir].functionArn,
+        sourceArn: `arn:${this.partition}:cloudfront::${this.account}:distribution/${distribution.distributionId}`,
+      });
+    }
 
     new cloudwatch.Alarm(this, 'CloudFront5xxRate', {
       alarmDescription: 'More than 5% of Sentinel data-service responses are 5xx (all services, at the edge).',
@@ -462,6 +506,12 @@ export class DataServicesStack extends Stack {
       new CfnOutput(this, 'MrmsBaseUrl', {
         description: `Value for ${MRMS.frontendEnvVar}`,
         value: `https://${distribution.distributionDomainName}${MRMS.pathPrefix}`,
+      });
+    }
+    if (fireDanger) {
+      new CfnOutput(this, 'FireDangerBaseUrl', {
+        description: `Value for ${FIRE_DANGER.frontendEnvVar}`,
+        value: `https://${distribution.distributionDomainName}${FIRE_DANGER.pathPrefix}`,
       });
     }
     if (hafsFunctionUrl) {

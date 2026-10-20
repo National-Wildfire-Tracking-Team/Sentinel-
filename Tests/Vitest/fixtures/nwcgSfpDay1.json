@@ -1,0 +1,249 @@
+{
+ "type": "FeatureCollection",
+ "features": [
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       -81.1442,
+       32.2263
+      ],
+      [
+       -81.7939,
+       31.9778
+      ],
+      [
+       -81.6476,
+       31.4952
+      ],
+      [
+       -81.9103,
+       31.0974
+      ],
+      [
+       -81.7833,
+       30.762
+      ],
+      [
+       -81.5384,
+       30.7087
+      ],
+      [
+       -81.3107,
+       30.9973
+      ],
+      [
+       -81.0871,
+       31.5292
+      ],
+      [
+       -80.9109,
+       32.0427
+      ],
+      [
+       -81.1442,
+       32.2263
+      ]
+     ]
+    ]
+   },
+   "properties": {
+    "drynesscode": 2,
+    "symbol": null,
+    "timestampdate": 1792454400000,
+    "forecastdatapointid": 9695317,
+    "type": null,
+    "isvalid": 1,
+    "nat_code": "SA46",
+    "gacc": "Southern Area"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       -87.7888,
+       31.2988
+      ],
+      [
+       -87.8767,
+       31.1984
+      ],
+      [
+       -88.338,
+       30.1848
+      ],
+      [
+       -87.5,
+       30.329
+      ],
+      [
+       -87.6346,
+       30.8653
+      ],
+      [
+       -87.7888,
+       31.2988
+      ]
+     ]
+    ]
+   },
+   "properties": {
+    "drynesscode": 3,
+    "symbol": null,
+    "timestampdate": 1792454400000,
+    "forecastdatapointid": 9695019,
+    "type": null,
+    "isvalid": 1,
+    "nat_code": "SA21C",
+    "gacc": "Southern Area"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       -122.0014,
+       38.1862
+      ],
+      [
+       -122.2852,
+       38.1765
+      ],
+      [
+       -122.4078,
+       38.1528
+      ],
+      [
+       -122.6517,
+       37.9459
+      ],
+      [
+       -122.484,
+       37.2499
+      ],
+      [
+       -121.6994,
+       36.9188
+      ],
+      [
+       -121.3489,
+       37.0329
+      ],
+      [
+       -121.5863,
+       37.2667
+      ],
+      [
+       -121.7505,
+       37.626
+      ],
+      [
+       -121.6939,
+       38.0253
+      ],
+      [
+       -121.5753,
+       38.0699
+      ],
+      [
+       -121.4631,
+       38.0496
+      ],
+      [
+       -121.6919,
+       38.0584
+      ],
+      [
+       -121.9332,
+       38.0516
+      ],
+      [
+       -122.0014,
+       38.1862
+      ]
+     ]
+    ]
+   },
+   "properties": {
+    "drynesscode": 1,
+    "symbol": null,
+    "timestampdate": 1792454400000,
+    "forecastdatapointid": 9693248,
+    "type": null,
+    "isvalid": 0,
+    "nat_code": "NC03A",
+    "gacc": "California North Ops"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       -82.7996,
+       24.6062
+      ],
+      [
+       -82.7667,
+       24.6679
+      ],
+      [
+       -82.7665,
+       24.7018
+      ],
+      [
+       -82.8002,
+       24.7263
+      ],
+      [
+       -82.8999,
+       24.7178
+      ],
+      [
+       -82.9855,
+       24.6405
+      ],
+      [
+       -82.9807,
+       24.5962
+      ],
+      [
+       -82.9475,
+       24.5794
+      ],
+      [
+       -82.8491,
+       24.5767
+      ],
+      [
+       -82.7996,
+       24.6062
+      ]
+     ]
+    ]
+   },
+   "properties": {
+    "drynesscode": 1,
+    "symbol": null,
+    "timestampdate": 1792454400000,
+    "forecastdatapointid": 9695489,
+    "type": null,
+    "isvalid": 1,
+    "nat_code": "SA50",
+    "gacc": "Southern Area"
+   }
+  }
+ ]
+}

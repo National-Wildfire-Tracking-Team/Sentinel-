@@ -1,7 +1,8 @@
 /**
  * notification-sync – Supabase Edge Function
  *
- * Emails users when a wildfire or a subscribed NWS alert affects one of their
+ * Emails users when a wildfire, a subscribed NWS alert, or a fire danger
+ * threshold they set (../_shared/fireDangerAlerts.js) affects one of their
  * saved locations, and sends digests of new updates on incidents they follow
  * (../_shared/incidentFollowAlerts.js). Invoked every 5 minutes by the `notification-sync` pg_cron
  * job (supabase/migrations/20260915000000_scheduled_sync_infrastructure.sql)
@@ -31,6 +32,8 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '
 const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY') ?? '';
 const RESEND_FROM_EMAIL = Deno.env.get('RESEND_FROM_EMAIL') || 'Sentinel Wildfire Alerts <onboarding@resend.dev>';
 const APP_URL = Deno.env.get('APP_URL') || 'https://app.nationalwildfiretrackingteam.org';
+// cloud/fire-danger CDN base (same value as VITE_FIRE_DANGER_URL); optional.
+const FIRE_DANGER_URL = Deno.env.get('FIRE_DANGER_URL') ?? '';
 
 const JOB_NAME = 'notification-sync';
 const STALE_AFTER_SECONDS = 600;
@@ -82,6 +85,7 @@ Deno.serve(async (req: Request) => {
     resendApiKey: RESEND_API_KEY,
     fromEmail: RESEND_FROM_EMAIL,
     jobName: JOB_NAME,
+    fireDangerUrl: FIRE_DANGER_URL,
   });
 
   let claimed: boolean;

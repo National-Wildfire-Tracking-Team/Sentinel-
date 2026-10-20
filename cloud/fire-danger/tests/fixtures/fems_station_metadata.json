@@ -1,0 +1,48 @@
+{
+ "data": {
+  "stationMetaData": {
+   "data": [
+    {
+     "station_id": 21503,
+     "station_name": "AHAKHAV PRESERVE",
+     "latitude": 34.13222,
+     "longitude": -114.32917,
+     "state": "AZ",
+     "station_status": "A"
+    },
+    {
+     "station_id": 40423,
+     "station_name": "ALDER POINT",
+     "latitude": 40.18602,
+     "longitude": -123.59106,
+     "state": "CA",
+     "station_status": "A"
+    },
+    {
+     "station_id": 20401,
+     "station_name": "ALPINE",
+     "latitude": 33.84272,
+     "longitude": -109.11161,
+     "state": "AZ",
+     "station_status": "A"
+    },
+    {
+     "station_id": 91201,
+     "station_name": "CAMP MERRILL",
+     "latitude": 34.60866,
+     "longitude": -84.13086,
+     "state": "GA",
+     "station_status": "D"
+    },
+    {
+     "station_id": 43209,
+     "station_name": "CAMPO SECO",
+     "latitude": 38.22361,
+     "longitude": -120.86639,
+     "state": "CA",
+     "station_status": "D"
+    }
+   ]
+  }
+ }
+}

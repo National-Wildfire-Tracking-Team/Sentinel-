@@ -11,10 +11,12 @@
 
 import { memo } from 'react';
 import { useMrmsContext } from '../../context/MrmsContext';
+import { useFireDangerContext } from '../../context/FireDangerContext';
 import { useRadarSiteContext } from '../../context/RadarSiteContext';
 import { useSatelliteContext } from '../../context/SatelliteContext';
 import DockSheet from './DockSheet';
 import MrmsPanel from './MrmsPanel';
+import FireDangerPanel from './FireDangerPanel';
 import RadarSitePanel from './RadarSitePanel';
 import SatellitePanel from './SatellitePanel';
 import SPCOutlookSelector from './SPCOutlookSelector';
@@ -41,6 +43,7 @@ const MapDockSheet = memo(function MapDockSheet({
   const mrms = useMrmsContext();
   const radarSite = useRadarSiteContext();
   const satellite = useSatelliteContext();
+  const fireDanger = useFireDangerContext();
   const isWildfire = activeMapTab === 'wildfire';
   const isWeatherish = activeMapTab === 'weather' || activeMapTab === 'allhazard';
 
@@ -62,6 +65,9 @@ const MapDockSheet = memo(function MapDockSheet({
   }
   if (isWeatherish && layers.spcWeatherOutlooks) {
     tabs.push({ id: 'spcOutlooks', label: 'SPC Outlook', loading: Boolean(spc.loading), content: <SPCOutlookSelector {...spc} /> });
+  }
+  if (fireDanger?.anyOn) {
+    tabs.push({ id: 'fireDanger', label: 'Fire Danger', loading: Boolean(fireDanger.sfp.loading), content: <FireDangerPanel /> });
   }
   if (isWildfire && layers.fireWeatherOutlooks) {
     tabs.push({ id: 'fireWxOutlooks', label: 'Fire Weather', content: <FireWeatherOutlookSelector {...fireWx} /> });

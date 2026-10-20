@@ -75,6 +75,7 @@ import ModelLegend from '../components/WeatherModels/ModelLegend';
 import { ROOT_VARS as MODEL_COLOR_VARS } from '../components/WeatherModels/modelTheme';
 import { WeatherModelsProvider } from '../context/WeatherModelsContext';
 import { MrmsProvider } from '../context/MrmsContext';
+import { FireDangerProvider } from '../context/FireDangerContext';
 import { RadarSiteProvider } from '../context/RadarSiteContext';
 import { SatelliteProvider } from '../context/SatelliteContext';
 import { parseSatelliteQuery } from '../api/goesSatellite';
@@ -129,6 +130,15 @@ const WILDFIRE_LAYER_PRESET = {
   schoolsUniversities: false,
   landOwnership: false,
   floodHazard: false,
+  fireRiskOutlook: false,
+  fuelModels: false,
+  fdErc: false,
+  fdBi: false,
+  fdSc: false,
+  fdDeadFm: false,
+  fdLiveFm: false,
+  wfpi: false,
+  lfmSamples: false,
 };
 
 const ALL_HAZARD_LAYER_PRESET = {
@@ -149,6 +159,15 @@ const ALL_HAZARD_LAYER_PRESET = {
   landOwnership: false,
   floodHazard: false,
   radarSites: false,
+  fireRiskOutlook: false,
+  fuelModels: false,
+  fdErc: false,
+  fdBi: false,
+  fdSc: false,
+  fdDeadFm: false,
+  fdLiveFm: false,
+  wfpi: false,
+  lfmSamples: false,
   nhcTropical: true, // on by default; the Weather preset turns it off
 };
 
@@ -175,6 +194,14 @@ const WEATHER_LAYER_PRESET = {
   wildfireCameras: false,
   fireWeatherOutlooks: false,
   fireRiskOutlook: false,
+  fuelModels: false,
+  fdErc: false,
+  fdBi: false,
+  fdSc: false,
+  fdDeadFm: false,
+  fdLiveFm: false,
+  wfpi: false,
+  lfmSamples: false,
   droughtOutlook: false,
   calFireHistoricalPerimeters: false,
   fireBehaviorModeling: false,
@@ -1558,6 +1585,7 @@ export default function LiveTrackerPage() {
 
   const satelliteActive = Boolean(layers.satellite) && activeMapTab !== MAP_TABS.models;
   const mrmsActive = Boolean(layers.mrms) && activeMapTab === MAP_TABS.weather;
+  const fireDangerTab = activeMapTab === MAP_TABS.wildfire || activeMapTab === MAP_TABS.allhazard;
   const radarSitesActive = Boolean(layers.radarSites) && (activeMapTab === MAP_TABS.weather || activeMapTab === MAP_TABS.allhazard);
   // Pull-up controls sheet (MapDockSheet): every layer control that docks on the
   // bottom bar lives in it. Settled height incl. its tabs (0 when no tab is shown).
@@ -1626,6 +1654,7 @@ export default function LiveTrackerPage() {
           it, so the left drawers can end above it where they'd otherwise cover it. */}
       <WeatherModelsProvider active={activeMapTab === MAP_TABS.models} onOpen={handleOpenModels} apiRef={modelsApiRef}>
       <MrmsProvider active={mrmsActive}>
+      <FireDangerProvider active={fireDangerTab}>
       <RadarSiteProvider active={radarSitesActive}>
       <SatelliteProvider active={satelliteActive}>
       <div
@@ -1833,6 +1862,7 @@ export default function LiveTrackerPage() {
       </div>
       </SatelliteProvider>
       </RadarSiteProvider>
+      </FireDangerProvider>
       </MrmsProvider>
       </WeatherModelsProvider>
 

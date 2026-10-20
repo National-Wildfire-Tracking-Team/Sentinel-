@@ -16,6 +16,7 @@
  */
 
 import { geometryIntersectsCircle, haversineMiles } from './radiusFilter.js';
+import { runFireDangerChecks } from './fireDangerAlerts.js';
 
 /** Bounds enforced by saved_locations_radius_check. */
 export const MIN_RADIUS_MILES = 1;
@@ -54,6 +55,17 @@ export function validateSavedLocationFields(fields) {
     if (!Number.isInteger(r) || r < MIN_RADIUS_MILES || r > MAX_RADIUS_MILES) {
       return `Notification radius must be between ${MIN_RADIUS_MILES} and ${MAX_RADIUS_MILES} miles.`;
     }
+  }
+  if ('notify_fire_potential_min' in fields && fields.notify_fire_potential_min != null) {
+    if (![3, 4, 5].includes(Number(fields.notify_fire_potential_min))) return 'Choose a fire potential level.';
+  }
+  if ('notify_fire_potential_days' in fields) {
+    const d = Number(fields.notify_fire_potential_days);
+    if (!Number.isInteger(d) || d < 1 || d > 7) return 'Fire potential alerts can look 1 to 7 days ahead.';
+  }
+  if ('notify_fm100_below' in fields && fields.notify_fm100_below != null) {
+    const v = Number(fields.notify_fm100_below);
+    if (!Number.isFinite(v) || v < 1 || v > 30) return '100-hour fuel moisture thresholds must be between 1% and 30%.';
   }
   return null;
 }
@@ -231,6 +243,8 @@ async function mapWithConcurrency(items, limit, fn) {
  *   fetchActiveFires()        → [{ id, name, lat, lng }]
  *   fetchActiveAlerts(types)  → NWS alert Features of those event types
  *   fetchPointAlerts(lat, lng)→ NWS alert Features covering that point
+ *   fetchFirePotential(day)   → NWCG 7-day fire potential Features (optional)
+ *   fetchFireDangerStations() → { stations, latestObservedDate } | null (optional)
  *   claimNotification(row)    → { isNew, id } (insert-or-ignore notification_log)
  *   releaseNotification(id)   → delete a claim so the next run retries it
  *   sendEmail({ to, subject, html })  throws (err.status optional) on failure
@@ -240,6 +254,7 @@ async function mapWithConcurrency(items, limit, fn) {
 export async function runNotificationSync(deps) {
   const {
     fetchMonitoredLocations, fetchActiveFires, fetchActiveAlerts, fetchPointAlerts,
+    fetchFirePotential, fetchFireDangerStations,
     claimNotification, releaseNotification, sendEmail,
     log = () => {}, appUrl = '', now = Date.now(), concurrency = 4,
   } = deps;
@@ -388,6 +403,16 @@ export async function runNotificationSync(deps) {
         });
       }
     });
+  }
+
+  // ── Fire danger (fireDangerAlerts.js) ──
+  // Its own try: a fire danger source failing never blocks the passes above.
+  try {
+    await runFireDangerChecks({
+      locations, deliver, fetchFirePotential, fetchFireDangerStations, radiusOf: locationRadiusMiles, log, appUrl,
+    });
+  } catch (err) {
+    log('fire_danger_pass_failed', { error: String(err?.message || err).slice(0, 200) });
   }
 
   log('run_summary', counts);
