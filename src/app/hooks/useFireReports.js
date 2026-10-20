@@ -118,6 +118,14 @@ export function reportsToGeoJSON(reports) {
           created_at:  r.created_at,
           user_id:     r.user_id,
           contained:    parseLatestContainment(r.description),
+          // Set when the report is linked to an official incident of the same
+          // fire (LiveTrackerPage). Mapbox flattens arrays, so ids and lines
+          // travel as strings and MapView parses them back.
+          alias_ids:    (r.aliasIds || []).join(','),
+          evacuation_summary:          r.evacuation_summary || '',
+          evacuation_orders:           r.evacuation_orders || 0,
+          evacuation_warnings:         r.evacuation_warnings || 0,
+          evacuation_order_lines_json: JSON.stringify(r.evacuation_order_lines || []),
         },
       })),
   };

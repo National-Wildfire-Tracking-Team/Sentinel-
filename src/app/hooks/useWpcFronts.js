@@ -1,21 +1,26 @@
 /**
  * useWpcFronts.js
- * Loads WPC surface-analysis fronts for a given day.
+ * Loads WPC surface fronts and the highs/lows (pressure centers) for the
+ * chosen time: 'now' is the live surface analysis (wpcSurfaceAnalysis.js,
+ * reissued every 3 hours, with central pressures); 'day1'..'day3' are the
+ * National Forecast Chart (wpcFronts.js; letters only, no pressures).
  * Auto-refreshes every 5 minutes when enabled.
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { fetchFrontsLayer, FRONTS_LAYER_ID_MAP } from '../api/wpcFronts';
+import { fetchCentersLayer, fetchFrontsLayer, FRONTS_LAYER_ID_MAP, styleFronts } from '../api/wpcFronts';
+import { fetchSurfaceAnalysis } from '../api/wpcSurfaceAnalysis';
 
 const REFRESH_MS = 5 * 60 * 1000;
 const EMPTY_FC = { type: 'FeatureCollection', features: [] };
 
 /**
  * @param {boolean} enabled   – whether the layer is toggled on
- * @param {string}  activeDay – 'day1' | 'day2' | 'day3'
+ * @param {string}  activeDay – 'now' | 'day1' | 'day2' | 'day3'
  */
-export function useWpcFronts(enabled = false, activeDay = 'day1') {
+export function useWpcFronts(enabled = false, activeDay = 'now') {
   const [geoJSON,   setGeoJSON]   = useState(null);
+  const [centers,   setCenters]   = useState(null);
   const [loading,   setLoading]   = useState(false);
   const [error,     setError]     = useState(null);
   const [validTime, setValidTime] = useState(null);
@@ -25,8 +30,9 @@ export function useWpcFronts(enabled = false, activeDay = 'day1') {
   const load = useCallback(async () => {
     if (!enabled) return;
 
-    if (FRONTS_LAYER_ID_MAP[activeDay] == null) {
+    if (activeDay !== 'now' && FRONTS_LAYER_ID_MAP[activeDay] == null) {
       setGeoJSON(EMPTY_FC);
+      setCenters(EMPTY_FC);
       setValidTime(null);
       return;
     }
@@ -34,11 +40,22 @@ export function useWpcFronts(enabled = false, activeDay = 'day1') {
     try {
       setLoading(true);
       setError(null);
-      const fc = await fetchFrontsLayer(activeDay);
-      if (!mountedRef.current) return;
-      setGeoJSON(fc);
-      const firstValid = fc.features.find(f => f.properties?.label)?.properties?.label ?? null;
-      setValidTime(firstValid);
+      if (activeDay === 'now') {
+        const analysis = await fetchSurfaceAnalysis();
+        if (!mountedRef.current) return;
+        setGeoJSON(styleFronts(analysis.fronts));
+        setCenters(analysis.centers);
+        setValidTime(analysis.validTime ? new Date(analysis.validTime).toISOString() : null);
+      } else {
+        const [fc, hl] = await Promise.all([
+          fetchFrontsLayer(activeDay),
+          fetchCentersLayer(activeDay).catch(() => EMPTY_FC), // fronts still draw without them
+        ]);
+        if (!mountedRef.current) return;
+        setGeoJSON(fc);
+        setCenters(hl);
+        setValidTime(fc.features.find(f => f.properties?.label)?.properties?.label ?? null);
+      }
     } catch (err) {
       if (!mountedRef.current) return;
       setError(err.message || 'Could not load surface analysis fronts');
@@ -57,5 +74,5 @@ export function useWpcFronts(enabled = false, activeDay = 'day1') {
     };
   }, [enabled, load]);
 
-  return { geoJSON, loading, error, validTime, refresh: load };
+  return { geoJSON, centers, loading, error, validTime, refresh: load };
 }

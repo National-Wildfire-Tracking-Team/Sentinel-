@@ -24,6 +24,7 @@ import {
 } from '../../api/nhcTropicalWeather';
 import { useMrmsContext } from '../../context/MrmsContext';
 import { mrmsLegendRows } from '../../api/mrms';
+import { LIGHTNING_AGES, LIGHTNING_ATTRIBUTION } from '../../api/lightning';
 import { useSatelliteContext } from '../../context/SatelliteContext';
 import { LEGENDS as SATELLITE_LEGENDS, attributionFor } from '../../api/goesSatellite';
 
@@ -453,6 +454,19 @@ const Legend = memo(function Legend({
             )}
 
             {layers.mrms && <MrmsLegendSection />}
+
+            {layers.lightning && (
+              <Section title="Lightning (flash age)">
+                {/* Outlined dots, as on the map: the newest are white */}
+                {LIGHTNING_AGES.map(({ color, label }) => (
+                  <div key={label} className="flex items-center gap-2">
+                    <span className="w-3 h-3 rounded-full shrink-0 ring-1 ring-black/40" style={{ backgroundColor: color }} />
+                    <span className="text-sentinel-700 dark:text-sentinel-100 text-[11px]">{label}</span>
+                  </div>
+                ))}
+                <div className="text-sentinel-500 text-[9px] leading-snug pt-1">{LIGHTNING_ATTRIBUTION}</div>
+              </Section>
+            )}
 
             {layers.satellite && <SatelliteLegendSection />}
 

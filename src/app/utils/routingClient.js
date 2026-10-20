@@ -1,16 +1,16 @@
 /**
  * routingClient.js
- * Browser client for cloud/ors-routing (Route to Safety / "Navigation", Pro). The service
- * sits behind CloudFront OAC, which owns the Authorization header and needs
- * the SHA-256 of every POST body in x-amz-content-sha256 — so the Supabase
- * token travels in x-sentinel-auth instead.
+ * Browser client for the ors-routing Supabase Edge Function (Route to Safety /
+ * "Navigation", Pro); see supabase/functions/ors-routing/README.md. Plain
+ * fetch rather than supabase.functions.invoke so the service's status codes
+ * and error bodies map straight onto RoutingError.
  */
 
 import { supabase } from '../../shared/api/supabaseClient';
 
-// In `npm run dev` with no URL set, use the Vite proxy to a local service
-// started by `npm run dev:routing` (see cloud/ors-routing/dev.mjs).
-const DEFAULT_BASE_URL = import.meta.env.VITE_ORS_ROUTING_URL || (import.meta.env.DEV ? '/ors-routing' : '');
+const SUPABASE_URL = String(import.meta.env.VITE_SUPABASE_URL || '').replace(/\/+$/, '');
+const DEFAULT_BASE_URL = SUPABASE_URL ? `${SUPABASE_URL}/functions/v1/ors-routing` : '';
+const DEFAULT_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
 const DEFAULT_RADIUS_KM = 80;
 
 export class RoutingError extends Error {
@@ -25,11 +25,6 @@ export class RoutingError extends Error {
   }
 }
 
-export async function sha256Hex(text) {
-  const digest = await globalThis.crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
-  return Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, '0')).join('');
-}
-
 async function sessionToken() {
   const { data } = await supabase.auth.getSession();
   return data?.session?.access_token ?? null;
@@ -37,32 +32,30 @@ async function sessionToken() {
 
 const KIND_BY_STATUS = { 400: 'invalid', 401: 'unauthenticated', 403: 'not_entitled', 413: 'invalid', 422: 'no_route', 503: 'not_configured' };
 
-async function post(path, payload, { signal, getToken = sessionToken, fetchImpl = fetch, baseUrl = DEFAULT_BASE_URL } = {}) {
+async function post(path, payload, {
+  signal, getToken = sessionToken, fetchImpl = fetch, baseUrl = DEFAULT_BASE_URL, anonKey = DEFAULT_ANON_KEY,
+} = {}) {
   const base = String(baseUrl || '').replace(/\/+$/, '');
   if (!base) throw new RoutingError('not_configured');
   const token = await getToken();
   if (!token) throw new RoutingError('unauthenticated');
 
-  const body = JSON.stringify(payload);
   const res = await fetchImpl(`${base}${path}`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'x-sentinel-auth': `Bearer ${token}`,
-      'x-amz-content-sha256': await sha256Hex(body),
+      Authorization: `Bearer ${token}`,
+      ...(anonKey ? { apikey: anonKey } : {}),
     },
-    body,
+    body: JSON.stringify(payload),
     signal,
   });
   const data = await res.json().catch(() => ({}));
   if (res.ok) return data;
   if (res.status === 429) {
-    // too_many_failures (the service's per-IP auth-failure block) and the WAF
-    // rate rule are about this caller, not shared capacity: per-user copy.
-    const perCaller = data.scope === 'user' || data.error === 'too_many_failures';
     throw new RoutingError('quota', {
       status: 429,
-      scope: perCaller ? 'user' : 'global',
+      scope: data.scope === 'user' ? 'user' : 'global',
       window: data.window === 'day' ? 'day' : 'minute',
       retryAfterSec: Number(data.retryAfterSec) || 60,
     });
@@ -74,6 +67,6 @@ export function findNearestShelters({ origin, radiusKm = DEFAULT_RADIUS_KM }, op
   return post('/shelters/nearest', { origin, radiusKm }, opts);
 }
 
-export function requestRoute({ origin, destination, avoid }, opts) {
-  return post('/route', { origin, destination, avoid: avoid ?? null }, opts);
+export function requestRoute({ origin, destination, avoid, preference }, opts) {
+  return post('/route', { origin, destination, avoid: avoid ?? null, ...(preference ? { preference } : {}) }, opts);
 }

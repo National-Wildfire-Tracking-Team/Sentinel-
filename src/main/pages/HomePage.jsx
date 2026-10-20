@@ -1,8 +1,10 @@
+import { useCallback, useState } from 'react';
 import { Link } from 'react-router-dom';
 import Seo from '../../shared/components/Seo';
 import ParallaxHero from '../components/ParallaxHero';
+import NewsletterModal from '../components/NewsletterModal';
 import homeHero from '../assets/home-hero.jpg';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, ChevronRight } from 'lucide-react';
 
 const capabilities = [
   {
@@ -27,6 +29,40 @@ const capabilities = [
   },
 ];
 
+// Oldest first. Each entry gets its own clickable card under "Weekly Newsletter".
+const newsletters = [
+  {
+    title: 'v1.00.01 First Update',
+    sections: [
+      {
+        heading: 'Model Feature Added',
+        body: 'HRRR, GFS, and HAFS forecasting models are now live on the Sentinel platform. Model types can be compared between each other and offer history as well as forecasts up to 384 hours out.',
+      },
+      {
+        heading: 'Navigation Feature Now Live for Pro Users',
+        body: 'Pro subscribers now have access to navigation tools built directly into the Sentinel Platform. The navigation tool offers point to point routing as well as a beta for shortest route from current location to safe zone. More features coming soon.',
+      },
+    ],
+  },
+  {
+    title: 'v1.00.02 Update',
+    sections: [
+      {
+        heading: 'Toolkit Drawer Improvements',
+        body: 'As more features necessitate the use of individual settings, a new toolkit drawer system has been implemented. The new toolkit drawer was designed to make it easier to change feature settings with multiple in use.',
+      },
+      {
+        heading: 'Site Radar Now Available for All Users',
+        body: 'All users have already had access to MRMS composite radar, but, to make local radar scans more accurate, individual radar sites have been added. Try it out on both the Weather and All Hazards tabs now.',
+      },
+      {
+        heading: 'Lightning Detection Added',
+        body: 'Lightning detection is now live and available for free for all users.',
+      },
+    ],
+  },
+];
+
 const stats = [
   { value: '50', label: 'States Covered' },
   { value: '24/7', label: 'Monitoring' },
@@ -34,6 +70,9 @@ const stats = [
 ];
 
 export default function HomePage() {
+  const [openNewsletter, setOpenNewsletter] = useState(null);
+  const closeNewsletter = useCallback(() => setOpenNewsletter(null), []);
+
   return (
     <div className="min-h-screen">
       <Seo
@@ -132,8 +171,48 @@ export default function HomePage() {
               </div>
             </div>
           </div>
+
+          {/* ── Weekly Newsletter ── */}
+          <h2 className="mt-16 text-center text-3xl sm:text-4xl font-bold text-white tracking-tight">
+            Weekly Newsletter
+          </h2>
+          <ul className="mt-6 max-w-3xl mx-auto space-y-3">
+            {newsletters.map((issue) => (
+              <li key={issue.title}>
+                <button
+                  type="button"
+                  onClick={() => setOpenNewsletter(issue)}
+                  aria-haspopup="dialog"
+                  className="group w-full flex items-center gap-3 px-5 py-4 rounded-2xl bg-sentinel-800 border border-fire-600/40 hover:border-fire-600/70 hover:bg-sentinel-800/80 text-left transition-colors active:scale-[0.99] active:duration-100"
+                >
+                  <span className="flex-1 min-w-0 truncate font-semibold text-white">
+                    {issue.title}
+                  </span>
+                  <ChevronRight
+                    size={18}
+                    className="shrink-0 text-sentinel-300 group-hover:text-white group-hover:translate-x-0.5 transition"
+                  />
+                </button>
+              </li>
+            ))}
+          </ul>
         </div>
       </section>
+
+      <NewsletterModal
+        open={openNewsletter !== null}
+        title={openNewsletter?.title}
+        onClose={closeNewsletter}
+      >
+        {openNewsletter?.sections.map((section, i) => (
+          <section key={section.heading ?? i}>
+            {section.heading && (
+              <h3 className="text-lg font-semibold text-white">{section.heading}</h3>
+            )}
+            <p className="mt-1">{section.body}</p>
+          </section>
+        ))}
+      </NewsletterModal>
     </div>
   );
 }

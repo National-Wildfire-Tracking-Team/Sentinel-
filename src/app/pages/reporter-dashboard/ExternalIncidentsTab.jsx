@@ -2,21 +2,24 @@
  * ExternalIncidentsTab.jsx
  * Lists active wildfires sourced from IRWIN/WFIGS and CAL FIRE (merged the
  * same way the live map does — IRWIN wins on a name match) and lets a
- * reporter post a structured update to any of them. There's no local row to
- * field-edit for an externally-sourced incident, so "edit/update" here means
- * appending a timeline entry via the same source-agnostic incident_updates
- * mechanism used for owned incidents.
+ * reporter post a structured update to any of them. The update is appended
+ * to the incident's timeline via the same source-agnostic incident_updates
+ * mechanism used for owned incidents. When a reporter had already added the
+ * fire themselves (a fire_reports row of the same name — CAL FIRE "took it
+ * over"), acreage and containment are also written to that report, which the
+ * live map uses in place of the feed's figures, and its evacuations and
+ * shelters are edited together with the official incident's.
  */
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useMemo } from 'react';
 import {
   Search, RefreshCw, MapPin, Activity, AlertCircle, CheckCircle2, Send, Globe, Siren,
 } from 'lucide-react';
 
-import { fetchIncidents } from '../../api/inciweb';
-import { fetchCalFireGeoJsonList, normalizeCalFireIncidents } from '../../api/calFire';
-import { mergeIrwinAndCalFireIncidents } from '../../utils/mergeIncidents';
 import { insertReporterUpdate } from '../../hooks/useIncidentUpdates';
+import { appendFireReportUpdate } from '../../hooks/useFireReports';
+import { getFireMatchKey } from '../../hooks/useMergedFireData';
+import { parseAliasIds } from '../../utils/incidentAliases';
 import { useImageAttachments } from '../../hooks/useImageAttachments';
 import { uploadIncidentPhotos } from '../../api/incidentPhotos';
 import PhotoPickerButton from '../../components/PhotoAttachments/PhotoPickerButton';
@@ -24,29 +27,11 @@ import { POSTABLE_UPDATE_TYPES, UPDATE_TYPE_LABELS } from '../../components/Fire
 import IncidentEvacShelterEditor from './IncidentEvacShelterEditor';
 import { INPUT_CLS, LABEL_CLS, SECTION_CLS } from './shared';
 
-/**
- * Merge IRWIN/WFIGS + CAL FIRE incidents with the same rule and inputs as the
- * live map (CAL FIRE wins a name match; inactive CAL FIRE incidents
- * included), so a reporter's updates, evacuations and shelters land on the
- * same incident id the map opens. The other source's id rides along as an
- * alias.
- */
-async function loadMergedExternalIncidents() {
-  const [irwinIncidents, calFireGeoJSON] = await Promise.all([
-    fetchIncidents({ minAcres: 0.1 }),
-    fetchCalFireGeoJsonList({ includeInactive: true }).catch(() => ({ type: 'FeatureCollection', features: [] })),
-  ]);
-  // Same 30-day staleness cut as the live map's incident feed (LiveTrackerPage).
-  const cutoff = Date.now() - 30 * 24 * 60 * 60 * 1000;
-  return mergeIrwinAndCalFireIncidents(irwinIncidents, normalizeCalFireIncidents(calFireGeoJSON))
-    .filter((inc) => {
-      const t = new Date(inc.updated).getTime();
-      return !Number.isFinite(t) || t > cutoff;
-    });
-}
+const NO_REPORTS = [];
 
-function ExternalIncidentUpdatePanel({ incident, profile, userId, onDone }) {
+function ExternalIncidentUpdatePanel({ incident, linkedReport, profile, userId, onDone, onReportsRefresh }) {
   const [acreage, setAcreage] = useState('');
+  const [containment, setContainment] = useState('');
   const [notes, setNotes]     = useState('');
   const [updateType, setUpdateType] = useState('field_report');
   const [busy, setBusy]       = useState(false);
@@ -55,16 +40,39 @@ function ExternalIncidentUpdatePanel({ incident, profile, userId, onDone }) {
 
   async function handlePost() {
     const hasPhotos = photos.images.length > 0;
-    if (!acreage.toString().trim() && !notes.trim() && !hasPhotos) {
-      setFeedback({ type: 'error', message: 'Enter acreage, notes, or attach a photo before posting.' });
+    const hasAcres = acreage.toString().trim() !== '';
+    const hasContain = containment.toString().trim() !== '';
+    if (!hasAcres && !hasContain && !notes.trim() && !hasPhotos) {
+      setFeedback({ type: 'error', message: 'Enter acreage, containment, notes, or attach a photo before posting.' });
+      return;
+    }
+    if (hasContain && !Number.isFinite(Number(containment))) {
+      setFeedback({ type: 'error', message: 'Containment must be a number between 0 and 100.' });
       return;
     }
     setBusy(true);
     setFeedback(null);
     try {
       const parts = [];
-      if (acreage.toString().trim()) parts.push(`Acreage: ${acreage.toString().trim()}`);
+      if (hasAcres) parts.push(`Acreage: ${acreage.toString().trim()}`);
+      if (hasContain) {
+        const c = Math.min(100, Math.max(0, Math.round(Number(containment))));
+        parts.push(`Containment: ${c}%`);
+      }
       if (notes.trim()) parts.push(notes.trim());
+
+      // The live map shows a linked report's acreage / containment in place
+      // of the feed's, so a reporter's figures stay current after takeover.
+      if (linkedReport && (hasAcres || hasContain)) {
+        await appendFireReportUpdate({
+          id: linkedReport.id,
+          description: linkedReport.description || '',
+          acreage,
+          containment: hasContain ? containment : undefined,
+          notes: '',
+        });
+        onReportsRefresh?.();
+      }
 
       const photoUrls = hasPhotos
         ? await uploadIncidentPhotos(photos.images.map((img) => img.file), { userId, incidentId: incident.id })
@@ -81,6 +89,7 @@ function ExternalIncidentUpdatePanel({ incident, profile, userId, onDone }) {
 
       setUpdateType('field_report');
       setAcreage('');
+      setContainment('');
       setNotes('');
       photos.reset();
       setFeedback({ type: 'success', message: 'Update posted to live timeline.' });
@@ -113,6 +122,25 @@ function ExternalIncidentUpdatePanel({ incident, profile, userId, onDone }) {
           placeholder="e.g. 2450"
           className={INPUT_CLS}
         />
+      </div>
+      <div>
+        <label className={LABEL_CLS}>Containment (%)</label>
+        <input
+          type="number"
+          min="0"
+          max="100"
+          step="1"
+          value={containment}
+          onChange={(e) => setContainment(e.target.value)}
+          placeholder="e.g. 0–100 (optional)"
+          className={INPUT_CLS}
+        />
+        {linkedReport && (
+          <p className="mt-1 text-xs text-sentinel-500">
+            Linked to reporter incident &ldquo;{linkedReport.title}&rdquo; — acreage and containment
+            posted here replace the feed&apos;s figures on the live map.
+          </p>
+        )}
       </div>
       <div>
         <label className={LABEL_CLS}>Update Notes</label>
@@ -165,9 +193,15 @@ function ExternalIncidentUpdatePanel({ incident, profile, userId, onDone }) {
   );
 }
 
-function ExternalIncidentCard({ incident, profile, userId }) {
+function ExternalIncidentCard({ incident, linkedReports, profile, userId, onReportsRefresh }) {
   const [panel, setPanel] = useState(null); // null | 'update' | 'evac'
   const toggle = (next) => setPanel((p) => (p === next ? null : next));
+  // Reporter incidents for the same fire share its evacuations and shelters.
+  const aliasIds = useMemo(
+    () => parseAliasIds([...(incident.aliasIds || []), ...linkedReports.map((r) => r.id)])
+      .filter((id) => id !== String(incident.id)),
+    [incident.aliasIds, incident.id, linkedReports],
+  );
 
   const acres = incident.acres != null
     ? Number(incident.acres).toLocaleString('en-US', { maximumFractionDigits: 1 })
@@ -226,6 +260,8 @@ function ExternalIncidentCard({ incident, profile, userId }) {
       {panel === 'update' && (
         <ExternalIncidentUpdatePanel
           incident={incident}
+          linkedReport={linkedReports[0] || null}
+          onReportsRefresh={onReportsRefresh}
           profile={profile}
           userId={userId}
           onDone={() => setPanel(null)}
@@ -233,32 +269,33 @@ function ExternalIncidentCard({ incident, profile, userId }) {
       )}
       {panel === 'evac' && (
         <div className="mt-4 border-t border-sentinel-700 pt-4">
-          <IncidentEvacShelterEditor incidentId={incident.id} aliasIds={incident.aliasIds} profile={profile} userId={userId} />
+          <IncidentEvacShelterEditor incidentId={incident.id} aliasIds={aliasIds} profile={profile} userId={userId} />
         </div>
       )}
     </div>
   );
 }
 
-export default function ExternalIncidentsTab({ profile, userId }) {
-  const [incidents, setIncidents] = useState([]);
-  const [loading, setLoading]     = useState(false);
-  const [error, setError]         = useState(null);
+/**
+ * @param {object[]} incidents  Merged IRWIN/CAL FIRE incidents (useExternalIncidents)
+ * @param {object[]} reports    Reporter incidents (fire_reports), newest first
+ */
+export default function ExternalIncidentsTab({
+  profile, userId, incidents, loading, error, onRefresh, reports = [], onReportsRefresh,
+}) {
   const [search, setSearch]       = useState('');
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      setIncidents(await loadMergedExternalIncidents());
-    } catch (err) {
-      setError(err?.message || 'Failed to load incidents.');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => { load(); }, [load]);
+  // Fire-name key → reporter incidents of that fire, newest first.
+  const reportsByKey = useMemo(() => {
+    const map = new Map();
+    reports.forEach((r) => {
+      const key = getFireMatchKey(r.title);
+      if (!key) return;
+      if (!map.has(key)) map.set(key, []);
+      map.get(key).push(r);
+    });
+    return map;
+  }, [reports]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -293,7 +330,7 @@ export default function ExternalIncidentsTab({ profile, userId }) {
           />
         </div>
         <button
-          onClick={load}
+          onClick={onRefresh}
           disabled={loading}
           className="flex items-center gap-1.5 px-3 py-2.5 rounded-lg text-xs font-medium text-sentinel-300 border border-sentinel-600 hover:text-white hover:border-sentinel-400 transition-colors disabled:opacity-50"
         >
@@ -316,7 +353,14 @@ export default function ExternalIncidentsTab({ profile, userId }) {
       ) : (
         <div className="space-y-3">
           {filtered.map((incident) => (
-            <ExternalIncidentCard key={incident.id} incident={incident} profile={profile} userId={userId} />
+            <ExternalIncidentCard
+              key={incident.id}
+              incident={incident}
+              linkedReports={reportsByKey.get(getFireMatchKey(incident.name)) || NO_REPORTS}
+              profile={profile}
+              userId={userId}
+              onReportsRefresh={onReportsRefresh}
+            />
           ))}
         </div>
       )}

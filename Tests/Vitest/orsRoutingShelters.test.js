@@ -3,7 +3,7 @@ import { describe, it, expect, vi } from 'vitest';
 import {
   FEMA_OPEN_SHELTERS_URL, fetchFemaShelters, fetchSentinelShelters,
   mergeShelters, nearestByDistance, rankByDriveTime,
-} from '../../cloud/ors-routing/shelters.mjs';
+} from '../../supabase/functions/ors-routing/shelters.mjs';
 
 const origin = [-121.0, 38.0];
 const s = (id, lng, lat, source = 'sentinel', name = id) =>

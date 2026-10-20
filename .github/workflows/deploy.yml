@@ -51,10 +51,6 @@ jobs:
           # service isn't configured; nothing else in the app changes.
           VITE_WEATHER_MODEL_SERVICE_URL: ${{ secrets.VITE_WEATHER_MODEL_SERVICE_URL }}
           VITE_MRMS_URL: ${{ secrets.VITE_MRMS_URL }}
-          # Navigation (Route to Safety, Pro) — cloud/ors-routing behind the
-          # data-services CloudFront at /ors-routing; see its README.md.
-          # Unset: the panel says routing isn't configured.
-          VITE_ORS_ROUTING_URL: ${{ secrets.VITE_ORS_ROUTING_URL }}
           # HAFS hurricane-model fields on the Models tab — see cloud/hafs/README.md.
           # Unset, the Models tab simply doesn't offer HAFS.
           VITE_HAFS_URL: ${{ secrets.VITE_HAFS_URL }}

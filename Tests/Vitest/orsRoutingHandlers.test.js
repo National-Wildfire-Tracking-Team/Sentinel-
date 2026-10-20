@@ -1,10 +1,9 @@
 // @vitest-environment node
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { createHandlers } from '../../cloud/ors-routing/handlers.mjs';
-import { TtlCache } from '../../cloud/ors-routing/cache.mjs';
-import { FailureLimiter, clientIp } from '../../cloud/ors-routing/limiter.mjs';
+import { createHandlers } from '../../supabase/functions/ors-routing/handlers.mjs';
+import { TtlCache } from '../../supabase/functions/ors-routing/cache.mjs';
 
-const AUTH = { 'x-sentinel-auth': 'Bearer jwt' };
+const AUTH = { authorization: 'Bearer jwt' };
 const origin = [-121, 38];
 const dest = [-121.2, 38.1];
 const fc = { type: 'FeatureCollection', features: [{ type: 'Feature', properties: { summary: { distance: 1, duration: 2 } }, geometry: { type: 'LineString', coordinates: [origin, dest] } }] };
@@ -128,6 +127,26 @@ describe('route', () => {
     expect(supabase.consumeQuota).toHaveBeenCalledWith('jwt', 'directions');
   });
 
+  it('passes a fastest preference through, including on the no-avoid retry', async () => {
+    ors.directions.mockRejectedValueOnce(orsError(404)).mockResolvedValueOnce(fc);
+    await h.route(AUTH, { origin, destination: dest, avoid: square, preference: 'fastest' });
+    expect(ors.directions).toHaveBeenNthCalledWith(1, { origin, destination: dest, avoid: square, preference: 'fastest' });
+    expect(ors.directions).toHaveBeenNthCalledWith(2, { origin, destination: dest, avoid: null, preference: 'fastest' });
+  });
+
+  it('caches routes per preference', async () => {
+    await h.route(AUTH, { origin, destination: dest, avoid: null });
+    await h.route(AUTH, { origin, destination: dest, avoid: null, preference: 'fastest' });
+    expect(ors.directions).toHaveBeenCalledTimes(2);
+  });
+
+  it('rejects an unknown preference before auth', async () => {
+    const r = await h.route(AUTH, { origin, destination: dest, avoid: null, preference: 'scenic' });
+    expect(r.status).toBe(400);
+    expect(supabase.consumeQuota).not.toHaveBeenCalled();
+    expect(ors.directions).not.toHaveBeenCalled();
+  });
+
   it('retries once without avoid (taking a second unit) when ORS finds no avoiding route', async () => {
     ors.directions.mockRejectedValueOnce(orsError(404)).mockResolvedValueOnce(fc);
     const r = await h.route(AUTH, { origin, destination: dest, avoid: square });
@@ -240,31 +259,5 @@ describe('nearest exact-origin retry (M7)', () => {
     expect(r.body.shelters).toEqual([]);
     expect(ors.matrix).toHaveBeenCalledTimes(1);
     expect(supabase.consumeQuota).toHaveBeenCalledTimes(1);
-  });
-});
-
-describe('FailureLimiter', () => {
-  it('blocks an IP after max failures within the window, then forgets', () => {
-    let t = 0;
-    const lim = new FailureLimiter({ max: 3, windowMs: 1000, now: () => t });
-    for (let i = 0; i < 3; i += 1) lim.record('1.1.1.1');
-    expect(lim.blocked('1.1.1.1')).toBe(true);
-    expect(lim.blocked('2.2.2.2')).toBe(false);
-    t = 1001;
-    expect(lim.blocked('1.1.1.1')).toBe(false);
-  });
-  it('bounds memory', () => {
-    const lim = new FailureLimiter({ max: 1, windowMs: 1000, maxKeys: 2, now: () => 0 });
-    lim.record('a'); lim.record('b'); lim.record('c');
-    expect(lim.blocked('a')).toBe(false);
-    expect(lim.blocked('c')).toBe(true);
-  });
-});
-
-describe('clientIp', () => {
-  it('reads CloudFront-Viewer-Address (IPv4 and IPv6), ignoring X-Forwarded-For', () => {
-    expect(clientIp({ 'cloudfront-viewer-address': '203.0.113.9:51234', 'x-forwarded-for': '6.6.6.6' }, 'x')).toBe('203.0.113.9');
-    expect(clientIp({ 'cloudfront-viewer-address': '2001:db8::1:443' }, 'x')).toBe('2001:db8::1');
-    expect(clientIp({ 'x-forwarded-for': '6.6.6.6' }, '10.0.0.1')).toBe('10.0.0.1');
   });
 });

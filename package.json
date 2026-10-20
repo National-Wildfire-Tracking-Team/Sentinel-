@@ -8,7 +8,6 @@
   },
   "scripts": {
     "dev": "vite",
-    "dev:routing": "node cloud/ors-routing/dev.mjs",
     "dev:all": "bash dev.sh",
     "build": "vite build",
     "preview": "vite preview",
@@ -55,6 +54,7 @@
     "eslint": "^10.5.0",
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.3",
+    "h5wasm": "0.8.8",
     "jsdom": "^29.1.1",
     "postcss": "^8.5.23",
     "serve": "^14.2.6",

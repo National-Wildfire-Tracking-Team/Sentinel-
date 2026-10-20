@@ -7,10 +7,13 @@
  * The wind comes from the builder's wind-vector frame (R = u, G = v, 8-bit,
  * ±range m/s; alpha 0 = no data), decoded once per frame change.
  *
- * Cost control: the Models map is flat Mercator, so screen ↔ lon/lat is a
- * linear map rebuilt once per view; there's no per-particle projection call.
- * Particles pause while the map moves, are hidden if the map is rotated or
- * pitched, and are drawn once without animation for reduced-motion users.
+ * Cost control: on a flat, north-up Mercator view (the Models tab) screen ↔
+ * lon/lat is a linear map rebuilt once per view. Elsewhere (the globe, or a
+ * rotated, pitched or terrain view on the other tabs) a coarse screen grid is
+ * unprojected once per view and interpolated, with each cell's local east and
+ * north screen directions, so there's still no per-particle projection call.
+ * Particles pause while the map moves and are drawn once without animation
+ * for reduced-motion users.
  */
 
 import { useEffect, useRef } from 'react';
@@ -20,6 +23,8 @@ const SPEED = 0.11; // screen px per frame per m/s
 const FADE = 0.93; // trail persistence per frame
 const AREA_PER_PARTICLE = 420; // px² per particle
 const MAX_PARTICLES = 6000;
+const GRID_PX = 16; // screen grid spacing for non-linear views
+const M_PER_DEG = 111320;
 
 const mercY = (lat) => Math.log(Math.tan(Math.PI / 4 + (lat * Math.PI) / 360));
 const invMercY = (y) => (Math.atan(Math.sinh(y)) * 180) / Math.PI;
@@ -93,18 +98,89 @@ export default function WindParticles({ url, coordinates, range = 50 }) {
       canvas.style.width = `${w}px`;
       canvas.style.height = `${h}px`;
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      const b = map.getBounds();
-      // Rotated or pitched views break the linear screen ↔ Mercator map; skip particles there.
-      view = map.getBearing() === 0 && map.getPitch() === 0
-        ? { w, h, west: b.getWest(), east: b.getEast(), yN: mercY(b.getNorth()), yS: mercY(b.getSouth()) }
-        : null;
+      const linear = map.getProjection?.().name !== 'globe' && map.getBearing() === 0 && map.getPitch() === 0 && !map.getTerrain?.();
+      view = linear ? linearView(w, h) : gridView(w, h);
       const n = Math.min(MAX_PARTICLES, Math.round((w * h) / AREA_PER_PARTICLE));
       particles = Array.from({ length: view ? n : 0 }, () => spawn());
       ctx.clearRect(0, 0, w, h);
     };
 
+    // Flat, north-up Mercator: screen ↔ lon/lat is linear and east is +x, north is −y.
+    const linearView = (w, h) => {
+      const b = map.getBounds();
+      const west = b.getWest();
+      const east = b.getEast();
+      const vN = mercY(b.getNorth());
+      const vS = mercY(b.getSouth());
+      return {
+        w, h,
+        toLngLat: (x, y) => [west + (x / w) * (east - west), invMercY(vN - (y / h) * (vN - vS))],
+        move: (x, y, u, v, len) => [u * len, -v * len],
+      };
+    };
+
+    // Anything else: unproject a coarse grid once, and per node keep the screen
+    // step for 1 m east / north, scaled so streaks match the flat view's speed
+    // at the screen centre (shorter toward the horizon or the globe's limb).
+    const gridView = (w, h) => {
+      const cols = Math.ceil(w / GRID_PX) + 1;
+      const rows = Math.ceil(h / GRID_PX) + 1;
+      const lng = new Float64Array(cols * rows).fill(NaN);
+      const lat = new Float64Array(cols * rows).fill(NaN);
+      const ex = new Float32Array(cols * rows);
+      const ey = new Float32Array(cols * rows);
+      const nx = new Float32Array(cols * rows);
+      const ny = new Float32Array(cols * rows);
+      const d = 0.01; // degrees
+      const unitSteps = (ll) => {
+        const p = map.project(ll);
+        const pe = map.project([ll.lng + d, ll.lat]);
+        const pn = map.project([ll.lng, Math.min(89.9, ll.lat + d)]);
+        const me = d * M_PER_DEG * Math.max(0.01, Math.cos((ll.lat * Math.PI) / 180));
+        const mn = d * M_PER_DEG;
+        return [(pe.x - p.x) / me, (pe.y - p.y) / me, (pn.x - p.x) / mn, (pn.y - p.y) / mn];
+      };
+      const c = unitSteps(map.getCenter());
+      const ref = Math.hypot(c[0], c[1]) || 1;
+      for (let r = 0; r < rows; r += 1) {
+        for (let q = 0; q < cols; q += 1) {
+          const x = q * GRID_PX;
+          const y = r * GRID_PX;
+          const ll = map.unproject([x, y]);
+          const back = ll && map.project(ll);
+          // Off the globe or into the sky: the point doesn't round-trip.
+          if (!back || Math.abs(back.x - x) > 2 || Math.abs(back.y - y) > 2) continue;
+          const i = r * cols + q;
+          const [a, b, e, f] = unitSteps(ll);
+          lng[i] = ll.lng; lat[i] = ll.lat;
+          ex[i] = a / ref; ey[i] = b / ref; nx[i] = e / ref; ny[i] = f / ref;
+        }
+      }
+      const node = (x, y) => Math.round(y / GRID_PX) * cols + Math.round(x / GRID_PX);
+      return {
+        w, h,
+        toLngLat: (x, y) => {
+          const q = Math.floor(x / GRID_PX);
+          const r = Math.floor(y / GRID_PX);
+          if (q < 0 || r < 0 || q >= cols - 1 || r >= rows - 1) return null;
+          const i = r * cols + q;
+          const corners = [i, i + 1, i + cols, i + cols + 1];
+          if (corners.some((k) => Number.isNaN(lng[k]))) return null;
+          // Don't interpolate across the antimeridian.
+          if (Math.max(...corners.map((k) => lng[k])) - Math.min(...corners.map((k) => lng[k])) > 180) return null;
+          const tx = x / GRID_PX - q;
+          const ty = y / GRID_PX - r;
+          const mix = (arr) => (arr[i] * (1 - tx) + arr[i + 1] * tx) * (1 - ty) + (arr[i + cols] * (1 - tx) + arr[i + cols + 1] * tx) * ty;
+          return [mix(lng), mix(lat)];
+        },
+        move: (x, y, u, v, len) => {
+          const i = node(x, y);
+          return [(u * ex[i] + v * nx[i]) * len, (u * ey[i] + v * ny[i]) * len];
+        },
+      };
+    };
+
     const spawn = () => ({ x: Math.random() * (view?.w ?? 0), y: Math.random() * (view?.h ?? 0), age: Math.floor(Math.random() * 90) + 30 });
-    const toLngLat = (x, y) => [view.west + (x / view.w) * (view.east - view.west), invMercY(view.yN - (y / view.h) * (view.yN - view.yS))];
 
     const step = (animate) => {
       if (!view) return;
@@ -116,15 +192,16 @@ export default function WindParticles({ url, coordinates, range = 50 }) {
       ctx.lineWidth = 1.1;
       ctx.beginPath();
       for (const p of particles) {
-        const [lng, lat] = toLngLat(p.x, p.y);
-        const uv = sample(lng, lat);
+        const ll = view.toLngLat(p.x, p.y);
+        const uv = ll && sample(ll[0], ll[1]);
         if (!uv || p.age-- <= 0) {
           Object.assign(p, spawn());
           continue;
         }
         const len = animate ? SPEED : SPEED * 6; // static streaks for reduced motion
-        const nx = p.x + uv[0] * len;
-        const ny = p.y - uv[1] * len; // north is up
+        const [dx, dy] = view.move(p.x, p.y, uv[0], uv[1], len);
+        const nx = p.x + dx;
+        const ny = p.y + dy;
         ctx.moveTo(p.x, p.y);
         ctx.lineTo(nx, ny);
         if (animate) {
@@ -152,13 +229,15 @@ export default function WindParticles({ url, coordinates, range = 50 }) {
     };
 
     setup();
+    // A projection or terrain change (switching map tabs) moves nothing, so re-measure once it has drawn.
+    map.once('idle', onMoveEnd);
     if (reduced) {
       // Wait for the first wind frame, then draw once.
       const wait = setInterval(() => { if (fieldRef.current) { clearInterval(wait); step(false); } }, 200);
       map.on('movestart', onMoveStart);
       map.on('moveend', onMoveEnd);
       map.on('resize', onMoveEnd);
-      return () => { clearInterval(wait); map.off('movestart', onMoveStart); map.off('moveend', onMoveEnd); map.off('resize', onMoveEnd); canvas.remove(); };
+      return () => { clearInterval(wait); map.off('idle', onMoveEnd); map.off('movestart', onMoveStart); map.off('moveend', onMoveEnd); map.off('resize', onMoveEnd); canvas.remove(); };
     }
     raf = requestAnimationFrame(loop);
     map.on('movestart', onMoveStart);
@@ -166,6 +245,7 @@ export default function WindParticles({ url, coordinates, range = 50 }) {
     map.on('resize', onMoveEnd);
     return () => {
       cancelAnimationFrame(raf);
+      map.off('idle', onMoveEnd);
       map.off('movestart', onMoveStart);
       map.off('moveend', onMoveEnd);
       map.off('resize', onMoveEnd);
