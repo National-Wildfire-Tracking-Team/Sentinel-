@@ -13,7 +13,8 @@ import { resolve } from 'node:path';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
-  RAMP, STATION_FIELDS, STATION_LAYER_FIELDS, markStaleStations, nearestStation, rampStops, summarizeStations, viewportBounds,
+  ERC_BANDS, RAMP, STATION_FIELDS, STATION_LAYER_FIELDS, ercBand, markStaleStations, nationalOutlook, nearestStation, rampStops,
+  summarizeStations, viewportBounds,
 } from '../../src/app/api/fireDanger/stations';
 import { stationStatus } from '../../src/app/api/fireDanger/status';
 
@@ -85,6 +86,37 @@ describe('station data', () => {
     expect(e - w).toBeCloseTo(45, 0); // 1024 px at zoom 4: 360 * 1024 / 8192
     expect(s).toBeLessThan(40);
     expect(n).toBeGreaterThan(40);
+  });
+});
+
+describe('national outlook', () => {
+  it('bands ERC at the fixed cut points', () => {
+    expect([0, 19.99, 20, 39.9, 40, 60, 79.99, 80, 140].map(ercBand)).toEqual([0, 0, 1, 1, 2, 3, 3, 4, 4]);
+    expect(ERC_BANDS).toHaveLength(5);
+  });
+
+  it('summarizes current stations only', () => {
+    const o = nationalOutlook(DATA, { minStations: 1 });
+    expect(o.stations).toBe(2); // the stale and the empty station are left out
+    expect(o.observedDate).toBe('2026-10-19');
+    expect(o.medianErc).toBeCloseTo((25.69 + 31.66) / 2);
+    expect(o.pctElevated).toBe(0);
+    expect(o.pctDrying).toBe(100);
+    expect(o.medianFm100).toBeCloseTo((13.84 + 15.44) / 2);
+    expect(o.states.map((s) => s.state)).toEqual(['MT', 'GA']);
+    expect(o.top.map((p) => p.name)).toEqual(['ARMELLS CREEK', 'ARMUCHEE']);
+    expect(o.top[0].coordinates).toEqual([-108.86808, 47.58875]);
+  });
+
+  it('counts each forecast day by band', () => {
+    const { days } = nationalOutlook(DATA);
+    expect(days.map((d) => d.date)).toEqual(['2026-10-20', '2026-10-21', '2026-10-22', '2026-10-23', '2026-10-24', '2026-10-25', '2026-10-26']);
+    expect(days[0]).toMatchObject({ n: 2, bands: [0, 2, 0, 0, 0], pctElevated: 0 });
+  });
+
+  it('leaves out states with too few stations, and returns null with none current', () => {
+    expect(nationalOutlook(DATA).states).toEqual([]);
+    expect(nationalOutlook({ features: [] })).toBeNull();
   });
 });
 

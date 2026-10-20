@@ -155,4 +155,12 @@ describe('FireDangerPointDetail', () => {
     render(<FireDangerPointDetail fire={{ type: 'fire-danger-point', lat: 38.5, lng: -120.5, sfp: null, sfpDay: 1 }} />);
     await waitFor(() => expect(screen.getByText(/Couldn't reach LANDFIRE: offline/)).toBeInTheDocument(), { timeout: 4000 });
   });
+
+  it('shows a clicked station whose forecast arrived as a string (rendered map feature)', () => {
+    vi.spyOn(global, 'fetch').mockRejectedValue(new Error('offline'));
+    ctx = makeCtx({ stationsOn: true, stations: { configured: true, data: { type: 'FeatureCollection', features: [] }, manifest: null } });
+    const station = { id: 102004, name: '3 MILE', state: 'ID', observedDate: '2026-10-19', erc: 32.6, forecastErc: '[30.71,29.63]' };
+    render(<FireDangerPointDetail fire={{ type: 'fire-danger-point', lat: 44.4, lng: -112.1, sfp: null, sfpDay: 1, station }} />);
+    expect(screen.getByText('3 MILE, ID')).toBeInTheDocument();
+  });
 });
