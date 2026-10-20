@@ -8,7 +8,6 @@
   },
   "scripts": {
     "dev": "vite",
-    "dev:routing": "node cloud/ors-routing/dev.mjs",
     "dev:all": "bash dev.sh",
     "build": "vite build",
     "preview": "vite preview",

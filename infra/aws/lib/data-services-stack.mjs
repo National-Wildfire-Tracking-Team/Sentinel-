@@ -25,17 +25,12 @@
  *   $0.045/GB) to reach those same upstreams.
  */
 
-import { DockerImage } from 'aws-cdk-lib';
 import { Annotations, Duration, Fn, RemovalPolicy, Stack, Tags, CfnOutput } from 'aws-cdk-lib';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as logs from 'aws-cdk-lib/aws-logs';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as cloudfront from 'aws-cdk-lib/aws-cloudfront';
 import * as origins from 'aws-cdk-lib/aws-cloudfront-origins';
-import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
-import * as wafv2 from 'aws-cdk-lib/aws-wafv2';
-import { execFileSync } from 'node:child_process';
-import { chmodSync, copyFileSync } from 'node:fs';
 import * as cloudwatch from 'aws-cdk-lib/aws-cloudwatch';
 import * as cwActions from 'aws-cdk-lib/aws-cloudwatch-actions';
 import * as sns from 'aws-cdk-lib/aws-sns';
@@ -52,46 +47,6 @@ import { HAFS } from './hafs-stack.mjs';
 
 const CLOUD_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../cloud');
 const LOG_RETENTION = logs.RetentionDays.TWO_WEEKS;
-
-/**
- * Asset for a service with npm dependencies: `npm ci` + its `npm run build`
- * (esbuild → one index.mjs) + run.sh. Runs locally when node is available
- * (CI and dev machines); Docker is only the fallback CDK requires.
- */
-function bundledCode(svc) {
-  const dir = path.join(CLOUD_DIR, svc.dir);
-  return lambda.Code.fromAsset(dir, {
-    exclude: ['node_modules', 'Dockerfile', 'README.md', '*.test.*'],
-    bundling: {
-      image: DockerImage.fromRegistry('public.ecr.aws/docker/library/node:24'),
-      environment: { npm_config_cache: '/tmp/.npm' },
-      command: ['bash', '-c', [
-        'cp -r /asset-input /tmp/src && cd /tmp/src',
-        'npm ci --ignore-scripts',
-        'npm run build -- --outfile=/asset-output/index.mjs',
-        'cp run.sh /asset-output/run.sh && chmod 755 /asset-output/run.sh',
-      ].join(' && ')],
-      local: {
-        tryBundle(outputDir) {
-          // The deploy job holds AWS credentials: no lifecycle scripts, and no AWS_* or
-          // GitHub OIDC token-request variables in the child env.
-          const OIDC = new Set(['ACTIONS_ID_TOKEN_REQUEST_URL', 'ACTIONS_ID_TOKEN_REQUEST_TOKEN']);
-          const env = Object.fromEntries(Object.entries(process.env).filter(([k]) => !k.startsWith('AWS_') && !OIDC.has(k)));
-          try {
-            execFileSync('npm', ['ci', '--ignore-scripts'], { cwd: dir, stdio: 'inherit', env });
-            execFileSync('npm', ['run', 'build', '--', `--outfile=${path.join(outputDir, 'index.mjs')}`], { cwd: dir, stdio: 'inherit', env });
-            copyFileSync(path.join(dir, 'run.sh'), path.join(outputDir, 'run.sh'));
-            chmodSync(path.join(outputDir, 'run.sh'), 0o755);
-            return true;
-          } catch (err) {
-            console.error(`local bundle of ${svc.dir} failed (${err?.code ?? err?.name ?? 'error'}); falling back to Docker`);
-            return false;
-          }
-        },
-      },
-    },
-  });
-}
 
 /**
  * A Lambda Function URL in another region, signed by CloudFront OAC.
@@ -131,7 +86,7 @@ export class DataServicesStack extends Stack {
    */
   constructor(scope, id, props) {
     super(scope, id, props);
-    const { allowedOrigins, nwsUserAgent, alarmEmail, monthlyBudgetUsd, weatherModelsFunctionUrl, mrms, lightning, hafsFunctionUrl, supabaseUrl = '', supabaseAnonKey = '' } = props;
+    const { allowedOrigins, nwsUserAgent, alarmEmail, monthlyBudgetUsd, weatherModelsFunctionUrl, mrms, lightning, hafsFunctionUrl } = props;
 
     Tags.of(this).add('project', 'sentinel');
     Tags.of(this).add('component', 'data-services');
@@ -181,7 +136,7 @@ export class DataServicesStack extends Stack {
     let firstOrigin = null;
 
     for (const svc of SERVICES) {
-      const fn = this.#serviceFunction(svc, { adapterLayer, allowedOrigins, nwsUserAgent, supabaseUrl, supabaseAnonKey });
+      const fn = this.#serviceFunction(svc, { adapterLayer, allowedOrigins, nwsUserAgent });
       this.functions[svc.dir] = fn;
 
       const url = fn.addFunctionUrl({
@@ -194,19 +149,15 @@ export class DataServicesStack extends Stack {
       });
       firstOrigin ??= origin;
 
-      const uncached = svc.cache === 'disabled';
       behaviors[`${svc.pathPrefix}/*`] = {
         origin,
         viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
-        // Per-user POST APIs (ors-routing) need every method and no edge cache.
-        allowedMethods: uncached ? cloudfront.AllowedMethods.ALLOW_ALL : cloudfront.AllowedMethods.ALLOW_GET_HEAD_OPTIONS,
+        allowedMethods: cloudfront.AllowedMethods.ALLOW_GET_HEAD_OPTIONS,
         cachedMethods: cloudfront.CachedMethods.CACHE_GET_HEAD,
-        cachePolicy: uncached ? cloudfront.CachePolicy.CACHING_DISABLED : cachePolicy,
-        // Public-data services: everything the viewer sent except Host
-        // (Host would break the OAC SigV4 signature). Per-user APIs get an
-        // allow-list instead, plus CloudFront-Viewer-Address (unspoofable
-        // client IP) for the service's own auth-failure limiter.
-        originRequestPolicy: uncached ? this.#apiOriginRequestPolicy() : cloudfront.OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER,
+        cachePolicy,
+        // Everything the viewer sent except Host, which would break the
+        // OAC SigV4 signature for the Function URL.
+        originRequestPolicy: cloudfront.OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER,
         compress: true,
       };
 
@@ -378,9 +329,7 @@ export class DataServicesStack extends Stack {
       };
     }
 
-    const webAcl = this.#webAcl();
     const distribution = new cloudfront.Distribution(this, 'Distribution', {
-      ...(webAcl ? { webAclId: webAcl.attrArn } : {}),
       comment: 'Sentinel data services (replaces the *.run.app endpoints)',
       priceClass: cloudfront.PriceClass.PRICE_CLASS_100, // US/Canada/Europe edges — Sentinel's audience is US
       httpVersion: cloudfront.HttpVersion.HTTP2_AND_3,
@@ -476,49 +425,42 @@ export class DataServicesStack extends Stack {
     });
   }
 
-  #serviceFunction(svc, { adapterLayer, allowedOrigins, nwsUserAgent, supabaseUrl, supabaseAnonKey }) {
+  #serviceFunction(svc, { adapterLayer, allowedOrigins, nwsUserAgent }) {
     const logGroup = new logs.LogGroup(this, `${svc.id}Logs`, {
       logGroupName: `/sentinel/${svc.dir}`,
       retention: LOG_RETENTION,
       removalPolicy: RemovalPolicy.DESTROY,
     });
 
-    // One role per function, allowed only to write its own log group — and,
-    // for a service with secretName, to read that one secret.
+    // One role per function, allowed only to write its own log group. None
+    // of these services reads AWS resources; their upstreams are all public.
     const role = new iam.Role(this, `${svc.id}Role`, {
       assumedBy: new iam.ServicePrincipal('lambda.amazonaws.com'),
-      description: `Runtime role for ${svc.dir} (logs${svc.secretName ? ` + secret ${svc.secretName}` : ' only'})`,
+      description: `Runtime role for ${svc.dir} (logs only)`,
     });
     role.addToPolicy(new iam.PolicyStatement({
       actions: ['logs:CreateLogStream', 'logs:PutLogEvents'],
       resources: [logGroup.logGroupArn, `${logGroup.logGroupArn}:log-stream:*`],
     }));
-    if (svc.secretName) {
-      secretsmanager.Secret.fromSecretNameV2(this, `${svc.id}Secret`, svc.secretName).grantRead(role);
-    }
 
-    const serviceEnv = typeof svc.env === 'function'
-      ? svc.env({ allowedOrigins, nwsUserAgent, supabaseUrl, supabaseAnonKey })
-      : svc.env;
+    const serviceEnv = typeof svc.env === 'function' ? svc.env({ allowedOrigins, nwsUserAgent }) : svc.env;
 
     const fn = new lambda.Function(this, `${svc.id}Function`, {
       functionName: `sentinel-${svc.dir}`,
-      description: `${svc.dir} (cloud/${svc.dir}${svc.bundle ? ', esbuild bundle' : ', unchanged'}, via Lambda Web Adapter)`,
+      description: `${svc.dir} (cloud/${svc.dir}, unchanged, via Lambda Web Adapter)`,
       runtime: lambda.Runtime.NODEJS_24_X,
       architecture: lambda.Architecture.ARM_64, // no native deps; Graviton is ~20% cheaper per GB-s
       handler: 'run.sh',
-      code: svc.bundle ? bundledCode(svc) : lambda.Code.fromAsset(path.join(CLOUD_DIR, svc.dir), {
+      code: lambda.Code.fromAsset(path.join(CLOUD_DIR, svc.dir), {
         exclude: ['Dockerfile', '.dockerignore', 'README.md', 'node_modules', '*.test.*'],
       }),
       layers: [adapterLayer],
       memorySize: svc.memoryMb,
       timeout: Duration.seconds(svc.timeoutSeconds),
-      ...(svc.reservedConcurrency ? { reservedConcurrentExecutions: svc.reservedConcurrency } : {}),
       role,
       logGroup,
       environment: {
         ...serviceEnv,
-        ...(svc.secretName ? { ORS_SECRET_ID: svc.secretName } : {}),
         AWS_LAMBDA_EXEC_WRAPPER: '/opt/bootstrap',
         AWS_LWA_INVOKE_MODE: 'response_stream',
         AWS_LWA_PORT: '8080',
@@ -529,78 +471,6 @@ export class DataServicesStack extends Stack {
     });
     Tags.of(fn).add('service', svc.dir);
     return fn;
-  }
-
-  /** Allow-listed headers for per-user API behaviors (ors-routing). */
-  #apiOriginRequestPolicy() {
-    this.apiOrp ??= new cloudfront.OriginRequestPolicy(this, 'OrsRoutingOriginRequestPolicy', {
-      comment: 'Per-user API: auth + CORS preflight + viewer IP; never Host/Authorization',
-      // No x-amz-content-sha256: CloudFront rejects it in a policy. OAC uses the
-      // viewer's value to sign the origin request and sends it on by itself.
-      headerBehavior: cloudfront.OriginRequestHeaderBehavior.allowList(
-        'x-sentinel-auth', 'Content-Type', 'Origin',
-        'Access-Control-Request-Method', 'Access-Control-Request-Headers', 'CloudFront-Viewer-Address',
-      ),
-      queryStringBehavior: cloudfront.OriginRequestQueryStringBehavior.none(),
-      cookieBehavior: cloudfront.OriginRequestCookieBehavior.none(),
-    });
-    return this.apiOrp;
-  }
-
-  /**
-   * AWS WAF in front of the distribution: one per-IP rate-based block rule
-   * per service with wafRateLimitPer5Min. Default action is allow, so the
-   * public-data services are unaffected. CLOUDFRONT scope needs us-east-1,
-   * which this stack is in. ~$5/mo + $1/rule + $0.60 per million requests.
-   */
-  #webAcl() {
-    const limited = SERVICES.filter((s) => s.wafRateLimitPer5Min);
-    if (!limited.length) return null;
-    return new wafv2.CfnWebACL(this, 'SentinelDataServicesWaf', {
-      scope: 'CLOUDFRONT',
-      defaultAction: { allow: {} },
-      visibilityConfig: { cloudWatchMetricsEnabled: true, metricName: 'sentinel-data-services-waf', sampledRequestsEnabled: true },
-      // A bare WAF 429 has no CORS header, so the browser reports a TypeError
-      // ("unavailable"). Answer with CORS and the service's own quota shape so
-      // the client shows per-user "try again" copy.
-      customResponseBodies: {
-        RateLimited: {
-          contentType: 'APPLICATION_JSON',
-          content: '{"error":"quota","scope":"user","window":"minute","retryAfterSec":300}',
-        },
-      },
-      rules: limited.map((svc, i) => ({
-        name: `${svc.dir}-rate-limit`,
-        priority: i,
-        action: {
-          block: {
-            customResponse: {
-              responseCode: 429,
-              customResponseBodyKey: 'RateLimited',
-              responseHeaders: [{ name: 'access-control-allow-origin', value: '*' }],
-            },
-          },
-        },
-        statement: {
-          rateBasedStatement: {
-            limit: svc.wafRateLimitPer5Min,
-            evaluationWindowSec: 300,
-            aggregateKeyType: 'IP',
-            scopeDownStatement: {
-              byteMatchStatement: {
-                fieldToMatch: { uriPath: {} },
-                positionalConstraint: 'STARTS_WITH',
-                searchString: `${svc.pathPrefix}/`,
-                // CloudFront normalizes the path before matching a behavior; WAF sees
-                // the raw one, so decode + normalize or /x/../ors-routing/ slips past.
-                textTransformations: [{ priority: 0, type: 'URL_DECODE' }, { priority: 1, type: 'NORMALIZE_PATH' }],
-              },
-            },
-          },
-        },
-        visibilityConfig: { cloudWatchMetricsEnabled: true, metricName: `${svc.dir}-rate-limit`, sampledRequestsEnabled: true },
-      })),
-    });
   }
 
   #alarms(svc, fn, alarmAction) {
