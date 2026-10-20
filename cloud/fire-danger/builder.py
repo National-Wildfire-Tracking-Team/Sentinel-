@@ -34,6 +34,9 @@ import wfpi
 KEY_PREFIX = 'fire-danger/v1/'
 MANIFEST_KEY = KEY_PREFIX + 'manifest.json'
 SCHEMA_VERSION = 1
+# GeoJSON served as application/json: CloudFront compresses that at the edge
+# but not application/geo+json (1.2 MB vs ~200 KB for a national run).
+STATIONS_CONTENT_TYPE = 'application/json'
 
 FEMS_LABEL = 'USDA Forest Service FEMS · NFDRS 2016 station values'
 FEMS_URL = 'https://fems.fs2c.usda.gov'
@@ -201,7 +204,9 @@ class FireDangerBuilder:
 
         collection = {'type': 'FeatureCollection', 'features': features}
         payload = _json_bytes(collection)
-        digest = hashlib.sha256(payload).hexdigest()[:16]
+        # The content type is part of the digest so a change to how the file is
+        # served also publishes a fresh run (the old one is cached immutable).
+        digest = hashlib.sha256(payload + STATIONS_CONTENT_TYPE.encode()).hexdigest()[:16]
 
         if digest == prev.get('digest') and kept.get('stations'):
             products = kept  # unchanged: nothing new to write
@@ -221,7 +226,7 @@ class FireDangerBuilder:
                 self.store.put(f'{run_prefix}stations/{sid}.json', body, 'application/json', self.store.IMMUTABLE)
                 summary['bytesWritten'] += len(body)
                 summary['objectsWritten'] += 1
-            self.store.put(f'{run_prefix}stations.json', payload, 'application/geo+json', self.store.IMMUTABLE)
+            self.store.put(f'{run_prefix}stations.json', payload, STATIONS_CONTENT_TYPE, self.store.IMMUTABLE)
             summary['bytesWritten'] += len(payload)
             summary['objectsWritten'] += 1
             products = {'stations': {
