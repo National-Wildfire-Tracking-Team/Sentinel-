@@ -11,9 +11,6 @@
  *
  * MRMS (SentinelMrms) builds radar frames from NOAA's MRMS bucket in
  * us-east-1 and is served at /mrms/*. Also opt-in: `sentinel:mrms=enabled`.
- * Lightning (SentinelLightning) keeps the last 15 minutes of GOES GLM flashes
- * from NOAA's GOES buckets in us-east-1, served at /lightning/*. Opt-in:
- * `sentinel:lightning=enabled`.
  *
  * HAFS (SentinelHafs) renders hurricane-model frames from NOAA's HAFS bucket
  * in us-east-1 and is served at /hafs/*. Opt-in: `sentinel:hafs=enabled`.
@@ -27,7 +24,6 @@ import { DataServicesStack } from '../lib/data-services-stack.mjs';
 import { GithubDeployStack } from '../lib/github-deploy-stack.mjs';
 import { WEATHER_MODELS, WeatherModelsStack } from '../lib/weather-models-stack.mjs';
 import { MrmsStack } from '../lib/mrms-stack.mjs';
-import { LightningStack } from '../lib/lightning-stack.mjs';
 import { HafsStack } from '../lib/hafs-stack.mjs';
 
 // Defaults live here, not in cdk.json: an empty `-c sentinel:key=` (an
@@ -44,27 +40,12 @@ const DEFAULTS = {
   distributionId: '', // set after the first deploy to scope the weather-models invoke permission
   weatherModelsReservedConcurrency: '0', // >0 caps concurrent executions (needs spare account concurrency)
   mrms: 'disabled', // 'enabled' adds SentinelMrms and the /mrms/* route
-  lightning: 'disabled', // 'enabled' adds SentinelLightning and the /lightning/* route
-  supabaseUrl: '', // ors-routing: public project URL (GitHub secret SUPABASE_URL)
-  supabaseAnonKey: '', // ors-routing: public anon key (GitHub secret VITE_SUPABASE_ANON_KEY)
-  allowMissingSupabase: 'false', // 'true' lets a local synth/diff run without the two above
   hafs: 'disabled', // 'enabled' adds SentinelHafs and the /hafs/* route
   hafsReservedConcurrency: '0', // >0 caps concurrent frame renders (needs spare account concurrency)
 };
 
 const app = new App();
 const ctx = (key) => app.node.tryGetContext(`sentinel:${key}`) || DEFAULTS[key];
-
-// ors-routing answers every request with 503 not_configured without these, so a
-// deploy that silently drops them would ship a dead Navigation feature. Fail synth
-// instead. Local synth: -c sentinel:allowMissingSupabase=true.
-if ((!ctx('supabaseUrl') || !ctx('supabaseAnonKey')) && ctx('allowMissingSupabase') !== 'true') {
-  throw new Error(
-    'sentinel:supabaseUrl and sentinel:supabaseAnonKey are required (ors-routing). '
-    + 'CI passes them from the SUPABASE_URL and VITE_SUPABASE_ANON_KEY secrets; '
-    + 'for a local synth pass -c sentinel:allowMissingSupabase=true.',
-  );
-}
 
 const env = { account: process.env.CDK_DEFAULT_ACCOUNT, region: 'us-east-1' };
 const weatherModelsEnabled = ctx('weatherModels') === 'enabled';
@@ -93,17 +74,6 @@ if (mrmsEnabled) {
   });
 }
 
-const lightningEnabled = ctx('lightning') === 'enabled';
-let lightning;
-if (lightningEnabled) {
-  lightning = new LightningStack(app, 'SentinelLightning', {
-    env,
-    description: 'Sentinel lightning: GOES GLM flashes from NOAA on AWS Open Data (Lambda + S3, us-east-1)',
-    alarmEmail: ctx('alarmEmail'),
-    distributionId: ctx('distributionId') || undefined,
-  });
-}
-
 let hafs;
 if (ctx('hafs') === 'enabled') {
   hafs = new HafsStack(app, 'SentinelHafs', {
@@ -125,14 +95,10 @@ const dataServices = new DataServicesStack(app, 'SentinelDataServices', {
   monthlyBudgetUsd: Number(ctx('monthlyBudgetUsd')),
   weatherModelsFunctionUrl: weatherModels?.functionUrl.url,
   mrms: mrmsEnabled,
-  lightning: lightningEnabled,
-  supabaseUrl: ctx('supabaseUrl'),
-  supabaseAnonKey: ctx('supabaseAnonKey'),
   hafsFunctionUrl: hafs?.functionUrl.url,
 });
 // Deploying the distribution deploys SentinelMrms first (its bucket backs /mrms/*), as CI deploys only SentinelDataServices.
 if (mrms) dataServices.addDependency(mrms);
-if (lightning) dataServices.addDependency(lightning);
 // SentinelHafs deploys first too: the distribution reads its Function URL (a same-region stack export).
 
 new GithubDeployStack(app, 'SentinelGithubDeploy', {

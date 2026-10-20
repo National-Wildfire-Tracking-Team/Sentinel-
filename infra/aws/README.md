@@ -39,18 +39,13 @@ Defaults are in `bin/sentinel.mjs`. Override any of them with `-c sentinel:<key>
 | `existingOidcProviderArn` | *(none)* | Set this if the account already has a GitHub OIDC provider |
 | `weatherModels` | `disabled` | `enabled` adds `SentinelWeatherModels` and the `/weather-models/*` route. In CI it's the `AWS_WEATHER_MODELS` repo variable. |
 | `distributionId` | *(none)* | After the first deploy, set it to the `DistributionId` output to narrow the weather-models invoke permission from "CloudFront in this account" to this one distribution. In CI it's `AWS_DISTRIBUTION_ID`. |
-| `lightning` | `disabled` | `enabled` adds `SentinelLightning` (us-east-1) and the `/lightning/*` route. In CI it's the `AWS_LIGHTNING` repo variable. See `cloud/lightning/README.md`. |
 | `mrms` | `disabled` | `enabled` adds `SentinelMrms` (us-east-1) and the `/mrms/*` route. In CI it's the `AWS_MRMS` repo variable. With `distributionId` set, the frames bucket is readable only by that distribution. |
 | `hafs` | `disabled` | `enabled` adds `SentinelHafs` (us-east-1) and the `/hafs/*` route. In CI it's the `AWS_HAFS` repo variable. With `distributionId` set, only that distribution may invoke it. |
 | `hafsReservedConcurrency` | `0` (no cap) | Caps concurrent HAFS frame renders. Same unreserved-concurrency rule as below. |
 | `weatherModelsReservedConcurrency` | `0` (no cap) | Caps concurrent weather-models executions. Needs spare account concurrency (at least 10 must stay unreserved). |
-| `supabaseUrl` | *(none, required)* | ors-routing's Supabase project URL. In CI it's the `SUPABASE_URL` **secret**. Synth fails if empty. |
-| `supabaseAnonKey` | *(none, required)* | ors-routing's public anon key. In CI it's the `VITE_SUPABASE_ANON_KEY` **secret**. Synth fails if empty. |
-| `allowMissingSupabase` | `false` | `true` skips the two checks above, for a local synth or test run only. |
 
-Only ors-routing reads a secret (its ORS API key, see
-[ors-routing](#ors-routing-navigation)). The other services call only public
-APIs, so there's nothing for them in Secrets Manager.
+Nothing here is a secret. The services call only public APIs, so there's
+nothing to put in Secrets Manager.
 
 ## Develop and verify offline
 
@@ -60,7 +55,7 @@ No AWS account is needed for any of this.
 cd infra/aws
 npm ci
 npm test            # synthesizes both stacks and asserts the IAM, networking, caching and cost guards
-npx cdk synth -c sentinel:allowMissingSupabase=true   # CloudFormation lands in cdk.out/
+npx cdk synth       # CloudFormation lands in cdk.out/
 ```
 
 ## First deploy (one-time, from a laptop)
@@ -218,40 +213,43 @@ retained; its lifecycle rule empties it within a day.
 
 **Cost.** About $2–7 a month (breakdown in the service README).
 
-## ors-routing (Navigation)
+## Navigation
 
-The backend for All Hazards → Navigation (internally "Route to Safety", Pro/Team
-only; [README](../../cloud/ors-routing/README.md)). It's part of
-`SentinelDataServices` at `/ors-routing/*`, never cached by CloudFront.
+Navigation (ors-routing) is not on AWS: it now runs as the Supabase Edge
+Function `ors-routing` (see
+[supabase/functions/ors-routing/README.md](../../supabase/functions/ors-routing/README.md)).
+The old `Routing` secret in AWS Secrets Manager (us-east-1) is no longer read
+and can be deleted by hand once Navigation is confirmed working on Supabase.
+CDK never created it, so deploying won't remove it.
 
-- **ORS key.** A Secrets Manager secret named `Routing` in **us-east-1**,
-  encrypted with the default `aws/secretsmanager` key (a customer-managed key
-  would also need a `kms:Decrypt` grant, which the stack doesn't add). Plain
-  string, or JSON `{ "ORS_API_KEY": "…" }` (console Key/value: `ORS_API_KEY` in the
-  left box, the key in the right). Create it before the first deploy:
-  `aws secretsmanager create-secret --region us-east-1 --name Routing --secret-string '<key>'`.
-  Only the ors-routing runtime role can read it.
-- **Supabase.** The function needs the project URL and anon key (both public,
-  the same values the frontend ships) to check the caller's JWT, plan and
-  `consume_routing_quota`. `deploy-aws.yml` passes the `SUPABASE_URL` and
-  `VITE_SUPABASE_ANON_KEY` repo **secrets**; a laptop deploy passes
-  `-c sentinel:supabaseUrl=… -c sentinel:supabaseAnonKey=…`. Synth fails
-  without them unless `-c sentinel:allowMissingSupabase=true`.
-- **WAF.** A web ACL on the distribution rate-limits `/ors-routing/*` to 100
-  requests per IP per 5 minutes, answering 429 with a JSON body and
-  `access-control-allow-origin: *` so the browser can read it. Cost: about
-  **$6 a month** ($5 per ACL + $1 per rule) plus **$0.60 per million requests**
-  on the whole distribution, since the ACL inspects every request, not only
-  `/ors-routing`.
-- **Concurrency.** Reserved concurrency is **10**, a cost backstop on top of
-  the Supabase quota. Reserving takes it out of the account pool, and Lambda
-  keeps at least 10 unreserved, so the account limit must be at least
-  10 + 10 + any other reservations (e.g. `weatherModelsReservedConcurrency`).
-  A new account at the default limit of 10 fails the deploy; request an
-  increase first (see [First deploy](#first-deploy-one-time-from-a-laptop)).
+## Lightning
 
-Then set the `VITE_ORS_ROUTING_URL` GitHub secret (and the Netlify env var for
-previews) to the `OrsRoutingBaseUrl` output.
+Live lightning is not on AWS: it now runs on Supabase, as the Edge Function
+`lightning-builder` writing to the public Storage bucket `lightning` (see
+[supabase/functions/lightning-builder/README.md](../../supabase/functions/lightning-builder/README.md)).
+The `AWS_LIGHTNING` repo variable is no longer read and can be deleted.
+
+Removing `SentinelLightning` from this app doesn't delete it from AWS. The
+stack is no longer synthesized, and CDK never touches a deployed stack that
+isn't in the app, so the next `cdk deploy SentinelDataServices` only drops the
+`/lightning/*` behavior, its OAC and CORS function, and the `LightningBaseUrl`
+output (if `AWS_LIGHTNING` was `enabled`). Run that deploy only once the app
+reads lightning from Supabase: afterwards the old
+`https://<distribution>/lightning` URL returns 404.
+
+If `SentinelLightning` was ever deployed, its builder keeps running every
+minute until you delete the stack by hand (us-east-1), after that deploy:
+
+- the CloudFormation console (`SentinelLightning` → Delete), or
+  `aws cloudformation delete-stack --region us-east-1 --stack-name SentinelLightning`;
+- or, from a checkout that still has the stack (before this change),
+  `npx cdk destroy SentinelLightning --exclusively -c sentinel:lightning=enabled`.
+  Without the context the stack isn't in the app; without `--exclusively`,
+  `cdk destroy` also selects `SentinelDataServices`, which depends on it.
+
+Its bucket, `sentinel-lightning-<account>`, is retained when the stack is
+deleted. Empty and remove it by hand:
+`aws s3 rb s3://sentinel-lightning-<account> --force`.
 
 ## HAFS hurricane model
 
@@ -276,8 +274,7 @@ cd infra/aws && npm ci
 export CDK_DEFAULT_ACCOUNT=$(aws sts get-caller-identity --query Account --output text)
 CTX=(-c sentinel:hafs=enabled -c sentinel:weatherModels=enabled -c sentinel:mrms=enabled
      -c sentinel:distributionId=<DistributionId> -c sentinel:alarmEmail=<ops mailbox>
-     -c "sentinel:nwsUserAgent=<live user agent>"
-     -c sentinel:supabaseUrl=<project URL> -c sentinel:supabaseAnonKey=<anon key>)
+     -c "sentinel:nwsUserAgent=<live user agent>")
 
 # 1. Review: expect a new SentinelHafs stack and, on the distribution, only the
 #    /hafs/* behavior, its origin, OAC, cache policy and the HafsBaseUrl output.
