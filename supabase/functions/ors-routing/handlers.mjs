@@ -1,11 +1,10 @@
 /**
  * handlers.mjs
  * /shelters/nearest and /route. Every dependency is injected so this file is
- * testable without network, AWS or ORS. Order per request:
+ * testable without network, Supabase or ORS. Order per request:
  *   validate → authorize (always) → cache → quota unit → ORS.
  */
 
-import { createHash } from 'node:crypto';
 import { HttpError, authorize, takeQuota } from './auth.mjs';
 import { isLngLat, roundCoord } from './geo.mjs';
 import { mergeShelters, nearestByDistance, rankByDriveTime } from './shelters.mjs';
@@ -15,10 +14,15 @@ export const MAX_AVOID_POLYGONS = 2_000;
 const DEFAULT_RADIUS_KM = 80;
 const MIN_RADIUS_KM = 5;
 const MAX_RADIUS_KM = 160;
-/** Past this, /route skips the no-avoid retry: another 8 s ORS call could breach the 30 s timeout. */
+/** Past this, /route skips the no-avoid retry: another 8 s ORS call would push it past ~30 s. */
 export const RETRY_BUDGET_MS = 18_000;
 
 const bad = (detail) => new HttpError(400, { error: 'invalid_request', detail });
+
+async function sha256Hex(text) {
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+  return Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, '0')).join('');
+}
 
 /** ORS quota/auth errors mean we're out of account capacity; 400/404 mean "no route". */
 function upstreamError(err) {
@@ -53,6 +57,9 @@ const PREFERENCES = new Set(['fastest', 'recommended']);
 
 const asResponse = (err) => ({ status: err.status, body: err.body });
 
+/** @typedef {(severity: string, message: string, fields?: Record<string, unknown>) => void} Log */
+
+/** @param {{ supabase: any, ors: any, shelterSources: any, nearestCache: any, routeCache: any, log?: Log, now?: () => number }} deps */
 export function createHandlers({ supabase, ors, shelterSources, nearestCache, routeCache, log = () => {}, now = Date.now }) {
   /** Maps a non-HttpError to a response error, logging only its kind/status (never message, body or headers). */
   function mapUpstream(err, path) {
@@ -143,7 +150,7 @@ export function createHandlers({ supabase, ors, shelterSources, nearestCache, ro
 
       const { jwt } = await authorize(supabase, headers);
 
-      const key = createHash('sha256').update(JSON.stringify({ origin, destination, avoid, ...pref })).digest('hex');
+      const key = await sha256Hex(JSON.stringify({ origin, destination, avoid, ...pref }));
       const cached = routeCache.get(key);
       if (cached) return { status: 200, body: cached };
 
@@ -158,7 +165,7 @@ export function createHandlers({ supabase, ors, shelterSources, nearestCache, ro
       } catch (err) {
         if (!isNoRoute(err)) throw mapUpstream(err, 'route');
         if (!avoid) return { status: 422, body: { error: 'no_route' } };
-        // A second ORS call could push the whole request past the 30 s timeout.
+        // A second ORS call could push the whole request past ~30 s.
         if (now() - started > RETRY_BUDGET_MS) return { status: 422, body: { error: 'no_route' } };
         try {
           await takeQuota(supabase, jwt, 'directions');

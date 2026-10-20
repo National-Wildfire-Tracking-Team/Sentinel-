@@ -107,12 +107,6 @@ export default defineConfig({
     // for the /etc/hosts entries needed.
     allowedHosts: ['localhost', 'app.localhost', 'reporter.localhost'],
     proxy: {
-      // Navigation routing service, run locally with `npm run dev:routing`.
-      '/ors-routing': {
-        target: 'http://127.0.0.1:8787',
-        changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/ors-routing/, ''),
-      },
       '/alerts': {
         target: 'http://127.0.0.1:3847',
         changeOrigin: true,

@@ -1,79 +1,108 @@
 // @vitest-environment node
-import { describe, it, expect, vi, beforeAll, afterAll } from 'vitest';
-import http from 'node:http';
-import net from 'node:net';
-import { createRequestListener } from '../../cloud/ors-routing/server.mjs';
-import { FailureLimiter } from '../../cloud/ors-routing/limiter.mjs';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { createRequestHandler } from '../../supabase/functions/ors-routing/server.mjs';
 
-let server, port, handlers, log;
+const BASE = 'https://x.supabase.co/functions/v1/ors-routing';
+let handlers, log, handle;
 
-function raw(text) {
-  return new Promise((resolve) => {
-    const sock = net.connect(port, '127.0.0.1');
-    let data = '';
-    sock.on('data', (c) => { data += c; });
-    sock.on('close', () => resolve(data));
-    sock.on('error', () => resolve(data)); // a reset after the response was delivered is fine
-    sock.write(text);
-    setTimeout(() => sock.end(), 300);
-  });
-}
-const status = (r) => Number(/^HTTP\/1\.1 (\d{3})/.exec(r)?.[1] ?? 0);
-const bodyOf = (r) => r.split('\r\n\r\n').slice(1).join('\r\n\r\n');
+const make = (config = {}) => createRequestHandler({
+  handlers,
+  log,
+  config: { supabaseUrl: 'http://x', supabaseAnonKey: 'k', allowedOrigins: [], maxBodyBytes: 200 * 1024, ...config },
+});
 
-beforeAll(async () => {
+const post = (path, body, headers = {}) => new Request(`${BASE}${path}`, { method: 'POST', body, headers });
+
+beforeEach(() => {
   log = vi.fn();
   handlers = {
     nearest: vi.fn().mockResolvedValue({ status: 200, body: { ok: 1 } }),
     route: vi.fn().mockImplementation(async () => { throw new Error('secret value abc'); }),
   };
-  const listener = createRequestListener({
-    handlers,
-    authFailures: new FailureLimiter(),
-    log,
-    config: { supabaseUrl: 'http://x', supabaseAnonKey: 'k', allowedOrigins: [], maxBodyBytes: 200 * 1024 },
-  });
-  server = http.createServer(listener);
-  await new Promise((r) => server.listen(0, r));
-  port = server.address().port;
+  handle = make();
 });
-afterAll(() => new Promise((r) => server.close(r)));
 
-describe('request listener', () => {
-  it('answers a malformed target with 400 and stays alive', async () => {
-    const r = await raw('GET //x:99999 HTTP/1.1\r\nHost: a\r\nConnection: close\r\n\r\n');
-    expect(status(r)).toBe(400);
-    const h = await raw('GET /health HTTP/1.1\r\nHost: a\r\nConnection: close\r\n\r\n');
-    expect(status(h)).toBe(200);
+describe('request handler', () => {
+  it('routes below the function name, whatever prefix the runtime keeps', async () => {
+    for (const url of [`${BASE}/shelters/nearest`, 'http://localhost/ors-routing/shelters/nearest', 'http://localhost/shelters/nearest']) {
+      const r = await handle(new Request(url, { method: 'POST', body: '{"origin":[0,0]}' }));
+      expect(r.status).toBe(200);
+    }
+    expect(handlers.nearest).toHaveBeenCalledTimes(3);
+    expect((await handle(new Request(`${BASE}/health`))).status).toBe(200);
+    expect((await handle(new Request(`${BASE}/nope`, { method: 'POST', body: '{}' }))).status).toBe(404);
+    expect((await handle(new Request(`${BASE}/route`))).status).toBe(404); // GET
   });
 
-  it('a throwing handler returns 500, logs kind only, and stays alive', async () => {
-    const r = await raw('POST /route HTTP/1.1\r\nHost: a\r\nContent-Length: 2\r\nConnection: close\r\n\r\n{}');
-    expect(status(r)).toBe(500);
-    expect(bodyOf(r)).toContain('internal');
+  it('passes headers as a lower-case plain object and the parsed body', async () => {
+    await handle(post('/shelters/nearest', '{"origin":[1,2]}', { Authorization: 'Bearer t' }));
+    const [headers, body] = handlers.nearest.mock.calls[0];
+    expect(headers.authorization).toBe('Bearer t');
+    expect(body).toEqual({ origin: [1, 2] });
+  });
+
+  it('answers the CORS preflight for supabase-js style headers', async () => {
+    const r = await handle(new Request(`${BASE}/route`, { method: 'OPTIONS' }));
+    expect(r.status).toBe(204);
+    expect(r.headers.get('access-control-allow-origin')).toBe('*');
+    expect(r.headers.get('access-control-allow-headers')).toMatch(/authorization/);
+    expect(r.headers.get('access-control-allow-headers')).toMatch(/apikey/);
+  });
+
+  it('echoes an allowed origin, else the first one', async () => {
+    const h = make({ allowedOrigins: ['https://a.example', 'https://b.example'] });
+    const ok = await h(new Request(`${BASE}/health`, { headers: { Origin: 'https://b.example' } }));
+    expect(ok.headers.get('access-control-allow-origin')).toBe('https://b.example');
+    const other = await h(new Request(`${BASE}/health`, { headers: { Origin: 'https://evil.example' } }));
+    expect(other.headers.get('access-control-allow-origin')).toBe('https://a.example');
+  });
+
+  it('503 not_configured without the Supabase URL/key', async () => {
+    const r = await make({ supabaseUrl: '' })(post('/route', '{}'));
+    expect(r.status).toBe(503);
+    expect(await r.json()).toEqual({ error: 'not_configured' });
+  });
+
+  it('a throwing handler returns 500 and logs kind only', async () => {
+    const r = await handle(post('/route', '{}'));
+    expect(r.status).toBe(500);
+    expect(await r.json()).toEqual({ error: 'internal' });
     expect(JSON.stringify(log.mock.calls)).not.toContain('abc');
-    const h = await raw('GET /health HTTP/1.1\r\nHost: a\r\nConnection: close\r\n\r\n');
-    expect(status(h)).toBe(200);
   });
 
-  it('413 with Content-Length over the cap, delivered', async () => {
+  it('413 when Content-Length is over the cap, before reading', async () => {
     const big = 'a'.repeat(300 * 1024);
-    const r = await raw(`POST /route HTTP/1.1\r\nHost: a\r\nContent-Length: ${big.length}\r\nConnection: close\r\n\r\n${big}`);
-    expect(status(r)).toBe(413);
-    expect(bodyOf(r)).toBe('{"error":"payload_too_large"}');
+    const r = await handle(post('/route', big, { 'Content-Length': String(big.length) }));
+    expect(r.status).toBe(413);
+    expect(await r.json()).toEqual({ error: 'payload_too_large' });
+    expect(handlers.route).not.toHaveBeenCalled();
   });
 
-  it('413 with chunked encoding over the cap, delivered', async () => {
-    const chunk = 'a'.repeat(100 * 1024);
-    const piece = `${chunk.length.toString(16)}\r\n${chunk}\r\n`;
-    const r = await raw(`POST /route HTTP/1.1\r\nHost: a\r\nTransfer-Encoding: chunked\r\nConnection: close\r\n\r\n${piece}${piece}${piece}0\r\n\r\n`);
-    expect(status(r)).toBe(413);
-    expect(bodyOf(r)).toContain('{"error":"payload_too_large"}');
+  it('413 when a streamed body without Content-Length passes the cap', async () => {
+    const chunk = new TextEncoder().encode('a'.repeat(100 * 1024));
+    let sent = 0;
+    const stream = new globalThis.ReadableStream({
+      pull(controller) {
+        if (sent++ < 3) controller.enqueue(chunk);
+        else controller.close();
+      },
+    });
+    const r = await handle(new Request(`${BASE}/route`, { method: 'POST', body: stream, duplex: 'half' }));
+    expect(r.status).toBe(413);
+    expect(handlers.route).not.toHaveBeenCalled();
   });
 
   it('bad JSON is a 400 with a detail', async () => {
-    const r = await raw('POST /route HTTP/1.1\r\nHost: a\r\nContent-Length: 3\r\nConnection: close\r\n\r\n{xx');
-    expect(status(r)).toBe(400);
-    expect(JSON.parse(bodyOf(r))).toEqual({ error: 'invalid_request', detail: 'body must be JSON' });
+    const r = await handle(post('/route', '{xx'));
+    expect(r.status).toBe(400);
+    expect(await r.json()).toEqual({ error: 'invalid_request', detail: 'body must be JSON' });
+  });
+
+  it('sets Retry-After on a 429 and never caches', async () => {
+    handlers.nearest.mockResolvedValue({ status: 429, body: { error: 'quota', retryAfterSec: 42 } });
+    const r = await handle(post('/shelters/nearest', '{}'));
+    expect(r.status).toBe(429);
+    expect(r.headers.get('retry-after')).toBe('42');
+    expect(r.headers.get('cache-control')).toBe('no-store');
   });
 });
