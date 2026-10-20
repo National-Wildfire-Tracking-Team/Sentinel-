@@ -51,11 +51,6 @@ jobs:
           role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
           aws-region: us-east-1
       - name: cdk ${{ inputs.action }}
-        env:
-          # ors-routing: the same Supabase URL + anon key the frontend build uses
-          # (secrets, see deploy.yml). bin/sentinel.mjs fails synth if either is empty.
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
         run: |
           # AWS_WEATHER_MODELS=enabled adds SentinelWeatherModels (us-west-2,
           # deployed first as a dependency) and the /weather-models/* route.

@@ -104,7 +104,7 @@ export function usePlan() {
   /** Fire behavior modeling (spread projection layer) — Plus plan and above, or field reporter status. */
   const hasFireBehaviorModelingAccess = isPaidPlan || Boolean(isReporter);
   /** Route to Safety (ORS routing to shelters) — Pro/Team only (PLANS.*.evacuationRoutes).
-   *  Must match the server check in cloud/ors-routing/auth.mjs. */
+   *  Must match the server check in supabase/functions/ors-routing/auth.mjs. */
   const hasEvacuationRoutesAccess = Boolean(plan.evacuationRoutes);
 
   return {

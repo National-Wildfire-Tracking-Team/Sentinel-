@@ -1,8 +1,8 @@
 /**
  * auth.mjs
  * Caller identity, Pro entitlement and ORS quota — all checked against
- * Supabase with the caller's own JWT (RLS "subscriptions self read"), so no
- * service-role key lives in AWS.
+ * Supabase with the caller's own JWT (RLS "subscriptions self read"), so the
+ * function never needs the service-role key.
  */
 
 // Must match src/shared/hooks/usePlan.js (PLANS.*.evacuationRoutes + paidStatuses).
@@ -17,9 +17,9 @@ export class HttpError extends Error {
   }
 }
 
-/** CloudFront OAC owns Authorization, so the user's token rides in x-sentinel-auth. */
+/** The caller's Supabase access token, from Authorization (headers keyed lower-case). */
 export function bearerFrom(headers) {
-  const m = /^Bearer\s+(\S+)$/i.exec(String(headers?.['x-sentinel-auth'] || '').trim());
+  const m = /^Bearer\s+(\S+)$/i.exec(String(headers?.authorization || '').trim());
   return m ? m[1] : null;
 }
 
@@ -32,7 +32,7 @@ export function createSupabase({ url, anonKey, fetchImpl = fetch }) {
     async getUser(jwt) {
       const res = await fetchImpl(`${base}/auth/v1/user`, { headers: headers(jwt), signal: timeout() });
       // Any 4xx but 429 means the token itself is bad (malformed JWTs get 400/422),
-      // so it is an auth failure (401, counted by the failure limiter). 429/5xx
+      // so it is an auth failure (401). 429/5xx
       // mean GoTrue is unavailable, which is not the caller's fault.
       if (res.status >= 400 && res.status < 500 && res.status !== 429) return null;
       if (!res.ok) throw new HttpError(502, { error: 'auth_unavailable' });

@@ -1,11 +1,12 @@
 // @vitest-environment node
 import { describe, it, expect, vi } from 'vitest';
-import { isLngLat, haversineM, roundCoord } from '../../cloud/ors-routing/geo.mjs';
-import { parseOrsSecret, createKeyLoader } from '../../cloud/ors-routing/secret.mjs';
-import { TtlCache } from '../../cloud/ors-routing/cache.mjs';
+import { isLngLat, haversineM, roundCoord } from '../../supabase/functions/ors-routing/geo.mjs';
+import { parseOrsSecret, createKeyLoader } from '../../supabase/functions/ors-routing/secret.mjs';
+import { TtlCache } from '../../supabase/functions/ors-routing/cache.mjs';
+import { ORS_BASE_URL, createOrs } from '../../supabase/functions/ors-routing/ors.mjs';
 import {
   HttpError, authorize, bearerFrom, createSupabase, takeQuota,
-} from '../../cloud/ors-routing/auth.mjs';
+} from '../../supabase/functions/ors-routing/auth.mjs';
 
 const json = (body, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
 
@@ -86,9 +87,10 @@ describe('auth', () => {
     ...overrides,
   });
 
-  it('reads the bearer token from x-sentinel-auth only', () => {
-    expect(bearerFrom({ 'x-sentinel-auth': 'Bearer abc' })).toBe('abc');
-    expect(bearerFrom({ authorization: 'Bearer abc' })).toBeNull();
+  it('reads the bearer token from Authorization', () => {
+    expect(bearerFrom({ authorization: 'Bearer abc' })).toBe('abc');
+    expect(bearerFrom({ authorization: 'Basic abc' })).toBeNull();
+    expect(bearerFrom({ 'x-sentinel-auth': 'Bearer abc' })).toBeNull();
     expect(bearerFrom({})).toBeNull();
   });
 
@@ -96,7 +98,7 @@ describe('auth', () => {
     ['pro', 'active'], ['pro', 'trialing'], ['pro', 'past_due'], ['team', 'active'],
   ])('allows %s/%s', async (plan, status) => {
     const s = sb({ getSubscription: vi.fn().mockResolvedValue({ plan, status }) });
-    await expect(authorize(s, { 'x-sentinel-auth': 'Bearer t' })).resolves.toEqual({ jwt: 't', userId: 'u1' });
+    await expect(authorize(s, { authorization: 'Bearer t' })).resolves.toEqual({ jwt: 't', userId: 'u1' });
     expect(s.getSubscription).toHaveBeenCalledWith('t', 'u1');
   });
 
@@ -107,13 +109,13 @@ describe('auth', () => {
     [null],
   ])('403 for %j', async (sub) => {
     const s = sb({ getSubscription: vi.fn().mockResolvedValue(sub) });
-    await expect(authorize(s, { 'x-sentinel-auth': 'Bearer t' })).rejects.toMatchObject({ status: 403 });
+    await expect(authorize(s, { authorization: 'Bearer t' })).rejects.toMatchObject({ status: 403 });
   });
 
   it('401 without a token or with an invalid one', async () => {
     await expect(authorize(sb(), {})).rejects.toMatchObject({ status: 401 });
     const s = sb({ getUser: vi.fn().mockResolvedValue(null) });
-    await expect(authorize(s, { 'x-sentinel-auth': 'Bearer bad' })).rejects.toMatchObject({ status: 401 });
+    await expect(authorize(s, { authorization: 'Bearer bad' })).rejects.toMatchObject({ status: 401 });
   });
 
   it('takeQuota maps a refusal to 429 with scope/window/retry', async () => {
@@ -167,12 +169,67 @@ describe('auth', () => {
     const fetchImpl = vi.fn().mockResolvedValue(json({ msg: 'bad' }, status));
     const s = createSupabase({ url: 'https://x.supabase.co', anonKey: 'anon', fetchImpl });
     await expect(s.getUser('garbage')).resolves.toBeNull();
-    await expect(authorize(s, { 'x-sentinel-auth': 'Bearer garbage' })).rejects.toMatchObject({ status: 401 });
+    await expect(authorize(s, { authorization: 'Bearer garbage' })).rejects.toMatchObject({ status: 401 });
   });
 
   it.each([429, 500, 503])('createSupabase getUser throws 502 auth_unavailable for a %i', async (status) => {
     const fetchImpl = vi.fn().mockResolvedValue(json({}, status));
     const s = createSupabase({ url: 'https://x.supabase.co', anonKey: 'anon', fetchImpl });
     await expect(s.getUser('jwt')).rejects.toMatchObject({ status: 502, body: { error: 'auth_unavailable' } });
+  });
+});
+
+describe('ors', () => {
+  const fc = { type: 'FeatureCollection', features: [] };
+  const square = { type: 'Polygon', coordinates: [[[-121.1, 38], [-121.05, 38], [-121.05, 38.05], [-121.1, 38]]] };
+
+  it('directions: geojson endpoint, key in Authorization, avoid polygons under options', async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(json(fc));
+    const ors = createOrs(async () => 'k', { fetchImpl });
+    await expect(ors.directions({ origin: [-121, 38], destination: [-121.2, 38.1], avoid: square, preference: 'fastest' })).resolves.toEqual(fc);
+    const [url, init] = fetchImpl.mock.calls[0];
+    expect(url).toBe(`${ORS_BASE_URL}/directions/driving-car/geojson`);
+    expect(init.method).toBe('POST');
+    expect(init.headers).toMatchObject({ Authorization: 'k', 'Content-Type': 'application/json' });
+    expect(JSON.parse(init.body)).toEqual({
+      coordinates: [[-121, 38], [-121.2, 38.1]],
+      instructions: true,
+      preference: 'fastest',
+      options: { avoid_polygons: square },
+    });
+  });
+
+  it('directions: no avoid and no preference sends neither', async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(json(fc));
+    await createOrs(async () => 'k', { fetchImpl }).directions({ origin: [0, 0], destination: [1, 1], avoid: null });
+    expect(JSON.parse(fetchImpl.mock.calls[0][1].body)).toEqual({ coordinates: [[0, 0], [1, 1]], instructions: true });
+  });
+
+  it('matrix: origin as the only source, every other location a destination', async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(json({ durations: [[0, 1, 2]] }));
+    await createOrs(async () => 'k', { fetchImpl }).matrix([[0, 0], [1, 1], [2, 2]]);
+    const [url, init] = fetchImpl.mock.calls[0];
+    expect(url).toBe(`${ORS_BASE_URL}/matrix/driving-car`);
+    expect(JSON.parse(init.body)).toEqual({
+      locations: [[0, 0], [1, 1], [2, 2]],
+      sources: [0],
+      destinations: [1, 2],
+      metrics: ['duration', 'distance'],
+    });
+  });
+
+  it('a non-2xx throws an error carrying .status and never the key or body', async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(json({ error: { code: 2009, message: 'secret-ish detail' } }, 404));
+    const err = await createOrs(async () => 'k123', { fetchImpl }).directions({ origin: [0, 0], destination: [1, 1] }).catch((e) => e);
+    expect(err).toMatchObject({ name: 'OrsHttpError', status: 404 });
+    expect(err.message).not.toContain('k123');
+    expect(err.message).not.toContain('secret-ish');
+  });
+
+  it('a key that fails to load rejects before any request', async () => {
+    const fetchImpl = vi.fn();
+    const ors = createOrs(async () => { throw new Error('no key'); }, { fetchImpl });
+    await expect(ors.matrix([[0, 0], [1, 1]])).rejects.toThrow('no key');
+    expect(fetchImpl).not.toHaveBeenCalled();
   });
 });

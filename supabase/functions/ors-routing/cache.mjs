@@ -1,7 +1,7 @@
 /**
  * cache.mjs
- * Instance-local TTL cache. Lambda instances don't share it; it only saves
- * quota on repeat requests that land on a warm instance.
+ * Worker-local TTL cache. Edge Function workers don't share it; it only saves
+ * quota on repeat requests that land on a warm worker.
  */
 
 export class TtlCache {
