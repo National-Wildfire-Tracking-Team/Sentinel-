@@ -51,7 +51,6 @@ jobs:
           # service isn't configured; nothing else in the app changes.
           VITE_WEATHER_MODEL_SERVICE_URL: ${{ secrets.VITE_WEATHER_MODEL_SERVICE_URL }}
           VITE_MRMS_URL: ${{ secrets.VITE_MRMS_URL }}
-          VITE_LIGHTNING_URL: ${{ secrets.VITE_LIGHTNING_URL }}
           # HAFS hurricane-model fields on the Models tab — see cloud/hafs/README.md.
           # Unset, the Models tab simply doesn't offer HAFS.
           VITE_HAFS_URL: ${{ secrets.VITE_HAFS_URL }}

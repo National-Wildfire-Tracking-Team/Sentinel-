@@ -39,7 +39,6 @@ Defaults are in `bin/sentinel.mjs`. Override any of them with `-c sentinel:<key>
 | `existingOidcProviderArn` | *(none)* | Set this if the account already has a GitHub OIDC provider |
 | `weatherModels` | `disabled` | `enabled` adds `SentinelWeatherModels` and the `/weather-models/*` route. In CI it's the `AWS_WEATHER_MODELS` repo variable. |
 | `distributionId` | *(none)* | After the first deploy, set it to the `DistributionId` output to narrow the weather-models invoke permission from "CloudFront in this account" to this one distribution. In CI it's `AWS_DISTRIBUTION_ID`. |
-| `lightning` | `disabled` | `enabled` adds `SentinelLightning` (us-east-1) and the `/lightning/*` route. In CI it's the `AWS_LIGHTNING` repo variable. See `cloud/lightning/README.md`. |
 | `mrms` | `disabled` | `enabled` adds `SentinelMrms` (us-east-1) and the `/mrms/*` route. In CI it's the `AWS_MRMS` repo variable. With `distributionId` set, the frames bucket is readable only by that distribution. |
 | `hafs` | `disabled` | `enabled` adds `SentinelHafs` (us-east-1) and the `/hafs/*` route. In CI it's the `AWS_HAFS` repo variable. With `distributionId` set, only that distribution may invoke it. |
 | `hafsReservedConcurrency` | `0` (no cap) | Caps concurrent HAFS frame renders. Same unreserved-concurrency rule as below. |
@@ -222,6 +221,35 @@ Function `ors-routing` (see
 The old `Routing` secret in AWS Secrets Manager (us-east-1) is no longer read
 and can be deleted by hand once Navigation is confirmed working on Supabase.
 CDK never created it, so deploying won't remove it.
+
+## Lightning
+
+Live lightning is not on AWS: it now runs on Supabase, as the Edge Function
+`lightning-builder` writing to the public Storage bucket `lightning` (see
+[supabase/functions/lightning-builder/README.md](../../supabase/functions/lightning-builder/README.md)).
+The `AWS_LIGHTNING` repo variable is no longer read and can be deleted.
+
+Removing `SentinelLightning` from this app doesn't delete it from AWS. The
+stack is no longer synthesized, and CDK never touches a deployed stack that
+isn't in the app, so the next `cdk deploy SentinelDataServices` only drops the
+`/lightning/*` behavior, its OAC and CORS function, and the `LightningBaseUrl`
+output (if `AWS_LIGHTNING` was `enabled`). Run that deploy only once the app
+reads lightning from Supabase: afterwards the old
+`https://<distribution>/lightning` URL returns 404.
+
+If `SentinelLightning` was ever deployed, its builder keeps running every
+minute until you delete the stack by hand (us-east-1), after that deploy:
+
+- the CloudFormation console (`SentinelLightning` → Delete), or
+  `aws cloudformation delete-stack --region us-east-1 --stack-name SentinelLightning`;
+- or, from a checkout that still has the stack (before this change),
+  `npx cdk destroy SentinelLightning --exclusively -c sentinel:lightning=enabled`.
+  Without the context the stack isn't in the app; without `--exclusively`,
+  `cdk destroy` also selects `SentinelDataServices`, which depends on it.
+
+Its bucket, `sentinel-lightning-<account>`, is retained when the stack is
+deleted. Empty and remove it by hand:
+`aws s3 rb s3://sentinel-lightning-<account> --force`.
 
 ## HAFS hurricane model
 

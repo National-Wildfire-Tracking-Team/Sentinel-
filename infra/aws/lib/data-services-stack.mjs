@@ -42,7 +42,6 @@ import { SERVICES, LWA_LAYER_ACCOUNT, LWA_LAYER_NAME, LWA_LAYER_VERSION } from '
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import { WEATHER_MODELS, fieldsBucketName } from './weather-models-stack.mjs';
 import { MRMS, mrmsBucketName } from './mrms-stack.mjs';
-import { LIGHTNING, lightningBucketName } from './lightning-stack.mjs';
 import { HAFS } from './hafs-stack.mjs';
 
 const CLOUD_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../cloud');
@@ -81,12 +80,12 @@ export class DataServicesStack extends Stack {
    * @param {string} id
    * @param {import('aws-cdk-lib').StackProps & {
    *   allowedOrigins: string, nwsUserAgent: string, alarmEmail?: string, monthlyBudgetUsd?: number,
-   *   weatherModelsFunctionUrl?: string, mrms?: boolean, lightning?: boolean, hafsFunctionUrl?: string,
+   *   weatherModelsFunctionUrl?: string, mrms?: boolean, hafsFunctionUrl?: string,
    * }} props
    */
   constructor(scope, id, props) {
     super(scope, id, props);
-    const { allowedOrigins, nwsUserAgent, alarmEmail, monthlyBudgetUsd, weatherModelsFunctionUrl, mrms, lightning, hafsFunctionUrl } = props;
+    const { allowedOrigins, nwsUserAgent, alarmEmail, monthlyBudgetUsd, weatherModelsFunctionUrl, mrms, hafsFunctionUrl } = props;
 
     Tags.of(this).add('project', 'sentinel');
     Tags.of(this).add('component', 'data-services');
@@ -264,39 +263,6 @@ export class DataServicesStack extends Stack {
       Annotations.of(this).acknowledgeWarning('@aws-cdk/aws-cloudfront-origins:updateImportedBucketPolicyOac');
     }
 
-    // Sentinel lightning (LightningStack, same region): one rolling flashes
-    // file, stored gzipped (CloudFront passes Content-Encoding through). It
-    // says max-age 30, which CACHING_OPTIMIZED honours.
-    if (lightning) {
-      const lightningBucket = s3.Bucket.fromBucketAttributes(this, 'LightningBucket', {
-        bucketName: lightningBucketName(this.account),
-        region: LIGHTNING.region,
-      });
-      behaviors[`${LIGHTNING.pathPrefix}/*`] = {
-        origin: origins.S3BucketOrigin.withOriginAccessControl(lightningBucket, {
-          originAccessControl: new cloudfront.S3OriginAccessControl(this, 'LightningOac', {
-            originAccessControlName: 'sentinel-lightning',
-          }),
-        }),
-        viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
-        allowedMethods: cloudfront.AllowedMethods.ALLOW_GET_HEAD_OPTIONS,
-        cachedMethods: cloudfront.CachedMethods.CACHE_GET_HEAD,
-        cachePolicy: cloudfront.CachePolicy.CACHING_OPTIMIZED,
-        functionAssociations: [{
-          function: new cloudfront.Function(this, 'LightningCors', {
-            runtime: cloudfront.FunctionRuntime.JS_2_0,
-            comment: 'Lightning: always Access-Control-Allow-Origin: * (public data)',
-            code: cloudfront.FunctionCode.fromInline(
-              "function handler(event) { var r = event.response; r.headers['access-control-allow-origin'] = { value: '*' }; return r; }",
-            ),
-          }),
-          eventType: cloudfront.FunctionEventType.VIEWER_RESPONSE,
-        }],
-        compress: true,
-      };
-      Annotations.of(this).acknowledgeWarning('@aws-cdk/aws-cloudfront-origins:updateImportedBucketPolicyOac');
-    }
-
     // Sentinel HAFS (HafsStack, same region): hurricane-model frames rendered
     // on request. Its own cache policy: frames say max-age 1 y, immutable,
     // which the shared policy would cap at a day, and the key needs neither
@@ -399,12 +365,6 @@ export class DataServicesStack extends Stack {
       new CfnOutput(this, 'WeatherModelsBaseUrl', {
         description: `Value for ${WEATHER_MODELS.frontendEnvVar}`,
         value: `https://${distribution.distributionDomainName}${WEATHER_MODELS.pathPrefix}`,
-      });
-    }
-    if (lightning) {
-      new CfnOutput(this, 'LightningBaseUrl', {
-        description: `Value for ${LIGHTNING.frontendEnvVar}`,
-        value: `https://${distribution.distributionDomainName}${LIGHTNING.pathPrefix}`,
       });
     }
     if (mrms) {
