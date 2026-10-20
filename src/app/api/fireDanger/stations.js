@@ -169,6 +169,89 @@ export function summarizeStations(fc, bounds, { top = 5 } = {}) {
 }
 
 /**
+ * Fixed ERC cut points for the sidebar's national outlook, so stations compare
+ * nationwide. They are not adjective ratings: those use local breakpoints.
+ */
+export const ERC_BANDS = [
+  { min: 0, label: 'Lower', color: '#d6b443' },
+  { min: 20, label: 'Moderate', color: '#ec9636' },
+  { min: 40, label: 'Elevated', color: '#dc6227' },
+  { min: 60, label: 'High', color: '#c93a2c' },
+  { min: 80, label: 'Very high', color: '#a3245a' },
+];
+export const ELEVATED_ERC = ERC_BANDS[2].min;
+
+export function ercBand(erc) {
+  let i = 0;
+  while (i < ERC_BANDS.length - 1 && erc >= ERC_BANDS[i + 1].min) i += 1;
+  return i;
+}
+
+const pct = (n, of) => (of ? Math.round((100 * n) / of) : null);
+
+/**
+ * National picture for the sidebar: headline numbers, each forecast day's
+ * stations per ERC band, states ranked by median ERC (at least `minStations`
+ * current stations) and the highest-ERC stations. Current stations only.
+ */
+export function nationalOutlook(fc, { minStations = 5, top = 10 } = {}) {
+  const current = (fc?.features ?? []).filter((f) => !f.properties.stale && f.properties.erc != null);
+  if (!current.length) return null;
+  const props = current.map((f) => f.properties);
+  const ercs = props.map((p) => p.erc);
+  const changes = props.filter((p) => p.ercChange7d != null);
+
+  const days = new Map();
+  for (const p of props) {
+    (p.forecastDates ?? []).forEach((date, i) => {
+      const v = p.forecastErc?.[i];
+      if (v == null) return;
+      if (!days.has(date)) days.set(date, { date, n: 0, bands: ERC_BANDS.map(() => 0) });
+      const d = days.get(date);
+      d.n += 1;
+      d.bands[ercBand(v)] += 1;
+    });
+  }
+
+  const byState = new Map();
+  for (const f of current) {
+    const p = f.properties;
+    if (!p.state) continue;
+    if (!byState.has(p.state)) byState.set(p.state, { state: p.state, ercs: [], lng: 0, lat: 0 });
+    const s = byState.get(p.state);
+    s.ercs.push(p.erc);
+    s.lng += f.geometry.coordinates[0];
+    s.lat += f.geometry.coordinates[1];
+  }
+
+  return {
+    stations: current.length,
+    observedDate: props.map((p) => p.observedDate).filter(Boolean).sort().pop() ?? null,
+    medianErc: median(ercs),
+    pctElevated: pct(ercs.filter((v) => v >= ELEVATED_ERC).length, ercs.length),
+    pctDrying: pct(changes.filter((p) => p.ercChange7d > 5).length, changes.length),
+    medianFm100: median(props.map((p) => p.fm100).filter((v) => v != null)),
+    days: [...days.values()]
+      .sort((a, b) => a.date.localeCompare(b.date))
+      .map((d) => ({ ...d, pctElevated: pct(d.bands.slice(2).reduce((a, b) => a + b, 0), d.n) })),
+    states: [...byState.values()]
+      .filter((s) => s.ercs.length >= minStations)
+      .map((s) => ({
+        state: s.state,
+        stations: s.ercs.length,
+        medianErc: median(s.ercs),
+        pctElevated: pct(s.ercs.filter((v) => v >= ELEVATED_ERC).length, s.ercs.length),
+        center: [s.lng / s.ercs.length, s.lat / s.ercs.length],
+      }))
+      .sort((a, b) => b.medianErc - a.medianErc),
+    top: [...current]
+      .sort((a, b) => b.properties.erc - a.properties.erc)
+      .slice(0, top)
+      .map((f) => ({ ...f.properties, coordinates: f.geometry.coordinates })),
+  };
+}
+
+/**
  * Approximate [w, s, e, n] of the map view from its centre, zoom and size
  * (Web Mercator, 512 px tiles), for the regional summary. Unrotated view.
  */

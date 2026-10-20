@@ -178,8 +178,11 @@ function buildFeatureRecord(feature, lngLat, alerts, { floodPanel = null, fireDa
     case SFP_FILL_ID:
       return buildFireDangerPointRecord(lngLat, p, fireDanger);
 
-    case STATIONS_CIRCLE_ID:
-      return buildFireDangerPointRecord(lngLat, null, fireDanger, p);
+    case STATIONS_CIRCLE_ID: {
+      // Rendered features carry nested arrays (the forecast) as JSON strings; use the loaded record.
+      const station = fireDanger?.stations?.data?.features?.find((f) => f.properties.id === p.id)?.properties ?? p;
+      return buildFireDangerPointRecord(lngLat, null, fireDanger, station);
+    }
 
     case SAMPLES_CIRCLE_ID:
       return buildFireDangerPointRecord(lngLat, null, fireDanger, null, p);

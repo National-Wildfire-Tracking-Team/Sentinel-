@@ -168,7 +168,7 @@ function StationSection({ station, km }) {
 
   const p = station;
   const row = (field) => ({ label: STATION_FIELDS[field].label, value: fmt(p[field], STATION_FIELDS[field].unit) });
-  const peak = (p.forecastErc ?? []).filter((v) => v != null);
+  const peak = (Array.isArray(p.forecastErc) ? p.forecastErc : []).filter((v) => v != null);
   const retrieved = fd?.stations?.fems?.retrievedAt;
 
   return (
