@@ -125,6 +125,40 @@ describe('DockSheet', () => {
     }
   });
 
+  it('lets a tab with many controls reach further up the screen, sized to its own controls when tapped', async () => {
+    const tall = window.innerHeight;
+    window.innerHeight = 960; // a third reaches 320px up, 3/8 reaches 360px; both minus the 16px offset
+    // The aviation controls are much taller than fit; everything else measures 64px.
+    Object.defineProperty(HTMLElement.prototype, 'offsetHeight', {
+      configurable: true,
+      get() { return this.textContent?.includes('Aviation controls') ? 900 : 64; },
+    });
+    const tabs = [TABS[0], { id: 'awc', label: 'Aviation Weather', maxShare: 3 / 8, content: <div>Aviation controls</div> }];
+    try {
+      const { container, rerender } = render(<DockSheet tabs={tabs} bottomOffset={16} />);
+      const body = container.querySelector('#map-dock-sheet');
+      fireEvent.click(screen.getByRole('button', { name: 'Open Aviation Weather controls' }));
+      const grabber = await screen.findByRole('button', { name: 'Close Aviation Weather controls' });
+      expect(body.style.height).toBe('344px');
+
+      // The MRMS tab keeps the usual third, and opens to its own (short) controls, not the aviation ones.
+      fireEvent.keyDown(grabber, { key: 'ArrowDown' });
+      fireEvent.click(await screen.findByRole('button', { name: 'Open MRMS Radar controls' }));
+      await screen.findByRole('button', { name: 'Close MRMS Radar controls' });
+      expect(body.style.height).toBe('128px');
+      fireEvent.keyDown(screen.getByRole('button', { name: 'Close MRMS Radar controls' }), { key: 'ArrowDown' });
+
+      // Same cap logic for a tall MRMS panel: a third, not 3/8.
+      const tallMrms = [{ ...TABS[0], content: <div>Aviation controls in MRMS</div> }, tabs[1]];
+      rerender(<DockSheet tabs={tallMrms} bottomOffset={16} />);
+      fireEvent.click(await screen.findByRole('button', { name: 'Open MRMS Radar controls' }));
+      await screen.findByRole('button', { name: 'Close MRMS Radar controls' });
+      expect(body.style.height).toBe('304px');
+    } finally {
+      window.innerHeight = tall;
+    }
+  });
+
   it('shows at most five tabs at once', () => {
     const many = ['A', 'B', 'C', 'D', 'E', 'F'].map((l) => ({ id: l, label: `Layer ${l}`, content: <div>{l}</div> }));
     const { container } = render(<DockSheet tabs={many} />);

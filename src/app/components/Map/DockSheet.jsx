@@ -20,8 +20,9 @@
  * gently and the sheet stays where it was left (any height; nearly closed
  * closes). Flick it and the flick's projected momentum picks fully open or
  * closed, reached on a critically damped spring that starts at the finger's
- * velocity. The sheet never takes more than the bottom third of the screen:
- * beyond that it stops (with a little rubber-band), and whenever its
+ * velocity. The sheet never takes more than the bottom third of the screen
+ * (a tab with many controls can allow itself more, see `maxShare`): beyond
+ * that it stops (with a little rubber-band), and whenever its
  * controls don't fit (capped or only part-way open) they scroll inside it,
  * under the fixed gray grabber bar. It only moves while a tab is held: the drag ends on release, on
  * lost pointer capture, or as soon as no button is pressed. Height changes
@@ -37,7 +38,8 @@ const SPRING_RESPONSE = 0.32; // s, critically damped (no overshoot)
 const DECELERATION = 0.998;
 const FLICK_PX_S = 600; // release speed above which a flick snaps fully open/closed
 const MIN_OPEN_PX = 28; // released with less sheet showing than this: close
-const MIN_SHEET_PX = 96; // the screen-third cap never goes below this
+const MIN_SHEET_PX = 96; // the screen-share cap never goes below this
+const DEFAULT_MAX_SHARE = 1 / 3; // of the screen's height, unless a tab sets maxShare
 const SHEET_ID = 'map-dock-sheet';
 export const MAX_TABS = 5;
 
@@ -51,9 +53,10 @@ const reducedMotion = () => typeof window !== 'undefined' && window.matchMedia?.
 
 /**
  * @param {{
- *   tabs: { id: string, label: string, loading?: boolean, content: import('react').ReactNode }[],
+ *   tabs: { id: string, label: string, loading?: boolean, content: import('react').ReactNode, maxShare?: number }[],
  *   bottomOffset: number, bottomBarWidth?: number, onSettledHeight?: (px: number) => void,
  * }} props
+ *   maxShare: how far up the screen this tab's sheet may reach, as a share of its height (default a third)
  */
 const DockSheet = memo(function DockSheet({ tabs: allTabs, bottomOffset, bottomBarWidth, onSettledHeight }) {
   const tabs = allTabs.slice(0, MAX_TABS);
@@ -75,6 +78,12 @@ const DockSheet = memo(function DockSheet({ tabs: allTabs, bottomOffset, bottomB
   const [open, setOpen] = useState(false);
   const [chosenId, setChosenId] = useState(null);
   const shownIdRef = useRef(null); // tab whose controls are in the sheet (for per-frame styling)
+  const sharesRef = useRef({}); // tab id → its maxShare, for the tabs that set one
+  const sharesKey = tabs.map((t) => `${t.id}=${t.maxShare ?? ''}`).join(' ');
+  useEffect(() => {
+    sharesRef.current = Object.fromEntries(tabs.filter((t) => t.maxShare).map((t) => [t.id, t.maxShare]));
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- sharesKey changes exactly when an id or share does
+  }, [sharesKey]);
 
   const visible = tabs.length > 0;
   const showLabels = tabs.length > 1;
@@ -83,10 +92,11 @@ const DockSheet = memo(function DockSheet({ tabs: allTabs, bottomOffset, bottomB
 
   /** Natural sheet height: grabber + all its controls. */
   const fullHeight = () => (grabberRef.current?.offsetHeight ?? 0) + (contentRef.current?.offsetHeight ?? 0);
-  /** Tallest the sheet may be: its content, but no more than the bottom third of the screen. */
+  /** Tallest the sheet may be: its content, but reaching no further up the screen than its tab's share (a third by default). */
   const openHeight = () => {
-    const third = (typeof window !== 'undefined' ? window.innerHeight : 900) / 3 - (Number(bottomRef.current) || 0);
-    return Math.min(fullHeight(), Math.max(MIN_SHEET_PX, third));
+    const share = sharesRef.current[shownIdRef.current] ?? DEFAULT_MAX_SHARE;
+    const cap = (typeof window !== 'undefined' ? window.innerHeight : 900) * share - (Number(bottomRef.current) || 0);
+    return Math.min(fullHeight(), Math.max(MIN_SHEET_PX, cap));
   };
   const openPos = () => FOLD_PX + openHeight();
   useEffect(() => { shownIdRef.current = activeId; }, [activeId]);
@@ -239,11 +249,27 @@ const DockSheet = memo(function DockSheet({ tabs: allTabs, bottomOffset, bottomB
 
   useEffect(() => () => cancelAnimationFrame(anim.current), []);
 
-  /** A tap (or keyboard activation) on a tab or the sheet's grabber. */
-  const tapTab = (id) => {
+  // Opening on a tab whose controls aren't in the sheet yet waits for them to
+  // mount, so the spring heads for their height rather than the last tab's.
+  const pendingOpen = useRef(false);
+  useLayoutEffect(() => {
+    if (!pendingOpen.current) return;
+    pendingOpen.current = false;
+    animateTo(true);
+  }, [activeId, animateTo]);
+
+  /** Open the sheet on `id`'s controls. */
+  const openTab = (id) => {
     setChosenId(id);
     shownIdRef.current = id;
-    animateTo(!open);
+    if (id === activeId) animateTo(true);
+    else pendingOpen.current = true;
+  };
+
+  /** A tap (or keyboard activation) on a tab or the sheet's grabber. */
+  const tapTab = (id) => {
+    if (open) animateTo(false);
+    else openTab(id);
   };
 
   const onPointerDown = (id) => (e) => {
@@ -304,7 +330,7 @@ const DockSheet = memo(function DockSheet({ tabs: allTabs, bottomOffset, bottomB
   }
 
   const onKeyDown = (id) => (e) => {
-    if (e.key === 'ArrowUp' && !open) { e.preventDefault(); setChosenId(id); animateTo(true); }
+    if (e.key === 'ArrowUp' && !open) { e.preventDefault(); openTab(id); }
     if (e.key === 'ArrowDown' && open) { e.preventDefault(); animateTo(false); }
   };
 
@@ -390,7 +416,7 @@ const DockSheet = memo(function DockSheet({ tabs: allTabs, bottomOffset, bottomB
         >
           <span className="block h-[3px] w-12 rounded-full bg-gray-500 transition-colors duration-100 group-hover:bg-gray-400 group-active:bg-gray-300 group-focus-visible:ring-2 group-focus-visible:ring-sky-400" />
         </button>
-        {/* Scrolls whenever the controls don't fit: part-way open, or capped at a third of the screen.
+        {/* Scrolls whenever the controls don't fit: part-way open, or capped at its share of the screen.
             The native scrollbar is hidden (it only appears mid-scroll on macOS/mobile) in favour of
             an always-visible indicator on the right while there is more to scroll. */}
         <div className="relative min-h-0 flex-1">

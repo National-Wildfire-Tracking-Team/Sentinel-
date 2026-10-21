@@ -68,7 +68,8 @@ const MapDockSheet = memo(function MapDockSheet({
   }
   if (isWeatherish && layers.awc) {
     const awcLoading = Boolean(awc && Object.values(awc.status).some((s) => s.loading));
-    tabs.push({ id: 'awc', label: 'Aviation Weather', loading: awcLoading, content: <AwcControls /> });
+    // Many more switches than the other drawers: may reach 3/8 of the way up the screen instead of a third.
+    tabs.push({ id: 'awc', label: 'Aviation Weather', loading: awcLoading, maxShare: 3 / 8, content: <AwcControls /> });
   }
   if (isWeatherish && layers.spcWeatherOutlooks) {
     tabs.push({ id: 'spcOutlooks', label: 'SPC Outlook', loading: Boolean(spc.loading), content: <SPCOutlookSelector {...spc} /> });
