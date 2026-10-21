@@ -104,9 +104,21 @@ export const ALLOWED_PARAMS = [
   'point', 'cursor',
 ];
 
+/**
+ * Params forwarded only by routes that declare their own `params` list.
+ * aviationweather.gov rejects any query param its OpenAPI spec doesn't
+ * document, so its routes (awc-proxy.js) name exactly what each endpoint
+ * takes. Kept out of ALLOWED_PARAMS so routes without a list never start
+ * forwarding them, but part of the Netlify-Vary key like the rest.
+ */
+export const ROUTE_SCOPED_PARAMS = [
+  'ids', 'format', 'hours', 'taf', 'metar', 'id', 'age', 'level', 'inten',
+  'hazard', 'product', 'fore', 'fcst', 'type', 'cwa', 'loc', 'date',
+];
+
 const ALLOWED_PARAM_SET = new Set(ALLOWED_PARAMS);
 
-const NETLIFY_VARY = `query=${ALLOWED_PARAMS.join('|')}`;
+const NETLIFY_VARY = `query=${[...new Set([...ALLOWED_PARAMS, ...ROUTE_SCOPED_PARAMS])].join('|')}`;
 
 /**
  * Snap an ArcGIS envelope out to a fixed grid.
@@ -165,9 +177,11 @@ export function quantizeGeometry(raw, step) {
 export function buildUpstreamUrl(route, origin, suffix, search) {
   const base = `${route.origin || origin}${route.path}`;
   const params = new URLSearchParams();
+  // A route's own `params` list replaces the shared allowlist (see ROUTE_SCOPED_PARAMS).
+  const allowed = route.params ? new Set(route.params) : ALLOWED_PARAM_SET;
 
   for (const [key, value] of search.entries()) {
-    if (!ALLOWED_PARAM_SET.has(key)) continue;
+    if (!allowed.has(key)) continue;
     params.append(
       key,
       key === 'geometry' ? quantizeGeometry(value, route.geometryStep) : value,
@@ -253,7 +267,7 @@ export function resolveRoute(pathname, prefix, routes) {
  * @param {string}  config.prefix   mounted path prefix, e.g. '/api/nws'
  * @param {string}  config.origin   default upstream origin
  * @param {object}  config.routes   routeKey → { path, tier, origin?,
- *                                   geometryStep?, forcedParams?, contentType? }
+ *                                   geometryStep?, forcedParams?, params?, contentType? }
  */
 export function createProxy({ prefix, origin, routes }) {
   return async (request) => {

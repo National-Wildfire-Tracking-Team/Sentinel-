@@ -39,6 +39,11 @@ export function ThemeProvider({ children }) {
   );
 }
 
+/** The theme context, or null outside <ThemeProvider> (isolated component tests). */
+export function useOptionalTheme() {
+  return useContext(ThemeContext);
+}
+
 /** Hook to consume theme context */
 export function useTheme() {
   const ctx = useContext(ThemeContext);
