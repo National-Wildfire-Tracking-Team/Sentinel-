@@ -5,9 +5,7 @@
  */
 
 import { useState, memo, useMemo, useEffect } from 'react';
-import {
-  Layers, Flame, Gauge, Trees, Wind, CloudRain, CloudLightning, Radar, AlertTriangle, Ruler, Hexagon, Satellite, Thermometer, Activity, Droplets, Zap, Lock, GraduationCap, History, TrendingUp, Camera, Snowflake, Landmark, Waves, Waypoints, Navigation, Plane,
-} from 'lucide-react';
+import { Layers, Ruler, Hexagon, Lock } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { trackSentinelUse } from '../../../shared/utils/analytics';
 import LayerPanelSection from './LayerPanelSection';
@@ -23,56 +21,78 @@ function stationSublabel(text) {
 
 /** Layer row definitions — grouped under tab-specific sections below */
 const LAYER_DEFS = {
-  fireHotspots:      { label: 'Fire Hotspots',       sublabel: 'NASA FIRMS satellite',          icon: Flame,        color: '#ff4500' },
-  ngfsDetections:    { label: 'GOES Fire Detections', sublabel: 'NOAA NESDIS NGFS satellite',   icon: Satellite,    color: '#ffa500' },
-  calFireHistoricalPerimeters: { label: 'Historical Fire Perimeters', sublabel: 'CAL FIRE FRAP · past fire scars', icon: History, color: '#92400e' },
-  incidentLocations: { label: 'Active Fires',        sublabel: 'WFIGS locations & perimeters · NWTT verified', icon: Flame, color: '#f59e0b' },
-  evacZones:         { label: 'Evacuation Zones',    sublabel: 'Cal OES + IPAWS + field-reported zones', icon: AlertTriangle, color: '#ef4444' },
-  ndgdSmokeForecast: { label: 'Smoke Concentration', sublabel: 'NOAA NDGD hourly (48h)',      icon: CloudRain,    color: '#eab308' },
-  droughtOutlook:    { label: 'Drought Outlook',     sublabel: 'NOAA CPC Monthly Outlook',    icon: Droplets,     color: '#f59e0b' },
-  fireWeatherOutlooks: { label: 'Fire Weather Outlooks', sublabel: 'SPC Day 1-8 fire weather', icon: Zap,          color: '#ff6b35' },
+  fireHotspots:      { label: 'Fire Hotspots',       sublabel: 'NASA FIRMS satellite',          color: '#ff4500' },
+  ngfsDetections:    { label: 'GOES Fire Detections', sublabel: 'NOAA NESDIS NGFS satellite',   color: '#ffa500' },
+  calFireHistoricalPerimeters: { label: 'Historical Fire Perimeters', sublabel: 'CAL FIRE FRAP · past fire scars', color: '#92400e' },
+  incidentLocations: { label: 'Active Fires',        sublabel: 'WFIGS locations & perimeters · NWTT verified', color: '#f59e0b' },
+  evacZones:         { label: 'Evacuation Zones',    sublabel: 'Cal OES + IPAWS + field-reported zones', color: '#ef4444' },
+  ndgdSmokeForecast: { label: 'Smoke Concentration', sublabel: 'NOAA NDGD hourly (48h)',      color: '#eab308' },
+  droughtOutlook:    { label: 'Drought Outlook',     sublabel: 'NOAA CPC Monthly Outlook',    color: '#f59e0b' },
+  fireWeatherOutlooks: { label: 'Fire Weather Outlooks', sublabel: 'SPC Day 1-8 fire weather', color: '#ff6b35' },
   // An official outlook, not an NFDRS adjective danger rating: named for what it is.
-  fireRiskOutlook: { label: 'Significant Fire Potential', sublabel: 'NWCG 7-day outlook · official · by area', icon: Gauge, color: '#f97316' },
+  fireRiskOutlook: { label: 'Significant Fire Potential', sublabel: 'NWCG 7-day outlook · official · by area', color: '#f97316' },
   // FEMS NFDRS station values: one row per field; turning one on turns the others off.
-  fdErc: { label: 'Energy Release Component', sublabel: stationSublabel('ERC at NFDRS stations · FEMS'), icon: Flame, color: '#f97316' },
-  fdBi: { label: 'Burning Index', sublabel: stationSublabel('BI at NFDRS stations · FEMS'), icon: Flame, color: '#f97316' },
-  fdSc: { label: 'Spread Component', sublabel: stationSublabel('SC at NFDRS stations · FEMS'), icon: Wind, color: '#f97316' },
-  fdDeadFm: { label: 'Dead Fuel Moisture', sublabel: stationSublabel('1-, 10-, 100-, 1000-hour at NFDRS stations'), icon: Droplets, color: '#38bdf8' },
-  fdLiveFm: { label: 'Live Fuel Moisture', sublabel: stationSublabel('Herb & woody, NFDRS-modelled at stations'), icon: Droplets, color: '#22c55e' },
+  fdErc: { label: 'Energy Release Component', sublabel: stationSublabel('ERC at NFDRS stations · FEMS'), color: '#f97316' },
+  fdBi: { label: 'Burning Index', sublabel: stationSublabel('BI at NFDRS stations · FEMS'), color: '#f97316' },
+  fdSc: { label: 'Spread Component', sublabel: stationSublabel('SC at NFDRS stations · FEMS'), color: '#f97316' },
+  fdDeadFm: { label: 'Dead Fuel Moisture', sublabel: stationSublabel('1-, 10-, 100-, 1000-hour at NFDRS stations'), color: '#38bdf8' },
+  fdLiveFm: { label: 'Live Fuel Moisture', sublabel: stationSublabel('Herb & woody, NFDRS-modelled at stations'), color: '#22c55e' },
   wfpi: {
     label: 'Fire Potential Index (gridded)',
     sublabel: FIRE_DANGER_URL ? 'USGS WFPI 7-day forecast · a USGS model, not NFDRS' : 'USGS WFPI 7-day forecast · dates not set up for this build yet',
-    icon: Layers, color: '#ef4444',
+    color: '#ef4444',
   },
-  lfmSamples: { label: 'Live Fuel Moisture Samples', sublabel: 'Measured in the field · WA, OR, ID, MT, WY, SD, ND only', icon: Droplets, color: '#a855f7' },
-  fuelModels: { label: 'Fuel Types & Models', sublabel: 'LANDFIRE 40 fuel models · static map, not moisture', icon: Trees, color: '#84cc16' },
-  wpcEro:    { label: 'Excessive Rainfall Outlook', sublabel: 'WPC Day 1-3 flash-flood risk',      icon: CloudRain,  color: '#38bdf8' },
-  wpcWssi:   { label: 'Winter Storm Severity',      sublabel: 'WPC Day 1-3 overall impact',        icon: Snowflake,  color: '#93c5fd' },
-  wpcQpf:    { label: 'Precipitation Forecast',     sublabel: 'WPC Day 1-3 QPF (24hr)',            icon: Droplets,   color: '#0ea5e9' },
-  wpcFronts: { label: 'Surface Analysis Fronts',    sublabel: 'WPC live analysis · fronts, highs & lows',       icon: Wind,       color: '#a78bfa' },
-  rawsStations:      { label: 'RAWS Stations',       sublabel: 'Fire weather stations',       icon: Thermometer,  color: '#f97316' },
-  airNowMonitors:    { label: 'Air Quality Monitors', sublabel: 'EPA AirNow sensor network',  icon: Activity,     color: '#38bdf8' },
-  weatherAlerts:     { label: 'NWS & mesoscale',     sublabel: 'NWS alerts + SPC & WPC MDs', icon: Wind,         color: '#ef4444' },
-  stormReports:      { label: 'Storm reports',       sublabel: 'NWS LSR · last 24 hours',     icon: CloudLightning, color: '#7c3aed' },
-  damageAssessment:  { label: 'Damage assessment',    sublabel: 'NWS DAT · surveys, last 30 days', icon: Hexagon,    color: '#dc2626' },
-  spcWeatherOutlooks: { label: 'SPC outlooks',     sublabel: 'Convective severe weather outlook',    icon: AlertTriangle, color: '#f59e0b' },
-  mrms:              { label: 'MRMS Radar',          sublabel: 'NOAA Multi-Radar/Multi-Sensor · 2-min updates', icon: Radar, color: '#22c55e' },
-  radarSites:        { label: 'Radar Site',          sublabel: 'NEXRAD & TDWR stations · click a site for its radar', icon: Radar, color: '#9ca3af' },
+  lfmSamples: { label: 'Live Fuel Moisture Samples', sublabel: 'Measured in the field · WA, OR, ID, MT, WY, SD, ND only', color: '#a855f7' },
+  fuelModels: { label: 'Fuel Types & Models', sublabel: 'LANDFIRE 40 fuel models · static map, not moisture', color: '#84cc16' },
+  wpcEro:    { label: 'Excessive Rainfall Outlook', sublabel: 'WPC Day 1-3 flash-flood risk',      color: '#38bdf8' },
+  wpcWssi:   { label: 'Winter Storm Severity',      sublabel: 'WPC Day 1-3 overall impact',        color: '#93c5fd' },
+  wpcQpf:    { label: 'Precipitation Forecast',     sublabel: 'WPC Day 1-3 QPF (24hr)',            color: '#0ea5e9' },
+  wpcFronts: { label: 'Surface Analysis Fronts',    sublabel: 'WPC live analysis · fronts, highs & lows',       color: '#a78bfa' },
+  rawsStations:      { label: 'RAWS Stations',       sublabel: 'Fire weather stations',       color: '#f97316' },
+  airNowMonitors:    { label: 'Air Quality Monitors', sublabel: 'EPA AirNow sensor network',  color: '#38bdf8' },
+  weatherAlerts:     { label: 'NWS & mesoscale',     sublabel: 'NWS alerts + SPC & WPC MDs', color: '#ef4444' },
+  stormReports:      { label: 'Storm reports',       sublabel: 'NWS LSR · last 24 hours',     color: '#7c3aed' },
+  damageAssessment:  { label: 'Damage assessment',    sublabel: 'NWS DAT · surveys, last 30 days', color: '#dc2626' },
+  spcWeatherOutlooks: { label: 'SPC outlooks',     sublabel: 'Convective severe weather outlook',    color: '#f59e0b' },
+  mrms:              { label: 'Composite Radar',     sublabel: 'NOAA Multi-Radar/Multi-Sensor · 2-min updates', color: '#22c55e' },
+  radarSites:        { label: 'Individual Radar Site', sublabel: 'NEXRAD & TDWR stations · click a site for its radar', color: '#9ca3af' },
   // Shown even before cloud/lightning is deployed, saying so (as MRMS does), so the toggle is never missing.
-  lightning:         { label: 'Lightning',           sublabel: LIGHTNING_URL ? 'NOAA GOES satellites · last 15 minutes' : 'NOAA GOES satellites · not set up for this build yet', icon: Zap, color: '#ffe14d' },
-  satellite:         { label: 'Satellite',           sublabel: 'NOAA GOES-East/West · bands, regions & loops', icon: Satellite, color: '#8b5cf6' },
-  aqi:               { label: 'AQI Heatmap',          sublabel: 'EPA AirNow gradient overlay',  icon: Wind,         color: '#3b82f6' },
-  smoke:             { label: 'Smoke Forecast',      sublabel: 'NOAA HRRR',                   icon: CloudRain,    color: '#94a3b8' },
-  waterGauges:        { label: 'Water Gauges',        sublabel: 'NOAA NWPS river & coastal gauges', icon: Droplets, color: '#1e90ff' },
-  floodHazard:        { label: 'Flood Hazard',        sublabel: 'FEMA National Flood Hazard Layer · zoom in for zones', icon: Waves, color: '#00c8f0' },
-  wildfireCameras:   { label: 'Live CA Cameras',      sublabel: 'Caltrans District CCTV · click for live feed', icon: Camera, color: '#14b8a6' },
-  nhcTropical:      { label: 'NHC Tropical', sublabel: 'Storms, outlook, wind & surge · parts in its drawer', icon: Waypoints, color: '#4dffff' },
-  awc:              { label: 'Aviation Weather Center', sublabel: 'METAR & TAF, SIGMETs, PIREPs & more · parts in its drawer', icon: Plane, color: '#38bdf8' },
-  fireBehaviorModeling: { label: 'Fire Behavior Modeling', sublabel: 'Spread projection · select a fire', icon: TrendingUp, color: '#ff3b1f' },
+  lightning:         { label: 'Lightning',           sublabel: LIGHTNING_URL ? 'NOAA GOES satellites · last 15 minutes' : 'NOAA GOES satellites · not set up for this build yet', color: '#ffe14d' },
+  satellite:         { label: 'Satellite Imagery',   sublabel: 'NOAA GOES-East/West · bands, regions & loops', color: '#8b5cf6' },
+  aqi:               { label: 'AQI Heatmap',          sublabel: 'EPA AirNow gradient overlay',  color: '#3b82f6' },
+  smoke:             { label: 'Smoke Forecast',      sublabel: 'NOAA HRRR',                   color: '#94a3b8' },
+  waterGauges:        { label: 'Water Gauges',        sublabel: 'NOAA NWPS river & coastal gauges', color: '#1e90ff' },
+  floodHazard:        { label: 'Flood Hazard',        sublabel: 'FEMA National Flood Hazard Layer · zoom in for zones', color: '#00c8f0' },
+  wildfireCameras:   { label: 'Live CA Cameras',      sublabel: 'Caltrans District CCTV · click for live feed', color: '#14b8a6' },
+  nhcTropical:      { label: 'NHC Tropical', sublabel: 'Storms, outlook, wind & surge · parts in its drawer', color: '#4dffff' },
+  awc:              { label: 'Aviation Weather Center', sublabel: 'METAR & TAF, SIGMETs, PIREPs & more · parts in its drawer', color: '#38bdf8' },
+  fireBehaviorModeling: { label: 'Fire Behavior Modeling', sublabel: 'Spread projection · select a fire', color: '#ff3b1f' },
   // Not an AppContext layer: shared with the Models tab's own toggle (WindParticlesToggle).
-  windParticles: { label: 'Wind Particles', sublabel: 'Animated wind flow · current model hour', icon: Wind, color: '#ff5a00' },
-  routeToSafety: { label: 'Navigation', sublabel: 'Nearest open shelters · hazard-avoiding routes', icon: Navigation, color: '#22c55e' },
+  windParticles: { label: 'Wind Particles', sublabel: 'Animated wind flow · current model hour', color: '#ff5a00' },
+  routeToSafety: { label: 'Navigation', sublabel: 'Nearest open shelters · hazard-avoiding routes', color: '#22c55e' },
 };
+
+// The wildfire tab's name for the same weatherAlerts layer (it shows Red Flag Warnings only there).
+const RED_FLAG_ROW = { key: 'weatherAlerts', label: 'Red Flag Warnings', sublabel: 'NWS active Red Flag Warnings' };
+
+/**
+ * Simplified Sentinel: the only rows each tab offers while the mode is on, as
+ * one list. All Hazards gets the Wildfire and Weather rows together, less the
+ * alerts row (there it's every NWS alert and MD, not just Red Flag Warnings).
+ */
+const SIMPLIFIED_LAYERS = {
+  wildfire: [RED_FLAG_ROW, 'evacZones', 'incidentLocations', 'fireHotspots', 'windParticles', 'routeToSafety'],
+  weather: ['mrms', 'radarSites', 'lightning', 'windParticles', 'nhcTropical', 'routeToSafety'],
+  allhazard: [
+    'evacZones', 'incidentLocations', 'fireHotspots',
+    'mrms', 'radarSites', 'lightning', 'windParticles', 'nhcTropical', 'routeToSafety',
+  ],
+};
+
+const ROW_LIST = 'rounded-lg bg-sentinel-900 border border-sentinel-700 divide-y divide-sentinel-700 overflow-hidden';
+
+// A row entry is a plain layer key, or an object overriding its label/sublabel for one tab.
+const layerKeyOf = (layerRef) => (typeof layerRef === 'string' ? layerRef : layerRef.key);
 
 
 /**
@@ -124,7 +144,7 @@ const TAB_SECTIONS = {
       groups: [
         {
           layers: [
-            { key: 'weatherAlerts', label: 'Red Flag Warnings', sublabel: 'NWS active Red Flag Warnings' },
+            RED_FLAG_ROW,
             'evacZones',
             'incidentLocations',
             'fireHotspots', 'ngfsDetections', 'calFireHistoricalPerimeters', 'satellite',
@@ -202,7 +222,7 @@ const TAB_SECTIONS = {
   ],
 };
 
-function LayerToggle({ layerKey, label, sublabel, icon: Icon, locked, onToggle, active: activeOverride }) {
+function LayerToggle({ layerKey, label, sublabel, locked, onToggle, active: activeOverride }) {
   const { layers, toggleLayer } = useApp();
   const active = activeOverride ?? layers[layerKey];
   const handleClick = onToggle || (() => {
@@ -211,19 +231,18 @@ function LayerToggle({ layerKey, label, sublabel, icon: Icon, locked, onToggle, 
   });
 
   if (locked) {
+    // The lock sits where the switch would, since there's nothing to switch.
     return (
       <div className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg opacity-90">
-        <div
-          className="shrink-0 w-7 h-7 rounded-md flex items-center justify-center border border-sentinel-500"
-        >
-          <Lock size={12} className="text-sentinel-300" />
-        </div>
         <div className="flex-1 min-w-0">
           <div className="text-sm font-medium text-sentinel-100 truncate flex items-center gap-1.5">
             {label}
             <span className="text-[9px] font-bold uppercase tracking-wide text-amber-400">Pro</span>
           </div>
           <div className="text-[10px] text-sentinel-300 truncate">{sublabel}</div>
+        </div>
+        <div className="shrink-0 w-9 h-5 flex items-center justify-center">
+          <Lock size={13} className="text-sentinel-300" aria-hidden />
         </div>
       </div>
     );
@@ -238,17 +257,6 @@ function LayerToggle({ layerKey, label, sublabel, icon: Icon, locked, onToggle, 
       aria-pressed={active}
       aria-label={`Toggle ${label}`}
     >
-      <div
-        className="shrink-0 w-7 h-7 rounded-md flex items-center justify-center"
-        style={{
-          // Softer fire-600 tint than the toggle track: 15% fill, 30% border.
-          backgroundColor: active ? 'rgba(255, 90, 0, 0.15)' : 'transparent',
-          border: `1px solid ${active ? 'rgba(255, 90, 0, 0.3)' : '#52525b'}`,
-        }}
-      >
-        <Icon size={14} style={{ color: active ? '#ff5a00' : '#a1a1aa' }} />
-      </div>
-
       <div className="flex-1 min-w-0">
         <div className={`text-sm font-medium truncate transition-colors ${active ? 'text-white' : 'text-sentinel-100'}`}>
           {label}
@@ -329,7 +337,7 @@ function FireRiskDaySelector() {
 }
 
 /** Wind particles live in the Models state, so this one setting is the same on every tab. */
-function WindParticlesToggle({ label, sublabel, icon }) {
+function WindParticlesToggle({ label, sublabel }) {
   const wm = useWeatherModelsContext();
   if (!wm) return null;
   const { particles, setParticles } = wm;
@@ -338,7 +346,6 @@ function WindParticlesToggle({ label, sublabel, icon }) {
       layerKey="windParticles"
       label={label}
       sublabel={sublabel}
-      icon={icon}
       active={particles}
       onToggle={() => {
         if (!particles) trackSentinelUse('layer_toggle', { layer: 'windParticles' });
@@ -423,6 +430,7 @@ const LayerControl = memo(function LayerControl({
   onMeasureActivate,
   onMeasureClose,
   dockedPanelClearance = 0,
+  simplified = false,
 }) {
   const { layerPanelOpen, toggleLayerPanel, layers, setLayer } = useApp();
   const [collapsed, setCollapsed] = useState({});
@@ -432,7 +440,6 @@ const LayerControl = memo(function LayerControl({
       key: 'criticalInfrastructure',
       label: 'Critical Infrastructure',
       sublabel: 'CMRA power lines · EIA natural gas pipelines',
-      icon: Zap,
       color: '#fbbf24',
       locked: !infrastructureLayersEntitled,
     },
@@ -440,7 +447,6 @@ const LayerControl = memo(function LayerControl({
       key: 'schoolsUniversities',
       label: 'Schools & Universities',
       sublabel: 'USGS National Map · colleges & universities',
-      icon: GraduationCap,
       color: '#a78bfa',
       // Free for everyone; only power lines/pipelines and land ownership are Pro.
       locked: false,
@@ -449,7 +455,6 @@ const LayerControl = memo(function LayerControl({
       key: 'landOwnership',
       label: 'Land Ownership',
       sublabel: 'CAL FIRE FRAP · zoom in to load',
-      icon: Landmark,
       color: '#16a34a',
       locked: !infrastructureLayersEntitled,
     },
@@ -461,8 +466,9 @@ const LayerControl = memo(function LayerControl({
     [routingEntitled],
   );
 
+  const tabKey = activeMapTab === 'weather' ? 'weather' : activeMapTab === 'allhazard' ? 'allhazard' : 'wildfire';
+
   const sections = useMemo(() => {
-    const tabKey = activeMapTab === 'weather' ? 'weather' : activeMapTab === 'allhazard' ? 'allhazard' : 'wildfire';
     const base = TAB_SECTIONS[tabKey] || TAB_SECTIONS.wildfire;
     if (activeMapTab !== 'wildfire' && activeMapTab !== 'weather' && activeMapTab !== 'allhazard') {
       return base;
@@ -482,7 +488,18 @@ const LayerControl = memo(function LayerControl({
         groups: [{ layers: ['routeToSafety'] }],
       },
     ];
-  }, [activeMapTab, infraLayers]);
+  }, [activeMapTab, tabKey, infraLayers]);
+
+  // Simplified Sentinel: a layer with no row here can't be switched off, so any
+  // other layer that's on (restored with a tab, or turned on from elsewhere,
+  // such as the Fire Danger feed) is switched off.
+  useEffect(() => {
+    if (!simplified || activeMapTab !== tabKey) return;
+    const kept = new Set(SIMPLIFIED_LAYERS[tabKey].map(layerKeyOf));
+    [...Object.keys(LAYER_DEFS), ...infraLayers.map((l) => l.key)].forEach((key) => {
+      if (layers[key] && !kept.has(key)) setLayer(key, false);
+    });
+  }, [simplified, activeMapTab, tabKey, layers, setLayer, infraLayers]);
 
   // When switching tabs, reset accordion and expand the first section
   useEffect(() => {
@@ -502,6 +519,63 @@ const LayerControl = memo(function LayerControl({
   };
 
   const isModelsTab = activeMapTab === 'models';
+
+  const renderRow = (layerRef, infraLayerDefs) => {
+    const layerKey = layerKeyOf(layerRef);
+
+    if (infraLayerDefs) {
+      const layer = infraLayerDefs.find((l) => l.key === layerKey);
+      if (!layer) return null;
+      return (
+        <LayerToggle
+          key={layer.key}
+          layerKey={layer.key}
+          label={layer.label}
+          sublabel={layer.sublabel}
+          color={layer.color}
+          locked={layer.locked}
+        />
+      );
+    }
+    const def = LAYER_DEFS[layerKey];
+    if (!def) return null;
+    // e.g. the wildfire tab renaming "NWS & mesoscale" to "Red Flag Warnings"
+    // for the same weatherAlerts layer.
+    const label = (typeof layerRef === 'object' && layerRef.label) || def.label;
+    const sublabel = (typeof layerRef === 'object' && layerRef.sublabel) || def.sublabel;
+    if (layerKey === 'windParticles') {
+      return <WindParticlesToggle key={layerKey} label={label} sublabel={sublabel} />;
+    }
+    return (
+      <div key={layerKey}>
+        <LayerToggle
+          key={layerKey}
+          layerKey={layerKey}
+          label={label}
+          sublabel={sublabel}
+          color={def.color}
+          locked={lockedLayerKeys.has(layerKey)}
+          onToggle={STATION_LAYER_KEYS.includes(layerKey) ? () => toggleStationLayer(layerKey) : undefined}
+        />
+
+        {layerKey === 'fireRiskOutlook' && (
+          <FireRiskDaySelector />
+        )}
+        {layerKey === 'wpcEro' && (
+          <WpcDaySelector layerKey="wpcEro" product="ero" subtitle="WPC Excessive Rainfall Outlook" accentColor="#38bdf8" />
+        )}
+        {layerKey === 'wpcWssi' && (
+          <WpcDaySelector layerKey="wpcWssi" product="wssi" subtitle="WPC Winter Storm Severity Index" accentColor="#93c5fd" />
+        )}
+        {layerKey === 'wpcQpf' && (
+          <WpcDaySelector layerKey="wpcQpf" product="qpf" subtitle="WPC Precipitation Forecast" accentColor="#0ea5e9" />
+        )}
+        {layerKey === 'wpcFronts' && (
+          <WpcDaySelector layerKey="wpcFronts" product="fronts" subtitle="WPC surface analysis (now) or forecast chart" accentColor="#a78bfa" days={FRONTS_DAYS} heading="Analysis time" />
+        )}
+      </div>
+    );
+  };
 
 
   return (
@@ -585,6 +659,12 @@ const LayerControl = memo(function LayerControl({
                 pop-up, so switching tabs never changes how layers are picked. */}
             {isModelsTab ? (
               <ModelLayerPanel collapsed={collapsed} onToggleSection={toggleGroup} />
+            ) : simplified ? (
+              <div className="px-2">
+                <div className={ROW_LIST}>
+                  {SIMPLIFIED_LAYERS[tabKey].map((layerRef) => renderRow(layerRef))}
+                </div>
+              </div>
             ) : sections.map((section) => {
               const sectionKey = section.id;
               const isSectionCollapsed = collapsed[sectionKey];
@@ -604,67 +684,8 @@ const LayerControl = memo(function LayerControl({
                           {group.label}
                         </div>
                       )}
-                      <div className="rounded-lg bg-sentinel-900 border border-sentinel-700 divide-y divide-sentinel-700 overflow-hidden">
-                        {group.layers.map((layerRef) => {
-                          // A group entry may be a plain layer key, or an object
-                          // overriding the label/sublabel for this tab's context
-                          // (e.g. the wildfire tab renaming "NWS & mesoscale" to
-                          // "Red Flag Warnings" for the same weatherAlerts layer).
-                          const layerKey = typeof layerRef === 'string' ? layerRef : layerRef.key;
-
-                          if (section.infraLayers) {
-                            const layer = section.infraLayers.find((l) => l.key === layerKey);
-                            if (!layer) return null;
-                            return (
-                              <LayerToggle
-                                key={layer.key}
-                                layerKey={layer.key}
-                                label={layer.label}
-                                sublabel={layer.sublabel}
-                                icon={layer.icon}
-                                color={layer.color}
-                                locked={layer.locked}
-                              />
-                            );
-                          }
-                          const def = LAYER_DEFS[layerKey];
-                          if (!def) return null;
-                          const label = (typeof layerRef === 'object' && layerRef.label) || def.label;
-                          const sublabel = (typeof layerRef === 'object' && layerRef.sublabel) || def.sublabel;
-                          if (layerKey === 'windParticles') {
-                            return <WindParticlesToggle key={layerKey} label={label} sublabel={sublabel} icon={def.icon} />;
-                          }
-                          return (
-                            <div key={layerKey}>
-                              <LayerToggle
-                                key={layerKey}
-                                layerKey={layerKey}
-                                label={label}
-                                sublabel={sublabel}
-                                icon={def.icon}
-                                color={def.color}
-                                locked={lockedLayerKeys.has(layerKey)}
-                                onToggle={STATION_LAYER_KEYS.includes(layerKey) ? () => toggleStationLayer(layerKey) : undefined}
-                              />
-
-                              {layerKey === 'fireRiskOutlook' && (
-                                <FireRiskDaySelector />
-                              )}
-                              {layerKey === 'wpcEro' && (
-                                <WpcDaySelector layerKey="wpcEro" product="ero" subtitle="WPC Excessive Rainfall Outlook" accentColor="#38bdf8" />
-                              )}
-                              {layerKey === 'wpcWssi' && (
-                                <WpcDaySelector layerKey="wpcWssi" product="wssi" subtitle="WPC Winter Storm Severity Index" accentColor="#93c5fd" />
-                              )}
-                              {layerKey === 'wpcQpf' && (
-                                <WpcDaySelector layerKey="wpcQpf" product="qpf" subtitle="WPC Precipitation Forecast" accentColor="#0ea5e9" />
-                              )}
-                              {layerKey === 'wpcFronts' && (
-                                <WpcDaySelector layerKey="wpcFronts" product="fronts" subtitle="WPC surface analysis (now) or forecast chart" accentColor="#a78bfa" days={FRONTS_DAYS} heading="Analysis time" />
-                              )}
-                            </div>
-                          );
-                        })}
+                      <div className={ROW_LIST}>
+                        {group.layers.map((layerRef) => renderRow(layerRef, section.infraLayers))}
                       </div>
                     </div>
                   ))}

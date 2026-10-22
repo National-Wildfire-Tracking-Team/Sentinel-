@@ -318,6 +318,11 @@ body:not(:has(.viewport-bleed)) {
   .route-safety-suggestions { background-color: rgb(24 24 27); border-color: rgb(255 255 255 / 0.6); }
 }
 
+/* Simplified Sentinel's first-visit prompt: a plain dim behind it, no blur, when transparency is reduced. */
+@media (prefers-reduced-transparency: reduce) {
+  .simplified-prompt-scrim { background-color: rgb(0 0 0 / 0.6); backdrop-filter: none; }
+}
+
 @keyframes dockFade {
   from { opacity: 0; }
   to { opacity: 1; }

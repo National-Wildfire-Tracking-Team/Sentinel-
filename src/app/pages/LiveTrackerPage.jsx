@@ -8,7 +8,7 @@ import Seo from '../../shared/components/Seo';
 import { useApp } from '../context/AppContext';
 import { useAppStatus } from '../context/AppStatusContext';
 import { useViewport } from '../context/ViewportContext';
-import { usePreferences } from '../context/PreferencesContext';
+import { useSimplifiedMode } from '../context/SimplifiedModeContext';
 import { useHomeSetup } from '../context/HomeSetupContext';
 import { nwsAlertCategory } from '../utils/nwsColors';
 import { FIRE_WEATHER_ALERT_TYPES } from '../api/noaaWeather';
@@ -86,6 +86,7 @@ import { useRouteToSafety } from '../hooks/useRouteToSafety';
 import RouteToSafetyPanel from '../components/Routing/RouteToSafetyPanel';
 import RouteLayer from '../components/Map/layers/RouteLayer';
 import FutureFeaturesPanel from '../components/MapControls/FutureFeaturesPanel';
+import SimplifiedPrompt from '../components/MapControls/SimplifiedPrompt';
 import AccountButton from '../components/MapControls/AccountButton';
 import AccountPanel from '../components/AccountPanel/AccountPanel';
 import Legend from '../components/Legend/Legend';
@@ -161,6 +162,7 @@ const ALL_HAZARD_LAYER_PRESET = {
   landOwnership: false,
   floodHazard: false,
   radarSites: false,
+  mrms: false, // only Simplified Sentinel offers it here
   fireRiskOutlook: false,
   fuelModels: false,
   fdErc: false,
@@ -172,6 +174,10 @@ const ALL_HAZARD_LAYER_PRESET = {
   lfmSamples: false,
   nhcTropical: true, // on by default; the Weather preset turns it off
 };
+
+// Simplified Sentinel opens All Hazards with NHC Tropical off, and without NWS
+// alerts (it has no row for them there).
+const SIMPLIFIED_ALL_HAZARD_LAYER_PRESET = { ...ALL_HAZARD_LAYER_PRESET, nhcTropical: false, weatherAlerts: false };
 
 // Weather tab: opens with only MRMS radar on (NWS & mesoscale starts off too).
 // Every other layer is listed off so nothing carries over from the previous
@@ -228,6 +234,10 @@ const MODELS_LAYER_PRESET = {
   ...Object.fromEntries(Object.keys(WILDFIRE_LAYER_PRESET).map((k) => [k, false])),
   nhcTropical: false,
 };
+
+// Storm Motion Vectors are off for everyone (their menu switch was removed);
+// the layer and its hook stay, so setting this to true brings them back.
+const STORM_MOTION_VECTORS = false;
 
 const THREE_DAYS_MS = 3 * 24 * 60 * 60 * 1000;
 
@@ -355,13 +365,14 @@ export default function LiveTrackerPage() {
   const { setRefreshed, setLoading, alerts, userLocation, lastRefreshed } = useAppStatus();
   const { home, nearbyActive } = useHomeSetup();
   const { viewport, setViewport, flyToFire } = useViewport();
-  const { prefs } = usePreferences();
+  const { simplified } = useSimplifiedMode();
   const { hasProInfrastructureAccess, hasFireBehaviorModelingAccess, hasEvacuationRoutesAccess } = usePlan();
   const criticalInfraEntitled = hasProInfrastructureAccess;
   const { locations: savedLocations } = useSavedLocations();
-  // A Models link (?tab=models&lat=…, e.g. from an incident or /weather-models) opens on that tab.
+  // A Models link (?tab=models&lat=…, e.g. from an incident or /weather-models) opens on that tab,
+  // except in Simplified Sentinel, which has no Models tab.
   const [activeMapTab, setActiveMapTab] = useState(
-    () => (parseModelsQuery(window.location.search) ? MAP_TABS.models : MAP_TABS.wildfire),
+    () => (parseModelsQuery(window.location.search) && !simplified ? MAP_TABS.models : MAP_TABS.wildfire),
   );
   const [mapType, setMapType] = useState('satellite');
   const [weatherAlertFilter, setWeatherAlertFilter] = useState('all');
@@ -455,11 +466,27 @@ export default function LiveTrackerPage() {
     handleTabChange(MAP_TABS.models);
   }, [selectFire, handleTabChange]);
 
+  // Turning Simplified Sentinel on while on the Models tab moves to Wildfire.
+  useEffect(() => {
+    if (simplified && activeMapTab === MAP_TABS.models) handleTabChange(MAP_TABS.wildfire);
+  }, [simplified, activeMapTab, handleTabChange]);
+
   // The Models tab is map-first: entering it closes the layer panel so the
   // field is visible. The sidebar (point forecast) opens from a clicked point.
   useEffect(() => {
     if (activeMapTab === MAP_TABS.models) closeLayerPanel();
   }, [activeMapTab, closeLayerPanel]);
+
+  // Switching Simplified Sentinel either way starts the other tabs afresh from
+  // their presets (what they remembered was picked from the other set of rows),
+  // and the mode starts with NHC Tropical off.
+  const simplifiedRef = useRef(simplified);
+  useEffect(() => {
+    if (simplifiedRef.current === simplified) return;
+    simplifiedRef.current = simplified;
+    layerSnapshotsRef.current = {};
+    if (simplified) setLayer('nhcTropical', false);
+  }, [simplified, setLayer]);
 
   // Apply layer presets only when switching between wildfire/weather/allhazard tabs.
   // The locations tab keeps whatever layers were already active.
@@ -468,7 +495,7 @@ export default function LiveTrackerPage() {
     const presets = {
       [MAP_TABS.wildfire]:  WILDFIRE_LAYER_PRESET,
       [MAP_TABS.weather]:   WEATHER_LAYER_PRESET,
-      [MAP_TABS.allhazard]: ALL_HAZARD_LAYER_PRESET,
+      [MAP_TABS.allhazard]: simplifiedRef.current ? SIMPLIFIED_ALL_HAZARD_LAYER_PRESET : ALL_HAZARD_LAYER_PRESET,
       [MAP_TABS.models]:    MODELS_LAYER_PRESET,
     };
     const preset = presets[activeMapTab];
@@ -570,15 +597,13 @@ export default function LiveTrackerPage() {
     refresh: refreshAlerts,
   } = useWeatherAlerts(mapReady);
 
-  // Radar Settings: "Storm Motion Vectors" — see useStormMotionVectors.js /
-  // utils/stormMotion.js. `alerts` (from useApp(), populated by
-  // useWeatherAlerts above) already carries the raw description/sent fields
-  // this needs. Independent of the weatherAlerts layer toggle (this is a
-  // display preference, not a layer), so it stays available regardless of
-  // which alert types are currently shown.
+  // Storm Motion Vectors — see useStormMotionVectors.js / utils/stormMotion.js.
+  // Off for everyone (STORM_MOTION_VECTORS). `alerts` (from useApp(), populated
+  // by useWeatherAlerts above) already carries the raw description/sent fields
+  // this needs, independent of the weatherAlerts layer toggle.
   const stormMotionVectorsGeoJSON = useStormMotionVectors(
     alerts,
-    mapReady && Boolean(prefs.stormMotionVectors)
+    mapReady && STORM_MOTION_VECTORS
   );
 
   // Wildfire tab: only fire-related alerts (Red Flag Warning / Fire Weather Watch).
@@ -1587,7 +1612,9 @@ export default function LiveTrackerPage() {
   }, []);
 
   const satelliteActive = Boolean(layers.satellite) && activeMapTab !== MAP_TABS.models;
-  const mrmsActive = Boolean(layers.mrms) && activeMapTab === MAP_TABS.weather;
+  // A Weather-tab layer; Simplified Sentinel also offers it on All Hazards.
+  const mrmsActive = Boolean(layers.mrms)
+    && (activeMapTab === MAP_TABS.weather || (simplified && activeMapTab === MAP_TABS.allhazard));
   const fireDangerTab = activeMapTab === MAP_TABS.wildfire || activeMapTab === MAP_TABS.allhazard;
   const radarSitesActive = Boolean(layers.radarSites) && (activeMapTab === MAP_TABS.weather || activeMapTab === MAP_TABS.allhazard);
   const awcActive = Boolean(layers.awc) && (activeMapTab === MAP_TABS.weather || activeMapTab === MAP_TABS.allhazard);
@@ -1680,7 +1707,7 @@ export default function LiveTrackerPage() {
             aqiGeoJSON={aqiGeoJSON}
             alertsGeoJSON={nearbyMapGeoJSON.alerts}
             stormMotionVectorsGeoJSON={stormMotionVectorsGeoJSON}
-            stormMotionVectorsVisible={Boolean(prefs.stormMotionVectors)}
+            stormMotionVectorsVisible={STORM_MOTION_VECTORS}
             stormReportsGeoJSON={stormReportsGeoJSON}
             damageAssessmentPointsGeoJSON={damageAssessmentPointsGeoJSON}
             damageAssessmentLinesGeoJSON={damageAssessmentLinesGeoJSON}
@@ -1782,6 +1809,7 @@ export default function LiveTrackerPage() {
           {/* Hidden while the full-height water gauge panel is open, whose close button sits in the same corner. */}
           {!selectedGauge && <AccountButton />}
           <AccountPanel />
+          <SimplifiedPrompt />
 
           <MapBottomBar
             ref={mapBottomBarRef}
@@ -1796,6 +1824,7 @@ export default function LiveTrackerPage() {
             onMeasureClose={onMeasureClose}
             dockedPanelClearance={layerPanelDockClearance}
             dockedAttached={modelsTimeShowing}
+            simplified={simplified}
           />
 
           {modelsTimeShowing && (

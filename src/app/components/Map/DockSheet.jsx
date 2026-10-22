@@ -4,8 +4,8 @@
  * that has slider controls (see MapDockSheet.jsx). Each such layer that is on
  * gets a tab: a small notch holding a gray grabber bar over its name. Up to
  * MAX_TABS tabs show at once, all the same width and centered on the bar as
- * one row whatever their number; on a narrow bar they shrink evenly. A lone
- * tab shows only its gray bar (its name stays in its accessible label). Drag a tab up (or
+ * one row whatever their number; on a narrow bar they shrink evenly. Each
+ * tab names its layer under the gray bar, even a lone one. Drag a tab up (or
  * tap it) to open the sheet with that layer's controls; the other tabs hide
  * as soon as the pull starts. The open sheet has no notch, just a gray grabber
  * bar along its top edge: drag it (or tap it) to close.
@@ -86,7 +86,6 @@ const DockSheet = memo(function DockSheet({ tabs: allTabs, bottomOffset, bottomB
   }, [sharesKey]);
 
   const visible = tabs.length > 0;
-  const showLabels = tabs.length > 1;
   const active = tabs.find((t) => t.id === chosenId) ?? tabs[0] ?? null;
   const activeId = active?.id ?? null;
 
@@ -366,21 +365,19 @@ const DockSheet = memo(function DockSheet({ tabs: allTabs, bottomOffset, bottomB
               onLostPointerCapture={onPointerUp}
               onClick={(e) => { if (e.detail === 0) tapTab(tab.id); }} // keyboard activation
               onKeyDown={onKeyDown(tab.id)}
-              className="group pointer-events-auto -mb-px flex min-w-0 shrink grow-0 basis-[5.5rem] touch-none cursor-grab select-none items-end pt-3 active:cursor-grabbing focus-visible:outline-none"
+              className="group pointer-events-auto -mb-px flex min-w-0 shrink grow-0 basis-[7.5rem] touch-none cursor-grab select-none items-end pt-3 active:cursor-grabbing focus-visible:outline-none"
             >
               <span
-                className={`flex w-full flex-col items-center gap-[2px] rounded-t-lg border border-b-0 border-sentinel-600 bg-sentinel-900 pt-1 ${showLabels ? 'pb-0.5' : 'pb-1'}
+                className={`flex w-full flex-col items-center gap-[2px] rounded-t-lg border border-b-0 border-sentinel-600 bg-sentinel-900 pt-1 pb-0.5
                            group-focus-visible:ring-2 group-focus-visible:ring-sky-400`}
               >
                 <span
                   className={`block h-[3px] w-12 max-w-[70%] rounded-full bg-gray-500 transition-colors duration-100 group-hover:bg-gray-400 group-active:bg-gray-300
                     ${tab.loading ? 'animate-pulse motion-reduce:animate-none' : ''}`}
                 />
-                {showLabels && (
-                  <span className="max-w-full truncate px-1 text-[10px] font-semibold leading-none tracking-[0.02em] text-sentinel-300">
-                    {tab.label}
-                  </span>
-                )}
+                <span className="max-w-full truncate px-1 text-[10px] font-semibold leading-none tracking-[0.02em] text-sentinel-300">
+                  {tab.label}
+                </span>
               </span>
             </button>
           );

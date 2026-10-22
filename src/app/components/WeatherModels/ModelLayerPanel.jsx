@@ -9,7 +9,7 @@
  * run and domain choices under its row, and lists its own fields.
  */
 
-import { Check, GitCompare, Wind } from 'lucide-react';
+import { Check } from 'lucide-react';
 import { useWeatherModelsContext } from '../../context/WeatherModelsContext';
 import LayerPanelSection from '../LayerControl/LayerPanelSection';
 import { MODEL_STYLE } from './modelTheme';
@@ -18,7 +18,7 @@ import HafsControls from './HafsControls';
 const MODELS = [
   { id: 'hrrr', label: 'HRRR', sublabel: MODEL_STYLE.hrrr.blurb, color: MODEL_STYLE.hrrr.hexDark },
   { id: 'gfs', label: 'GFS', sublabel: MODEL_STYLE.gfs.blurb, color: MODEL_STYLE.gfs.hexDark },
-  { id: 'compare', label: 'Compare', sublabel: 'HRRR and GFS side by side', color: '#818cf8', icon: GitCompare },
+  { id: 'compare', label: 'Compare', sublabel: 'HRRR and GFS side by side', color: '#818cf8' },
   { id: 'hafs', label: 'HAFS', sublabel: 'Hurricane model · storm-following 2 km nest · to 126 h', color: '#14b8a6' },
 ];
 
@@ -30,21 +30,6 @@ const COMPARE_VIEWS = [
 const ROW = 'w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg hover:bg-white/10 transition-colors text-left '
   + 'focus-visible:outline focus-visible:outline-2 focus-visible:outline-sky-500';
 const LIST = 'rounded-lg bg-sentinel-900 border border-sentinel-700 divide-y divide-sentinel-700 overflow-hidden';
-
-// fill/edge are hex alpha suffixes; toggles pass '26'/'4d' (15%/30%), matching the layer toggles.
-function IconBox({ active, color, fill = '22', edge = '55', children }) {
-  return (
-    <div
-      className="shrink-0 w-7 h-7 rounded-md flex items-center justify-center"
-      style={{
-        backgroundColor: active ? `${color}${fill}` : 'transparent',
-        border: `1px solid ${active ? `${color}${edge}` : '#52525b'}`,
-      }}
-    >
-      {children}
-    </div>
-  );
-}
 
 function RadioDot({ active, color }) {
   return (
@@ -109,15 +94,9 @@ export default function ModelLayerPanel({ collapsed = {}, onToggleSection }) {
         <div role="radiogroup" aria-label="Weather model" className={LIST}>
           {models.map((m) => {
             const active = mode === m.id;
-            const Icon = m.icon;
             return (
               <div key={m.id}>
                 <button type="button" role="radio" aria-checked={active} onClick={() => setMode(m.id)} className={ROW}>
-                  <IconBox active={active} color={m.color}>
-                    {Icon
-                      ? <Icon size={14} style={{ color: active ? m.color : '#a1a1aa' }} aria-hidden />
-                      : <span aria-hidden className="w-2.5 h-2.5 rounded-full" style={{ background: m.color }} />}
-                  </IconBox>
                   <div className="flex-1 min-w-0">
                     <div className={`text-sm font-medium truncate ${active ? 'text-white' : 'text-sentinel-100'}`}>{m.label}</div>
                     <div className="text-[10px] text-sentinel-300 leading-snug line-clamp-2">{m.sublabel}</div>
@@ -184,9 +163,6 @@ export default function ModelLayerPanel({ collapsed = {}, onToggleSection }) {
         >
           <div className={LIST}>
             <button type="button" onClick={() => setParticles(!particles)} aria-pressed={particles} aria-label="Toggle Wind particles" className={ROW}>
-              <IconBox active={particles} color="#ff5a00" fill="26" edge="4d">
-                <Wind size={14} style={{ color: particles ? '#ff5a00' : '#a1a1aa' }} aria-hidden />
-              </IconBox>
               <div className="flex-1 min-w-0">
                 <div className={`text-sm font-medium truncate ${particles ? 'text-white' : 'text-sentinel-100'}`}>Wind particles</div>
                 <div className="text-[10px] text-sentinel-300 leading-snug">Animated wind flow from the selected model</div>

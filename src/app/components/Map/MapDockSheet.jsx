@@ -52,14 +52,14 @@ const MapDockSheet = memo(function MapDockSheet({
 
   const tabs = [];
   if (mrms?.active) {
-    tabs.push({ id: 'mrms', label: 'MRMS Radar', loading: Boolean(mrms.loading && !mrms.manifest), content: <MrmsPanel /> });
+    tabs.push({ id: 'mrms', label: 'Composite Radar', loading: Boolean(mrms.loading && !mrms.manifest), content: <MrmsPanel /> });
   }
   if (radarSite?.active) {
-    tabs.push({ id: 'radarSite', label: 'Radar Site', loading: radarSiteLoading(radarSite), content: <RadarSitePanel /> });
+    tabs.push({ id: 'radarSite', label: 'Individual Radar Site', loading: radarSiteLoading(radarSite), content: <RadarSitePanel /> });
   }
   if (satellite?.active) {
     tabs.push({
-      id: 'satellite', label: 'Satellite', loading: Boolean(satellite.loading),
+      id: 'satellite', label: 'Satellite Imagery', loading: Boolean(satellite.loading),
       content: <SatellitePanel overlays={satelliteOverlays} />,
     });
   }

@@ -235,7 +235,7 @@ function MrmsLegendSection() {
   if (!mrms?.active || !mrms.spec) return null;
   const { spec } = mrms;
   return (
-    <Section title={`MRMS ${spec.label}`}>
+    <Section title={`Composite Radar · ${spec.label}`}>
       {mrmsLegendRows(spec).map((row) => <ColorRow key={row.label} {...row} />)}
       <div className="text-sentinel-500 dark:text-sentinel-400 text-[10px] pt-1 mt-1 border-t border-sentinel-200 dark:border-sentinel-700 leading-snug">{spec.description}</div>
       <div className="text-sentinel-500 text-[9px] leading-snug">{mrms.manifest.attribution}</div>

@@ -81,10 +81,9 @@ describe('DockSheet', () => {
     expect(body.style.height).toBe(settled);
   });
 
-  it('shows only the gray bar on a lone tab, and names once there are several', () => {
+  it('names its tab under the gray bar, even when it is the only one', () => {
     const { rerender } = render(<DockSheet tabs={[TABS[0]]} />);
-    const lone = screen.getByRole('button', { name: 'Open MRMS Radar controls' }); // still named for assistive tech
-    expect(lone).not.toHaveTextContent('MRMS Radar');
+    expect(screen.getByRole('button', { name: 'Open MRMS Radar controls' })).toHaveTextContent('MRMS Radar');
     rerender(<DockSheet tabs={TABS} />);
     expect(screen.getByRole('button', { name: 'Open MRMS Radar controls' })).toHaveTextContent('MRMS Radar');
     expect(screen.getByRole('button', { name: 'Open Radar Site controls' })).toHaveTextContent('Radar Site');

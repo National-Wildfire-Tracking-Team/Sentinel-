@@ -1,7 +1,7 @@
 /**
  * SatellitePanel.jsx
  * Satellite controls, shown in the bottom bar's pull-up sheet (DockSheet, via
- * MapDockSheet) under the "Satellite" tab while the Satellite layer is on:
+ * MapDockSheet) under the "Satellite Imagery" tab while the Satellite layer is on:
  * satellite, region and product pickers, what is shown and when, the
  * recent-imagery loop, opacity, and what's drawn over the imagery (NHC
  * storms and areas of interest).
