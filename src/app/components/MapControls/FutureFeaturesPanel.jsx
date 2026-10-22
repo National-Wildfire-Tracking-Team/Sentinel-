@@ -94,6 +94,7 @@ function SegmentedControl({ value, onChange, options }) {
           key={opt.value}
           type="button"
           onClick={() => onChange(opt.value)}
+          aria-pressed={value === opt.value}
           className={`px-2.5 py-1 text-xs font-semibold rounded-md transition-colors ${
             value === opt.value
               ? 'bg-fire-600/25 ring-1 ring-inset ring-fire-600/50 text-sentinel-900 dark:text-white'
@@ -192,7 +193,7 @@ function LegendDisclosure({ children }) {
 
 const FutureFeaturesPanel = memo(function FutureFeaturesPanel({ mapType = 'satellite', onMapTypeChange, legend = null }) {
   const { futurePanelOpen, toggleFuturePanel } = useApp();
-  const { theme, setTheme } = useTheme();
+  const { preference, setPreference } = useTheme();
   const { prefs, updatePrefs } = usePreferences();
   const { viewport, setViewport } = useViewport();
   const { simplified, setSimplified } = useSimplifiedMode();
@@ -267,11 +268,11 @@ const FutureFeaturesPanel = memo(function FutureFeaturesPanel({ mapType = 'satel
 
         <SectionLabel>Preferences</SectionLabel>
 
-        <PrefRow label="Dark Mode">
+        <PrefRow label="Dark Mode" description="Auto matches your device's light or dark setting.">
           <SegmentedControl
-            value={theme === 'dark' ? 'on' : 'off'}
-            onChange={(v) => setTheme(v === 'on' ? 'dark' : 'light')}
-            options={[{ value: 'off', label: 'Off' }, { value: 'on', label: 'On' }]}
+            value={preference === 'auto' ? 'auto' : preference === 'dark' ? 'on' : 'off'}
+            onChange={(v) => setPreference(v === 'auto' ? 'auto' : v === 'on' ? 'dark' : 'light')}
+            options={[{ value: 'auto', label: 'Auto' }, { value: 'off', label: 'Off' }, { value: 'on', label: 'On' }]}
           />
         </PrefRow>
 

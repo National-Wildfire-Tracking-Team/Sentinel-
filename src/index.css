@@ -53,6 +53,11 @@ html.site-theme:not(.dark) {
   --fire-text-soft: 161 49 9;    /* fire-800 */
 }
 
+/* Native scrollbars and form controls follow the theme too. */
+html.dark {
+  color-scheme: dark;
+}
+
 /* The marketing markup is written dark-first with literal white type and
    fire-400 accents; in light mode route those through the palette above.
    Solid orange/red buttons keep white labels. */

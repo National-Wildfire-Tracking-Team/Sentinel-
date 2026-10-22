@@ -2,10 +2,10 @@
 <html lang="en">
   <head>
     <script>
-      // Apply the stored theme before paint to avoid a flash of the wrong theme.
-      // Defaults to dark (this app's original, and still primary, look). The
-      // parent-domain cookie carries the app's choice to the marketing site;
-      // mirrors shared/utils/sharedTheme.js.
+      // Apply the theme before paint to avoid a flash of the wrong one: Light or
+      // Dark if picked in the app's menu, else the device's setting (dark when
+      // it states none). The parent-domain cookie carries the app's pick to the
+      // marketing site; mirrors shared/utils/sharedTheme.js.
       (function () {
         var root = document.documentElement;
         var host = location.hostname;
@@ -14,10 +14,15 @@
         }
         var stored = null;
         try {
-          var m = document.cookie.match(/(?:^|; )nwtt-theme=([^;]*)/);
-          stored = m ? m[1] : localStorage.getItem('nwtt-theme');
+          var m = document.cookie.match(/(?:^|; )nwtt-appearance=([^;]*)/);
+          stored = m ? m[1] : localStorage.getItem('nwtt-appearance');
         } catch (e) {}
-        if (stored !== 'light') root.classList.add('dark');
+        var light = stored === 'light'
+          || (stored !== 'dark' && !!(window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches));
+        // Both ways: a prerendered page keeps the class it was saved with.
+        root.classList.toggle('dark', !light);
+        var meta = document.querySelector('meta[name="theme-color"]');
+        if (meta) meta.setAttribute('content', light ? '#ffffff' : '#0a0c0e');
       })();
     </script>
     <meta charset="UTF-8" />

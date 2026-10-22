@@ -32,7 +32,7 @@ vi.mock('../../src/app/context/WeatherModelsContext', () => ({
     manifest: {}, manifestError: null, variableSwitched: null, hafs: {},
   }),
 }));
-vi.mock('../../src/app/context/ThemeContext', () => ({ useTheme: () => ({ theme: 'dark', setTheme: vi.fn() }) }));
+vi.mock('../../src/app/context/ThemeContext', () => ({ useTheme: () => ({ preference: 'auto', setPreference: vi.fn() }) }));
 vi.mock('../../src/app/context/PreferencesContext', () => ({
   usePreferences: () => ({
     prefs: { dataPickerAnchor: 'center', timeFormat: '12h', mapPopupMode: 'list', popupSpotlight: false, spotlightOpacity: 50, popupDragHandle: false, stormMotionVectors: false },
