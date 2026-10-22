@@ -10,7 +10,7 @@
  * rows they supersede, so data converges on the current primary id.
  */
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase, isSupabaseConfigured } from '../../shared/api/supabaseClient';
 import { useAuth } from '../../shared/context/AuthContext';
 import { idsFromKey, incidentIdRealtimeFilter, incidentIdsKey, parseAliasIds } from '../utils/incidentAliases';
@@ -19,6 +19,7 @@ import { idsFromKey, incidentIdRealtimeFilter, incidentIdsKey, parseAliasIds } f
 function useIncidentRows(table, incidentId, aliasIds, orderBy) {
   const idsKey = incidentIdsKey(incidentId, aliasIds);
   const [state, setState] = useState({ key: null, rows: [] });
+  const shownIds = useRef(new Set());
 
   useEffect(() => {
     if (!isSupabaseConfigured || !idsKey) return undefined;
@@ -29,16 +30,33 @@ function useIncidentRows(table, incidentId, aliasIds, orderBy) {
       let query = supabase.from(table).select('*').in('incident_id', ids);
       for (const [column, ascending] of orderBy) query = query.order(column, { ascending });
       const { data, error } = await query;
-      if (!cancelled) setState({ key: idsKey, rows: error ? [] : data || [] });
+      if (cancelled) return;
+      const rows = error ? [] : data || [];
+      shownIds.current = new Set(rows.map((r) => r.id));
+      setState({ key: idsKey, rows });
     };
     load();
 
+    // DELETE payloads carry only the primary key (default replica identity),
+    // so the incident_id filter never matches them. Listen to every delete on
+    // the table and refetch when it removes a row this panel is showing,
+    // e.g. an evacuation level that was lifted.
     const channel = supabase
       .channel(`${table}_${idsKey}`)
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table, filter: incidentIdRealtimeFilter(ids) },
+        { event: 'INSERT', schema: 'public', table, filter: incidentIdRealtimeFilter(ids) },
         () => { load(); },
+      )
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table, filter: incidentIdRealtimeFilter(ids) },
+        () => { load(); },
+      )
+      .on(
+        'postgres_changes',
+        { event: 'DELETE', schema: 'public', table },
+        (payload) => { if (shownIds.current.has(payload.old?.id)) load(); },
       )
       .subscribe();
 
