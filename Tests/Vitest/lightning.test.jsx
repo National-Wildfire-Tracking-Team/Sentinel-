@@ -69,11 +69,11 @@ describe('Lightning toggle', () => {
     expect(screen.getAllByRole('button', { name: 'Toggle Lightning' })).toHaveLength(1);
   });
 
-  it('sits next to Satellite in All Hazards\' Monitoring & imagery section', () => {
+  it('sits next to Satellite Imagery in All Hazards\' Monitoring & imagery section', () => {
     renderTab('allhazard');
     const rows = within(section('Monitoring & imagery'));
     expect(rows.getByRole('button', { name: 'Toggle Lightning' })).toBeInTheDocument();
-    expect(rows.getByRole('button', { name: 'Toggle Satellite' })).toBeInTheDocument();
+    expect(rows.getByRole('button', { name: 'Toggle Satellite Imagery' })).toBeInTheDocument();
   });
 
   it('is not on the Wildfire tab', () => {

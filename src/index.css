@@ -53,6 +53,11 @@ html.site-theme:not(.dark) {
   --fire-text-soft: 161 49 9;    /* fire-800 */
 }
 
+/* Native scrollbars and form controls follow the theme too. */
+html.dark {
+  color-scheme: dark;
+}
+
 /* The marketing markup is written dark-first with literal white type and
    fire-400 accents; in light mode route those through the palette above.
    Solid orange/red buttons keep white labels. */
@@ -316,6 +321,11 @@ body:not(:has(.viewport-bleed)) {
 @media (prefers-contrast: more) {
   .route-safety-panel,
   .route-safety-suggestions { background-color: rgb(24 24 27); border-color: rgb(255 255 255 / 0.6); }
+}
+
+/* Simplified Sentinel's first-visit prompt: a plain dim behind it, no blur, when transparency is reduced. */
+@media (prefers-reduced-transparency: reduce) {
+  .simplified-prompt-scrim { background-color: rgb(0 0 0 / 0.6); backdrop-filter: none; }
 }
 
 @keyframes dockFade {

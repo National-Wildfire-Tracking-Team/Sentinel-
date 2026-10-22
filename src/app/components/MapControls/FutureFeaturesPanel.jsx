@@ -1,16 +1,17 @@
 /**
  * FutureFeaturesPanel.jsx
  * App menu slide-in panel — opened from the top-left hamburger corner button.
- * Map style, the map legend, Help, membership/donation links, saved places,
- * and appearance.
+ * Simplified Sentinel, map style, the map legend, Help, membership/donation
+ * links, saved places, and appearance.
  */
 
 import { memo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  Home, Map as MapIcon, HelpCircle, HeartHandshake, MapPin, Satellite, Mountain, Info, ChevronDown,
+  Home, Map as MapIcon, HelpCircle, HeartHandshake, MapPin, Satellite, Mountain, Info, ChevronDown, Eye,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
+import { useSimplifiedMode } from '../../context/SimplifiedModeContext';
 import { useTheme } from '../../context/ThemeContext';
 import { usePreferences } from '../../context/PreferencesContext';
 import { useViewport } from '../../context/ViewportContext';
@@ -18,7 +19,7 @@ import { getMainOrigin } from '../../../shared/utils/getAppOrigin';
 
 const DONATE_URL = 'https://givebutter.com/national-wildfire-tracking-team-dvi6jx';
 
-function MenuRow({ icon: Icon, iconClassName, label, sublabel, onClick, href, sameTab, to, trailing, ariaExpanded }) {
+function MenuRow({ icon: Icon, iconClassName, label, sublabel, onClick, href, sameTab, to, trailing, ariaExpanded, ariaPressed }) {
   const className =
     'w-full flex items-center gap-3 px-4 py-3 text-left transition-colors ' +
     'hover:bg-sentinel-100 dark:hover:bg-sentinel-800/60';
@@ -55,7 +56,7 @@ function MenuRow({ icon: Icon, iconClassName, label, sublabel, onClick, href, sa
     );
   }
   return (
-    <button type="button" onClick={onClick} className={className} aria-expanded={ariaExpanded}>
+    <button type="button" onClick={onClick} className={className} aria-expanded={ariaExpanded} aria-pressed={ariaPressed}>
       {content}
     </button>
   );
@@ -93,6 +94,7 @@ function SegmentedControl({ value, onChange, options }) {
           key={opt.value}
           type="button"
           onClick={() => onChange(opt.value)}
+          aria-pressed={value === opt.value}
           className={`px-2.5 py-1 text-xs font-semibold rounded-md transition-colors ${
             value === opt.value
               ? 'bg-fire-600/25 ring-1 ring-inset ring-fire-600/50 text-sentinel-900 dark:text-white'
@@ -106,15 +108,12 @@ function SegmentedControl({ value, onChange, options }) {
   );
 }
 
-/** iOS-style on/off switch. */
-function PrefSwitch({ checked, onChange }) {
+/** The iOS-style on/off track: PrefSwitch's look, also drawn inside a whole-row toggle. */
+function SwitchTrack({ checked }) {
   return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={checked}
-      onClick={() => onChange(!checked)}
-      className={`h-6 w-11 shrink-0 rounded-full p-0.5 transition-colors ${
+    <span
+      aria-hidden
+      className={`block h-6 w-11 shrink-0 rounded-full p-0.5 transition-colors ${
         checked ? 'bg-fire-600/25 ring-1 ring-inset ring-fire-600/50' : 'bg-sentinel-300 dark:bg-sentinel-700'
       }`}
     >
@@ -123,6 +122,21 @@ function PrefSwitch({ checked, onChange }) {
           checked ? 'translate-x-5' : 'translate-x-0'
         }`}
       />
+    </span>
+  );
+}
+
+/** iOS-style on/off switch. */
+function PrefSwitch({ checked, onChange }) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      onClick={() => onChange(!checked)}
+      className="shrink-0 rounded-full"
+    >
+      <SwitchTrack checked={checked} />
     </button>
   );
 }
@@ -179,9 +193,10 @@ function LegendDisclosure({ children }) {
 
 const FutureFeaturesPanel = memo(function FutureFeaturesPanel({ mapType = 'satellite', onMapTypeChange, legend = null }) {
   const { futurePanelOpen, toggleFuturePanel } = useApp();
-  const { theme, setTheme } = useTheme();
+  const { preference, setPreference } = useTheme();
   const { prefs, updatePrefs } = usePreferences();
   const { viewport, setViewport } = useViewport();
+  const { simplified, setSimplified } = useSimplifiedMode();
 
   const closePanel = () => {
     toggleFuturePanel();
@@ -222,6 +237,15 @@ const FutureFeaturesPanel = memo(function FutureFeaturesPanel({ mapType = 'satel
           sublabel={isPitched ? 'On' : 'Off'}
           onClick={toggleTerrainTilt}
         />
+        <MenuRow
+          icon={Eye}
+          iconClassName={simplified ? 'text-fire-500' : undefined}
+          label="Simplified Sentinel"
+          sublabel="Only the essential layers, and no Models tab"
+          onClick={() => setSimplified(!simplified)}
+          ariaPressed={simplified}
+          trailing={<SwitchTrack checked={simplified} />}
+        />
         {legend && <LegendDisclosure>{legend}</LegendDisclosure>}
         <MenuRow icon={HelpCircle} label="Help" href={`${getMainOrigin()}/about`} sameTab onClick={closePanel} />
 
@@ -242,24 +266,13 @@ const FutureFeaturesPanel = memo(function FutureFeaturesPanel({ mapType = 'satel
           onClick={closePanel}
         />
 
-        <SectionLabel>Radar Settings</SectionLabel>
-        <PrefRow
-          label="Storm Motion Vectors"
-          description="For storms under an active Severe Thunderstorm or Tornado Warning that reports motion: a point at its current position, a line to where it will be in one hour, with tick marks at 30 and 60 minutes."
-        >
-          <PrefSwitch
-            checked={prefs.stormMotionVectors}
-            onChange={(v) => updatePrefs({ stormMotionVectors: v })}
-          />
-        </PrefRow>
-
         <SectionLabel>Preferences</SectionLabel>
 
-        <PrefRow label="Dark Mode">
+        <PrefRow label="Dark Mode" description="Auto matches your device's light or dark setting.">
           <SegmentedControl
-            value={theme === 'dark' ? 'on' : 'off'}
-            onChange={(v) => setTheme(v === 'on' ? 'dark' : 'light')}
-            options={[{ value: 'off', label: 'Off' }, { value: 'on', label: 'On' }]}
+            value={preference === 'auto' ? 'auto' : preference === 'dark' ? 'on' : 'off'}
+            onChange={(v) => setPreference(v === 'auto' ? 'auto' : v === 'on' ? 'dark' : 'light')}
+            options={[{ value: 'auto', label: 'Auto' }, { value: 'off', label: 'Off' }, { value: 'on', label: 'On' }]}
           />
         </PrefRow>
 

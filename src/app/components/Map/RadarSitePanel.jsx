@@ -1,7 +1,7 @@
 /**
  * RadarSitePanel.jsx
  * Radar Site controls, shown in the bottom bar's pull-up sheet (DockSheet,
- * via MapDockSheet) under the "Radar Site" tab. From the top: what to show
+ * via MapDockSheet) under the "Individual Radar Site" tab. From the top: what to show
  * (Radar, Velocity, Correlation Coefficient, Differential Reflectivity), the
  * selected station's status (station, product, elevation, scan time and age,
  * loading and errors with Retry), the "Reflectivity Gates" L/H range on Radar

@@ -2,6 +2,7 @@
  * MapBottomBar.jsx
  * Floating bottom toolbar for the live map: layer control on the left,
  * followed by the All Hazards / Wildfire / Weather / Models mode switcher.
+ * Simplified Sentinel (`simplified`) has no Models tab.
  */
 
 import { memo, forwardRef } from 'react';
@@ -20,6 +21,7 @@ const MapBottomBar = memo(forwardRef(function MapBottomBar({
   onMeasureClose,
   dockedPanelClearance = 0,
   dockedAttached = false,
+  simplified = false,
 }, ref) {
   const isAllHazardTab = activeMapTab === 'allhazard';
 
@@ -42,6 +44,7 @@ const MapBottomBar = memo(forwardRef(function MapBottomBar({
         onMeasureActivate={onMeasureActivate}
         onMeasureClose={onMeasureClose}
         dockedPanelClearance={dockedPanelClearance}
+        simplified={simplified}
       />
 
       <div className="w-px self-stretch my-1 bg-sentinel-200 dark:bg-sentinel-600" />
@@ -92,25 +95,27 @@ const MapBottomBar = memo(forwardRef(function MapBottomBar({
       </button>
 
       {/* HRRR/GFS numerical model forecasts — model output, kept apart from alerts and observations */}
-      <button
-        type="button"
-        aria-label="Models"
-        onClick={() => onTabChange?.('models')}
-        // Hover, focus or the start of a tap: fetch the first frame before the click lands.
-        onPointerEnter={onModelsIntent}
-        onPointerDown={onModelsIntent}
-        onFocus={onModelsIntent}
-        className={`inline-flex items-center gap-1.5 px-3 py-2 whitespace-nowrap text-sm font-semibold rounded-xl transition-colors ${
-          activeMapTab === 'models'
-            ? 'bg-indigo-600 text-white'
-            : 'text-sentinel-600 dark:text-sentinel-200 hover:text-sentinel-900 dark:hover:text-white hover:bg-sentinel-100 dark:hover:bg-sentinel-700'
-        }`}
-        aria-pressed={activeMapTab === 'models'}
-        title="HRRR and GFS weather model forecasts"
-      >
-        <Wind size={15} />
-        <span className="hidden sm:inline">Models</span>
-      </button>
+      {!simplified && (
+        <button
+          type="button"
+          aria-label="Models"
+          onClick={() => onTabChange?.('models')}
+          // Hover, focus or the start of a tap: fetch the first frame before the click lands.
+          onPointerEnter={onModelsIntent}
+          onPointerDown={onModelsIntent}
+          onFocus={onModelsIntent}
+          className={`inline-flex items-center gap-1.5 px-3 py-2 whitespace-nowrap text-sm font-semibold rounded-xl transition-colors ${
+            activeMapTab === 'models'
+              ? 'bg-indigo-600 text-white'
+              : 'text-sentinel-600 dark:text-sentinel-200 hover:text-sentinel-900 dark:hover:text-white hover:bg-sentinel-100 dark:hover:bg-sentinel-700'
+          }`}
+          aria-pressed={activeMapTab === 'models'}
+          title="HRRR and GFS weather model forecasts"
+        >
+          <Wind size={15} />
+          <span className="hidden sm:inline">Models</span>
+        </button>
+      )}
     </div>
   );
 }));

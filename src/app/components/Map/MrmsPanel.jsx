@@ -1,7 +1,7 @@
 /**
  * MrmsPanel.jsx
  * MRMS radar controls, shown in the bottom bar's pull-up sheet (DockSheet,
- * via MapDockSheet) under the "MRMS Radar" tab while the MRMS layer is on:
+ * via MapDockSheet) under the "Composite Radar" tab while the MRMS layer is on:
  * status and credit first, then product, playback through the last hour,
  * and opacity. (The status used to be a chip at the top of the map.)
  */
@@ -27,13 +27,13 @@ const MrmsPanel = memo(function MrmsPanel() {
     <div className="px-3 py-2.5 space-y-2.5">
       <MrmsStatus />
       {!configured ? (
-        <div className="text-[11px] text-sentinel-300">MRMS radar isn't connected on this site yet. Check back soon.</div>
+        <div className="text-[11px] text-sentinel-300">Composite radar isn't connected on this site yet. Check back soon.</div>
       ) : (
         <>
           <div className="space-y-1.5">
             <span className={LABEL_CLS}>Product</span>
             {products.length ? (
-              <div className="grid grid-cols-2 gap-1" role="group" aria-label="MRMS product">
+              <div className="grid grid-cols-2 gap-1" role="group" aria-label="Composite Radar product">
                 {products.map(([id, p]) => {
                   const active = id === product;
                   return (

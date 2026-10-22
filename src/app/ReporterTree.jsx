@@ -12,6 +12,7 @@
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { lazy, Suspense, useEffect } from 'react';
 import Seo from '../shared/components/Seo';
+import { useSharedThemeSync } from '../shared/hooks/useSharedThemeSync';
 
 const ReporterDashboardPage = lazy(() => import('./pages/reporter-dashboard'));
 const ReporterLoginPage = lazy(() => import('./pages/ReporterLoginPage'));
@@ -35,6 +36,7 @@ function RouteLoader() {
 }
 
 export default function ReporterTree() {
+  useSharedThemeSync();
   return (
     <BrowserRouter>
       <ScrollToTop />

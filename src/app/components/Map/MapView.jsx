@@ -653,7 +653,7 @@ export default function MapView({
   const { layers, setLayer, selectedFire, selectFire, selectGauge, selectCamera, sidebarOpen, locationGranted, layerPanelOpen, closeLayerPanel, nhcModelTracks } = useApp();
   const radarSites = useRadarSiteContext();
   const radarSitesActive = Boolean(radarSites?.active && radarSites.sites);
-  const selectRadarSite = radarSites?.selectSite;
+  const toggleRadarSite = radarSites?.toggleSite;
   const satellite = useSatelliteContext();
   const fireDanger = useFireDangerContext();
   const fireDangerOn = Boolean(fireDanger?.anyOn);
@@ -950,9 +950,10 @@ export default function MapView({
 
     // Radar site pills are small targets that often sit inside alert
     // polygons, so a pill under the click wins over whatever is on top.
+    // Clicking the selected station's pill again turns its radar off.
     const radarPill = features.find((f) => f.layer.id === RADAR_SITES_PILL_ID);
     if (radarPill) {
-      selectRadarSite?.(radarPill.properties.id);
+      toggleRadarSite?.(radarPill.properties.id);
       setFeaturePopup(null);
       return;
     }
@@ -1092,7 +1093,7 @@ export default function MapView({
       mouseLngLat: evt.lngLat,
       anchorFeature: records[0].feature,
     });
-  }, [measureActive, alerts, selectFire, selectGauge, selectCamera, selectRadarSite, layerPanelOpen, closeLayerPanel, onModelPick, onRoutePick, nhcCyclones, nhcOutlookSystems, pickAtCenter, fireDanger, fireDangerOn]);
+  }, [measureActive, alerts, selectFire, selectGauge, selectCamera, toggleRadarSite, layerPanelOpen, closeLayerPanel, onModelPick, onRoutePick, nhcCyclones, nhcOutlookSystems, pickAtCenter, fireDanger, fireDangerOn]);
 
   // Center picker: once a model point is being inspected, panning keeps it on the screen center.
   useEffect(() => {
@@ -1276,8 +1277,9 @@ export default function MapView({
             from SatelliteContext, which is active only while the layer is on. */}
         <GOESLayer />
 
-        {/* NOAA MRMS radar (Weather tab). Visibility, product and frame come
-            from MrmsContext, which is active only on the Weather tab with the layer on. */}
+        {/* NOAA MRMS radar (Weather tab, and All Hazards in Simplified Sentinel).
+            Visibility, product and frame come from MrmsContext, which is active
+            only on those tabs with the layer on. */}
         <MrmsLayer />
 
         {/* Fire Danger & Fuels (Wildfire and All Hazards tabs). On/off, day and
@@ -1299,8 +1301,8 @@ export default function MapView({
         {/* Smoke forecast */}
         <SmokeLayer visible={isAllHazardTab && layers.smoke} />
 
-        {/* Radar Settings: Storm Motion Vectors — a display preference, not
-            a layer toggle, so not gated to any particular map tab */}
+        {/* Storm Motion Vectors — not a layer toggle, so not gated to any
+            particular map tab (currently off; see LiveTrackerPage) */}
         <StormMotionVectorLayer
           geoJSON={stormMotionVectorsGeoJSON}
           visible={stormMotionVectorsVisible}
