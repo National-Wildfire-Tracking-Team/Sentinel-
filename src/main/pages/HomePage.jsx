@@ -61,6 +61,23 @@ const newsletters = [
       },
     ],
   },
+  {
+    title: 'v1.00.03 Update',
+    sections: [
+      {
+        heading: 'Fire Danger & Fuels Added',
+        body: 'A new Fire Danger & Fuels section is now on the Wildfire and All Hazards tabs. It brings together the NWCG 7-day Significant Fire Potential outlook, NFDRS station readings for Energy Release Component, Burning Index and fuel moisture, the USGS Fire Potential Index forecast, live fuel moisture field samples, and LANDFIRE fuel types.',
+      },
+      {
+        heading: 'Fire Danger Sidebar Tab',
+        body: 'The Wildfire sidebar now has a Fire Danger tab next to Incidents. It sums up current station readings in plain language, shows the week ahead, and ranks states and stations by fire danger. Click any state or station to fly the map straight there.',
+      },
+      {
+        heading: 'Aviation Weather Now Available for All Users',
+        body: 'Aviation Weather Center data is now on the Weather and All Hazards tabs. Airport weather (METAR and TAF) with flight rules and wind barbs, SIGMETs, AIRMETs, PIREPs, winds aloft and more each have their own switch in the toolkit drawer.',
+      },
+    ],
+  },
 ];
 
 const stats = [
