@@ -143,6 +143,7 @@ const WILDFIRE_LAYER_PRESET = {
   wfpi: false,
   lfmSamples: false,
   awc: false,
+  tfrs: false,
 };
 
 const ALL_HAZARD_LAYER_PRESET = {
@@ -225,6 +226,7 @@ const WEATHER_LAYER_PRESET = {
   radarSites: false,
   lightning: false,
   awc: false,
+  tfrs: false,
 };
 
 // Models tab: HRRR/GFS model output only. Every operational layer (alerts,

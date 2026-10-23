@@ -66,6 +66,7 @@ const LAYER_DEFS = {
   wildfireCameras:   { label: 'Live CA Cameras',      sublabel: 'Caltrans District CCTV · click for live feed', color: '#14b8a6' },
   nhcTropical:      { label: 'NHC Tropical', sublabel: 'Storms, outlook, wind & surge · parts in its drawer', color: '#4dffff' },
   awc:              { label: 'Aviation Weather Center', sublabel: 'METAR & TAF, SIGMETs, PIREPs & more · parts in its drawer', color: '#38bdf8' },
+  tfrs:             { label: 'Temporary Flight Restrictions', sublabel: 'FAA TFRs · fire, security, VIP & more', color: '#ef4444' },
   fireBehaviorModeling: { label: 'Fire Behavior Modeling', sublabel: 'Spread projection · select a fire', color: '#ff3b1f' },
   // Not an AppContext layer: shared with the Models tab's own toggle (WindParticlesToggle).
   windParticles: { label: 'Wind Particles', sublabel: 'Animated wind flow · current model hour', color: '#ff5a00' },
@@ -114,9 +115,14 @@ const TAB_SECTIONS = {
       title: 'Weather hazards',
       groups: [
         {
-          layers: ['weatherAlerts', 'nhcTropical', 'awc', 'stormReports', 'damageAssessment', 'waterGauges', 'floodHazard', 'spcWeatherOutlooks', 'fireWeatherOutlooks', 'wpcEro', 'wpcWssi', 'wpcQpf', 'wpcFronts'],
+          layers: ['weatherAlerts', 'nhcTropical', 'stormReports', 'damageAssessment', 'waterGauges', 'floodHazard', 'spcWeatherOutlooks', 'fireWeatherOutlooks', 'wpcEro', 'wpcWssi', 'wpcQpf', 'wpcFronts'],
         },
       ],
+    },
+    {
+      id: 'ah-aviation',
+      title: 'Aviation',
+      groups: [{ layers: ['tfrs', 'awc'] }],
     },
     {
       id: 'ah-fire-danger',
@@ -189,6 +195,11 @@ const TAB_SECTIONS = {
         },
       ],
     },
+    {
+      id: 'wf-aviation',
+      title: 'Aviation',
+      groups: [{ layers: ['tfrs'] }],
+    },
   ],
   weather: [
     {
@@ -206,9 +217,14 @@ const TAB_SECTIONS = {
       title: 'Weather hazards',
       groups: [
         {
-          layers: ['weatherAlerts', 'nhcTropical', 'awc', 'stormReports', 'damageAssessment', 'waterGauges', 'floodHazard', 'rawsStations'],
+          layers: ['weatherAlerts', 'nhcTropical', 'stormReports', 'damageAssessment', 'waterGauges', 'floodHazard', 'rawsStations'],
         },
       ],
+    },
+    {
+      id: 'wx-aviation',
+      title: 'Aviation',
+      groups: [{ layers: ['tfrs', 'awc'] }],
     },
     {
       id: 'wx-outlooks',

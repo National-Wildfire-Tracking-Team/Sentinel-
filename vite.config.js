@@ -6,6 +6,7 @@ import { ROUTES as NWS_MAPSERVICE_ROUTES } from './netlify/edge-functions/nws-ma
 import { ROUTES as WEATHER_GOV_ROUTES } from './netlify/edge-functions/weather-gov-proxy.js';
 import { ROUTES as ARCGIS_ROUTES } from './netlify/edge-functions/arcgis-proxy.js';
 import { ROUTES as AWC_ROUTES } from './netlify/edge-functions/awc-proxy.js';
+import { ROUTES as TFR_ROUTES } from './netlify/edge-functions/faa-tfr-proxy.js';
 
 // Dev/preview twin of netlify/edge-functions/nws-mapservices-proxy.js: one
 // proxy entry per route, so /api/nws/<key>/... reaches the same upstream
@@ -91,6 +92,25 @@ const awcProxy = Object.fromEntries(
           if (route.params.includes(k)) params.append(k, v);
         }
         const qs = params.toString().replace(/%2C/g, ',');
+        return qs ? `${pathname}?${qs}` : pathname;
+      },
+    }];
+  })
+);
+
+// Dev/preview twin of netlify/edge-functions/faa-tfr-proxy.js (/api/tfr/<route>/...).
+// Caller params are dropped; each route's forcedParams are its whole query.
+const tfrProxy = Object.fromEntries(
+  Object.entries(TFR_ROUTES).map(([key, route]) => {
+    const prefix = `/api/tfr/${key}`;
+    return [`^${prefix}(/|\\?|$)`, {
+      target: 'https://tfr.faa.gov',
+      changeOrigin: true,
+      secure: true,
+      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; SentinelWildfireTracker/1.0)' },
+      rewrite: (path) => {
+        const pathname = route.path + path.slice(prefix.length).split('?')[0];
+        const qs = new URLSearchParams(route.forcedParams || {}).toString();
         return qs ? `${pathname}?${qs}` : pathname;
       },
     }];
@@ -206,6 +226,7 @@ export default defineConfig({
       ...weatherGovProxy,
       ...arcgisProxy,
       ...awcProxy,
+      ...tfrProxy,
       // NWPS – api.water.noaa.gov lacks CORS headers; dev server proxies same paths as Netlify edge fn
       '/api/nwps': {
         target: 'https://api.water.noaa.gov/nwps/v1',
@@ -303,6 +324,7 @@ export default defineConfig({
       ...weatherGovProxy,
       ...arcgisProxy,
       ...awcProxy,
+      ...tfrProxy,
       '/api/nwps': {
         target: 'https://api.water.noaa.gov/nwps/v1',
         changeOrigin: true,

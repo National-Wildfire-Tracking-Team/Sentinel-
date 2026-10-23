@@ -76,6 +76,8 @@ import { useFireDangerContext } from '../../context/FireDangerContext';
 import RadarSitesLayer, { RadarSiteSweepLayer, RADAR_SITES_PILL_ID } from './layers/RadarSitesLayer';
 import LightningLayer from './layers/LightningLayer';
 import AwcLayers from './layers/AwcLayers';
+import TfrLayer from './layers/TfrLayer';
+import { TFR_FILL_ID, buildTfrRecord } from './layers/tfrRecords';
 import { awcInteractiveLayerIds, buildAwcRecord } from './layers/awcRecords';
 import { useAwcContext } from '../../context/AwcContext';
 import { parseAliasIds } from '../../utils/incidentAliases';
@@ -179,6 +181,7 @@ function buildFeatureRecord(feature, lngLat, alerts, { floodPanel = null, fireDa
 
   // Aviation Weather Center layers (AwcLayers): every one opens AwcDetail.
   if (feature.layer.id.startsWith('awc-src-')) return buildAwcRecord(feature, lngLat);
+  if (feature.layer.id === TFR_FILL_ID) return buildTfrRecord(feature, lngLat);
 
   switch (feature.layer.id) {
     case SFP_FILL_ID:
@@ -880,8 +883,9 @@ export default function MapView({
     if ((isWeatherTab || isAllHazardTab) && layers.weatherAlerts && wpcMpdGeoJSON?.features?.length) ids.push('wpc-mpd-fill');
     if (radarSitesActive) ids.push(RADAR_SITES_PILL_ID);
     ids.push(...awcInteractiveLayerIds(awc));
+    if ((isWildfireTab || isWeatherTab || isAllHazardTab) && layers.tfrs) ids.push(TFR_FILL_ID);
     return ids;
-  }, [measureActive, radarSitesActive, awc, isWildfireTab, isWeatherTab, isAllHazardTab, layers.fireHotspots, layers.incidentLocations, layers.aqi,
+  }, [measureActive, radarSitesActive, awc, isWildfireTab, isWeatherTab, isAllHazardTab, layers.tfrs, layers.fireHotspots, layers.incidentLocations, layers.aqi,
       layers.weatherAlerts, layers.spcWeatherOutlooks, layers.stormReports, layers.evacZones, spcMdGeoJSON,
       layers.rawsStations, layers.airNowMonitors, layers.droughtOutlook, layers.ndgdSmokeForecast, layers.fireWeatherOutlooks,
       layers.damageAssessment,
@@ -1415,6 +1419,9 @@ export default function MapView({
         {/* Aviation Weather Center: hazard shapes, navigation, PIREPs and airport
             weather dots (Weather and All Hazards tabs; AwcContext gates them) */}
         <AwcLayers />
+
+        {/* FAA Temporary Flight Restrictions (Aviation section; every tab but Models) */}
+        <TfrLayer visible={(isWildfireTab || isWeatherTab || isAllHazardTab) && layers.tfrs} />
 
         {/* WPC Mesoscale Precipitation Discussions — part of the weatherAlerts
             ("NWS & mesoscale") layer alongside SPC MDs; hidden on the wildfire tab */}

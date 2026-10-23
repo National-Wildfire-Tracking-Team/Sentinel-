@@ -35,6 +35,7 @@ import { LEGENDS as SATELLITE_LEGENDS, attributionFor } from '../../api/goesSate
 import {
   AWC_HAZARD_TOGGLES, FLIGHT_CATEGORY_COLORS, FLIGHT_CATEGORY_LABELS, PIREP_SEVERITY_COLORS, PIREP_SEVERITY_LABELS, hazardStyle,
 } from '../../api/awc/awc';
+import { TFR_COLOR } from '../../api/tfr';
 
 const CONTAINMENT_SCALE = [
   { color: CONTAINMENT_RED, label: 'Uncontained (0%)' },
@@ -619,6 +620,15 @@ const Legend = memo(function Legend({
                 {AWC_HAZARD_TOGGLES.filter((t) => layers[t.key]).map((t) => (
                   <ColorRow key={t.key} color={hazardStyle(t.hz[0]).color} label={t.label} />
                 ))}
+              </Section>
+            )}
+
+            {layers.tfrs && (
+              <Section title="Flight Restrictions (FAA TFR)">
+                <ColorRow color={TFR_COLOR} label="Temporary flight restriction" />
+                <div className="text-sentinel-500 dark:text-sentinel-300 text-[10px] pt-1 mt-1 border-t border-sentinel-200 dark:border-sentinel-700">
+                  Active TFRs from tfr.faa.gov · not for flight planning
+                </div>
               </Section>
             )}
 
