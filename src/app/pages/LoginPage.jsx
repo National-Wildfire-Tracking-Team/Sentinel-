@@ -73,7 +73,9 @@ export default function LoginPage() {
       if (role === 'reporter' || role === 'admin') {
         navigate('/reporter-dashboard', { replace: true });
       } else {
-        navigate(redirectTo, { replace: true });
+        // Landing on the plain map opens the post-login Overview (LoginOverview);
+        // returning to a specific page or shared link goes straight there.
+        navigate(redirectTo, { replace: true, state: redirectTo === '/' ? { overview: true } : undefined });
       }
     } catch (err) {
       const msg = err?.message || '';

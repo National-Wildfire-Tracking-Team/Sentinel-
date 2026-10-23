@@ -14,6 +14,7 @@ import { nwsAlertCategory } from '../utils/nwsColors';
 import { FIRE_WEATHER_ALERT_TYPES } from '../api/noaaWeather';
 import { useSavedLocations } from '../hooks/useSavedLocations';
 import { useCallback, useEffect, useMemo, useRef, useState, lazy, Suspense } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 
 // Data hooks
 import { useFireHotspots } from '../hooks/useFireHotspots';
@@ -54,7 +55,8 @@ import { useStormMotionVectors } from '../hooks/useStormMotionVectors';
 import { useCaliforniaCameras } from '../hooks/useCaliforniaCameras';
 import { useCalFirePerimeters } from '../hooks/useCalFirePerimeters';
 import { useNearbyOutlooks } from '../hooks/useNearbyOutlooks';
-import { filterByRadius, filterFeatureCollectionByRadius, circlePolygon } from '../utils/radiusFilter';
+import { filterByRadius, filterFeatureCollectionByRadius, circlePolygon, zoomForRadius } from '../utils/radiusFilter';
+import { summarizeOverview, QUICK_FILTERS } from '../utils/overviewSummary';
 import { featureCollectionsBounds, polygonCentroid } from '../utils/geoUtils';
 import { incidentsToGeoJSON } from '../api/inciweb';
 import { mergeIrwinAndCalFireIncidents } from '../utils/mergeIncidents';
@@ -87,6 +89,7 @@ import RouteToSafetyPanel from '../components/Routing/RouteToSafetyPanel';
 import RouteLayer from '../components/Map/layers/RouteLayer';
 import FutureFeaturesPanel from '../components/MapControls/FutureFeaturesPanel';
 import SimplifiedPrompt from '../components/MapControls/SimplifiedPrompt';
+import LoginOverview from '../components/Overview/LoginOverview';
 import AccountButton from '../components/MapControls/AccountButton';
 import AccountPanel from '../components/AccountPanel/AccountPanel';
 import Legend from '../components/Legend/Legend';
@@ -362,9 +365,9 @@ const STALE_CHECK_MS = 30 * 1000;
 const RAWS_MIN_ZOOM = 9;
 
 export default function LiveTrackerPage() {
-  const { layers, setLayer, feedFilter, selectedGauge, selectGauge, selectedFire, selectFire, selectedCamera, selectCamera, wpcOutlookDay, nhcWindProbKt, closeLayerPanel } = useApp();
+  const { layers, setLayer, feedFilter, setFeedFilter, openSidebar, selectedGauge, selectGauge, selectedFire, selectFire, selectedCamera, selectCamera, wpcOutlookDay, nhcWindProbKt, closeLayerPanel } = useApp();
   const { setRefreshed, setLoading, alerts, userLocation, lastRefreshed } = useAppStatus();
-  const { home, nearbyActive } = useHomeSetup();
+  const { home, nearbyActive, isHomeSetupComplete, openHomeSetup } = useHomeSetup();
   const { viewport, setViewport, flyToFire } = useViewport();
   const { simplified } = useSimplifiedMode();
   const { hasProInfrastructureAccess, hasFireBehaviorModelingAccess, hasEvacuationRoutesAccess, hasFireDangerAccess } = usePlan();
@@ -1503,6 +1506,47 @@ export default function LiveTrackerPage() {
     if (!anyLoading) setRefreshed(new Date());
   }, [anyLoading, setRefreshed]);
 
+  // ── Post-login Overview ──
+  // LoginPage sends { overview: true } in router state when it lands here.
+  // The flag is cleared from history right away so a reload or Back doesn't
+  // bring the Overview up again.
+  const location = useLocation();
+  const navigate = useNavigate();
+  const [overviewOpen, setOverviewOpen] = useState(() => Boolean(location.state?.overview));
+  useEffect(() => {
+    if (location.state?.overview) {
+      navigate(`${location.pathname}${location.search}`, { replace: true, state: null });
+    }
+  }, [location.state, location.pathname, location.search, navigate]);
+  const closeOverview = useCallback(() => setOverviewOpen(false), []);
+
+  const overviewSummary = useMemo(() => (overviewOpen ? summarizeOverview({
+    incidents: mergedIncidents,
+    alerts,
+    evacZones: evacZonesGeoJSON,
+    home: isHomeSetupComplete ? home : null,
+  }) : null), [overviewOpen, mergedIncidents, alerts, evacZonesGeoJSON, isHomeSetupComplete, home]);
+  // Only the first load shows as loading; later polls update the numbers in place.
+  const overviewLoading = !mapReady || ((incidentsLoading || calFireLoading) && !mergedIncidents.length);
+
+  const handleQuickFilter = useCallback((key) => {
+    if (key === QUICK_FILTERS.activeFires || key === QUICK_FILTERS.allFires) {
+      handleTabChange(MAP_TABS.wildfire);
+      setFeedFilter(key === QUICK_FILTERS.activeFires ? 'focused' : 'all');
+      openSidebar();
+    } else if (key === QUICK_FILTERS.allHazards) {
+      handleTabChange(MAP_TABS.allhazard);
+    } else if (key === QUICK_FILTERS.myArea && isHomeSetupComplete) {
+      setViewport({ latitude: home.latitude, longitude: home.longitude, zoom: zoomForRadius(home.latitude, home.radiusMiles) });
+    }
+    closeOverview();
+  }, [handleTabChange, setFeedFilter, openSidebar, isHomeSetupComplete, home, setViewport, closeOverview]);
+
+  const handleOverviewSetUpHome = useCallback(() => {
+    closeOverview();
+    openHomeSetup();
+  }, [closeOverview, openHomeSetup]);
+
   // ── Manual refresh ──
   const handleRefresh = useCallback(() => {
     refreshHotspots();
@@ -1818,7 +1862,19 @@ export default function LiveTrackerPage() {
           {/* Hidden while the full-height water gauge panel is open, whose close button sits in the same corner. */}
           {!selectedGauge && <AccountButton />}
           <AccountPanel />
-          <SimplifiedPrompt />
+          {/* One first-look at a time: the Simplified prompt waits until the Overview closes. */}
+          {overviewOpen ? (
+            <LoginOverview
+              summary={overviewSummary}
+              home={isHomeSetupComplete ? home : null}
+              loading={overviewLoading}
+              onClose={closeOverview}
+              onQuickFilter={handleQuickFilter}
+              onSetUpHome={handleOverviewSetUpHome}
+            />
+          ) : (
+            <SimplifiedPrompt />
+          )}
 
           <MapBottomBar
             ref={mapBottomBarRef}
