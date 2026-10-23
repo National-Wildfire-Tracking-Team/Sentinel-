@@ -56,7 +56,7 @@ const PLUS_FEATURES = [
   { icon: <Bell size={14} />,           label: 'Custom alert rules (wind, humidity, distance, dry lightning)', soon: true },
   { icon: <CloudLightning size={14} />, label: 'Lightning replay', soon: true },
   { icon: <History size={14} />,        label: '50-frame radar loops & 30-day archive', soon: true },
-  { icon: <Columns size={14} />,        label: 'Multi-pane map view', soon: true },
+  { icon: <Columns size={14} />,        label: 'Multi-pane map view' },
   { icon: <Leaf size={14} />,           label: 'Fire Danger & Fuels (fire potential, NFDRS stations, fuel moisture, fuel models & alerts)' },
   { icon: <Search size={14} />,         label: 'Historical fire search', soon: true },
 ];

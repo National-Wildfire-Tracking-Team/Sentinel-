@@ -338,7 +338,8 @@ const DockSheet = memo(function DockSheet({ tabs: allTabs, bottomOffset, bottomB
   return (
     <div
       ref={rootRef}
-      className="absolute left-1/2 -translate-x-1/2 z-20 flex flex-col pointer-events-none"
+      data-map-control=""
+      className="absolute left-1/2 -translate-x-1/2 z-[var(--bar-z,20)] flex flex-col pointer-events-none"
       style={{
         bottom: bottomOffset,
         width: bottomBarWidth ? `max(${bottomBarWidth}px, min(24rem, calc(100vw - 1rem)))` : 'min(24rem, calc(100vw - 1rem))',

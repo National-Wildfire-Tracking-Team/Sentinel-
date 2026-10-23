@@ -28,6 +28,7 @@ import {
   EvacuationCard, EvacuationNotes, InfoGroup, ShareFollowFooter, SheetHandle, ShelterList, TabButton, infoLink,
 } from './sidebarParts';
 import { useBottomSheet, useEscapeToClose, useIsDesktop, useNow } from './useSidebar';
+import { usePanelDrag } from '../Map/usePopupDrag';
 
 const EMPTY_FC = { type: 'FeatureCollection', features: [] };
 
@@ -274,6 +275,8 @@ export default function HurricaneSidebar({ fire, nhc, product, onProductChange, 
   const scrollRef = useRef(null);
   const tabsAnchorRef = useRef(null);
   const isDesktop = useIsDesktop();
+  // Popup Draggability: the desktop panel can be dragged aside by any part of it.
+  const drag = usePanelDrag(fire?.id);
   const sheetRef = useRef(null);
   const handleRef = useRef(null);
   const peekRef = useRef(null);
@@ -306,10 +309,11 @@ export default function HurricaneSidebar({ fire, nhc, product, onProductChange, 
     <aside
       ref={sheetRef}
       aria-label={`${storm.name} storm details`}
-      style={isDesktop ? undefined : { height: sheet.height }}
-      className={`z-30 flex flex-col overflow-hidden border-sentinel-500 bg-sentinel-800 text-slate-100 shadow-2xl
+      {...(isDesktop ? drag.dragProps : {})}
+      style={isDesktop ? { translate: drag.translate } : { height: sheet.height }}
+      className={`z-30 flex flex-col overflow-hidden border-sentinel-500 bg-sentinel-800 text-slate-100 shadow-2xl ${isDesktop ? drag.dragClass : ''}
         ${isDesktop
-          ? 'absolute right-4 top-[68px] bottom-4 w-[720px] max-w-[calc(100%-2rem)] rounded-2xl border animate-slide-in-right'
+          ? 'absolute right-4 top-[68px] bottom-[var(--right-panel-bottom,1rem)] w-[min(720px,var(--right-panel-max-width,720px))] max-w-[calc(100%-2rem)] rounded-2xl border animate-slide-in-right'
           : `fixed inset-x-0 bottom-0 rounded-t-2xl border-t animate-slide-up-panel
              ${sheet.dragging ? '' : 'transition-[height] duration-300 ease-out'}`}`}
     >

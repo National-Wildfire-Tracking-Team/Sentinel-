@@ -1,7 +1,7 @@
 /**
  * analytics.js
  * Thin wrapper around the gtag.js queue set up by DeferredAnalytics.
- * DeferredAnalytics defers loading the GTM/gtag scripts until first
+ * DeferredAnalytics defers loading the gtag script until first
  * interaction/idle/timeout, so window.gtag may not exist yet when an
  * engagement event fires. Rather than drop the event, queue it onto
  * window.dataLayer using the same stub shape DeferredAnalytics installs

@@ -7,7 +7,6 @@
 
 import { useRef, useCallback, useMemo, useState, useEffect } from 'react';
 import Map, { Marker, Source, Layer } from 'react-map-gl';
-import 'mapbox-gl/dist/mapbox-gl.css';
 import MapZoomControl from './MapZoomControl';
 
 import { useApp } from '../../context/AppContext';
@@ -698,8 +697,8 @@ export default function MapView({
   }, [selectedFire]);
 
   // Popup Spotlight for the currently selected weather alert or evacuation
-  // zone — works no matter how it was selected (map click, sidebar feed, or
-  // the Red Flag Warning banner), since all three carry the feature's
+  // zone — works no matter how it was selected (map click or sidebar feed),
+  // since both carry the feature's
   // GeoJSON geometry on the selectedFire record.
   const spotlightGeometry = useMemo(() => {
     if (!displayPrefs.popupSpotlight || !selectedFire) return null;
@@ -1173,9 +1172,9 @@ export default function MapView({
   // globe's curvature is accounted for. Skipped if anything already moved the
   // camera (a shared incident link, the user panning).
   //
-  // The map's size can change after load (the Red Flag Warning banner drops in
-  // above it once alerts arrive, or is dismissed), so it re-frames on resize for
-  // as long as the camera is still the one it framed.
+  // The map's size can change after load (the window is resized or rotated),
+  // so it re-frames on resize for as long as the camera is still the one it
+  // framed.
   const autoFrameRef = useRef(null);
   const frameRunRef = useRef(0);
   const frameConus = useCallback(async (map) => {

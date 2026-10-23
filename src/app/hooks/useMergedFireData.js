@@ -103,6 +103,44 @@ export function pointNearGeometry(point, geometry, bufferDeg) {
       && py >= minLat - bufferDeg && py <= maxLat + bufferDeg;
 }
 
+// Fire names repeat across the country ("Willow", "Ridge", "Line"), so a
+// shared name alone doesn't make two records one fire. Matched on the name
+// alone, a Colorado fire took a California fire's acres, containment and id,
+// and live fires dropped out of the feed. Records of one fire sit within
+// this distance of each other, or of its perimeter.
+export const SAME_FIRE_KM = 30;
+const SAME_FIRE_DEG = SAME_FIRE_KM / 111;
+
+function isLngLat(point) {
+  return Array.isArray(point) && Number.isFinite(point[0]) && Number.isFinite(point[1])
+    && !(point[0] === 0 && point[1] === 0);
+}
+
+/**
+ * True when two [lng, lat] points are close enough to be one fire. A record
+ * with no usable location can't be ruled out, so it counts as near.
+ */
+export function pointsNearSameFire(a, b) {
+  if (!isLngLat(a) || !isLngLat(b)) return true;
+  const kmPerDegLng = 111.32 * Math.cos(((a[1] + b[1]) / 2) * Math.PI / 180);
+  return Math.hypot((a[0] - b[0]) * kmPerDegLng, (a[1] - b[1]) * 111.32) <= SAME_FIRE_KM;
+}
+
+/** True when an incident's [lng, lat] point is close enough to a perimeter to be that fire. */
+export function pointNearPerimeter(point, geometry) {
+  if (!isLngLat(point) || !geometry) return true;
+  return pointNearGeometry(point, geometry, SAME_FIRE_DEG);
+}
+
+/** True when two perimeters are close enough to be captures of one fire. */
+function perimetersNear(a, b) {
+  const [aMinLng, aMinLat, aMaxLng, aMaxLat] = geometryBBox(a);
+  const [bMinLng, bMinLat, bMaxLng, bMaxLat] = geometryBBox(b);
+  if (!Number.isFinite(aMinLng) || !Number.isFinite(bMinLng)) return true;
+  return aMinLng <= bMaxLng + SAME_FIRE_DEG && bMinLng <= aMaxLng + SAME_FIRE_DEG
+      && aMinLat <= bMaxLat + SAME_FIRE_DEG && bMinLat <= aMaxLat + SAME_FIRE_DEG;
+}
+
 function bboxArea([minLng, minLat, maxLng, maxLat]) {
   return Math.max(0, maxLng - minLng) * Math.max(0, maxLat - minLat);
 }
@@ -233,21 +271,23 @@ export function tagHistoricalMappings(perimeters) {
 
 /**
  * Merge two perimeter FeatureCollections. Primary (WFIGS) features take priority;
- * secondary (FIRIS) features are added when their incident_name doesn't already
- * appear in the primary set. FIRIS features with no name (common — many FIRIS
+ * secondary (FIRIS) features are added unless the primary set maps a fire of
+ * the same incident_name nearby. FIRIS features with no name (common — many FIRIS
  * perimeters carry a null incident_name) can't be matched against primary by
  * name at all, so they're kept rather than dropped as unmatchable duplicates.
  */
 function mergePerimeterSources(primary, secondary) {
-  const primaryKeys = new Set();
+  const primaryByKey = new Map();
   primary.features.forEach(f => {
     const key = getFireMatchKey(f.properties.IncidentName);
-    if (key) primaryKeys.add(key);
+    if (!key) return;
+    if (!primaryByKey.has(key)) primaryByKey.set(key, []);
+    primaryByKey.get(key).push(f.geometry);
   });
 
   const addedFeatures = (secondary.features || []).filter(f => {
     const key = getFireMatchKey(f.properties.IncidentName);
-    return !key || !primaryKeys.has(key);
+    return !key || !(primaryByKey.get(key) || []).some(g => perimetersNear(g, f.geometry));
   });
 
   return {
@@ -288,8 +328,9 @@ function incidentStats(props, inc) {
  * rather than an older greyed-out capture. Captures sharing a
  * `_mappingGroup` are tested against every geometry in the group, and may
  * adopt an incident another capture of the same fire already claimed.
+ * `used` maps each claimed incident feature to its claimant's group.
  */
-function adoptNearbyIncidents(features, incidentFeatures, usedKeys, isNear) {
+function adoptNearbyIncidents(features, incidentFeatures, used, isNear) {
   const groupGeometries = new Map();
   features.forEach(f => {
     const group = f.properties._mappingGroup;
@@ -318,14 +359,13 @@ function adoptNearbyIncidents(features, incidentFeatures, usedKeys, isNear) {
     const match = incidentFeatures.find(dot => {
       const dotKey = getFireMatchKey(dot.properties.IncidentName);
       if (!dotKey) return false;
-      if (usedKeys.has(dotKey) && (!group || usedKeys.get(dotKey) !== group)) return false;
+      if (used.has(dot) && (!group || used.get(dot) !== group)) return false;
       const coords = dot.geometry?.coordinates;
       return Array.isArray(coords) && geometries.some(g => isNear([coords[0], coords[1]], g));
     });
     if (!match) continue;
 
-    const matchKey = getFireMatchKey(match.properties.IncidentName);
-    if (!usedKeys.has(matchKey)) usedKeys.set(matchKey, group);
+    if (!used.has(match)) used.set(match, group);
     const inc = match.properties;
     out[idx] = {
       ...f,
@@ -387,46 +427,54 @@ export function mergeFireData(perimeters, incidents, calFireDotsGeoJSON = null) 
   // Index incidents by match key: when IRWIN and CAL FIRE both report the
   // same CA fire, CAL FIRE's record wins; within the same source, keep the
   // more recently modified one rather than whichever happens to come last
-  // in the API's result order.
+  // in the API's result order. Records are one fire only when they also sit
+  // close together (SAME_FIRE_KM); a same-named fire elsewhere stays separate.
   // The losing record's id (and anything it had absorbed) is kept on the
   // winner as `_aliasIds`, so data stored under either id stays reachable —
   // see src/app/utils/incidentAliases.js.
-  const featuresByKey = new Map();
-  const aliasesByKey = new Map();
+  const firesByKey = new Map();
   const noKeyFeatures = [];
   const considerIncident = f => {
     const key = getFireMatchKey(f.properties.IncidentName);
     if (!key) { noKeyFeatures.push(f); return; }
-    const existing = featuresByKey.get(key);
-    if (!existing) { featuresByKey.set(key, f); return; }
+    if (!firesByKey.has(key)) firesByKey.set(key, []);
+    const fires = firesByKey.get(key);
+    const fire = fires.find(e => pointsNearSameFire(e.feature.geometry?.coordinates, f.geometry?.coordinates));
+    if (!fire) { fires.push({ feature: f, aliases: '' }); return; }
+    const existing = fire.feature;
     const existingIsCalFire = existing.properties._source === 'CAL_FIRE';
     const candidateIsCalFire = f.properties._source === 'CAL_FIRE';
     const candidateWins = candidateIsCalFire !== existingIsCalFire
       ? candidateIsCalFire
       : incidentTime(f.properties) > incidentTime(existing.properties);
     const loser = candidateWins ? existing : f;
-    aliasesByKey.set(key, joinAliasIds(null, aliasesByKey.get(key), loser.properties.UniqueFireIdentifier, loser.properties._aliasIds));
-    if (candidateWins) featuresByKey.set(key, f);
+    fire.aliases = joinAliasIds(null, fire.aliases, loser.properties.UniqueFireIdentifier, loser.properties._aliasIds);
+    if (candidateWins) fire.feature = f;
   };
   incidents.features.forEach(considerIncident);
   calFeatures.forEach(considerIncident);
 
-  for (const [key, f] of featuresByKey) {
-    const aliases = joinAliasIds(f.properties.UniqueFireIdentifier, aliasesByKey.get(key), f.properties._aliasIds);
-    if (aliases) featuresByKey.set(key, { ...f, properties: { ...f.properties, _aliasIds: aliases } });
-  }
+  const keyedFeatures = [...firesByKey.values()].flat().map(({ feature: f, aliases: absorbed }) => {
+    const aliases = joinAliasIds(f.properties.UniqueFireIdentifier, absorbed, f.properties._aliasIds);
+    return aliases ? { ...f, properties: { ...f.properties, _aliasIds: aliases } } : f;
+  });
 
   const mergedIncidents = {
     ...incidents,
-    features: [...featuresByKey.values(), ...noKeyFeatures],
+    features: [...keyedFeatures, ...noKeyFeatures],
   };
 
+  // Match key → every incident of that name (one per fire).
   const incidentsByKey = new Map();
-  featuresByKey.forEach((f, key) => incidentsByKey.set(key, f.properties));
+  keyedFeatures.forEach(f => {
+    const key = getFireMatchKey(f.properties.IncidentName);
+    if (!incidentsByKey.has(key)) incidentsByKey.set(key, []);
+    incidentsByKey.get(key).push(f);
+  });
 
-  // Match key → the `_mappingGroup` of the perimeter that claimed it (null
-  // when ungrouped). Other captures of that same fire may still adopt it.
-  const usedKeys = new Map();
+  // Incident feature → the `_mappingGroup` of the perimeter that claimed it
+  // (null when ungrouped). Other captures of that same fire may still adopt it.
+  const used = new Map();
 
   // Pass 0: ID-based matching — WFIGS Perimeters and Incident Locations both
   // carry the same canonical UniqueFireIdentifier for a given real-world
@@ -437,15 +485,15 @@ export function mergeFireData(perimeters, incidents, calFireDotsGeoJSON = null) 
   const incidentsById = new Map();
   mergedIncidents.features.forEach(f => {
     const id = f.properties.UniqueFireIdentifier;
-    if (id) incidentsById.set(id, f.properties);
+    if (id) incidentsById.set(id, f);
   });
 
   const idMatchedFeatures = perimeters.features.map(f => {
     const id = f.properties.UniqueFireIdentifier;
-    const inc = id ? incidentsById.get(id) : null;
-    if (!inc) return f;
-    const incKey = getFireMatchKey(inc.IncidentName);
-    if (incKey) usedKeys.set(incKey, f.properties._mappingGroup || null);
+    const match = id ? incidentsById.get(id) : null;
+    if (!match) return f;
+    used.set(match, f.properties._mappingGroup || null);
+    const inc = match.properties;
     return {
       ...f,
       properties: {
@@ -457,17 +505,21 @@ export function mergeFireData(perimeters, incidents, calFireDotsGeoJSON = null) 
     };
   });
 
-  // Pass 1: name-based matching. Also adopts the incident's canonical
-  // UniqueFireIdentifier — a name-only match means Pass 0's ID lookup didn't
+  // Pass 1: name-based matching, to an incident of that name close enough to
+  // the perimeter to be the same fire. Also adopts the incident's canonical
+  // UniqueFireIdentifier — a name match means Pass 0's ID lookup didn't
   // find this incident, so the perimeter's own id is source-specific (e.g. a
   // FIRIS capture's GlobalID) rather than the real fire's id, and features
   // downstream (incident update history, community reports) are keyed off
   // the canonical id.
   const enrichedFeatures = idMatchedFeatures.map(f => {
     const key = getFireMatchKey(f.properties.IncidentName);
-    if (key && incidentsByKey.has(key)) {
-      usedKeys.set(key, f.properties._mappingGroup || null);
-      const inc = incidentsByKey.get(key);
+    const match = key
+      ? (incidentsByKey.get(key) || []).find(dot => pointNearPerimeter(dot.geometry?.coordinates, f.geometry))
+      : null;
+    if (match) {
+      used.set(match, f.properties._mappingGroup || null);
+      const inc = match.properties;
       return {
         ...f,
         properties: {
@@ -493,19 +545,17 @@ export function mergeFireData(perimeters, incidents, calFireDotsGeoJSON = null) 
   // bounding box, rather than strictly inside it.
   const PROXIMITY_BUFFER_DEG = 0.05; // ~5.5km at the equator — CONUS-appropriate approximation
   const finalFeatures = adoptNearbyIncidents(
-    enrichedFeatures, mergedIncidents.features, usedKeys,
+    enrichedFeatures, mergedIncidents.features, used,
     (point, geometry) => pointInGeometry(point, geometry),
   );
   const proximityFeatures = adoptNearbyIncidents(
-    finalFeatures, mergedIncidents.features, usedKeys,
+    finalFeatures, mergedIncidents.features, used,
     (point, geometry) => pointNearGeometry(point, geometry, PROXIMITY_BUFFER_DEG),
   );
 
   // Dot markers: incidents that have no matching perimeter
-  const dotFeatures = mergedIncidents.features.filter(f => {
-    const key = getFireMatchKey(f.properties.IncidentName);
-    return key && !usedKeys.has(key);
-  });
+  const dotFeatures = mergedIncidents.features.filter(f =>
+    getFireMatchKey(f.properties.IncidentName) && !used.has(f));
 
   return {
     perimeters: { ...perimeters, features: proximityFeatures },

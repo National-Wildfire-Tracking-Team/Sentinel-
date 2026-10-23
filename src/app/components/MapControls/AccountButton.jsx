@@ -13,7 +13,7 @@ const AccountButton = memo(function AccountButton() {
   const { isAuthenticated } = useAuth();
 
   return (
-    <div data-account-trigger className="absolute top-4 right-4 z-50">
+    <div data-account-trigger data-map-control="" className="absolute top-4 right-4 z-50">
       <button
         type="button"
         onClick={toggleAccountPanel}

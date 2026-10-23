@@ -179,6 +179,9 @@ export async function fetchFirePerimeters({ minAcres = 0 } = {}) {
       'attr_TotalIncidentPersonnel',
       'attr_IncidentTypeCategory',
       'attr_FireCause',
+      'attr_ContainmentDateTime',
+      'attr_ControlDateTime',
+      'attr_FireOutDateTime',
     ].join(','),
     outSR: '4326',
     // Rounds coordinates to ~1.1m precision — imperceptible at any browser
@@ -209,6 +212,9 @@ export async function fetchFirePerimeters({ minAcres = 0 } = {}) {
 
 /**
  * Remap attr_/poly_ prefixed properties to the flat schema the map layers expect.
+ * ContainmentDateTime marks a fire declared contained, ControlDateTime /
+ * FireOutDateTime one that's over: most carry a blank PercentContained (read
+ * as 0%), so the percentage alone can't tell.
  */
 function normalizePerimeters(geojson) {
   return {
@@ -220,6 +226,9 @@ function normalizePerimeters(geojson) {
         IncidentName:              f.properties.attr_IncidentName || f.properties.poly_IncidentName || 'Unknown Fire',
         GISAcres:                  f.properties.poly_GISAcres || 0,
         PercentContained:          f.properties.attr_PercentContained ?? 0,
+        ContainmentDateTime:       f.properties.attr_ContainmentDateTime || null,
+        ControlDateTime:           f.properties.attr_ControlDateTime || null,
+        FireOutDateTime:           f.properties.attr_FireOutDateTime || null,
         FireDiscoveryDateTime:     f.properties.attr_FireDiscoveryDateTime,
         ModifiedOnDateTime:        f.properties.attr_ModifiedOnDateTime_dt,
         POOState:                  f.properties.attr_POOState || '',

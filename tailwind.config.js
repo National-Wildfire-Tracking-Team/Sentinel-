@@ -48,10 +48,10 @@ export default {
           500: 'rgb(var(--sentinel-text-500) / <alpha-value>)',
         },
       },
-      fontFamily: {
-        sans: ['Inter', 'system-ui', 'sans-serif'],
-        mono: ['JetBrains Mono', 'Fira Code', 'monospace'],
-      },
+      // No fontFamily override: Tailwind's default sans/mono stacks are the
+      // device's own fonts (SF Pro/SF Mono on Apple, Segoe UI on Windows,
+      // Roboto on Android), so text renders with nothing to download. A
+      // webfont stylesheet here would block the first paint.
       animation: {
         'pulse-fire': 'pulse 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite',
         'slide-in-left': 'slideInLeft 0.3s ease-out',

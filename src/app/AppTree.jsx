@@ -14,6 +14,7 @@ import { HomeSetupProvider } from './context/HomeSetupContext';
 import { ViewportProvider } from './context/ViewportContext';
 import PreventPinchZoom from '../shared/components/PreventPinchZoom';
 import AppRouter from './router';
+import './app.css';
 
 export default function AppTree() {
   return (

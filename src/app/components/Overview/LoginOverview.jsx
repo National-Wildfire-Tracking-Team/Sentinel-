@@ -14,6 +14,7 @@ import {
   AlertTriangle, CloudLightning, Flame, Home, Loader2, ShieldAlert, ShieldCheck, X,
 } from 'lucide-react';
 import { AREA_STATUS, QUICK_FILTERS } from '../../utils/overviewSummary';
+import { usePanelDrag } from '../Map/usePopupDrag';
 
 const plural = (n, one, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 
@@ -93,6 +94,8 @@ function AreaCard({ area, home, loading, onSetUpHome }) {
 
 export default function LoginOverview({ summary, home, loading, onClose, onQuickFilter, onSetUpHome }) {
   const openMapRef = useRef(null);
+  // Popup Draggability: the card can be dragged aside by any part of it.
+  const drag = usePanelDrag('login-overview');
 
   useEffect(() => {
     openMapRef.current?.focus();
@@ -116,7 +119,9 @@ export default function LoginOverview({ summary, home, loading, onClose, onQuick
         role="dialog"
         aria-modal="false"
         aria-labelledby="login-overview-title"
-        className="pointer-events-auto relative w-full max-w-3xl max-h-[calc(100%-5rem)] overflow-y-auto rounded-2xl border border-sentinel-200 dark:border-sentinel-600 bg-white/95 dark:bg-sentinel-900/95 backdrop-blur shadow-2xl p-4 sm:p-5 animate-fade-in motion-reduce:animate-none"
+        {...drag.dragProps}
+        style={{ translate: drag.translate }}
+        className={`${drag.dragClass} pointer-events-auto relative w-full max-w-3xl max-h-[calc(100%-5rem)] overflow-y-auto rounded-2xl border border-sentinel-200 dark:border-sentinel-600 bg-white/95 dark:bg-sentinel-900/95 backdrop-blur shadow-2xl p-4 sm:p-5 animate-fade-in motion-reduce:animate-none`}
       >
         <button
           type="button"

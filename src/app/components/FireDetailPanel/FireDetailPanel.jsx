@@ -31,6 +31,7 @@ import { useTimeFormat } from '../../hooks/useTimeFormat';
 import FireDangerPointDetail from './FireDangerPointDetail';
 import AwcDetail from './AwcDetail';
 import TfrDetail from './TfrDetail';
+import { usePanelDrag } from '../Map/usePopupDrag';
 
 // Fire-related detail types that represent a user opening a tracked wildfire
 // incident (as opposed to AQI stations, weather alerts, evac zones, etc).
@@ -468,6 +469,8 @@ function mesoscaleGraphicUrl(fire) {
  * is long-form prose, which is cramped in the narrow side panel.
  */
 function MesoscaleDiscussionModal({ fire, onClose }) {
+  // Popup Draggability: the dialog can be dragged aside by any part of it.
+  const drag = usePanelDrag(fire.id);
   const [text, setText] = useState(null);
   const [status, setStatus] = useState('loading'); // loading | ready | missing | error
   const [tab, setTab] = useState('text');
@@ -556,8 +559,10 @@ function MesoscaleDiscussionModal({ fire, onClose }) {
         role="dialog"
         aria-modal="true"
         aria-label={fire.name}
-        className="relative w-full max-w-3xl max-h-[88vh] flex flex-col
-                   bg-sentinel-900 border border-sentinel-700 rounded-2xl shadow-2xl overflow-hidden"
+        {...drag.dragProps}
+        style={{ translate: drag.translate }}
+        className={`${drag.dragClass} relative w-full max-w-3xl max-h-[88vh] flex flex-col
+                   bg-sentinel-900 border border-sentinel-700 rounded-2xl shadow-2xl overflow-hidden`}
       >
         <div className="h-1 shrink-0" style={{ backgroundColor: meta.color }} aria-hidden />
 
@@ -1402,6 +1407,8 @@ const FireDetailPanel = memo(function FireDetailPanel({ nhc = null }) {
   const { selectedFire, clearSelected } = useApp();
   const { alerts } = useAppStatus();
   const [shareStatus, setShareStatus] = useState('');
+  // Popup Draggability: the side panel can be dragged aside by any part of it.
+  const drag = usePanelDrag(selectedFire?.id);
   // Selected NHC product per storm, kept while switching between storms.
   const [stormProducts, setStormProducts] = useState({});
   const isShareableFireType = ['hotspot', 'perimeter', 'incident', 'user-report', 'weather-alert', 'hazard-event', 'nhc-storm'].includes(selectedFire?.type);
@@ -1537,10 +1544,10 @@ const FireDetailPanel = memo(function FireDetailPanel({ nhc = null }) {
       />
 
       {/* Panel */}
-      <div className="absolute right-4 top-[68px] bottom-4 z-30 w-72 sm:w-80
+      <div {...drag.dragProps} style={{ translate: drag.translate }} className={`${drag.dragClass} absolute right-4 top-[68px] bottom-4 sm:bottom-[var(--right-panel-bottom,1rem)] z-30 w-72 sm:w-[min(20rem,var(--right-panel-max-width,20rem))]
                       bg-sentinel-900 border border-sentinel-700
                       rounded-2xl shadow-2xl overflow-hidden flex flex-col
-                      animate-slide-in-right">
+                      animate-slide-in-right`}>
         {/* Panel header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-sentinel-700 shrink-0">
           <span className="text-xs font-bold text-sentinel-400 uppercase tracking-widest">

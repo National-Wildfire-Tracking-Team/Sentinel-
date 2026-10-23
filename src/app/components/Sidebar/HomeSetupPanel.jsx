@@ -88,7 +88,7 @@ export default function HomeSetupPanel() {
   const canSave = Boolean(location) && Boolean(radiusMiles) && !busy;
 
   return (
-    <div className="flex-1 overflow-y-auto p-3 space-y-4">
+    <div className="flex-1 overflow-y-auto p-3 space-y-4 scrollbar-visible">
       <div className="flex items-start justify-between gap-2">
         <div>
           <h3 className="flex items-center gap-1.5 text-sm font-semibold text-white">

@@ -1,6 +1,7 @@
 import Seo from '../../shared/components/Seo';
 import ParallaxHero from '../components/ParallaxHero';
 import aboutHero from '../assets/about-hero.jpg';
+import aboutHeroAvif from '../assets/about-hero.avif';
 import { getAppOrigin } from '../../shared/utils/getAppOrigin';
 import { ArrowRight } from 'lucide-react';
 
@@ -78,6 +79,7 @@ export default function AboutPage() {
           The scrim is lighter too: the shot is already a night exposure. */}
       <ParallaxHero
         image={aboutHero}
+        avif={aboutHeroAvif}
         focal="50%"
         focalX="32%"
         overhang={0.28}

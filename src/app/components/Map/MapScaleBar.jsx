@@ -9,17 +9,17 @@
  * edge (high enough to clear the Mapbox logo in the corner). On phones the
  * centered bottom bar leaves only a narrow strip to its left, so the scale's
  * maximum length shrinks to fit that strip rather than running under the bar.
+ *
+ * While a left sidebar is open (covering that corner), the scale moves to the
+ * right of the bar, beside the zoom / bug-report buttons — when there's room
+ * for it there (scaleRoomRightOfBar).
  */
 
-import { useEffect, useRef, useState } from 'react';
-
-const MAX_SCALE_WIDTH = 100;
-const MIN_SCALE_WIDTH = 40;
-// Horizontal padding + borders of the styled scale (see .sentinel-scale in index.css).
-const SCALE_CHROME = 18;
-const GAP_TO_BAR = 8;
-// The bottom bar sits at bottom-4.
-const BAR_BOTTOM = 16;
+import { useEffect, useRef } from 'react';
+import {
+  BAR_BOTTOM, GAP_TO_BAR, MAX_SCALE_WIDTH, MIN_SCALE_WIDTH, SCALE_CHROME, ZOOM_BUTTON, ZOOM_RIGHT,
+  scaleRoomRightOfBar, useViewportWidth,
+} from './mapEdgeLayout';
 
 export default function MapScaleBar({ map, maxWidth = MAX_SCALE_WIDTH, className = '' }) {
   const hostRef = useRef(null);
@@ -45,18 +45,25 @@ export default function MapScaleBar({ map, maxWidth = MAX_SCALE_WIDTH, className
   return <div ref={hostRef} className={`sentinel-scale flex ${className}`} />;
 }
 
-function useViewportWidth() {
-  const [width, setWidth] = useState(() => (typeof window === 'undefined' ? 1024 : window.innerWidth));
-  useEffect(() => {
-    const onResize = () => setWidth(window.innerWidth);
-    window.addEventListener('resize', onResize);
-    return () => window.removeEventListener('resize', onResize);
-  }, []);
-  return width;
-}
-
-export function MapScaleDock({ map, bottomBarWidth = 0, bottomBarHeight = 0 }) {
+export function MapScaleDock({ map, bottomBarWidth = 0, bottomBarHeight = 0, besidePanel = false }) {
   const viewportWidth = useViewportWidth();
+  const roomOnRight = besidePanel ? scaleRoomRightOfBar(viewportWidth, bottomBarWidth) : 0;
+
+  // Beside an open left sidebar: just left of the zoom buttons, centered on
+  // the bug-report button (the bottom one). Re-keyed so it fades in at its
+  // new spot instead of jumping across the map.
+  if (roomOnRight) {
+    return (
+      <div
+        key="beside-panel"
+        className="absolute z-20 flex h-9 items-center pointer-events-none animate-fade-in"
+        style={{ right: ZOOM_RIGHT + ZOOM_BUTTON + GAP_TO_BAR, bottom: BAR_BOTTOM }}
+      >
+        <MapScaleBar map={map} maxWidth={roomOnRight} />
+      </div>
+    );
+  }
+
   const left = viewportWidth < 640 ? 8 : 16;
 
   // Room between the screen edge and the centered bottom bar.
@@ -67,6 +74,7 @@ export function MapScaleDock({ map, bottomBarWidth = 0, bottomBarHeight = 0 }) {
 
   return (
     <div
+      key="beside-bar"
       className="absolute z-20 translate-y-full pointer-events-none animate-fade-in"
       style={{ left, bottom: BAR_BOTTOM + bottomBarHeight }}
     >

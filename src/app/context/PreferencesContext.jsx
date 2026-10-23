@@ -33,3 +33,8 @@ export function usePreferences() {
   if (!ctx) throw new Error('usePreferences must be used within <PreferencesProvider>');
   return ctx;
 }
+
+/** Display preferences, or null outside a provider (e.g. a panel rendered on its own). */
+export function useOptionalPreferences() {
+  return useContext(PreferencesContext);
+}

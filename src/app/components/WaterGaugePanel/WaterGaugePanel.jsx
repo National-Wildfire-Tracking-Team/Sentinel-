@@ -11,6 +11,7 @@ import { useWaterGaugeDetail } from '../../hooks/useWaterGaugeDetail';
 import { FLOOD_CATEGORY_META, floodCategoryLabel } from '../../api/noaaWaterGauge';
 import { withClock } from '../../utils/formatUtils';
 import { useTimeFormat } from '../../hooks/useTimeFormat';
+import { usePanelDrag } from '../Map/usePopupDrag';
 
 // ─── Flood stage colours ───────────────────────────────────────────────────────
 // Threshold-line colors for the chart (major/moderate/minor/action only).
@@ -414,6 +415,8 @@ function FloodImpactsBar({ currentStage, thresholds, impacts = [] }) {
 const WaterGaugePanel = memo(function WaterGaugePanel({ gauge, onClose }) {
   const [activeTab, setActiveTab] = useState('conditions');
   const { detail, series, loading, error } = useWaterGaugeDetail(gauge?.lid ?? null);
+  // Popup Draggability: the panel can be dragged aside by any part of it.
+  const drag = usePanelDrag(gauge?.lid);
 
   if (!gauge) return null;
 
@@ -451,12 +454,13 @@ const WaterGaugePanel = memo(function WaterGaugePanel({ gauge, onClose }) {
   const categoryBg = FLOOD_CATEGORY_META[floodCategory]?.bgClass ?? FLOOD_CATEGORY_META.no_flooding.bgClass;
 
   return (
-    <div className="
-      fixed right-0 top-0 h-full w-full sm:w-[420px]
+    <div {...drag.dragProps} style={{ translate: drag.translate }} className={`${drag.dragClass}
+      fixed right-0 top-0 h-full w-full sm:w-[min(420px,var(--right-panel-max-width,420px))]
+      sm:h-auto sm:bottom-[var(--right-panel-bottom,0px)] sm:border-b sm:rounded-bl-2xl
       bg-sentinel-900 border-l border-sentinel-700
       flex flex-col z-40 shadow-2xl shadow-black/60
       overflow-hidden
-    ">
+    `}>
       {/* Header */}
       <div className="flex items-start justify-between px-4 pt-4 pb-3 border-b border-sentinel-700 shrink-0">
         <div className="flex items-start gap-2 min-w-0 mr-3">

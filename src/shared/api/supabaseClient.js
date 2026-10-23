@@ -9,11 +9,15 @@
 
 import { createClient } from '@supabase/supabase-js';
 import { readAuthRedirect } from '../utils/authEmail';
+import {
+  SUPABASE_URL,
+  SUPABASE_ANON_KEY,
+  isSupabaseConfigured,
+  REMEMBER_ME_KEY,
+  AUTH_STORAGE_KEY,
+} from './supabaseSession';
 
-const SUPABASE_URL      = import.meta.env.VITE_SUPABASE_URL || '';
-const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
-
-export const isSupabaseConfigured = Boolean(SUPABASE_URL && SUPABASE_ANON_KEY);
+export { isSupabaseConfigured, REMEMBER_ME_KEY };
 
 if (!isSupabaseConfigured) {
   console.warn(
@@ -21,12 +25,6 @@ if (!isSupabaseConfigured) {
     'Reporter submission features will be disabled until you add them to .env.'
   );
 }
-
-/**
- * Storage key used to track whether the user chose "Remember me".
- * Stored in localStorage itself so the preference survives browser restarts.
- */
-export const REMEMBER_ME_KEY = 'sentinel_rmb';
 
 /**
  * Custom storage adapter:
@@ -82,6 +80,7 @@ export const supabase = createClient(
       persistSession: true,
       autoRefreshToken: true,
       detectSessionInUrl: true,
+      storageKey: AUTH_STORAGE_KEY,
       storage: typeof window !== 'undefined' ? sessionAwareStorage : undefined,
     },
   }

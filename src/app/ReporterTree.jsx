@@ -13,6 +13,7 @@ import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-route
 import { lazy, Suspense, useEffect } from 'react';
 import Seo from '../shared/components/Seo';
 import { useSharedThemeSync } from '../shared/hooks/useSharedThemeSync';
+import './app.css';
 
 const ReporterDashboardPage = lazy(() => import('./pages/reporter-dashboard'));
 const ReporterLoginPage = lazy(() => import('./pages/ReporterLoginPage'));

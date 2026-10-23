@@ -33,6 +33,7 @@ const MapZoomControl = memo(function MapZoomControl({ mapRef }) {
   // (same treatment as the top-left corner buttons).
   return (
     <div
+      data-map-control=""
       className={`absolute bottom-4 right-4 z-20 flex flex-col items-end transition-opacity ${
         layerPanelOpen ? 'max-sm:opacity-0 max-sm:pointer-events-none' : ''
       }`}

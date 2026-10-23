@@ -10,10 +10,13 @@
  * in the bar at every viewport size and works everywhere.
  *
  * `focal` is the vertical point of the source image to hold in the middle of
- * the bar, as a background-position Y value (e.g. '58%' for a subject sitting
+ * the bar, as an object-position Y value (e.g. '58%' for a subject sitting
  * a little below the image's centre). `focalX` does the same horizontally,
  * which matters on narrow viewports where a wide photo is cropped hard and an
  * off-centre subject would otherwise fall outside the bar entirely.
+ *
+ * `avif` is an optional AVIF copy of `image`: browsers that decode AVIF fetch
+ * it instead (a fraction of the JPEG's size), the rest fall back to `image`.
  */
 
 import { useEffect, useRef } from 'react';
@@ -27,6 +30,7 @@ const DRIFT = 0.3;
 
 export default function ParallaxHero({
   image,
+  avif,
   focal = '50%',
   focalX = 'center',
   className = '',
@@ -89,17 +93,25 @@ export default function ParallaxHero({
       data-theme-dark
       className={`relative -mt-16 pt-16 overflow-hidden bg-sentinel-900 ${className}`}
     >
-      <div
-        ref={imageRef}
-        aria-hidden="true"
-        className="absolute inset-x-0 bg-cover bg-no-repeat will-change-transform"
-        style={{
-          top: `${-overhang * 100}%`,
-          height: `${100 + overhang * 200}%`,
-          backgroundImage: `url(${image})`,
-          backgroundPosition: `${focalX} ${focal}`,
-        }}
-      />
+      {/* An <img>, not a CSS background, so it can offer AVIF with a JPEG
+          fallback. object-cover/object-position crop it exactly as
+          background-size: cover/background-position did. It's the page's
+          largest paint, hence the high fetch priority. */}
+      <picture>
+        {avif && <source srcSet={avif} type="image/avif" />}
+        <img
+          ref={imageRef}
+          src={image}
+          alt=""
+          fetchpriority="high"
+          className="absolute inset-x-0 w-full max-w-none object-cover will-change-transform"
+          style={{
+            top: `${-overhang * 100}%`,
+            height: `${100 + overhang * 200}%`,
+            objectPosition: `${focalX} ${focal}`,
+          }}
+        />
+      </picture>
       {/* Scrim — keeps headings legible over bright sky and smoke. */}
       <div aria-hidden="true" className={`absolute inset-0 ${overlayClassName}`} />
       <div className="relative">{children}</div>
