@@ -335,9 +335,18 @@ function placesByFireKey(items, nameOf, placeOf) {
 }
 
 /**
+ * Containment for a fire record: its reported percentage, or 100% when it was
+ * declared contained and the percentage is blank (WFIGS perimeters often
+ * leave it blank, which reads as 0%). A reported percentage always wins.
+ */
+function containedPercent(props, containedKey) {
+  const reported = Number(props[containedKey]) || 0;
+  return props.ContainmentDateTime && !reported ? 100 : reported;
+}
+
+/**
  * Filter a GeoJSON FeatureCollection to only include fires less than 95%
- * contained and not declared contained, controlled or out (perimeters carry
- * those dates; such a fire's percentage is usually blank, which reads as 0%).
+ * contained and not declared controlled or out (perimeters carry those dates).
  * Used in "Active Fires" mode across all data sources.
  */
 function filterActiveFiresGeoJSON(geoJSON, { containedKey }) {
@@ -346,9 +355,8 @@ function filterActiveFiresGeoJSON(geoJSON, { containedKey }) {
     ...geoJSON,
     features: geoJSON.features.filter(f => {
       const p = f.properties;
-      if (p.ContainmentDateTime || p.ControlDateTime || p.FireOutDateTime) return false;
-      const contained = Number(f.properties[containedKey]) || 0;
-      return contained < 95;
+      if (p.ControlDateTime || p.FireOutDateTime) return false;
+      return containedPercent(p, containedKey) < 95;
     }),
   };
 }
@@ -1044,8 +1052,7 @@ export default function LiveTrackerPage() {
       })
       .map(f => {
         const p = f.properties;
-        // Declared contained is 100%, whatever the (usually blank) percentage says.
-        const contained = p.ContainmentDateTime ? 100 : Number(p.PercentContained) || 0;
+        const contained = containedPercent(p, 'PercentContained');
         const centroid = polygonCentroid(f.geometry);
         return {
           id: p.UniqueFireIdentifier || `perimeter-${p.IncidentName}`,

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { getFireMatchKey, mergeFireData, pointsNearSameFire, tagHistoricalMappings } from '../../src/app/hooks/useMergedFireData';
+import { getFireMatchKey, mergeFireData, pointNearPerimeter, pointsNearSameFire, tagHistoricalMappings } from '../../src/app/hooks/useMergedFireData';
 
 describe('getFireMatchKey', () => {
   it('normalizes a basic fire name', () => {
@@ -172,8 +172,35 @@ describe('pointsNearSameFire', () => {
     expect(pointsNearSameFire([-89.9, 45.98], [-103.13, 35.46])).toBe(false);
   });
 
-  it('cannot rule out a record with no location', () => {
-    expect(pointsNearSameFire([0, 0], [-103.13, 35.46])).toBe(true);
-    expect(pointsNearSameFire(undefined, [-103.13, 35.46])).toBe(true);
+  it('never takes a record with no usable location for another fire', () => {
+    expect(pointsNearSameFire([0, 0], [-103.13, 35.46])).toBe(false);
+    expect(pointsNearSameFire(undefined, [-103.13, 35.46])).toBe(false);
+    expect(pointsNearSameFire([NaN, NaN], [-103.13, 35.46])).toBe(false);
+  });
+});
+
+describe('pointNearPerimeter', () => {
+  const perimeter = { type: 'Polygon', coordinates: [[[-105.6, 38.8], [-105.4, 38.8], [-105.4, 39.0], [-105.6, 39.0], [-105.6, 38.8]]] };
+
+  it('matches a point at or near the perimeter, not one across the country', () => {
+    expect(pointNearPerimeter([-105.5, 38.9], perimeter)).toBe(true);
+    expect(pointNearPerimeter([-121.2, 37.8], perimeter)).toBe(false);
+  });
+
+  it('never matches without both a location and a perimeter', () => {
+    expect(pointNearPerimeter([NaN, NaN], perimeter)).toBe(false);
+    expect(pointNearPerimeter([-105.5, 38.9], null)).toBe(false);
+  });
+});
+
+describe('mergeFireData — records with no location', () => {
+  const point = (lng, lat, properties) => ({ type: 'Feature', geometry: { type: 'Point', coordinates: [lng, lat] }, properties });
+  const fc = (features) => ({ type: 'FeatureCollection', features });
+
+  it('keeps a same-named fire with no usable location as its own fire', () => {
+    const located = point(-105.5, 38.9, { UniqueFireIdentifier: 'co', IncidentName: 'Willow', ModifiedOnDateTime: 1 });
+    const unlocated = point(0, 0, { UniqueFireIdentifier: 'unknown', IncidentName: 'Willow', ModifiedOnDateTime: 2 });
+    const { dots } = mergeFireData(fc([]), fc([located, unlocated]), null);
+    expect(dots.features.map(f => f.properties.UniqueFireIdentifier).sort()).toEqual(['co', 'unknown']);
   });
 });

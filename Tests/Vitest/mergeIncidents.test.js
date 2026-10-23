@@ -24,6 +24,16 @@ describe('mergeIrwinAndCalFireIncidents', () => {
   });
 });
 
+describe('mergeIrwinAndCalFireIncidents — no usable location', () => {
+  it('never folds a fire into a same-named one when either has no location', () => {
+    const merged = mergeIrwinAndCalFireIncidents(
+      [incident('2026-WI-LINE', 'Line', 0, 0)],
+      [incident('calfire-line', 'Line Fire', -120.1, 38.4, { source: 'CAL_FIRE' })],
+    );
+    expect(merged.map(i => i.id).sort()).toEqual(['2026-WI-LINE', 'calfire-line']);
+  });
+});
+
 describe('dedupeIncidentsByName', () => {
   it('collapses two records of one fire to the latest', () => {
     const kept = dedupeIncidentsByName([

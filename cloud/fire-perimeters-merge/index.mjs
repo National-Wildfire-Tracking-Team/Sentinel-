@@ -382,7 +382,8 @@ function pointNearGeometry(point, geometry, bufferDeg) {
 }
 
 // Fire names repeat across the country, so records are one fire only when
-// they also sit within this distance of each other, or of its perimeter.
+// they also sit within this distance of each other, or of its perimeter. A
+// record with no usable location is never taken for another fire.
 const SAME_FIRE_KM = 30;
 const SAME_FIRE_DEG = SAME_FIRE_KM / 111;
 
@@ -392,20 +393,20 @@ function isLngLat(point) {
 }
 
 function pointsNearSameFire(a, b) {
-  if (!isLngLat(a) || !isLngLat(b)) return true;
+  if (!isLngLat(a) || !isLngLat(b)) return false;
   const kmPerDegLng = 111.32 * Math.cos(((a[1] + b[1]) / 2) * Math.PI / 180);
   return Math.hypot((a[0] - b[0]) * kmPerDegLng, (a[1] - b[1]) * 111.32) <= SAME_FIRE_KM;
 }
 
 function pointNearPerimeter(point, geometry) {
-  if (!isLngLat(point) || !geometry) return true;
+  if (!isLngLat(point) || !geometry) return false;
   return pointNearGeometry(point, geometry, SAME_FIRE_DEG);
 }
 
 function perimetersNear(a, b) {
   const [aMinLng, aMinLat, aMaxLng, aMaxLat] = geometryBBox(a);
   const [bMinLng, bMinLat, bMaxLng, bMaxLat] = geometryBBox(b);
-  if (!Number.isFinite(aMinLng) || !Number.isFinite(bMinLng)) return true;
+  if (!Number.isFinite(aMinLng) || !Number.isFinite(bMinLng)) return false;
   return aMinLng <= bMaxLng + SAME_FIRE_DEG && bMinLng <= aMaxLng + SAME_FIRE_DEG
     && aMinLat <= bMaxLat + SAME_FIRE_DEG && bMinLat <= aMaxLat + SAME_FIRE_DEG;
 }

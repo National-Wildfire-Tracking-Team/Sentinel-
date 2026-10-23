@@ -118,25 +118,26 @@ function isLngLat(point) {
 
 /**
  * True when two [lng, lat] points are close enough to be one fire. A record
- * with no usable location can't be ruled out, so it counts as near.
+ * with no usable location is never taken for another fire: merging or hiding
+ * one on its name alone could drop a real fire, and a duplicate can't.
  */
 export function pointsNearSameFire(a, b) {
-  if (!isLngLat(a) || !isLngLat(b)) return true;
+  if (!isLngLat(a) || !isLngLat(b)) return false;
   const kmPerDegLng = 111.32 * Math.cos(((a[1] + b[1]) / 2) * Math.PI / 180);
   return Math.hypot((a[0] - b[0]) * kmPerDegLng, (a[1] - b[1]) * 111.32) <= SAME_FIRE_KM;
 }
 
-/** True when an incident's [lng, lat] point is close enough to a perimeter to be that fire. */
+/** True when an incident's [lng, lat] point is close enough to a perimeter to be that fire (never without both). */
 export function pointNearPerimeter(point, geometry) {
-  if (!isLngLat(point) || !geometry) return true;
+  if (!isLngLat(point) || !geometry) return false;
   return pointNearGeometry(point, geometry, SAME_FIRE_DEG);
 }
 
-/** True when two perimeters are close enough to be captures of one fire. */
+/** True when two perimeters are close enough to be captures of one fire (never without both shapes). */
 function perimetersNear(a, b) {
   const [aMinLng, aMinLat, aMaxLng, aMaxLat] = geometryBBox(a);
   const [bMinLng, bMinLat, bMaxLng, bMaxLat] = geometryBBox(b);
-  if (!Number.isFinite(aMinLng) || !Number.isFinite(bMinLng)) return true;
+  if (!Number.isFinite(aMinLng) || !Number.isFinite(bMinLng)) return false;
   return aMinLng <= bMaxLng + SAME_FIRE_DEG && bMinLng <= aMaxLng + SAME_FIRE_DEG
       && aMinLat <= bMaxLat + SAME_FIRE_DEG && bMinLat <= aMaxLat + SAME_FIRE_DEG;
 }
