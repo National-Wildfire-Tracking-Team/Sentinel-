@@ -34,8 +34,9 @@ describe('alias helpers', () => {
 describe('mergeIrwinAndCalFireIncidents', () => {
   it('keeps CAL FIRE on a name match and carries the IRWIN id as an alias', () => {
     const merged = mergeIrwinAndCalFireIncidents(
-      [{ id: IRWIN_ID, name: 'Dagger', acres: 10 }, { id: 'other', name: 'Ridge', acres: 5 }],
-      [{ id: CALFIRE_ID, name: 'Dagger Fire', acres: 12 }],
+      // Same fire: same name and a few km apart (records with no location never merge).
+      [{ id: IRWIN_ID, name: 'Dagger', acres: 10, lng: -120.50, lat: 38.70 }, { id: 'other', name: 'Ridge', acres: 5 }],
+      [{ id: CALFIRE_ID, name: 'Dagger Fire', acres: 12, lng: -120.52, lat: 38.71 }],
     );
     const dagger = merged.find((i) => i.id === CALFIRE_ID);
     expect(dagger.aliasIds).toEqual([IRWIN_ID]);
