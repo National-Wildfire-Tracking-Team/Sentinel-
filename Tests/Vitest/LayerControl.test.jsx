@@ -251,3 +251,23 @@ describe('LayerControl — Individual Radar Site', () => {
     useApp.mockReset();
   });
 });
+
+describe('LayerControl — Fire Danger & Fuels (Plus)', () => {
+  it.each(['allhazard', 'wildfire'])('is Plus-locked with no upgrade link when not entitled (%s)', (tab) => {
+    renderPanel({ activeMapTab: tab, fireDangerEntitled: false });
+    for (const label of ['Significant Fire Potential', 'Energy Release Component', 'Fuel Types & Models']) {
+      const row = screen.getByText(label).closest('.w-full');
+      expect(row).toHaveTextContent('Plus');
+      expect(row.querySelector('a')).toBeNull();
+      expect(screen.queryByRole('button', { name: `Toggle ${label}` })).not.toBeInTheDocument();
+    }
+    // The SPC fire weather outlook in the same section stays free.
+    if (tab === 'wildfire') expect(screen.getByRole('button', { name: 'Toggle Fire Weather Forecast' })).toBeInTheDocument();
+  });
+
+  it('is a working toggle when entitled', () => {
+    renderPanel({ activeMapTab: 'wildfire', fireDangerEntitled: true });
+    expect(screen.getByRole('button', { name: 'Toggle Significant Fire Potential' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Toggle Fuel Types & Models' })).toBeInTheDocument();
+  });
+});

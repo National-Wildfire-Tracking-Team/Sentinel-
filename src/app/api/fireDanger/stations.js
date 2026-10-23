@@ -59,6 +59,9 @@ export const STATION_LAYER_FIELDS = {
 };
 export const STATION_LAYER_KEYS = Object.keys(STATION_LAYER_FIELDS);
 
+// Every Fire Danger & Fuels layer switch (Plus plan and above: usePlan's hasFireDangerAccess).
+export const FIRE_DANGER_LAYER_KEYS = ['fireRiskOutlook', 'wfpi', ...STATION_LAYER_KEYS, 'lfmSamples', 'fuelModels'];
+
 // Sequential ramp, low → high fire potential (dry/hot end last).
 export const RAMP = ['#fff7bc', '#fee391', '#fec44f', '#fe9929', '#ec7014', '#cc4c02', '#8c2d04'];
 

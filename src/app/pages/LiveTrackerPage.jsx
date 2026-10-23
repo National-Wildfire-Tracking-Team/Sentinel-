@@ -97,6 +97,7 @@ import ModelFieldTimeline from '../components/WeatherModels/ModelFieldTimeline';
 import SatelliteStormFocus from '../components/Map/SatelliteStormFocus';
 import { drawsCentroidDot } from '../components/Map/layers/perimeterCentroids';
 import { ndgdForecastHours } from '../utils/ndgdSmokeHours';
+import { FIRE_DANGER_LAYER_KEYS } from '../api/fireDanger/stations';
 // Lazy-loaded: each only ever mounts once the user has actually selected the
 // corresponding fire/gauge/camera, so their code shouldn't ship in
 // the initial bundle for sessions that never open one.
@@ -366,7 +367,7 @@ export default function LiveTrackerPage() {
   const { home, nearbyActive } = useHomeSetup();
   const { viewport, setViewport, flyToFire } = useViewport();
   const { simplified } = useSimplifiedMode();
-  const { hasProInfrastructureAccess, hasFireBehaviorModelingAccess, hasEvacuationRoutesAccess } = usePlan();
+  const { hasProInfrastructureAccess, hasFireBehaviorModelingAccess, hasEvacuationRoutesAccess, hasFireDangerAccess } = usePlan();
   const criticalInfraEntitled = hasProInfrastructureAccess;
   const { locations: savedLocations } = useSavedLocations();
   // A Models link (?tab=models&lat=…, e.g. from an incident or /weather-models) opens on that tab,
@@ -401,6 +402,14 @@ export default function LiveTrackerPage() {
       setLayer('landOwnership', false);
     }
   }, [criticalInfraEntitled, layers.landOwnership, setLayer]);
+
+  // Fire Danger & Fuels is Plus and above: a free (or lapsed) plan turns its layers off.
+  useEffect(() => {
+    if (hasFireDangerAccess) return;
+    FIRE_DANGER_LAYER_KEYS.forEach((key) => {
+      if (layers[key]) setLayer(key, false);
+    });
+  }, [hasFireDangerAccess, layers, setLayer]);
 
   // Navigation (Route to Safety): Pro + All Hazards only. A lapsed plan or leaving the tab turns it off.
   // Navigation (Route to Safety): Pro/Team only — the server and quota RPC enforce it too.
@@ -1615,7 +1624,7 @@ export default function LiveTrackerPage() {
   // A Weather-tab layer; Simplified Sentinel also offers it on All Hazards.
   const mrmsActive = Boolean(layers.mrms)
     && (activeMapTab === MAP_TABS.weather || (simplified && activeMapTab === MAP_TABS.allhazard));
-  const fireDangerTab = activeMapTab === MAP_TABS.wildfire || activeMapTab === MAP_TABS.allhazard;
+  const fireDangerTab = hasFireDangerAccess && (activeMapTab === MAP_TABS.wildfire || activeMapTab === MAP_TABS.allhazard);
   const radarSitesActive = Boolean(layers.radarSites) && (activeMapTab === MAP_TABS.weather || activeMapTab === MAP_TABS.allhazard);
   const awcActive = Boolean(layers.awc) && (activeMapTab === MAP_TABS.weather || activeMapTab === MAP_TABS.allhazard);
   // Pull-up controls sheet (MapDockSheet): every layer control that docks on the
@@ -1817,6 +1826,7 @@ export default function LiveTrackerPage() {
             onTabChange={handleTabChange}
             onModelsIntent={handleModelsIntent}
             infrastructureLayersEntitled={hasProInfrastructureAccess}
+            fireDangerEntitled={hasFireDangerAccess}
             routingEntitled={navigationEntitled}
             measureActive={measureActive}
             measureMode={measureMode}

@@ -6,10 +6,12 @@
  *     a chosen number of forecast days (official outlook);
  *   - 100-hour dead fuel moisture below the user's own threshold at the
  *     nearest current NFDRS station (no default: normal ranges differ by region).
- * Both are off until set.
+ * Both are off until set. Plus plan and above (usePlan's hasFireDangerAccess);
+ * get_monitored_saved_locations() drops these settings for other plans.
  */
 
 import { useState } from 'react';
+import { usePlan } from '../../shared/hooks/usePlan';
 import { SFP_LEVELS } from '../../../supabase/functions/_shared/fireDangerAlerts.js';
 
 const LEVEL_OPTIONS = [['', 'Off'], ...Object.entries(SFP_LEVELS).map(([v, label]) => [v, `${label} or higher`])];
@@ -98,7 +100,16 @@ function LocationRow({ location, updateLocation }) {
 }
 
 export default function FireDangerAlertSettings({ locations, updateLocation }) {
+  const { hasFireDangerAccess } = usePlan();
   if (!locations.length) return null;
+  if (!hasFireDangerAccess) {
+    return (
+      <div className="space-y-2">
+        <p className="text-[11px] font-semibold uppercase tracking-wider text-sentinel-400">Fire danger alerts</p>
+        <p className="text-[11px] text-sentinel-500">Fire danger alerts are included with Sentinel Plus and Pro.</p>
+      </div>
+    );
+  }
   return (
     <div className="space-y-2">
       <p className="text-[11px] font-semibold uppercase tracking-wider text-sentinel-400">Fire danger alerts</p>

@@ -50,4 +50,16 @@ describe('usePlan', () => {
     expect(result.current.hasFireBehaviorModelingAccess).toBe(true);
     expect(result.current.hasProInfrastructureAccess).toBe(false);
   });
+
+  it.each([
+    ['free', 'active', false],
+    ['plus', 'active', true],
+    ['pro', 'active', true],
+    ['team', 'active', true],
+    ['plus', 'canceled', false],
+  ])('Fire Danger & Fuels access for %s (%s): %s', (plan, status, expected) => {
+    useAuth.mockReturnValue({ subscription: { plan, status }, isReporter: false });
+    const { result } = renderHook(() => usePlan());
+    expect(result.current.hasFireDangerAccess).toBe(expected);
+  });
 });

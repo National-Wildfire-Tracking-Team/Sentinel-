@@ -12,7 +12,7 @@ import LayerPanelSection from './LayerPanelSection';
 import ModelLayerPanel from '../WeatherModels/ModelLayerPanel';
 import { useWeatherModelsContext } from '../../context/WeatherModelsContext';
 import { LIGHTNING_URL } from '../../api/lightning';
-import { FIRE_DANGER_URL, STATION_LAYER_KEYS } from '../../api/fireDanger/stations';
+import { FIRE_DANGER_LAYER_KEYS, FIRE_DANGER_URL, STATION_LAYER_KEYS } from '../../api/fireDanger/stations';
 
 function stationSublabel(text) {
   // Shown even before cloud/fire-danger is deployed, saying so (as Lightning does).
@@ -222,7 +222,7 @@ const TAB_SECTIONS = {
   ],
 };
 
-function LayerToggle({ layerKey, label, sublabel, locked, onToggle, active: activeOverride }) {
+function LayerToggle({ layerKey, label, sublabel, locked, lockedPlan = 'Pro', onToggle, active: activeOverride }) {
   const { layers, toggleLayer } = useApp();
   const active = activeOverride ?? layers[layerKey];
   const handleClick = onToggle || (() => {
@@ -237,7 +237,7 @@ function LayerToggle({ layerKey, label, sublabel, locked, onToggle, active: acti
         <div className="flex-1 min-w-0">
           <div className="text-sm font-medium text-sentinel-100 truncate flex items-center gap-1.5">
             {label}
-            <span className="text-[9px] font-bold uppercase tracking-wide text-amber-400">Pro</span>
+            <span className="text-[9px] font-bold uppercase tracking-wide text-amber-400">{lockedPlan}</span>
           </div>
           <div className="text-[10px] text-sentinel-300 truncate">{sublabel}</div>
         </div>
@@ -424,6 +424,7 @@ function WpcDaySelector({ layerKey, product, subtitle, accentColor, days = WPC_D
 const LayerControl = memo(function LayerControl({
   activeMapTab = 'wildfire',
   infrastructureLayersEntitled = false,
+  fireDangerEntitled = false,
   routingEntitled = false,
   measureActive = false,
   measureMode = 'distance',
@@ -460,11 +461,13 @@ const LayerControl = memo(function LayerControl({
     },
   ], [infrastructureLayersEntitled]);
 
-  // Pro-gated rows outside the Infrastructure section (same locked row).
-  const lockedLayerKeys = useMemo(
-    () => new Set(routingEntitled ? [] : ['routeToSafety']),
-    [routingEntitled],
-  );
+  // Plan-gated rows outside the Infrastructure section (same locked row): key → plan named on it.
+  const lockedLayerPlans = useMemo(() => {
+    const locked = new Map();
+    if (!routingEntitled) locked.set('routeToSafety', 'Pro');
+    if (!fireDangerEntitled) FIRE_DANGER_LAYER_KEYS.forEach((key) => locked.set(key, 'Plus'));
+    return locked;
+  }, [routingEntitled, fireDangerEntitled]);
 
   const tabKey = activeMapTab === 'weather' ? 'weather' : activeMapTab === 'allhazard' ? 'allhazard' : 'wildfire';
 
@@ -554,7 +557,8 @@ const LayerControl = memo(function LayerControl({
           label={label}
           sublabel={sublabel}
           color={def.color}
-          locked={lockedLayerKeys.has(layerKey)}
+          locked={lockedLayerPlans.has(layerKey)}
+          lockedPlan={lockedLayerPlans.get(layerKey)}
           onToggle={STATION_LAYER_KEYS.includes(layerKey) ? () => toggleStationLayer(layerKey) : undefined}
         />
 
