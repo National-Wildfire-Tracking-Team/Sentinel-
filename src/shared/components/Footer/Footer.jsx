@@ -73,16 +73,21 @@ export default function Footer() {
                   National Weather Service
                 </a>
               </li>
+              <li>
+                <a href="https://aviationweather.gov" target="_blank" rel="noopener noreferrer" className="text-sentinel-300 hover:text-fire-400 text-sm transition-colors">
+                  Aviation Weather Center
+                </a>
+              </li>
             </ul>
           </div>
         </div>
 
         {/* Bottom bar */}
         <div className="mt-10 pt-6 border-t border-sentinel-700 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <p className="text-sentinel-400 text-xs">
+          <p className="text-sentinel-300 text-xs">
             &copy; {new Date().getFullYear()} National Wildfire Tracking Team. All rights reserved.
           </p>
-          <Link to="/terms" className="text-sentinel-400 hover:text-fire-400 text-xs transition-colors">
+          <Link to="/terms" className="text-sentinel-300 hover:text-fire-400 text-xs transition-colors">
             Terms of Service
           </Link>
         </div>

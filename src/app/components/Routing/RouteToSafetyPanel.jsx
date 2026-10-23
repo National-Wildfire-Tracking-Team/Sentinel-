@@ -194,6 +194,7 @@ const RouteToSafetyPanel = memo(function RouteToSafetyPanel({ state, actions, on
       ref={panelRef}
       aria-label="Navigation"
       className="route-safety-panel absolute top-20 right-4 z-30 w-[min(calc(100vw-2rem),360px)] max-h-[calc(100dvh-var(--map-bottom-stack,6rem)-6rem)]
+                 sm:w-[min(360px,var(--right-panel-max-width,360px))] sm:max-h-[calc(100%-5rem-var(--right-panel-bottom,1rem))]
                  overflow-y-auto rounded-2xl border border-white/10 bg-sentinel-900/80 backdrop-blur-xl backdrop-saturate-150
                  shadow-2xl shadow-black/60 text-white animate-dock-rise"
     >

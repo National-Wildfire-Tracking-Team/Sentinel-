@@ -5,20 +5,20 @@
  * Picking an item opens it in the full FireDetailPanel, same as a normal
  * single-feature click. Behavior is driven by the user's display
  * preferences: Map Popup UI (list vs. single/carousel), Popup Spotlight
- * (dims the map outside the clicked polygon), and Popup Drag Handle (lets
- * the popup be dragged aside to see the map underneath).
+ * (dims the map outside the clicked polygon), and Popup Draggability (lets
+ * the popup be dragged aside, by any part of it, to see the map underneath).
  */
 
 import { memo, useState, useEffect, useRef } from 'react';
 import { Popup } from 'react-map-gl';
-import { Grip, ChevronRight, X } from 'lucide-react';
+import { ChevronRight, X } from 'lucide-react';
 import { getGeometryCenter } from '../../utils/mapGeometry';
 import { nwsAlertColor } from '../../utils/nwsColors';
 import { categoryColor } from '../../api/nhcTropicalWeather';
 import { awcAccentColor } from '../../api/awc/awc';
 import { tfrTypeStyle } from '../../api/tfr';
 import SpotlightMaskLayer from './layers/SpotlightMaskLayer';
-import { useDragOffset } from './usePopupDrag';
+import { usePopupDrag } from './usePopupDrag';
 
 export const CARD_BG = '#101d3a';
 const DEFAULT_ACCENT = '#ff5a00';
@@ -197,6 +197,8 @@ function SingleCarousel({ items, onSelect }) {
       <div
         onPointerDown={onPointerDown}
         onPointerUp={onPointerUp}
+        // Swiping here flicks between items, so it never drags the popup.
+        data-popup-no-drag=""
         className="flex items-stretch gap-3 px-3 py-3 cursor-pointer select-none touch-pan-y"
       >
         <span className="w-1 rounded-full shrink-0" style={{ background: getAccentColor(item) }} />
@@ -221,21 +223,9 @@ function SingleCarousel({ items, onSelect }) {
   );
 }
 
-export function PopupFooter({ dragEnabled, dragHandlers, onClose }) {
+export function PopupFooter({ onClose }) {
   return (
     <div className="flex items-center gap-2 px-3 py-2">
-      {dragEnabled && (
-        <button
-          type="button"
-          onPointerDown={dragHandlers.onPointerDown}
-          onPointerMove={dragHandlers.onPointerMove}
-          onPointerUp={dragHandlers.onPointerUp}
-          aria-label="Drag popup"
-          className="p-1 -ml-1 rounded text-sentinel-300 hover:text-white cursor-grab active:cursor-grabbing touch-none"
-        >
-          <Grip size={16} />
-        </button>
-      )}
       <div className="flex-1" />
       <button
         type="button"
@@ -252,7 +242,7 @@ export function PopupFooter({ dragEnabled, dragHandlers, onClose }) {
 const MapFeaturePopup = memo(function MapFeaturePopup({
   items, mouseLngLat, anchorFeature, prefs, onSelect, onClose,
 }) {
-  const { offset, onPointerDown, onPointerMove, onPointerUp } = useDragOffset(items);
+  const drag = usePopupDrag(items, prefs.popupDragHandle);
 
   const anchor = prefs.dataPickerAnchor === 'center'
     ? (getGeometryCenter(anchorFeature?.geometry) ?? [mouseLngLat.lng, mouseLngLat.lat])
@@ -276,8 +266,9 @@ const MapFeaturePopup = memo(function MapFeaturePopup({
         className="sentinel-popup"
       >
         <div
-          style={{ transform: `translate(${offset.x}px, ${offset.y}px)`, background: CARD_BG }}
-          className="rounded-2xl border border-white/10 shadow-2xl min-w-[260px] max-w-[320px] overflow-hidden"
+          {...drag.dragProps}
+          style={{ translate: drag.translate, background: CARD_BG }}
+          className={`rounded-2xl border border-white/10 shadow-2xl min-w-[260px] max-w-[320px] overflow-hidden ${drag.dragClass} ${drag.enabled ? 'touch-none' : ''}`}
         >
           {prefs.mapPopupMode === 'single' ? (
             <SingleCarousel items={items} onSelect={onSelect} />
@@ -286,7 +277,7 @@ const MapFeaturePopup = memo(function MapFeaturePopup({
               <div className="px-4 pt-2.5 pb-1 text-[10px] font-bold uppercase tracking-wider text-sentinel-400">
                 {items.length} {items.length === 1 ? 'feature' : 'features'} here
               </div>
-              <div className="max-h-64 overflow-y-auto scrollbar-thin pb-1 divide-y divide-white/5">
+              <div className="max-h-64 overflow-y-auto scrollbar-thin pb-1 divide-y divide-white/5 touch-pan-y">
                 {items.map((item, i) => (
                   <ListRow key={item.id ?? i} item={item} onSelect={onSelect} />
                 ))}
@@ -296,11 +287,7 @@ const MapFeaturePopup = memo(function MapFeaturePopup({
 
           <div className="h-px bg-white/10 mx-3" />
 
-          <PopupFooter
-            dragEnabled={prefs.popupDragHandle}
-            dragHandlers={{ onPointerDown, onPointerMove, onPointerUp }}
-            onClose={onClose}
-          />
+          <PopupFooter onClose={onClose} />
         </div>
       </Popup>
     </>

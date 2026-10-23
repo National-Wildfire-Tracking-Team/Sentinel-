@@ -1,6 +1,7 @@
 import Seo from '../../shared/components/Seo';
 import ParallaxHero from '../components/ParallaxHero';
 import volunteerHero from '../assets/volunteer-hero.jpg';
+import volunteerHeroAvif from '../assets/volunteer-hero.avif';
 import { ArrowRight } from 'lucide-react';
 
 // TODO: Replace with your actual Google Form URL
@@ -45,7 +46,7 @@ export default function VolunteerPage() {
       />
       {/* ── Hero ── */}
       {/* focal holds the burning ridgeline in the middle of the bar. */}
-      <ParallaxHero image={volunteerHero} focal="70%">
+      <ParallaxHero image={volunteerHero} avif={volunteerHeroAvif} focal="70%">
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 pb-16 sm:pt-24 sm:pb-20">
           <div className="text-center max-w-2xl mx-auto">
             <h1 className="text-4xl sm:text-5xl font-bold text-white leading-tight tracking-tight">

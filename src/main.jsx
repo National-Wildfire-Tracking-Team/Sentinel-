@@ -10,7 +10,7 @@
 
 import { StrictMode, Suspense, lazy } from 'react';
 import { createRoot } from 'react-dom/client';
-import './index.css';
+import './site.css';
 import ErrorBoundary from './shared/components/ErrorBoundary';
 import DeferredAnalytics from './shared/components/DeferredScripts/DeferredAnalytics';
 import { ErrorLogger } from './shared/services/error-logger';
@@ -54,7 +54,9 @@ createRoot(document.getElementById('root')).render(
   <StrictMode>
     <ErrorBoundary>
       <DeferredAnalytics />
-      <AuthProvider>
+      {/* The marketing site has no sign-in, so it only loads the Supabase
+          client for a visitor who could already be signed in. */}
+      <AuthProvider deferClient={!isAppHost && !isReporterHost}>
         <Suspense fallback={null}>
           {isReporterHost ? <ReporterTree /> : isAppHost ? <AppTree /> : <MainRouter />}
         </Suspense>

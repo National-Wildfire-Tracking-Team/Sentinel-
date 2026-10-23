@@ -102,7 +102,7 @@ export default function IncidentFeed({ incidents, loading, error }) {
       </div>
 
       {/* Feed body */}
-      <div className="flex-1 overflow-y-auto p-2 space-y-1.5 scrollbar-thin">
+      <div className="flex-1 overflow-y-auto p-2 space-y-1.5 scrollbar-visible">
         {loading && (
           <div className="flex items-center justify-center gap-2 py-8 text-sentinel-200">
             <Loader2 size={18} className="animate-spin" />

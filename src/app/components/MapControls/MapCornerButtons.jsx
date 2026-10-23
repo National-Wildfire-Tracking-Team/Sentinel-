@@ -17,6 +17,7 @@ import { useApp } from '../../context/AppContext';
 import { useAppStatus } from '../../context/AppStatusContext';
 import { useViewport } from '../../context/ViewportContext';
 import { useHomeSetup } from '../../context/HomeSetupContext';
+import { useSimplifiedMode } from '../../context/SimplifiedModeContext';
 import { zoomForRadius } from '../../utils/radiusFilter';
 
 const GEOLOCATION_ERROR_MESSAGES = {
@@ -43,7 +44,7 @@ function CornerButton({ active, onClick, ariaLabel, children }) {
   );
 }
 
-const MapCornerButtons = memo(function MapCornerButtons({ onReopenBanner }) {
+const MapCornerButtons = memo(function MapCornerButtons() {
   const {
     sidebarOpen, toggleSidebar,
     futurePanelOpen, toggleFuturePanel,
@@ -53,6 +54,9 @@ const MapCornerButtons = memo(function MapCornerButtons({ onReopenBanner }) {
   const { setUserLocation, userLocation } = useAppStatus();
   const { setViewport } = useViewport();
   const { home, isHomeSetupComplete, homeSetupLoading, activateNearby, openHomeSetup } = useHomeSetup();
+  // Simplified Sentinel has no hazard sidebar, so no button for it, and
+  // locating just centers the map (near-me and Home Setup live in the sidebar).
+  const { simplified } = useSimplifiedMode();
 
   const [locationError, setLocationError] = useState(null);
   const [setupPromptOpen, setSetupPromptOpen] = useState(false);
@@ -81,14 +85,14 @@ const MapCornerButtons = memo(function MapCornerButtons({ onReopenBanner }) {
     // mode (which re-centers the radius as live GPS updates arrive).
     // Without it, just show the user where they are and nudge them to set up.
     const focusOn = (location) => {
-      if (isHomeSetupComplete) {
+      if (isHomeSetupComplete && !simplified) {
         setViewport({ ...location, zoom: zoomForRadius(location.latitude, home.radiusMiles) });
         activateNearby();
         setSetupPromptOpen(false);
       } else {
         setViewport({ ...location, zoom: 12 });
         // Still fetching a signed-in user's saved setup — don't nag yet.
-        if (!homeSetupLoading) setSetupPromptOpen(true);
+        if (!homeSetupLoading && !simplified) setSetupPromptOpen(true);
       }
     };
 
@@ -125,17 +129,18 @@ const MapCornerButtons = memo(function MapCornerButtons({ onReopenBanner }) {
       maximumAge: 15000,
     });
   }, [setViewport, setUserLocation, grantLocation, locationGranted, userLocation,
-    isHomeSetupComplete, homeSetupLoading, home, activateNearby]);
+    isHomeSetupComplete, homeSetupLoading, home, activateNearby, simplified]);
 
   const handleOpenHomeSetup = useCallback(() => {
     setSetupPromptOpen(false);
     openHomeSetup();
   }, [openHomeSetup]);
 
-  // Finishing setup elsewhere (e.g. from the sidebar strip) retires the prompt.
+  // Finishing setup elsewhere (e.g. from the sidebar strip) retires the
+  // prompt, as does Simplified Sentinel (it has no sidebar to set up in).
   useEffect(() => {
-    if (isHomeSetupComplete) setSetupPromptOpen(false);
-  }, [isHomeSetupComplete]);
+    if (isHomeSetupComplete || simplified) setSetupPromptOpen(false);
+  }, [isHomeSetupComplete, simplified]);
 
   // When a left overlay panel (sidebar or future-features) is open, slide the
   // button column out from over the panel to the right, over the map itself.
@@ -149,23 +154,24 @@ const MapCornerButtons = memo(function MapCornerButtons({ onReopenBanner }) {
   // in the bottom bar, so it's safe to fade this column out of the way there.
   return (
     <div
+      data-map-control=""
       className={`absolute top-4 z-50 flex flex-col gap-3 transition-[left,opacity] duration-300 ease-in-out ${
-        panelOpen ? 'left-4 sm:left-[336px]' : 'left-4'
+        panelOpen ? 'left-4 sm:left-[calc(var(--left-panel-width,19rem)_+_1rem)]' : 'left-4'
       } ${layerPanelOpen ? 'opacity-0 pointer-events-none sm:opacity-100 sm:pointer-events-auto' : ''}`}
     >
       <CornerButton active={futurePanelOpen} onClick={toggleFuturePanel} ariaLabel="Open more features panel">
         <Menu size={19} />
       </CornerButton>
 
-      {/* Opening the sidebar also brings back a dismissed alert banner; closing
-          it leaves a dismissed banner closed. */}
-      <CornerButton
-        active={sidebarOpen}
-        onClick={() => { if (!sidebarOpen) onReopenBanner?.(); toggleSidebar(); }}
-        ariaLabel="Open incident sidebar"
-      >
-        <span className="text-lg font-black leading-none">!</span>
-      </CornerButton>
+      {!simplified && (
+        <CornerButton
+          active={sidebarOpen}
+          onClick={toggleSidebar}
+          ariaLabel="Open incident sidebar"
+        >
+          <span className="text-lg font-black leading-none">!</span>
+        </CornerButton>
+      )}
 
       <div className="relative">
         <CornerButton active={locationGranted} onClick={handleLocateMe} ariaLabel="Go to my current location">

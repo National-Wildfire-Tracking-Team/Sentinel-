@@ -154,7 +154,7 @@ const FireDangerFeed = memo(function FireDangerFeed({ enabled = true }) {
   const maxErc = Math.max(80, ...outlook.states.map((s) => s.medianErc));
 
   return (
-    <div className="flex-1 overflow-y-auto px-3 py-2 space-y-4">
+    <div className="flex-1 overflow-y-auto px-3 py-2 space-y-4 scrollbar-visible">
       <p className="px-1 text-xs text-sentinel-300 leading-snug">
         How dry fuels are at {outlook.stations.toLocaleString('en-US')} fire weather stations
         {outlook.observedDate && <>, observed {fmtDay(outlook.observedDate, { month: 'short', day: 'numeric' })}</>}.

@@ -19,7 +19,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 // Data hooks
 import { useFireHotspots } from '../hooks/useFireHotspots';
 import { useNgfsDetections } from '../hooks/useNgfsDetections';
-import { useMergedFireData, getFireMatchKey, pointInGeometry, pointNearGeometry } from '../hooks/useMergedFireData';
+import { useMergedFireData, getFireMatchKey, pointInGeometry, pointNearGeometry, pointNearPerimeter, pointsNearSameFire } from '../hooks/useMergedFireData';
 import { useAQIData } from '../hooks/useAQIData';
 import { useWeatherAlerts } from '../hooks/useWeatherAlerts';
 import { useIncidents } from '../hooks/useIncidents';
@@ -66,7 +66,6 @@ import { parseLatestAcreage, parseLatestContainment } from '../utils/formatUtils
 
 // Components
 import Header from '../components/Header/Header';
-import AlertBanner from '../components/AlertBanner/AlertBanner';
 import Sidebar from '../components/Sidebar/Sidebar';
 import MapView from '../components/Map/MapView';
 import MapBottomBar from '../components/BottomBar/MapBottomBar';
@@ -94,6 +93,7 @@ import AccountButton from '../components/MapControls/AccountButton';
 import AccountPanel from '../components/AccountPanel/AccountPanel';
 import Legend from '../components/Legend/Legend';
 import { MapScaleDock } from '../components/Map/MapScaleBar';
+import { RIGHT_PANEL_BOTTOM, leftPanelLayout, rightPanelMaxWidth, useViewportWidth } from '../components/Map/mapEdgeLayout';
 import { APP_VERSION } from '../version';
 import MapDockSheet from '../components/Map/MapDockSheet';
 import ModelFieldTimeline from '../components/WeatherModels/ModelFieldTimeline';
@@ -319,7 +319,34 @@ function tagStaleFire(geoJSON, updatedKey, maxAgeMs) {
 }
 
 /**
- * Filter a GeoJSON FeatureCollection to only include fires less than 95% contained.
+ * Group places (points or perimeters) by fire match key, for "is a fire of
+ * this name close by?" checks: fire names repeat across the country, so the
+ * name alone doesn't make two records one fire.
+ */
+function placesByFireKey(items, nameOf, placeOf) {
+  const byKey = new Map();
+  items.forEach(item => {
+    const key = getFireMatchKey(nameOf(item));
+    if (!key) return;
+    if (!byKey.has(key)) byKey.set(key, []);
+    byKey.get(key).push(placeOf(item));
+  });
+  return byKey;
+}
+
+/**
+ * Containment for a fire record: its reported percentage, or 100% when it was
+ * declared contained and the percentage is blank (WFIGS perimeters often
+ * leave it blank, which reads as 0%). A reported percentage always wins.
+ */
+function containedPercent(props, containedKey) {
+  const reported = Number(props[containedKey]) || 0;
+  return props.ContainmentDateTime && !reported ? 100 : reported;
+}
+
+/**
+ * Filter a GeoJSON FeatureCollection to only include fires less than 95%
+ * contained and not declared controlled or out (perimeters carry those dates).
  * Used in "Active Fires" mode across all data sources.
  */
 function filterActiveFiresGeoJSON(geoJSON, { containedKey }) {
@@ -327,8 +354,9 @@ function filterActiveFiresGeoJSON(geoJSON, { containedKey }) {
   return {
     ...geoJSON,
     features: geoJSON.features.filter(f => {
-      const contained = Number(f.properties[containedKey]) || 0;
-      return contained < 95;
+      const p = f.properties;
+      if (p.ControlDateTime || p.FireOutDateTime) return false;
+      return containedPercent(p, containedKey) < 95;
     }),
   };
 }
@@ -367,9 +395,9 @@ const STALE_CHECK_MS = 30 * 1000;
 const RAWS_MIN_ZOOM = 9;
 
 export default function LiveTrackerPage() {
-  const { layers, setLayer, feedFilter, setFeedFilter, openSidebar, selectedGauge, selectGauge, selectedFire, selectFire, selectedCamera, selectCamera, wpcOutlookDay, nhcWindProbKt, closeLayerPanel } = useApp();
+  const { layers, setLayer, feedFilter, setFeedFilter, openSidebar, selectedGauge, selectGauge, selectedFire, selectFire, selectedCamera, selectCamera, wpcOutlookDay, nhcWindProbKt, closeLayerPanel, sidebarOpen, toggleSidebar, futurePanelOpen } = useApp();
   const { setRefreshed, setLoading, alerts, userLocation, lastRefreshed } = useAppStatus();
-  const { home, nearbyActive, isHomeSetupComplete, openHomeSetup } = useHomeSetup();
+  const { home, nearbyActive, isHomeSetupComplete, openHomeSetup, homeSetupOpen, clearNearby } = useHomeSetup();
   const { viewport, setViewport, flyToFire } = useViewport();
   const { simplified } = useSimplifiedMode();
   const { hasProInfrastructureAccess, hasFireBehaviorModelingAccess, hasEvacuationRoutesAccess, hasFireDangerAccess } = usePlan();
@@ -382,8 +410,6 @@ export default function LiveTrackerPage() {
   );
   const [mapType, setMapType] = useState('satellite');
   const [weatherAlertFilter, setWeatherAlertFilter] = useState('all');
-  const [bannerDismissed, setBannerDismissed] = useState(false);
-  const reopenBanner = useCallback(() => setBannerDismissed(false), []);
   const [measureActive, setMeasureActive] = useState(false);
   const [measureMode, setMeasureMode] = useState('distance');
 
@@ -484,6 +510,17 @@ export default function LiveTrackerPage() {
   useEffect(() => {
     if (simplified && activeMapTab === MAP_TABS.models) handleTabChange(MAP_TABS.wildfire);
   }, [simplified, activeMapTab, handleTabChange]);
+
+  // Simplified Sentinel has no hazard sidebar: it slides closed and its
+  // button is hidden (MapCornerButtons) until the mode is turned off. It
+  // opens only to show Home Setup (e.g. from the post-login Overview) and
+  // closes again once that's done. The near-me filter is off too: its only
+  // off switch is in that sidebar.
+  useEffect(() => {
+    if (!simplified) return;
+    if (sidebarOpen && !homeSetupOpen) toggleSidebar();
+    if (nearbyActive) clearNearby();
+  }, [simplified, sidebarOpen, toggleSidebar, homeSetupOpen, nearbyActive, clearNearby]);
 
   // The Models tab is map-first: entering it closes the layer panel so the
   // field is visible. The sidebar (point forecast) opens from a clicked point.
@@ -998,15 +1035,24 @@ export default function LiveTrackerPage() {
   // still appear in the sidebar feed.
   const perimeterOnlyIncidents = useMemo(() => {
     if (!filteredPerimetersGeoJSON?.features?.length) return [];
-    const existingNameKeys = new Set(freshIncidentsList.map(i => getFireMatchKey(i.name)).filter(Boolean));
+    const listedIds = new Set(freshIncidentsList.flatMap(i => [String(i.id), ...parseAliasIds(i.aliasIds)]));
+    const listedPointsByKey = placesByFireKey(freshIncidentsList, i => i.name, i => [i.lng, i.lat]);
     return filteredPerimetersGeoJSON.features
       .filter(f => {
-        const key = getFireMatchKey(f.properties.IncidentName);
-        return key && !existingNameKeys.has(key);
+        const p = f.properties;
+        // The perimeters are the whole year's: one declared controlled or out,
+        // a prescribed burn, or an older capture of a mapped fire isn't a
+        // current wildfire (fetchIncidents asks IRWIN for uncontrolled WF only).
+        if (p.ControlDateTime || p.FireOutDateTime || p.IncidentTypeCategory === 'RX' || p.isHistoricalMapping) return false;
+        const key = getFireMatchKey(p.IncidentName);
+        if (!key) return false;
+        // Already listed: the same id, or a fire of the same name close by.
+        if ([String(p.UniqueFireIdentifier), ...parseAliasIds(p._aliasIds)].some(id => listedIds.has(id))) return false;
+        return !(listedPointsByKey.get(key) || []).some(point => pointNearPerimeter(point, f.geometry));
       })
       .map(f => {
         const p = f.properties;
-        const contained = Number(p.PercentContained) || 0;
+        const contained = containedPercent(p, 'PercentContained');
         const centroid = polygonCentroid(f.geometry);
         return {
           id: p.UniqueFireIdentifier || `perimeter-${p.IncidentName}`,
@@ -1037,19 +1083,15 @@ export default function LiveTrackerPage() {
   }, [isFocused, freshIncidentDotsGeoJSON]);
 
   // Fires whose perimeter draws a centered centroid dot already have their
-  // dot. Build a set of those names so we can hide off-center IRWIN dots.
+  // dot. Index those perimeters by name so we can hide off-center IRWIN dots
+  // of the same fire (same name, close by).
   // Only perimeters that actually draw one count (drawsCentroidDot): a grey
   // stale/historical perimeter has no dot, so its incident dot must stay.
-  const perimeterMatchKeys = useMemo(() => {
-    if (!filteredPerimetersGeoJSON?.features?.length) return new Set();
-    const keys = new Set();
-    filteredPerimetersGeoJSON.features.forEach(f => {
-      if (!drawsCentroidDot(f.properties)) return;
-      const key = getFireMatchKey(f.properties.IncidentName);
-      if (key) keys.add(key);
-    });
-    return keys;
-  }, [filteredPerimetersGeoJSON]);
+  const perimeterDotsByKey = useMemo(() => placesByFireKey(
+    (filteredPerimetersGeoJSON?.features || []).filter(f => drawsCentroidDot(f.properties)),
+    f => f.properties.IncidentName,
+    f => f.geometry,
+  ), [filteredPerimetersGeoJSON]);
 
   // ── Combine IRWIN incidents with perimeter-only fires for sidebar ──
   // Perimeter-only fires have no IRWIN record; add them so they appear in the feed.
@@ -1059,8 +1101,8 @@ export default function LiveTrackerPage() {
   );
 
   // ── Reporter incidents replace matching external data incidents ──
-  // When an approved reporter report shares a fire name with an IRWIN incident,
-  // the external incident is replaced in the sidebar feed with a merged record
+  // When an approved reporter report shares a fire name with an IRWIN incident
+  // close by, the external incident is replaced in the sidebar feed with a merged record
   // that keeps authoritative external stats but surfaces reporter-contributed data.
   const mergedIncidents = useMemo(() => {
     if (!reporterReports.length) return allIncidents;
@@ -1070,14 +1112,17 @@ export default function LiveTrackerPage() {
     const reporterByKey = new Map();
     reporterReports.forEach(r => {
       const key = getFireMatchKey(r.title);
-      if (key) reporterByKey.set(key, r);
+      if (key) reporterByKey.set(key, [...(reporterByKey.get(key) || []), r]);
     });
 
     return allIncidents.map(inc => {
       const key = getFireMatchKey(inc.name);
-      if (!key || !reporterByKey.has(key)) return inc;
+      const report = key
+        ? [...(reporterByKey.get(key) || [])].reverse()
+          .find(r => pointsNearSameFire([Number(r.longitude), Number(r.latitude)], [inc.lng, inc.lat]))
+        : null;
+      if (!report) return inc;
 
-      const report = reporterByKey.get(key);
       // A reporter's latest acreage / containment (from their Post Update
       // entries) overrides the external value, so reporters can keep a fire
       // current after CAL FIRE or IRWIN takes it over.
@@ -1273,15 +1318,12 @@ export default function LiveTrackerPage() {
     return () => window.clearTimeout(timeoutId);
   }, []);
 
-  // Build the set of reporter-matched fire name keys once for GeoJSON filtering.
-  const reporterMatchKeys = useMemo(() => {
-    if (!reporterReports.length) return new Set();
-    return new Set(
-      reporterReports.map(r => getFireMatchKey(r.title)).filter(Boolean)
-    );
-  }, [reporterReports]);
+  // Index reporter reports by fire name once for GeoJSON filtering.
+  const reporterPointsByKey = useMemo(() => placesByFireKey(
+    reporterReports, r => r.title, r => [Number(r.longitude), Number(r.latitude)],
+  ), [reporterReports]);
 
-  // Deduplicate IRWIN incident markers:
+  // Deduplicate IRWIN incident markers (same name, close by):
   //  - Reporter match → suppress (reporter dot takes over)
   //  - NIFC perimeter match → suppress (enriched perimeter centroid shows instead)
   const deduplicatedIncidentsGeoJSON = useMemo(() => {
@@ -1293,26 +1335,28 @@ export default function LiveTrackerPage() {
         .map(f => {
           const key = getFireMatchKey(f.properties.name);
           if (!key) return f;
-          if (reporterMatchKeys.has(key)) return null;
-          if (perimeterMatchKeys.has(key)) return null;
+          const point = f.geometry?.coordinates;
+          if ((reporterPointsByKey.get(key) || []).some(p => pointsNearSameFire(p, point))) return null;
+          if ((perimeterDotsByKey.get(key) || []).some(g => pointNearPerimeter(point, g))) return null;
           return f;
         })
         .filter(Boolean),
     };
-  }, [filteredIncidentsGeoJSON, reporterMatchKeys, perimeterMatchKeys]);
+  }, [filteredIncidentsGeoJSON, reporterPointsByKey, perimeterDotsByKey]);
 
   // Same deduplication for incident dot markers (fires without NIFC perimeters).
   const deduplicatedIncidentDotsGeoJSON = useMemo(() => {
-    if (!reporterMatchKeys.size || !filteredIncidentDotsGeoJSON?.features)
+    if (!reporterPointsByKey.size || !filteredIncidentDotsGeoJSON?.features)
       return filteredIncidentDotsGeoJSON;
     return {
       ...filteredIncidentDotsGeoJSON,
       features: filteredIncidentDotsGeoJSON.features.filter(f => {
         const key = getFireMatchKey(f.properties.IncidentName);
-        return !key || !reporterMatchKeys.has(key);
+        const point = f.geometry?.coordinates;
+        return !key || !(reporterPointsByKey.get(key) || []).some(p => pointsNearSameFire(p, point));
       }),
     };
-  }, [filteredIncidentDotsGeoJSON, reporterMatchKeys]);
+  }, [filteredIncidentDotsGeoJSON, reporterPointsByKey]);
 
   // ── Cross-deduplicate FireIncidentsLayer dots against IncidentLocationsLayer ──
   // Both layers source data from IRWIN, so the same fire can appear as two
@@ -1329,30 +1373,29 @@ export default function LiveTrackerPage() {
     if (!deduplicatedIncidentsGeoJSON?.features?.length)
       return deduplicatedIncidentDotsGeoJSON;
 
-    // Build lookup sets from IncidentLocationsLayer features
-    const locationNameKeys = new Set();
+    // Build lookups from IncidentLocationsLayer features
+    const locationPointsByKey = placesByFireKey(
+      deduplicatedIncidentsGeoJSON.features, f => f.properties.name, f => f.geometry?.coordinates,
+    );
     const locationIds = new Set();
     deduplicatedIncidentsGeoJSON.features.forEach(f => {
-      const key = getFireMatchKey(f.properties.name);
-      if (key) locationNameKeys.add(key);
       if (f.properties.id) locationIds.add(f.properties.id);
     });
 
-    // Also include perimeter name keys so any FireIncidentsLayer dot that
-    // slipped through name-matching in useMergedFireData is still caught.
-    if (filteredPerimetersGeoJSON?.features) {
-      filteredPerimetersGeoJSON.features.forEach(f => {
-        const key = getFireMatchKey(f.properties.IncidentName);
-        if (key) locationNameKeys.add(key);
-      });
-    }
+    // Also check perimeters so any FireIncidentsLayer dot that slipped
+    // through matching in useMergedFireData is still caught.
+    const perimetersByKey = placesByFireKey(
+      filteredPerimetersGeoJSON?.features || [], f => f.properties.IncidentName, f => f.geometry,
+    );
 
     return {
       ...deduplicatedIncidentDotsGeoJSON,
       features: deduplicatedIncidentDotsGeoJSON.features.filter(f => {
         const nameKey = getFireMatchKey(f.properties.IncidentName);
         const id = f.properties.UniqueFireIdentifier;
-        if (nameKey && locationNameKeys.has(nameKey)) return false;
+        const point = f.geometry?.coordinates;
+        if (nameKey && (locationPointsByKey.get(nameKey) || []).some(p => pointsNearSameFire(p, point))) return false;
+        if (nameKey && (perimetersByKey.get(nameKey) || []).some(g => pointNearPerimeter(point, g))) return false;
         if (id && locationIds.has(id)) return false;
         return true;
       }),
@@ -1535,14 +1578,15 @@ export default function LiveTrackerPage() {
     if (key === QUICK_FILTERS.activeFires || key === QUICK_FILTERS.allFires) {
       handleTabChange(MAP_TABS.wildfire);
       setFeedFilter(key === QUICK_FILTERS.activeFires ? 'focused' : 'all');
-      openSidebar();
+      // Simplified Sentinel has no hazard sidebar; the map still filters.
+      if (!simplified) openSidebar();
     } else if (key === QUICK_FILTERS.allHazards) {
       handleTabChange(MAP_TABS.allhazard);
     } else if (key === QUICK_FILTERS.myArea && isHomeSetupComplete) {
       setViewport({ latitude: home.latitude, longitude: home.longitude, zoom: zoomForRadius(home.latitude, home.radiusMiles) });
     }
     closeOverview();
-  }, [handleTabChange, setFeedFilter, openSidebar, isHomeSetupComplete, home, setViewport, closeOverview]);
+  }, [handleTabChange, setFeedFilter, openSidebar, simplified, isHomeSetupComplete, home, setViewport, closeOverview]);
 
   const handleOverviewSetUpHome = useCallback(() => {
     closeOverview();
@@ -1666,6 +1710,19 @@ export default function LiveTrackerPage() {
     return () => observer.disconnect();
   }, []);
 
+  // The left sidebars (hazards, menu) run from the header to the map's bottom
+  // edge, sized to end just short of the centered bottom bar (which stays
+  // put); while one is open, the distance scale moves right of the bar. Where
+  // the screen is too narrow for that gap, the bar sits over the open
+  // sidebar's bottom corner and the sidebar's lists scroll under it.
+  const viewportWidth = useViewportWidth();
+  const leftPanel = leftPanelLayout(viewportWidth, mapBottomBarSize.width);
+  const leftPanelOpen = sidebarOpen || futurePanelOpen;
+  const barOverLeftPanel = Boolean(leftPanel && !leftPanel.clearsBar);
+  // Large right-hand panels keep their top, end a small gap above the zoom
+  // buttons, and stay fully right of the bottom bar (from sm up).
+  const rightPanelWidth = rightPanelMaxWidth(viewportWidth, mapBottomBarSize.width);
+
   const satelliteActive = Boolean(layers.satellite) && activeMapTab !== MAP_TABS.models;
   // A Weather-tab layer; Simplified Sentinel also offers it on All Hazards.
   const mrmsActive = Boolean(layers.mrms)
@@ -1729,12 +1786,6 @@ export default function LiveTrackerPage() {
       {/* ── Top bar ── */}
       <Header onRefresh={handleRefresh} />
 
-      {/* ── Active alert banner ── */}
-      {/* Red Flag Warnings are fire weather: only on the Wildfire and All Hazards tabs */}
-      {(activeMapTab === MAP_TABS.wildfire || activeMapTab === MAP_TABS.allhazard) && (
-        <AlertBanner dismissed={bannerDismissed} onDismiss={() => setBannerDismissed(true)} />
-      )}
-
       {/* ── Main content area (map fills full width; all controls float over it) ── */}
       {/* --map-bottom-stack: space taken by the bottom bar plus anything docked on
           it, so the left drawers can end above it where they'd otherwise cover it. */}
@@ -1745,8 +1796,17 @@ export default function LiveTrackerPage() {
       <AwcProvider active={awcActive}>
       <SatelliteProvider active={satelliteActive}>
       <div
+        // The map area: dragged popups stay inside it (usePopupDrag).
+        data-map-area=""
         className={`flex-1 relative overflow-x-clip ${MODEL_COLOR_VARS}`}
-        style={{ '--map-bottom-stack': `${mapBottomBarSize.height + totalDockedHeight + 24}px` }}
+        style={{
+          '--map-bottom-stack': `${mapBottomBarSize.height + totalDockedHeight + 24}px`,
+          '--left-panel-width': leftPanel ? `${leftPanel.width}px` : undefined,
+          // Above the left sidebars (z-40) while one is open under the bar.
+          '--bar-z': barOverLeftPanel && leftPanelOpen ? 45 : undefined,
+          '--right-panel-max-width': rightPanelWidth ? `${rightPanelWidth}px` : undefined,
+          '--right-panel-bottom': `${RIGHT_PANEL_BOTTOM}px`,
+        }}
       >
         <MapView
             onMapLoad={handleMapLoad}
@@ -1820,7 +1880,7 @@ export default function LiveTrackerPage() {
             onRoutePick={routeToSafetyActive && routeToSafety.picking ? routeToSafety.actions.pickPoint : undefined}
           />
 
-          <MapCornerButtons onReopenBanner={reopenBanner} />
+          <MapCornerButtons />
           {routeToSafetyActive && (
             <RouteToSafetyPanel
               state={routeToSafety}
@@ -1839,7 +1899,6 @@ export default function LiveTrackerPage() {
             activeMapTab={activeMapTab}
             weatherAlertsLoading={alertsLoading}
             weatherAlertsError={alertsError}
-            onReopenBanner={reopenBanner}
             weatherAlertFilter={weatherAlertFilter}
             onWeatherAlertFilterChange={setWeatherAlertFilter}
             onWeatherAlertsRefresh={refreshAlerts}
@@ -1848,6 +1907,7 @@ export default function LiveTrackerPage() {
             nhcLoading={nhcLoading}
             nhcEnabled={nhcTropicalWeatherEnabled}
             modelsPanel={<WeatherModelsPanel />}
+            underBar={barOverLeftPanel}
           />
 
           {/* The legend lives in the app menu; the Models tab swaps in its own,
@@ -1855,13 +1915,14 @@ export default function LiveTrackerPage() {
           <FutureFeaturesPanel
             mapType={mapType}
             onMapTypeChange={setMapType}
+            underBar={barOverLeftPanel}
             legend={activeMapTab === MAP_TABS.models ? (
               <ModelLegend />
             ) : (
               <Legend spcOutlookType={spcOutlookType} fireWxOutlookType={fireWxOutlookType} />
             )}
           />
-          {/* Hidden while the full-height water gauge panel is open, whose close button sits in the same corner. */}
+          {/* Hidden while the water gauge panel is open, whose close button sits in the same corner. */}
           {!selectedGauge && <AccountButton />}
           <AccountPanel />
           {/* One first-look at a time: the Simplified prompt waits until the Overview closes. */}
@@ -1898,7 +1959,8 @@ export default function LiveTrackerPage() {
           {modelsTimeShowing && (
             <div
               ref={modelsTimeRef}
-              className="absolute left-1/2 -translate-x-1/2 z-20 overflow-hidden rounded-t-2xl border border-b-0 border-sentinel-600 bg-sentinel-900 shadow-2xl shadow-black/60 animate-dock-rise"
+              data-map-control=""
+              className="absolute left-1/2 -translate-x-1/2 z-[var(--bar-z,20)] overflow-hidden rounded-t-2xl border border-b-0 border-sentinel-600 bg-sentinel-900 shadow-2xl shadow-black/60 animate-dock-rise"
               style={{
                 bottom: 16 + mapBottomBarSize.height,
                 width: mapBottomBarSize.width ? `max(${mapBottomBarSize.width}px, min(24rem, calc(100vw - 1rem)))` : 'min(24rem, calc(100vw - 1rem))',
@@ -1941,6 +2003,7 @@ export default function LiveTrackerPage() {
             map={mapInstance}
             bottomBarWidth={mapBottomBarSize.width}
             bottomBarHeight={mapBottomBarSize.height}
+            besidePanel={leftPanelOpen}
           />
 
           <span className="absolute bottom-0.5 right-1.5 z-20 pointer-events-none select-none text-[10px] leading-none font-medium tabular-nums text-white/70 [text-shadow:0_1px_2px_rgba(0,0,0,0.8)]">

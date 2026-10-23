@@ -528,7 +528,7 @@ export default function WeatherAlertsFeed({
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto overflow-x-hidden pb-3">
+      <div className="flex-1 overflow-y-auto overflow-x-hidden pb-3 scrollbar-visible">
         <div className="pt-2">
           <AlertErrorBanner
             error={alertsStatus?.error || error}

@@ -6,7 +6,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { fetchIncidents, incidentsToGeoJSON } from '../api/inciweb';
-import { getFireMatchKey } from './useMergedFireData';
+import { getFireMatchKey, pointsNearSameFire } from './useMergedFireData';
 
 const REFRESH_MS = parseInt(import.meta.env.VITE_REFRESH_INTERVAL || '300000', 10);
 
@@ -16,8 +16,9 @@ const REFRESH_MS = parseInt(import.meta.env.VITE_REFRESH_INTERVAL || '300000', 1
  * initial dispatch entry alongside a later IMT-assigned one) — both with the
  * same name. Collapse those to a single record, keeping the most recently
  * modified one, so the map doesn't show duplicate dots for one fire.
+ * Same-named records far apart are different fires and are all kept.
  */
-function dedupeIncidentsByName(incidents) {
+export function dedupeIncidentsByName(incidents) {
   const byKey = new Map();
   const unkeyed = [];
   for (const inc of incidents) {
@@ -26,12 +27,13 @@ function dedupeIncidentsByName(incidents) {
       unkeyed.push(inc);
       continue;
     }
-    const existing = byKey.get(key);
-    if (!existing || new Date(inc.updated) > new Date(existing.updated)) {
-      byKey.set(key, inc);
-    }
+    if (!byKey.has(key)) byKey.set(key, []);
+    const fires = byKey.get(key);
+    const i = fires.findIndex(f => pointsNearSameFire([f.lng, f.lat], [inc.lng, inc.lat]));
+    if (i === -1) fires.push(inc);
+    else if (new Date(inc.updated) > new Date(fires[i].updated)) fires[i] = inc;
   }
-  return [...byKey.values(), ...unkeyed];
+  return [...[...byKey.values()].flat(), ...unkeyed];
 }
 
 export function useIncidents(minAcres = 0.1, enabled = true) {

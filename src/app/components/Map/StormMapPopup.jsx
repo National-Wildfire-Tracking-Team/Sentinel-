@@ -5,7 +5,7 @@
  * interest): name, what was clicked, category or formation chance, current
  * numbers, with actions — open its detail panel (chevron), point the
  * satellite layer at it, and show spaghetti model tracks by model group.
- * Same card, drag handle and close as MapFeaturePopup.
+ * Same card, dragging and close as MapFeaturePopup.
  */
 
 import { memo } from 'react';
@@ -15,7 +15,7 @@ import { DISTURBANCE_COLORS, categoryColor } from '../../api/nhcTropicalWeather'
 import { useInvestModelRun } from '../../hooks/useInvestModelRun';
 import { CARD_BG, PopupFooter } from './MapFeaturePopup';
 import SpaghettiModelsButton from './SpaghettiModelsButton';
-import { useDragOffset } from './usePopupDrag';
+import { usePopupDrag } from './usePopupDrag';
 
 const actionButton = 'min-h-[44px] rounded-lg border border-white/10 bg-white/5 text-sm font-semibold text-white hover:bg-white/10 transition-colors';
 
@@ -49,12 +49,12 @@ function OutlookSpaghetti({ system }) {
  * @param {object}   system     cyclone from buildCyclones, or outlook system from buildOutlookSystems
  * @param {string}   via        what was clicked ("Cone of uncertainty")
  * @param {{ lng: number, lat: number }} lngLat
- * @param {object}   prefs      display preferences (popupDragHandle)
+ * @param {object}   prefs      display preferences (popupDragHandle: Popup Draggability)
  */
 const StormMapPopup = memo(function StormMapPopup({
   kind = 'storm', system, via, lngLat, prefs, onOpen, onShowSatellite, onClose,
 }) {
-  const { offset, onPointerDown, onPointerMove, onPointerUp } = useDragOffset(system.id);
+  const drag = usePopupDrag(system.id, prefs?.popupDragHandle);
   const { color, tag, stats } = kind === 'storm' ? stormSummary(system) : outlookSummary(system);
 
   return (
@@ -69,8 +69,9 @@ const StormMapPopup = memo(function StormMapPopup({
       className="sentinel-popup"
     >
       <div
-        style={{ transform: `translate(${offset.x}px, ${offset.y}px)`, background: CARD_BG }}
-        className="w-[288px] overflow-hidden rounded-2xl border border-white/10 shadow-2xl"
+        {...drag.dragProps}
+        style={{ translate: drag.translate, background: CARD_BG }}
+        className={`w-[288px] overflow-hidden rounded-2xl border border-white/10 shadow-2xl ${drag.dragClass} ${drag.enabled ? 'touch-none' : ''}`}
         aria-label={`${system.name} on the map`}
         role="dialog"
       >
@@ -101,11 +102,7 @@ const StormMapPopup = memo(function StormMapPopup({
         </div>
 
         <div className="mx-3 h-px bg-white/10" />
-        <PopupFooter
-          dragEnabled={prefs?.popupDragHandle}
-          dragHandlers={{ onPointerDown, onPointerMove, onPointerUp }}
-          onClose={onClose}
-        />
+        <PopupFooter onClose={onClose} />
       </div>
     </Popup>
   );
