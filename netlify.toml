@@ -110,6 +110,11 @@
   path = "/api/awc/*"
   cache = "manual"
 
+[[edge_functions]]
+  function = "faa-tfr-proxy"
+  path = "/api/tfr/*"
+  cache = "manual"
+
 # Backward-compat for old bookmarks/links to the tracker's old path.
 # The tracker now lives at the root of app.nationalwildfiretrackingteam.org
 # instead of "/sentinel" on the main domain — routing between the marketing

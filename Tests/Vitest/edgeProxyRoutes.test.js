@@ -129,7 +129,7 @@ describe('netlify.toml edge cache declarations', () => {
     // responses, so every request runs the function and hits the upstream.
     const proxies = blocks.filter((b) => usesCreateProxy(b.function));
     expect(proxies.map((b) => b.function).sort()).toEqual([
-      'airnow-edge-proxy', 'arcgis-proxy', 'awc-proxy', 'nationalmap-proxy',
+      'airnow-edge-proxy', 'arcgis-proxy', 'awc-proxy', 'faa-tfr-proxy', 'nationalmap-proxy',
       'nesdis-proxy', 'nws-mapservices-proxy', 'weather-gov-proxy',
     ]);
     for (const b of proxies) expect(b.cache, `${b.function} must opt into caching`).toBe('manual');

@@ -60,6 +60,8 @@ const initialState = {
     floodHazard: false,
     /** NWS Damage Assessment Toolkit — post-storm survey points/tracks/polygons */
     damageAssessment: false,
+    /** FAA Temporary Flight Restrictions (tfr.faa.gov) — Aviation section, every map tab */
+    tfrs: false,
     /** Rothermel-based spread projection rings for the selected fire */
     fireBehaviorModeling: false,
     /** Route to Safety (All Hazards, Pro): nearest open shelters + hazard-avoiding

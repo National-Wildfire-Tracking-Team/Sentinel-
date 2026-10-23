@@ -16,6 +16,7 @@ import { getGeometryCenter } from '../../utils/mapGeometry';
 import { nwsAlertColor } from '../../utils/nwsColors';
 import { categoryColor } from '../../api/nhcTropicalWeather';
 import { awcAccentColor } from '../../api/awc/awc';
+import { tfrTypeStyle } from '../../api/tfr';
 import SpotlightMaskLayer from './layers/SpotlightMaskLayer';
 import { useDragOffset } from './usePopupDrag';
 
@@ -39,6 +40,7 @@ const TYPE_LABELS = {
   'nhc-storm': 'Tropical cyclone',
   'fire-danger-point': 'Fire danger & fuels',
   awc: 'Aviation weather',
+  tfr: 'Flight restriction (TFR)',
 };
 
 function getTitle(item) {
@@ -55,6 +57,7 @@ function getAccentColor(item) {
   if (item.type === 'nhc-storm') return categoryColor(item.category);
   if (item.type === 'fire-danger-point' && item.sfp?.sfpColor) return item.sfp.sfpColor;
   if (item.type === 'awc') return awcAccentColor(item) ?? DEFAULT_ACCENT;
+  if (item.type === 'tfr') return tfrTypeStyle(item.tfrType).color;
   return DEFAULT_ACCENT;
 }
 
