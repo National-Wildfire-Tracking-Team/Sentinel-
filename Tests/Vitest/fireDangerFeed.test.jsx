@@ -14,6 +14,8 @@ const FIX = JSON.parse(readFileSync(resolve(process.cwd(), 'Tests/Vitest/fixture
 const setLayer = vi.fn();
 const setViewport = vi.fn();
 let layers = {};
+let hasFireDangerAccess = true;
+vi.mock('../../src/shared/hooks/usePlan', () => ({ usePlan: () => ({ hasFireDangerAccess }) }));
 vi.mock('../../src/app/context/AppContext', () => ({ useApp: () => ({ layers, setLayer }) }));
 vi.mock('../../src/app/context/ViewportContext', () => ({ useViewport: () => ({ setViewport }) }));
 vi.mock('../../src/app/api/fireDanger/stations', async (importOriginal) => ({
@@ -25,9 +27,18 @@ vi.mock('../../src/app/api/fireDanger/stations', async (importOriginal) => ({
 
 const { default: FireDangerFeed } = await import('../../src/app/components/Sidebar/FireDangerFeed');
 
-beforeEach(() => { setLayer.mockClear(); setViewport.mockClear(); layers = {}; });
+beforeEach(() => { setLayer.mockClear(); setViewport.mockClear(); layers = {}; hasFireDangerAccess = true; });
 
 describe('FireDangerFeed', () => {
+  it('is locked to Plus and Pro, without loading stations, on a free plan', async () => {
+    hasFireDangerAccess = false;
+    const { fetchFireDangerManifest } = await import('../../src/app/api/fireDanger/stations');
+    fetchFireDangerManifest.mockClear();
+    render(<FireDangerFeed />);
+    expect(screen.getByText(/included with Sentinel Plus and Pro/)).toBeTruthy();
+    expect(fetchFireDangerManifest).not.toHaveBeenCalled();
+  });
+
   it('shows the national picture for current stations', async () => {
     render(<FireDangerFeed />);
     expect(await screen.findByText(/How dry fuels are at 2 fire weather stations/)).toBeTruthy();

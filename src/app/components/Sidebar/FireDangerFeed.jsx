@@ -8,9 +8,10 @@
  */
 
 import { memo, useEffect, useState } from 'react';
-import { Flame, Info, Loader2, RefreshCw } from 'lucide-react';
+import { Flame, Info, Loader2, Lock, RefreshCw } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { useViewport } from '../../context/ViewportContext';
+import { usePlan } from '../../../shared/hooks/usePlan';
 import {
   ERC_BANDS, FIRE_DANGER_URL, MANIFEST_REFRESH_MS, STATION_LAYER_KEYS, ercBand,
   fetchFireDangerManifest, fetchStations, markStaleStations, nationalOutlook,
@@ -105,13 +106,23 @@ function useNationalOutlook(enabled) {
 const FireDangerFeed = memo(function FireDangerFeed({ enabled = true }) {
   const { layers, setLayer } = useApp();
   const { setViewport } = useViewport();
-  const { outlook, error, loading, retry } = useNationalOutlook(enabled);
+  const { hasFireDangerAccess } = usePlan();
+  const { outlook, error, loading, retry } = useNationalOutlook(enabled && hasFireDangerAccess);
   const [allStates, setAllStates] = useState(false);
 
   const showOnMap = ([longitude, latitude], zoom) => {
     if (!STATION_LAYER_KEYS.some((k) => layers[k])) STATION_LAYER_KEYS.forEach((k) => setLayer(k, k === 'fdErc'));
     setViewport({ longitude, latitude, zoom });
   };
+
+  if (!hasFireDangerAccess) {
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center gap-2 text-center px-6 text-sentinel-400">
+        <Lock size={22} className="text-sentinel-600" />
+        <p className="text-sm">Fire Danger &amp; Fuels is included with Sentinel Plus and Pro</p>
+      </div>
+    );
+  }
 
   if (!FIRE_DANGER_URL) {
     return (
