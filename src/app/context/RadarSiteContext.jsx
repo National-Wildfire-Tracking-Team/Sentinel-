@@ -101,6 +101,8 @@ export function RadarSiteProvider({ active, children }) {
   }, [active, site, kind, reloadKey]);
 
   const selectSite = useCallback((id) => setSelectedId(id || null), []);
+  // A pill click: the selected station again turns its radar off.
+  const toggleSite = useCallback((id) => setSelectedId((current) => (current === id ? null : id || null)), []);
   const clearSite = useCallback(() => setSelectedId(null), []);
   const retry = useCallback(() => setReloadKey((k) => k + 1), []);
 
@@ -128,10 +130,11 @@ export function RadarSiteProvider({ active, children }) {
       opacity,
       setOpacity,
       selectSite,
+      toggleSite,
       clearSite,
       retry,
     };
-  }, [active, sites, site, selectedId, downIds, kind, chosenKind, state, dbzLow, dbzHigh, opacity, selectSite, clearSite, retry]);
+  }, [active, sites, site, selectedId, downIds, kind, chosenKind, state, dbzLow, dbzHigh, opacity, selectSite, toggleSite, clearSite, retry]);
 
   return <RadarSiteContext.Provider value={value}>{children}</RadarSiteContext.Provider>;
 }

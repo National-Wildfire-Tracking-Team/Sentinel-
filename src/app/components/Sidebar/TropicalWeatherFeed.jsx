@@ -145,7 +145,7 @@ const TropicalWeatherFeed = memo(function TropicalWeatherFeed({
   }
 
   return (
-    <div className="flex-1 overflow-y-auto px-3 py-2 space-y-4">
+    <div className="flex-1 overflow-y-auto px-3 py-2 space-y-4 scrollbar-visible">
       {cyclones.length > 0 && (
         <div>
           <div className="px-1 pb-1.5 text-[10px] font-semibold uppercase tracking-wider text-sentinel-500">

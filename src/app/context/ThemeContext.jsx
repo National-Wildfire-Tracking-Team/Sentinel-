@@ -1,42 +1,57 @@
 /**
  * ThemeContext.jsx
- * App-wide light/dark theme. Persisted to localStorage and a parent-domain
- * cookie (so the marketing site follows it too — see shared/utils/sharedTheme);
- * applied by toggling the `dark` class on <html> (Tailwind's `darkMode: 'class'`
- * reads this).
+ * App-wide light/dark theme. Follows the device's setting (`preference`
+ * 'auto') unless Light or Dark is picked in the menu; only that pick is
+ * persisted, to localStorage and a parent-domain cookie (so the marketing
+ * site follows it too — see shared/utils/sharedTheme). Applied by toggling
+ * the `dark` class on <html> (Tailwind's `darkMode: 'class'` reads this).
  */
 
-import { createContext, useContext, useCallback, useEffect, useState } from 'react';
-import { readSharedTheme, writeSharedTheme, applyThemeClass } from '../../shared/utils/sharedTheme';
-
-function getInitialTheme() {
-  if (typeof window === 'undefined') return 'dark';
-  return readSharedTheme() ?? 'dark';
-}
+import { createContext, useContext, useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  readSharedTheme, writeSharedTheme, applyThemeClass, deviceTheme, watchDeviceTheme,
+} from '../../shared/utils/sharedTheme';
 
 const ThemeContext = createContext(null);
 
 export function ThemeProvider({ children }) {
-  const [theme, setThemeState] = useState(getInitialTheme);
+  // 'auto' | 'light' | 'dark'
+  const [preference, setPreferenceState] = useState(() => readSharedTheme() ?? 'auto');
+  const [device, setDevice] = useState(deviceTheme);
+
+  useEffect(() => watchDeviceTheme(setDevice), []);
+
+  const theme = preference === 'auto' ? device : preference;
 
   useEffect(() => {
     applyThemeClass(theme);
-    writeSharedTheme(theme);
   }, [theme]);
 
-  const setTheme = useCallback((next) => {
-    setThemeState(next === 'light' ? 'light' : 'dark');
+  const setPreference = useCallback((next) => {
+    const value = next === 'light' || next === 'dark' ? next : 'auto';
+    setPreferenceState(value);
+    writeSharedTheme(value);
   }, []);
 
-  const toggleTheme = useCallback(() => {
-    setThemeState((t) => (t === 'dark' ? 'light' : 'dark'));
-  }, []);
+  const setTheme = useCallback((next) => setPreference(next === 'light' ? 'light' : 'dark'), [setPreference]);
+
+  const toggleTheme = useCallback(() => setPreference(theme === 'dark' ? 'light' : 'dark'), [setPreference, theme]);
+
+  const value = useMemo(
+    () => ({ theme, preference, setPreference, setTheme, toggleTheme }),
+    [theme, preference, setPreference, setTheme, toggleTheme],
+  );
 
   return (
-    <ThemeContext.Provider value={{ theme, setTheme, toggleTheme }}>
+    <ThemeContext.Provider value={value}>
       {children}
     </ThemeContext.Provider>
   );
+}
+
+/** The theme context, or null outside <ThemeProvider> (isolated component tests). */
+export function useOptionalTheme() {
+  return useContext(ThemeContext);
 }
 
 /** Hook to consume theme context */

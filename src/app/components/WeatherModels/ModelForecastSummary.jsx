@@ -6,7 +6,8 @@
  * the full experience.
  *
  * Renders nothing when the service isn't configured or has no data, so a
- * missing forecast never gets in the way of incident information.
+ * missing forecast never gets in the way of incident information. Simplified
+ * Sentinel has no Models tab, so there it's the forecast alone.
  */
 
 import { Link } from 'react-router-dom';
@@ -14,6 +15,7 @@ import { CloudSun, Navigation2 } from 'lucide-react';
 import { WEATHER_MODEL_SERVICE_URL } from '../../api/weatherModels';
 import { useModelForecast } from '../../hooks/useModelForecast';
 import { useWeatherModelsContext } from '../../context/WeatherModelsContext';
+import { useSimplifiedMode } from '../../context/SimplifiedModeContext';
 import { modelsHref } from '../../utils/weatherModelsLink';
 import { compassPoint, localTime, nowIndex, zulu } from './modelTheme';
 import { ModelChip } from './RunBadges';
@@ -25,6 +27,7 @@ export default function ModelForecastSummary({ lat, lon, place }) {
   // auto: HRRR inside CONUS, GFS elsewhere. The chip shows which one answered.
   const { data } = useModelForecast({ model: enabled ? 'auto' : null, lat, lon });
   const models = useWeatherModelsContext();
+  const { simplified } = useSimplifiedMode();
   if (!enabled || !data?.forecast?.length) return null;
 
   const entry = data.forecast[nowIndex(data.forecast)];
@@ -55,19 +58,21 @@ export default function ModelForecastSummary({ lat, lon, place }) {
         {entry.temperature != null && <span>{Math.round(entry.temperature)}{u.temperature}</span>}
       </div>
       {data.run.stale && <p className="mt-1 text-[11px] text-amber-300">This run is older than usual.</p>}
-      <Link
-        to={modelsHref(target)}
-        onClick={(e) => {
-          // On the live map, switch to the Models tab in place.
-          if (models) {
-            e.preventDefault();
-            models.open(target);
-          }
-        }}
-        className="mt-2 inline-block text-xs font-semibold text-sky-400 hover:text-sky-300 underline-offset-2 hover:underline"
-      >
-        Open in Models
-      </Link>
+      {!simplified && (
+        <Link
+          to={modelsHref(target)}
+          onClick={(e) => {
+            // On the live map, switch to the Models tab in place.
+            if (models) {
+              e.preventDefault();
+              models.open(target);
+            }
+          }}
+          className="mt-2 inline-block text-xs font-semibold text-sky-400 hover:text-sky-300 underline-offset-2 hover:underline"
+        >
+          Open in Models
+        </Link>
+      )}
     </div>
   );
 }

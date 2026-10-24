@@ -99,9 +99,9 @@ describe('LayerControl — Infrastructure & Modeling group', () => {
     expect(screen.queryByText('Evacuation Zones')).not.toBeInTheDocument();
   });
 
-  it('no longer offers radar layers or the dBZ probe (radar is being rebuilt)', () => {
+  // ('Composite Radar' is now the MRMS row's name, so only the old NEXRAD layer and probe are checked.)
+  it('no longer offers the old NEXRAD layer or the dBZ probe', () => {
     renderPanel({ activeMapTab: 'weather' });
-    expect(screen.queryByText('Composite Radar')).not.toBeInTheDocument();
     expect(screen.queryByText('NEXRAD Level II')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Toggle dBZ radar probe' })).not.toBeInTheDocument();
   });
@@ -228,17 +228,17 @@ describe('LayerControl — Navigation (Pro)', () => {
   });
 });
 
-describe('LayerControl — Radar Site', () => {
-  it.each(['weather', 'allhazard'])('offers the Radar Site toggle on the %s tab, off by default', (tab) => {
+describe('LayerControl — Individual Radar Site', () => {
+  it.each(['weather', 'allhazard'])('offers the Individual Radar Site toggle on the %s tab, off by default', (tab) => {
     renderPanel({ activeMapTab: tab });
-    const toggle = screen.getByRole('button', { name: 'Toggle Radar Site' });
+    const toggle = screen.getByRole('button', { name: 'Toggle Individual Radar Site' });
     expect(toggle.getAttribute('aria-pressed')).not.toBe('true');
     expect(screen.getByText(/NEXRAD & TDWR stations/)).toBeInTheDocument();
   });
 
-  it('does not offer the Radar Site toggle on the wildfire tab', () => {
+  it('does not offer the Individual Radar Site toggle on the wildfire tab', () => {
     renderPanel({ activeMapTab: 'wildfire' });
-    expect(screen.queryByRole('button', { name: 'Toggle Radar Site' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Toggle Individual Radar Site' })).not.toBeInTheDocument();
   });
 
   it('toggles the radarSites layer key', () => {
@@ -246,8 +246,28 @@ describe('LayerControl — Radar Site', () => {
     const base = useApp();
     useApp.mockReturnValue({ ...base, toggleLayer });
     renderPanel({ activeMapTab: 'weather' });
-    fireEvent.click(screen.getByRole('button', { name: 'Toggle Radar Site' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Toggle Individual Radar Site' }));
     expect(toggleLayer).toHaveBeenCalledWith('radarSites');
     useApp.mockReset();
+  });
+});
+
+describe('LayerControl — Fire Danger & Fuels (Plus)', () => {
+  it.each(['allhazard', 'wildfire'])('is Plus-locked with no upgrade link when not entitled (%s)', (tab) => {
+    renderPanel({ activeMapTab: tab, fireDangerEntitled: false });
+    for (const label of ['Significant Fire Potential', 'Energy Release Component', 'Fuel Types & Models']) {
+      const row = screen.getByText(label).closest('.w-full');
+      expect(row).toHaveTextContent('Plus');
+      expect(row.querySelector('a')).toBeNull();
+      expect(screen.queryByRole('button', { name: `Toggle ${label}` })).not.toBeInTheDocument();
+    }
+    // The SPC fire weather outlook in the same section stays free.
+    if (tab === 'wildfire') expect(screen.getByRole('button', { name: 'Toggle Fire Weather Forecast' })).toBeInTheDocument();
+  });
+
+  it('is a working toggle when entitled', () => {
+    renderPanel({ activeMapTab: 'wildfire', fireDangerEntitled: true });
+    expect(screen.getByRole('button', { name: 'Toggle Significant Fire Potential' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Toggle Fuel Types & Models' })).toBeInTheDocument();
   });
 });

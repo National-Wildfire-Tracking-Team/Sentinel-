@@ -8,7 +8,7 @@ import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-route
 import { lazy, Suspense, useEffect } from 'react';
 
 import Navbar from '../shared/components/Navbar/Navbar';
-import { readSharedTheme, applyThemeClass } from '../shared/utils/sharedTheme';
+import { useSharedThemeSync } from '../shared/hooks/useSharedThemeSync';
 import Footer from '../shared/components/Footer/Footer';
 
 const HomePage = lazy(() => import('./pages/HomePage'));
@@ -31,23 +31,9 @@ function ScrollToTop() {
   return null;
 }
 
-/**
- * Follow the light/dark choice made in the tracker app. index.html applies it
- * before first paint; this re-reads it when the visitor comes back to this tab,
- * in case they switched it in the app meanwhile.
- */
+/** Follow the device's light/dark setting, or the pick made in the tracker app (see useSharedThemeSync). */
 function SharedThemeSync() {
-  useEffect(() => {
-    const sync = () => {
-      if (document.visibilityState === 'visible') applyThemeClass(readSharedTheme() ?? 'dark');
-    };
-    document.addEventListener('visibilitychange', sync);
-    window.addEventListener('focus', sync);
-    return () => {
-      document.removeEventListener('visibilitychange', sync);
-      window.removeEventListener('focus', sync);
-    };
-  }, []);
+  useSharedThemeSync();
   return null;
 }
 

@@ -7,7 +7,6 @@
 
 import { useRef, useCallback, useMemo, useState, useEffect } from 'react';
 import Map, { Marker, Source, Layer } from 'react-map-gl';
-import 'mapbox-gl/dist/mapbox-gl.css';
 import MapZoomControl from './MapZoomControl';
 
 import { useApp } from '../../context/AppContext';
@@ -67,8 +66,19 @@ import CalFirePerimetersLayer from './layers/CalFirePerimetersLayer';
 import HazardEventsLayer from './layers/HazardEventsLayer';
 import DamageAssessmentLayer from './layers/DamageAssessmentLayer';
 import MrmsLayer from './layers/MrmsLayer';
+import SignificantFirePotentialLayer, { SFP_FILL_ID } from './layers/SignificantFirePotentialLayer';
+import FuelModelLayer from './layers/FuelModelLayer';
+import WfpiLayer from './layers/WfpiLayer';
+import FieldSamplesLayer, { SAMPLES_CIRCLE_ID } from './layers/FieldSamplesLayer';
+import FireDangerStationsLayer, { STATIONS_CIRCLE_ID } from './layers/FireDangerStationsLayer';
+import { useFireDangerContext } from '../../context/FireDangerContext';
 import RadarSitesLayer, { RadarSiteSweepLayer, RADAR_SITES_PILL_ID } from './layers/RadarSitesLayer';
 import LightningLayer from './layers/LightningLayer';
+import AwcLayers from './layers/AwcLayers';
+import TfrLayer from './layers/TfrLayer';
+import { TFR_FILL_ID, buildTfrRecord } from './layers/tfrRecords';
+import { awcInteractiveLayerIds, buildAwcRecord } from './layers/awcRecords';
+import { useAwcContext } from '../../context/AwcContext';
 import { parseAliasIds } from '../../utils/incidentAliases';
 import { ndgdFeatureToDateMs } from '../../utils/ndgdSmokeHours';
 
@@ -130,10 +140,61 @@ function buildFloodHazardRecord(zoneProps, lngLat, panelProps) {
  * gauges, cameras, SPC MDs / WPC MPDs) — those stay handled directly in
  * handleClick.
  */
-function buildFeatureRecord(feature, lngLat, alerts, { floodPanel = null } = {}) {
+/**
+ * The Fire Danger & Fuels inspection record for a clicked point. `sfpProps`
+ * are the clicked fire potential area's properties, or null when the click
+ * missed every area (or that layer is off); the panel then shows what else
+ * is known at the point.
+ */
+function buildFireDangerPointRecord(lngLat, sfpProps, fireDanger, station = null, sampleSite = null) {
+  return {
+    type:         'fire-danger-point',
+    id:           `fire-danger-${lngLat.lat.toFixed(4)},${lngLat.lng.toFixed(4)}`,
+    lat:          lngLat.lat,
+    lng:          lngLat.lng,
+    sfp:          sfpProps ?? null,
+    sfpDay:       fireDanger?.sfp?.day ?? null,
+    sfpFetchedAt: fireDanger?.sfp?.fetchedAt ?? null,
+    // A clicked FEMS station; otherwise the panel finds the nearest one.
+    station:      station ?? null,
+    // A clicked fuel moisture sample site; otherwise the panel finds the nearest one.
+    sampleSite:   sampleSite ?? null,
+  };
+}
+
+/** One click can hit a fire potential area and a station: show them as one inspection. */
+function mergeFireDangerRecords(records) {
+  const fd = records.filter((r) => r.record.type === 'fire-danger-point');
+  if (fd.length < 2) return records;
+  const merged = { ...fd[0].record };
+  for (const { record } of fd.slice(1)) {
+    merged.sfp = merged.sfp ?? record.sfp;
+    merged.station = merged.station ?? record.station;
+    merged.sampleSite = merged.sampleSite ?? record.sampleSite;
+  }
+  return [{ record: merged, feature: fd[0].feature }, ...records.filter((r) => r.record.type !== 'fire-danger-point')];
+}
+
+function buildFeatureRecord(feature, lngLat, alerts, { floodPanel = null, fireDanger = null } = {}) {
   const p = feature.properties;
 
+  // Aviation Weather Center layers (AwcLayers): every one opens AwcDetail.
+  if (feature.layer.id.startsWith('awc-src-')) return buildAwcRecord(feature, lngLat);
+  if (feature.layer.id === TFR_FILL_ID) return buildTfrRecord(feature, lngLat);
+
   switch (feature.layer.id) {
+    case SFP_FILL_ID:
+      return buildFireDangerPointRecord(lngLat, p, fireDanger);
+
+    case STATIONS_CIRCLE_ID: {
+      // Rendered features carry nested arrays (the forecast) as JSON strings; use the loaded record.
+      const station = fireDanger?.stations?.data?.features?.find((f) => f.properties.id === p.id)?.properties ?? p;
+      return buildFireDangerPointRecord(lngLat, null, fireDanger, station);
+    }
+
+    case SAMPLES_CIRCLE_ID:
+      return buildFireDangerPointRecord(lngLat, null, fireDanger, null, p);
+
     case FLOOD_ZONES_FILL_ID:
       return buildFloodHazardRecord(p, lngLat, floodPanel);
 
@@ -594,8 +655,11 @@ export default function MapView({
   const { layers, setLayer, selectedFire, selectFire, selectGauge, selectCamera, sidebarOpen, locationGranted, layerPanelOpen, closeLayerPanel, nhcModelTracks } = useApp();
   const radarSites = useRadarSiteContext();
   const radarSitesActive = Boolean(radarSites?.active && radarSites.sites);
-  const selectRadarSite = radarSites?.selectSite;
+  const toggleRadarSite = radarSites?.toggleSite;
   const satellite = useSatelliteContext();
+  const fireDanger = useFireDangerContext();
+  const fireDangerOn = Boolean(fireDanger?.anyOn);
+  const awc = useAwcContext();
   const { alerts, userLocation, setUserLocation } = useAppStatus();
   const { viewport, setViewport } = useViewport();
   // Read on map load: still the opening camera means nothing has moved it yet.
@@ -633,8 +697,8 @@ export default function MapView({
   }, [selectedFire]);
 
   // Popup Spotlight for the currently selected weather alert or evacuation
-  // zone — works no matter how it was selected (map click, sidebar feed, or
-  // the Red Flag Warning banner), since all three carry the feature's
+  // zone — works no matter how it was selected (map click or sidebar feed),
+  // since both carry the feature's
   // GeoJSON geometry on the selectedFire record.
   const spotlightGeometry = useMemo(() => {
     if (!displayPrefs.popupSpotlight || !selectedFire) return null;
@@ -790,6 +854,9 @@ export default function MapView({
     if (floodHazardVisible && floodHazardData?.zones?.features?.length) ids.push(FLOOD_ZONES_FILL_ID);
     if (floodHazardVisible && floodHazardData?.panels?.features?.length) ids.push(FLOOD_PANELS_FILL_ID);
     if ((isWildfireTab || isAllHazardTab) && layers.fireWeatherOutlooks && fireWeatherOutlooksGeoJSON) ids.push('fire-weather-outlook-fill');
+    if (fireDanger?.sfpOn && fireDanger.sfp.data) ids.push(SFP_FILL_ID);
+    if (fireDanger?.stationsOn && fireDanger.stations.data) ids.push(STATIONS_CIRCLE_ID);
+    if (fireDanger?.samplesOn && fireDanger.samples.data) ids.push(SAMPLES_CIRCLE_ID);
     if (isWeatherTab || isAllHazardTab) {
       if (nhcDisturbanceAreasGeoJSON?.features?.length) ids.push('nhc-disturbance-fill');
       if (nhcDisturbancePointsGeoJSON?.features?.length) ids.push('nhc-disturbance-circle');
@@ -814,8 +881,10 @@ export default function MapView({
     }
     if ((isWeatherTab || isAllHazardTab) && layers.weatherAlerts && wpcMpdGeoJSON?.features?.length) ids.push('wpc-mpd-fill');
     if (radarSitesActive) ids.push(RADAR_SITES_PILL_ID);
+    ids.push(...awcInteractiveLayerIds(awc));
+    if ((isWildfireTab || isWeatherTab || isAllHazardTab) && layers.tfrs) ids.push(TFR_FILL_ID);
     return ids;
-  }, [measureActive, radarSitesActive, isWildfireTab, isWeatherTab, isAllHazardTab, layers.fireHotspots, layers.incidentLocations, layers.aqi,
+  }, [measureActive, radarSitesActive, awc, isWildfireTab, isWeatherTab, isAllHazardTab, layers.tfrs, layers.fireHotspots, layers.incidentLocations, layers.aqi,
       layers.weatherAlerts, layers.spcWeatherOutlooks, layers.stormReports, layers.evacZones, spcMdGeoJSON,
       layers.rawsStations, layers.airNowMonitors, layers.droughtOutlook, layers.ndgdSmokeForecast, layers.fireWeatherOutlooks,
       layers.damageAssessment,
@@ -834,7 +903,8 @@ export default function MapView({
       floodHazardVisible, floodHazardData,
       layers.waterGauges, waterGaugesGeoJSON,
       layers.wildfireCameras, californiaCamerasGeoJSON,
-      hazardEventsGeoJSON]);
+      hazardEventsGeoJSON, fireDanger?.sfpOn, fireDanger?.sfp?.data, fireDanger?.stationsOn, fireDanger?.stations?.data,
+      fireDanger?.samplesOn, fireDanger?.samples?.data]);
 
   // Clear a stale click popup when layers change
   useEffect(() => {
@@ -873,17 +943,20 @@ export default function MapView({
     setStormPopup(null);
     const features = evt.features;
     if (!features?.length) {
-      selectFire(null);
       selectGauge(null);
       setFeaturePopup(null);
+      // Fire Danger & Fuels: any point on the map can be inspected (the fuel
+      // model raster has no features to click).
+      selectFire(fireDangerOn ? buildFireDangerPointRecord(evt.lngLat, null, fireDanger) : null);
       return;
     }
 
     // Radar site pills are small targets that often sit inside alert
     // polygons, so a pill under the click wins over whatever is on top.
+    // Clicking the selected station's pill again turns its radar off.
     const radarPill = features.find((f) => f.layer.id === RADAR_SITES_PILL_ID);
     if (radarPill) {
-      selectRadarSite?.(radarPill.properties.id);
+      toggleRadarSite?.(radarPill.properties.id);
       setFeaturePopup(null);
       return;
     }
@@ -958,17 +1031,18 @@ export default function MapView({
     // that features stacked at the same point — e.g. an evac zone over a
     // fire perimeter — all surface, deduped by layer + id.
     const seen = new Set();
-    const records = [];
+    let records = [];
     const floodPanelFeature = features.find((f) => f.layer.id === FLOOD_PANELS_FILL_ID);
     const floodPanel = floodPanelFeature?.properties ?? null;
     for (const f of features) {
-      const record = buildFeatureRecord(f, evt.lngLat, alerts, { floodPanel });
+      const record = buildFeatureRecord(f, evt.lngLat, alerts, { floodPanel, fireDanger });
       if (!record) continue;
       const key = `${f.layer.id}:${record.id}`;
       if (seen.has(key)) continue;
       seen.add(key);
       records.push({ record, feature: f });
     }
+    records = mergeFireDangerRecords(records);
     // Clicked inside a FIRM panel but on nothing else: still worth telling
     // the user there's no shaded FEMA flood hazard here, with panel details.
     if (records.length === 0 && floodPanelFeature) {
@@ -1005,7 +1079,7 @@ export default function MapView({
     if (outlook) records.push({ record: { ...outlook, type: 'nhc-invest' }, feature: outlookFeature });
 
     if (records.length === 0) {
-      selectFire(null);
+      selectFire(fireDangerOn ? buildFireDangerPointRecord(evt.lngLat, null, fireDanger) : null);
       setFeaturePopup(null);
       return;
     }
@@ -1022,7 +1096,7 @@ export default function MapView({
       mouseLngLat: evt.lngLat,
       anchorFeature: records[0].feature,
     });
-  }, [measureActive, alerts, selectFire, selectGauge, selectCamera, selectRadarSite, layerPanelOpen, closeLayerPanel, onModelPick, onRoutePick, nhcCyclones, nhcOutlookSystems, pickAtCenter]);
+  }, [measureActive, alerts, selectFire, selectGauge, selectCamera, toggleRadarSite, layerPanelOpen, closeLayerPanel, onModelPick, onRoutePick, nhcCyclones, nhcOutlookSystems, pickAtCenter, fireDanger, fireDangerOn]);
 
   // Center picker: once a model point is being inspected, panning keeps it on the screen center.
   useEffect(() => {
@@ -1098,9 +1172,9 @@ export default function MapView({
   // globe's curvature is accounted for. Skipped if anything already moved the
   // camera (a shared incident link, the user panning).
   //
-  // The map's size can change after load (the Red Flag Warning banner drops in
-  // above it once alerts arrive, or is dismissed), so it re-frames on resize for
-  // as long as the camera is still the one it framed.
+  // The map's size can change after load (the window is resized or rotated),
+  // so it re-frames on resize for as long as the camera is still the one it
+  // framed.
   const autoFrameRef = useRef(null);
   const frameRunRef = useRef(0);
   const frameConus = useCallback(async (map) => {
@@ -1206,9 +1280,18 @@ export default function MapView({
             from SatelliteContext, which is active only while the layer is on. */}
         <GOESLayer />
 
-        {/* NOAA MRMS radar (Weather tab). Visibility, product and frame come
-            from MrmsContext, which is active only on the Weather tab with the layer on. */}
+        {/* NOAA MRMS radar (Weather tab, and All Hazards in Simplified Sentinel).
+            Visibility, product and frame come from MrmsContext, which is active
+            only on those tabs with the layer on. */}
         <MrmsLayer />
+
+        {/* Fire Danger & Fuels (Wildfire and All Hazards tabs). On/off, day and
+            opacity come from FireDangerContext; the fuel raster sits beneath labels. */}
+        <FuelModelLayer />
+        <WfpiLayer />
+        <SignificantFirePotentialLayer />
+        <FireDangerStationsLayer />
+        <FieldSamplesLayer />
 
         {/* Radar Site (Weather tab): the selected station's Level 3 sweep. Its
             station pills render near the top of the stack, below. */}
@@ -1221,8 +1304,8 @@ export default function MapView({
         {/* Smoke forecast */}
         <SmokeLayer visible={isAllHazardTab && layers.smoke} />
 
-        {/* Radar Settings: Storm Motion Vectors — a display preference, not
-            a layer toggle, so not gated to any particular map tab */}
+        {/* Storm Motion Vectors — not a layer toggle, so not gated to any
+            particular map tab (currently off; see LiveTrackerPage) */}
         <StormMotionVectorLayer
           geoJSON={stormMotionVectorsGeoJSON}
           visible={stormMotionVectorsVisible}
@@ -1331,6 +1414,13 @@ export default function MapView({
           centers={wpcPressureCentersGeoJSON}
           visible={(isWeatherTab || isAllHazardTab) && layers.wpcFronts}
         />
+
+        {/* Aviation Weather Center: hazard shapes, navigation, PIREPs and airport
+            weather dots (Weather and All Hazards tabs; AwcContext gates them) */}
+        <AwcLayers />
+
+        {/* FAA Temporary Flight Restrictions (Aviation section; every tab but Models) */}
+        <TfrLayer visible={(isWildfireTab || isWeatherTab || isAllHazardTab) && layers.tfrs} />
 
         {/* WPC Mesoscale Precipitation Discussions — part of the weatherAlerts
             ("NWS & mesoscale") layer alongside SPC MDs; hidden on the wildfire tab */}

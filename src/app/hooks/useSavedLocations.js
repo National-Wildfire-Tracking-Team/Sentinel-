@@ -27,6 +27,7 @@ export const FREE_LOCATION_LIMIT = PLANS.free.savedLocationsLimit;
 const EDITABLE_FIELDS = [
   'name', 'address', 'latitude', 'longitude',
   'notify_radius_miles', 'alerts_enabled', 'notify_new_fires',
+  'notify_fire_potential_min', 'notify_fire_potential_days', 'notify_fm100_below',
 ];
 
 function pickEditable(updates) {

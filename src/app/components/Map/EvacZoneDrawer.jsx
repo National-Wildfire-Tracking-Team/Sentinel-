@@ -13,7 +13,6 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import Map, { NavigationControl, Popup } from 'react-map-gl';
 import MapboxDraw from '@mapbox/mapbox-gl-draw';
 import '@mapbox/mapbox-gl-draw/dist/mapbox-gl-draw.css';
-import 'mapbox-gl/dist/mapbox-gl.css';
 import {
   PenTool, Trash2, CheckCircle2, AlertCircle, RefreshCw,
   X, ChevronDown, MapPin, RotateCcw, Flame,

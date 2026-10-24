@@ -1,7 +1,7 @@
 /**
  * useDisplayPreferences.js
  * Manages the current user's map display preferences — data-picker anchor,
- * time format, map popup mode, popup spotlight, and popup drag handle
+ * time format, map popup mode, popup spotlight, and popup draggability (popupDragHandle)
  * (public.display_preferences). Anonymous users get client-only defaults
  * that don't persist across reloads.
  */

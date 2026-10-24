@@ -238,6 +238,33 @@ describe('RadarSiteProvider', () => {
     expect(result.current.sweep).toBeNull();
   });
 
+  it('turns a station\'s radar off when its pill is clicked again, and switches on another station', async () => {
+    vi.doMock('../../src/app/api/nexradLevel3', () => ({
+      siteProduct: () => ({ code: 'N0B', label: 'Base Reflectivity' }),
+      fetchDownStations: vi.fn(async () => new Set()),
+      latestScanKey: vi.fn(async (site) => `${site.id.slice(1)}_N0B_2026_10_15_20_00_00`),
+      fetchScan: vi.fn(async (key) => key),
+    }));
+    vi.doMock('../../src/app/utils/radarSiteRender', () => ({
+      warmRadarScanWorker: vi.fn(),
+      decodeSweepAsync: vi.fn(async (key) => ({ scan: { time: Date.now(), key }, sweep: { key } })),
+    }));
+
+    const { renderHook, act, waitFor } = await import('@testing-library/react');
+    const { RadarSiteProvider, useRadarSiteContext } = await import('../../src/app/context/RadarSiteContext');
+    const wrapper = ({ children }) => <RadarSiteProvider active>{children}</RadarSiteProvider>;
+    const { result } = renderHook(() => useRadarSiteContext(), { wrapper });
+    await waitFor(() => expect(result.current.sites?.length).toBeGreaterThan(100));
+
+    act(() => result.current.toggleSite('KTLX'));
+    await waitFor(() => expect(result.current.sweep).toEqual({ key: 'TLX_N0B_2026_10_15_20_00_00' }));
+    act(() => result.current.toggleSite('KFWS'));
+    expect(result.current.selectedId).toBe('KFWS');
+    act(() => result.current.toggleSite('KFWS'));
+    expect(result.current.selectedId).toBeNull();
+    expect(result.current.sweep).toBeNull();
+  });
+
   it('switches product, never showing the previous product\'s scan, and keeps TDWRs on reflectivity for CC/ZDR', async () => {
     vi.doMock('../../src/app/api/nexradLevel3', async (orig) => {
       const real = await orig();

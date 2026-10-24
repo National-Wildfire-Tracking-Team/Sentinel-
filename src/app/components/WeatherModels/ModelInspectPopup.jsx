@@ -13,6 +13,7 @@ import { useApp } from '../../context/AppContext';
 import { useWeatherModelsContext } from '../../context/WeatherModelsContext';
 import { MODEL_STYLE, compassPoint, zulu } from './modelTheme';
 import { pointValue } from '../../utils/modelFieldSelection';
+import { usePanelDrag } from '../Map/usePopupDrag';
 
 function fmt(value, unit, variable) {
   if (value == null || !Number.isFinite(value)) return '—';
@@ -55,6 +56,8 @@ function Row({ model, state, variable, validTime, fieldRunId }) {
 export default function ModelInspectPopup() {
   const wm = useWeatherModelsContext();
   const { openSidebar } = useApp();
+  // Popup Draggability: the popup can be dragged aside by any part of it.
+  const drag = usePanelDrag(wm?.location);
   if (!wm?.location) return null;
   const { location, point, mode, variable, validTime, manifest, clearLocation } = wm;
   const label = manifest?.variables?.[variable]?.label ?? variable;
@@ -76,7 +79,11 @@ export default function ModelInspectPopup() {
       maxWidth="260px"
       className="wm-inspect"
     >
-      <div className="dark min-w-[200px] space-y-2 rounded-md bg-sentinel-900 p-2.5 text-xs text-sentinel-200">
+      <div
+        {...drag.dragProps}
+        style={{ translate: drag.translate }}
+        className={`dark min-w-[200px] space-y-2 rounded-md bg-sentinel-900 p-2.5 text-xs text-sentinel-200 ${drag.dragClass} ${drag.enabled ? 'touch-none' : ''}`}
+      >
         <div className="flex items-baseline justify-between gap-2">
           <span className="font-semibold text-white">{label}</span>
           <span className="text-[10px] text-sentinel-400 tabular-nums">{location.lat.toFixed(2)}, {location.lon.toFixed(2)}</span>

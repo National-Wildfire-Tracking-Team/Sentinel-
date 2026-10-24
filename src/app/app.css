@@ -1,0 +1,17 @@
+/* ─── Tracker & reporter stylesheet ──────────────────────────────────────────
+   Imported by AppTree and ReporterTree, so only the app.* and reporter.*
+   hosts load it, keeping the app-only rules and the tracker's Tailwind
+   classes out of the marketing site's stylesheet (src/site.css, inlined
+   into the page).
+
+   It's a complete stylesheet: index.css compiled against all of src
+   (tailwind.config.js), the app-only rules, then Mapbox's own CSS. It
+   contains everything the inlined sheet has and loads after it, so on these
+   hosts it alone decides the cascade, in the same order as one combined
+   sheet: utilities that override each other (p-4 px-2) resolve as before,
+   and mapbox-gl.css still comes last, which the map-chrome rules in
+   app-rules.css were written against (they win on specificity, not order).
+   The map components rely on this file for mapbox-gl.css. */
+@import "../index.css";
+@import "./app-rules.css";
+@import "mapbox-gl/dist/mapbox-gl.css";

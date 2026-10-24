@@ -52,7 +52,6 @@ export default function HomeNearbyStrip({ nearbyOutlooks }) {
           onClick={openHomeSetup}
           className="w-full inline-flex items-center justify-center gap-1.5 px-2.5 py-1.5 border border-dashed border-sentinel-500 hover:bg-sentinel-800 text-xs font-medium text-sentinel-100 rounded-md transition-colors"
         >
-          <Home size={13} className="text-fire-400" />
           Set up Home for incidents &amp; alerts near you
         </button>
       </div>

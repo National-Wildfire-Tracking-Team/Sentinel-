@@ -33,7 +33,8 @@ export const NHC_SUBLAYER_GROUPS = [
   },
 ];
 
-function SubLayerSwitch({ layer, on, onToggle }) {
+/** One drawer switch; also used by the Aviation Weather Center drawer (AwcControls). */
+export function SubLayerSwitch({ layer, on, onToggle }) {
   const Icon = layer.icon;
   return (
     <button

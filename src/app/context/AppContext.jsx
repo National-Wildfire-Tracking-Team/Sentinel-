@@ -28,7 +28,20 @@ const initialState = {
     stormReports:      false,
     spcWeatherOutlooks: false,
     fireWeatherOutlooks: false,
+    /** NWCG 7-day Significant Fire Potential (Fire Danger & Fuels); day in fireRiskDay, data in FireDangerContext */
     fireRiskOutlook: false,
+    /** LANDFIRE FBFM40 fuel models (Fire Danger & Fuels); a static yearly map, not fuel moisture */
+    fuelModels: false,
+    /** FEMS NFDRS station values (Fire Danger & Fuels); at most one on, the field each colours stations by */
+    fdErc: false,
+    fdBi: false,
+    fdSc: false,
+    fdDeadFm: false,
+    fdLiveFm: false,
+    /** USGS Wildland Fire Potential Index forecast (Fire Danger & Fuels); a USGS model grid, day in FireDangerContext */
+    wfpi: false,
+    /** Measured live fuel moisture field samples (NWCC mirror of FEMS; WA/OR/ID/MT/WY/SD/ND) */
+    lfmSamples: false,
     /** Caltrans District CCTV — live California highway camera locations */
     wildfireCameras:   false,
     evacZones:         true,
@@ -47,6 +60,8 @@ const initialState = {
     floodHazard: false,
     /** NWS Damage Assessment Toolkit — post-storm survey points/tracks/polygons */
     damageAssessment: false,
+    /** FAA Temporary Flight Restrictions (tfr.faa.gov) — Aviation section, every map tab */
+    tfrs: false,
     /** Rothermel-based spread projection rings for the selected fire */
     fireBehaviorModeling: false,
     /** Route to Safety (All Hazards, Pro): nearest open shelters + hazard-avoiding
@@ -80,6 +95,45 @@ const initialState = {
     nhcWindRadii: false,
     nhcArrival: false,
     nhcSurge: false,
+    /** Aviation Weather Center (Weather and All Hazards tabs): one panel row
+     *  (awc) turns the set on/off; the drawer's switches pick its products
+     *  (api/awc/awc.js AWC_GROUPS). A hazard shape draws when both its
+     *  source and its hazard switch are on, so every hazard starts on. */
+    awc: false,
+    awcMetarTaf: true,
+    awcPirep: false,
+    awcHzConvective: true,
+    awcHzTurbulence: true,
+    awcHzMtnWave: true,
+    awcHzLlws: true,
+    awcHzSfcWind: true,
+    awcHzIcing: true,
+    awcHzFreezing: true,
+    awcHzIfr: true,
+    awcHzMtnObsc: true,
+    awcHzPrecip: true,
+    awcHzTropical: true,
+    awcHzAsh: true,
+    awcHzDust: true,
+    awcHzOther: true,
+    awcSigmetUs: true,
+    awcSigmetIntl: false,
+    awcCwa: true,
+    awcGairmetSierra: false,
+    awcGairmetTango: false,
+    awcGairmetZulu: false,
+    awcAirmetAk: false,
+    awcTcf: false,
+    awcWindTemp: false,
+    awcFcstDisc: false,
+    awcMis: false,
+    awcAreaFcst: false,
+    awcAirports: false,
+    awcStations: false,
+    awcNavaids: false,
+    awcFixes: false,
+    awcObstacles: false,
+    awcFeatures: false,
   },
   // Wind-speed probability threshold shown by nhcWindProb: 34 | 50 | 64 (kt)
   nhcWindProbKt: 34,

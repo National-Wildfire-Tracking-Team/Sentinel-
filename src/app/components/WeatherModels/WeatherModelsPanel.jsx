@@ -56,7 +56,7 @@ function HafsPanel({ hafs }) {
   const { sel, detail, catalog, catalogError, detailError, loading } = hafs;
   const problems = detail ? Object.values(detail.domains).flatMap((d) => d.problems.map((p) => ({ ...p, domain: d.label }))) : [];
   return (
-    <div className={`dark flex-1 overflow-y-auto ${ROOT_VARS}`}>
+    <div className={`dark flex-1 overflow-y-auto scrollbar-visible ${ROOT_VARS}`}>
       <Section title={sel ? stormLabel(sel.storm) : 'HAFS hurricane model'}>
         {loading && !sel && (
           <p className="flex items-center gap-2 text-sm text-sentinel-300"><Loader2 size={14} className="animate-spin" aria-hidden /> Loading HAFS runs…</p>
@@ -113,7 +113,7 @@ export default function WeatherModelsPanel() {
 
   return (
     // The sidebar is always dark, so its contents use the dark steps.
-    <div className={`dark flex-1 overflow-y-auto ${ROOT_VARS}`}>
+    <div className={`dark flex-1 overflow-y-auto scrollbar-visible ${ROOT_VARS}`}>
       <Section>
         <LocationPanel location={location} onChange={setLocation} />
         {!location && (

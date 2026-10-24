@@ -4,7 +4,7 @@
  *
  * Plans:
  *   free  – permanent free tier; core situational awareness
- *   plus  – Sentinel Plus ($7.99/mo or $69/yr); fire spread rings + 10 saved locations
+ *   plus  – Sentinel Plus ($7.99/mo or $69/yr); fire spread rings, Fire Danger & Fuels + 10 saved locations
  *   pro   – Sentinel Pro ($14.99/mo or $149/yr); unlimited locations, critical infrastructure,
  *           land ownership and Route to Safety
  *
@@ -28,6 +28,7 @@ export const PLANS = {
     evacuationRoutes: false,
     federalLandLayers: false,
     fireBehaviorModeling: false,   // Plus+ only
+    fireDangerFuels: false,        // Plus+ only
     camerasAircraft: true,
     apiAccess: false,
     priorityAlerts: false,
@@ -45,6 +46,7 @@ export const PLANS = {
     evacuationRoutes: false,
     federalLandLayers: false,      // land ownership is Pro-only
     fireBehaviorModeling: true,    // basic spread projection rings (live)
+    fireDangerFuels: true,         // Fire Danger & Fuels layers, sidebar feed and alert emails
     camerasAircraft: true,
     apiAccess: false,
     priorityAlerts: false,         // custom alert settings, not priority delivery
@@ -62,6 +64,7 @@ export const PLANS = {
     evacuationRoutes: true,
     federalLandLayers: true,      // CAL FIRE FRAP land ownership (live, CA only)
     fireBehaviorModeling: true,   // advanced fire progression + spread projections
+    fireDangerFuels: true,
     camerasAircraft: true,
     apiAccess: true,
     priorityAlerts: true,
@@ -79,6 +82,7 @@ export const PLANS = {
     evacuationRoutes: true,
     federalLandLayers: true,
     fireBehaviorModeling: true,
+    fireDangerFuels: true,
     camerasAircraft: true,
     apiAccess: true,
     priorityAlerts: true,
@@ -106,6 +110,9 @@ export function usePlan() {
   /** Route to Safety (ORS routing to shelters) — Pro/Team only (PLANS.*.evacuationRoutes).
    *  Must match the server check in supabase/functions/ors-routing/auth.mjs. */
   const hasEvacuationRoutesAccess = Boolean(plan.evacuationRoutes);
+  /** Fire Danger & Fuels (layers, sidebar feed, alert emails) — Plus plan and above.
+   *  Must match the plan check in get_monitored_saved_locations() (notification emails). */
+  const hasFireDangerAccess = Boolean(plan.fireDangerFuels);
 
   return {
     planId,
@@ -118,6 +125,7 @@ export function usePlan() {
     hasProInfrastructureAccess,
     hasFireBehaviorModelingAccess,
     hasEvacuationRoutesAccess,
+    hasFireDangerAccess,
     isActive: paidStatuses.includes(subscription?.status) || planId === 'free',
     cancelAtPeriodEnd: subscription?.cancel_at_period_end ?? false,
     currentPeriodEnd: subscription?.current_period_end ?? null,

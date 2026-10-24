@@ -11,14 +11,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { Layer, Source, useMap } from 'react-map-gl';
-
-function firstLabelLayer(map) {
-  try {
-    return map.getStyle()?.layers?.find((l) => l.type === 'symbol')?.id;
-  } catch {
-    return undefined;
-  }
-}
+import { firstLabelLayer } from '../../utils/mapLabels';
 
 export default function ModelFieldLayer({ id, url, coordinates, paint }) {
   const { current } = useMap();

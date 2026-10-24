@@ -21,6 +21,7 @@ import { useNotificationPreferences } from '../hooks/useNotificationPreferences'
 import { usePlan } from '../../shared/hooks/usePlan';
 import { NOTIFIABLE_ALERT_TYPES } from '../utils/nwsColors';
 import { DEFAULT_RADIUS_MILES } from '../../../supabase/functions/_shared/savedLocationAlerts.js';
+import FireDangerAlertSettings from '../components/FireDangerAlertSettings';
 
 export default function AccountPage() {
   const { user, profile, isAuthenticated, loading, profileLoading, requestPasswordReset } = useAuth();
@@ -409,6 +410,8 @@ export default function AccountPage() {
               })}
             </div>
           )}
+
+          <FireDangerAlertSettings locations={locations} updateLocation={updateLocation} />
 
           <p className="text-[11px] font-semibold uppercase tracking-wider text-sentinel-400">NWS weather alert types</p>
           {nwsAlertTypes.length === 0 && (

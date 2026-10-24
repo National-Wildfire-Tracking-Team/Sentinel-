@@ -4,12 +4,13 @@
  */
 
 import { memo, useState } from 'react';
-import { Flame, TrendingUp, Wind, CloudSun, ShieldAlert, AlertTriangle, Waves } from 'lucide-react';
+import { Flame, TrendingUp, Wind, CloudSun, ShieldAlert, AlertTriangle, Waves, Gauge } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { useAppStatus } from '../../context/AppStatusContext';
 import IncidentFeed from './IncidentFeed';
 import WeatherAlertsFeed from './WeatherAlertsFeed';
 import TropicalWeatherFeed from './TropicalWeatherFeed';
+import FireDangerFeed from './FireDangerFeed';
 import AddressAlertSearch from './AddressAlertSearch';
 import HomeNearbyStrip from './HomeNearbyStrip';
 import HomeSetupPanel from './HomeSetupPanel';
@@ -44,7 +45,6 @@ const Sidebar = memo(function Sidebar({
   activeMapTab = 'wildfire',
   weatherAlertsLoading = false,
   weatherAlertsError = null,
-  onReopenBanner,
   weatherAlertFilter = 'all',
   onWeatherAlertFilterChange,
   onWeatherAlertsRefresh,
@@ -58,6 +58,11 @@ const Sidebar = memo(function Sidebar({
   nearbyOutlooks = NO_OUTLOOKS,
   // Models tab body (WeatherModelsPanel), rendered in place of the feeds
   modelsPanel = null,
+  // Header to map bottom, its width (--left-panel-width, set by
+  // LiveTrackerPage) ending just short of the bottom bar. underBar: the
+  // screen is too narrow for that gap, so the bar sits over the sidebar's
+  // bottom corner and the lists scroll under it (data-under-bar, app-rules.css).
+  underBar = false,
 }) {
   const { sidebarOpen, feedFilter } = useApp();
   const { alerts: allAlerts } = useAppStatus();
@@ -65,6 +70,7 @@ const Sidebar = memo(function Sidebar({
   const alerts = nearbyAlerts ?? allAlerts;
   const [allHazardFeedTab, setAllHazardFeedTab] = useState('fires');
   const [weatherFeedTab, setWeatherFeedTab] = useState('alerts');
+  const [wildfireFeedTab, setWildfireFeedTab] = useState('incidents');
   const isWeatherTab = activeMapTab === 'weather';
   const isAllHazardTab = activeMapTab === 'allhazard';
   const isModelsTab = activeMapTab === 'models';
@@ -84,7 +90,10 @@ const Sidebar = memo(function Sidebar({
   return (
     <>
       {/* Sidebar panel */}
+      {/* data-map-control: dragged popups stay off it (usePopupDrag) */}
       <aside
+        data-map-control=""
+        data-under-bar={underBar ? '' : undefined}
         className={`
           absolute inset-y-0 left-0
           z-40
@@ -92,8 +101,7 @@ const Sidebar = memo(function Sidebar({
           bg-sentinel-900/95 backdrop-blur-sm
           border-r border-sentinel-700
           transition-transform duration-300 ease-in-out
-          w-full sm:w-80
-          sm:max-[1199px]:bottom-[var(--map-bottom-stack,0px)] sm:max-[1199px]:border-b sm:max-[1199px]:rounded-br-2xl
+          w-full sm:w-[var(--left-panel-width,19rem)]
           ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
         `}
       >
@@ -158,7 +166,7 @@ const Sidebar = memo(function Sidebar({
               <>
                 <StatPill icon={Flame}      label={fireLabel}  value={fireCount}  color="text-fire-400"    className="flex-1" />
                 <StatPill icon={TrendingUp} label="Acres"      value={acresDisplay} color="text-orange-400"  className="flex-1" />
-                <StatPill icon={Wind}       label="Red Flags"  value={rfwCount}     color="text-red-400"     className="flex-1" onClick={rfwCount > 0 ? onReopenBanner : undefined} />
+                <StatPill icon={Wind}       label="Red Flags"  value={rfwCount}     color="text-red-400"     className="flex-1" />
               </>
             )}
           </div>
@@ -247,6 +255,38 @@ const Sidebar = memo(function Sidebar({
           </div>
         )}
 
+        {/* Wildfire-tab sub-feed tabs */}
+        {!isWeatherTab && !isAllHazardTab && (
+          <div className="px-3 pt-2 pb-1 shrink-0">
+            <div className="inline-flex w-full rounded-lg border border-sentinel-700 bg-sentinel-800/70 p-0.5 gap-0.5">
+              <button
+                type="button"
+                onClick={() => setWildfireFeedTab('incidents')}
+                className={`flex-1 inline-flex items-center justify-center gap-1.5 px-2 py-1.5 text-[xs] font-semibold rounded-md transition-colors ${
+                  wildfireFeedTab === 'incidents'
+                    ? 'bg-fire-600/25 ring-1 ring-inset ring-fire-600/50 text-white'
+                    : 'text-sentinel-300 hover:bg-sentinel-700'
+                }`}
+              >
+                <Flame size={11} />
+                Incidents {fireCount > 0 && <span className="opacity-70">({fireCount})</span>}
+              </button>
+              <button
+                type="button"
+                onClick={() => setWildfireFeedTab('danger')}
+                className={`flex-1 inline-flex items-center justify-center gap-1.5 px-2 py-1.5 text-[xs] font-semibold rounded-md transition-colors ${
+                  wildfireFeedTab === 'danger'
+                    ? 'bg-orange-700 text-white'
+                    : 'text-sentinel-300 hover:bg-sentinel-700'
+                }`}
+              >
+                <Gauge size={11} />
+                Fire Danger
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Feed – takes remaining height */}
         <div className="flex-1 overflow-hidden flex flex-col">
           {isAllHazardTab ? (
@@ -277,6 +317,8 @@ const Sidebar = memo(function Sidebar({
                 onRefresh={onWeatherAlertsRefresh}
               />
             )
+          ) : wildfireFeedTab === 'danger' ? (
+            <FireDangerFeed enabled={sidebarOpen} />
           ) : (
             <IncidentFeed incidents={incidents} loading={loading} error={error} />
           )}

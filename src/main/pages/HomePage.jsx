@@ -4,6 +4,7 @@ import Seo from '../../shared/components/Seo';
 import ParallaxHero from '../components/ParallaxHero';
 import NewsletterModal from '../components/NewsletterModal';
 import homeHero from '../assets/home-hero.jpg';
+import homeHeroAvif from '../assets/home-hero.avif';
 import { ArrowRight, ChevronRight } from 'lucide-react';
 
 const capabilities = [
@@ -61,6 +62,23 @@ const newsletters = [
       },
     ],
   },
+  {
+    title: 'v1.00.03 Update',
+    sections: [
+      {
+        heading: 'Fire Danger Sidebar Tab',
+        body: 'The Wildfire sidebar now has a Fire Danger tab next to Incidents. It sums up current station readings in plain language, shows the week ahead, and ranks states and stations by fire danger. Click any state or station to fly the map straight there.',
+      },
+      {
+        heading: 'Aviation Weather Now Available for All Users',
+        body: 'Aviation Weather Center data is now on the Weather and All Hazards tabs. Airport weather (METAR and TAF) with flight rules and wind barbs, SIGMETs, AIRMETs, PIREPs, winds aloft and more each have their own switch in the toolkit drawer.',
+      },
+      {
+        heading: 'Fire Danger & Fuels Added for Plus and Pro Users',
+        body: 'A new Fire Danger & Fuels section is now on the Wildfire and All Hazards tabs. It brings together the NWCG 7-day Significant Fire Potential outlook, NFDRS station readings for Energy Release Component, Burning Index and fuel moisture, the USGS Fire Potential Index forecast, live fuel moisture field samples, and LANDFIRE fuel types.',
+      },
+    ],
+  },
 ];
 
 const stats = [
@@ -83,8 +101,8 @@ export default function HomePage() {
       {/* ── Hero Section ── */}
       {/* The photo is pre-cropped so the helicopter sits at its vertical centre,
           which keeps it centred in the bar at every viewport — see focal in
-          ParallaxHero for why background-position alone can't guarantee that. */}
-      <ParallaxHero image={homeHero} focal="50%">
+          ParallaxHero for why object-position alone can't guarantee that. */}
+      <ParallaxHero image={homeHero} avif={homeHeroAvif} focal="50%">
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 pb-24 sm:pt-28 sm:pb-32">
           <div className="max-w-3xl">
             <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-white leading-tight tracking-tight">

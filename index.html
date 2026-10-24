@@ -2,10 +2,10 @@
 <html lang="en">
   <head>
     <script>
-      // Apply the stored theme before paint to avoid a flash of the wrong theme.
-      // Defaults to dark (this app's original, and still primary, look). The
-      // parent-domain cookie carries the app's choice to the marketing site;
-      // mirrors shared/utils/sharedTheme.js.
+      // Apply the theme before paint to avoid a flash of the wrong one: Light or
+      // Dark if picked in the app's menu, else the device's setting (dark when
+      // it states none). The parent-domain cookie carries the app's pick to the
+      // marketing site; mirrors shared/utils/sharedTheme.js.
       (function () {
         var root = document.documentElement;
         var host = location.hostname;
@@ -14,10 +14,15 @@
         }
         var stored = null;
         try {
-          var m = document.cookie.match(/(?:^|; )nwtt-theme=([^;]*)/);
-          stored = m ? m[1] : localStorage.getItem('nwtt-theme');
+          var m = document.cookie.match(/(?:^|; )nwtt-appearance=([^;]*)/);
+          stored = m ? m[1] : localStorage.getItem('nwtt-appearance');
         } catch (e) {}
-        if (stored !== 'light') root.classList.add('dark');
+        var light = stored === 'light'
+          || (stored !== 'dark' && !!(window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches));
+        // Both ways: a prerendered page keeps the class it was saved with.
+        root.classList.toggle('dark', !light);
+        var meta = document.querySelector('meta[name="theme-color"]');
+        if (meta) meta.setAttribute('content', light ? '#ffffff' : '#0a0c0e');
       })();
     </script>
     <meta charset="UTF-8" />
@@ -31,24 +36,15 @@
     <meta property="og:description" content="Real-time wildfire tracking platform with live fire hotspots, perimeters, weather alerts, and air quality data." />
     <meta property="og:type" content="website" />
 
-    <!-- Inter (UI text) + JetBrains Mono (data readouts: coordinates, timestamps, telemetry) -->
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <!-- Text uses the device's system fonts (tailwind.config.js), so there is
+         no webfont to fetch before the first paint. -->
     <link rel="dns-prefetch" href="https://api.mapbox.com" />
     <link rel="dns-prefetch" href="https://events.mapbox.com" />
     <link rel="dns-prefetch" href="https://firms.modaps.eosdis.nasa.gov" />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"
-      rel="stylesheet"
-    />
 
     <title>National Wildfire Tracking Team – NWTT</title>
   </head>
   <body class="bg-sentinel-900 text-white antialiased">
-    <!-- Google Tag Manager (noscript) -->
-    <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-546TW8NQ"
-    height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
-    <!-- End Google Tag Manager (noscript) -->
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
   </body>

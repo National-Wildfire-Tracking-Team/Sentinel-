@@ -1,0 +1,2 @@
+# Runtime dependencies: none beyond the Python 3.13 standard library.
+# boto3 (bucket writes only) comes with the Lambda Python runtime.

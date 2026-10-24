@@ -12,13 +12,14 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { TIERS } from '../../netlify/edge-functions/_shared/edgeProxy.js';
+import { TIERS, ALLOWED_PARAMS, ROUTE_SCOPED_PARAMS } from '../../netlify/edge-functions/_shared/edgeProxy.js';
 import { ROUTES as NWS_ROUTES } from '../../netlify/edge-functions/nws-mapservices-proxy.js';
 import { ROUTES as ARCGIS_ROUTES } from '../../netlify/edge-functions/arcgis-proxy.js';
 import { ROUTES as WX_ROUTES } from '../../netlify/edge-functions/weather-gov-proxy.js';
 import { ROUTES as AIRNOW_ROUTES } from '../../netlify/edge-functions/airnow-edge-proxy.js';
 import { ROUTES as NESDIS_ROUTES } from '../../netlify/edge-functions/nesdis-proxy.js';
 import { ROUTES as NATMAP_ROUTES } from '../../netlify/edge-functions/nationalmap-proxy.js';
+import { ROUTES as AWC_ROUTES } from '../../netlify/edge-functions/awc-proxy.js';
 
 const ALL = {
   'nws-mapservices': NWS_ROUTES,
@@ -27,6 +28,7 @@ const ALL = {
   airnow: AIRNOW_ROUTES,
   nesdis: NESDIS_ROUTES,
   nationalmap: NATMAP_ROUTES,
+  awc: AWC_ROUTES,
 };
 
 const everyRoute = Object.entries(ALL).flatMap(([proxy, routes]) =>
@@ -86,6 +88,15 @@ describe('proxy route tables', () => {
     }
   });
 
+  it('keys the CDN cache on every param a route forwards', () => {
+    // A forwarded param missing from Netlify-Vary would let two different
+    // queries share one cached response.
+    const vary = new Set([...ALLOWED_PARAMS, ...ROUTE_SCOPED_PARAMS]);
+    for (const { proxy, key, route } of everyRoute) {
+      for (const p of route.params ?? []) expect(vary.has(p), `${proxy}/${key} forwards ${p}`).toBe(true);
+    }
+  });
+
   it('has no duplicate route keys within a proxy', () => {
     for (const [proxy, routes] of Object.entries(ALL)) {
       const keys = Object.keys(routes);
@@ -118,7 +129,7 @@ describe('netlify.toml edge cache declarations', () => {
     // responses, so every request runs the function and hits the upstream.
     const proxies = blocks.filter((b) => usesCreateProxy(b.function));
     expect(proxies.map((b) => b.function).sort()).toEqual([
-      'airnow-edge-proxy', 'arcgis-proxy', 'nationalmap-proxy',
+      'airnow-edge-proxy', 'arcgis-proxy', 'awc-proxy', 'faa-tfr-proxy', 'nationalmap-proxy',
       'nesdis-proxy', 'nws-mapservices-proxy', 'weather-gov-proxy',
     ]);
     for (const b of proxies) expect(b.cache, `${b.function} must opt into caching`).toBe('manual');

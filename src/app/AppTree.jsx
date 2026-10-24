@@ -7,27 +7,31 @@
 
 import { ThemeProvider } from './context/ThemeContext';
 import { PreferencesProvider } from './context/PreferencesContext';
+import { SimplifiedModeProvider } from './context/SimplifiedModeContext';
 import { AppProvider } from './context/AppContext';
 import { AppStatusProvider } from './context/AppStatusContext';
 import { HomeSetupProvider } from './context/HomeSetupContext';
 import { ViewportProvider } from './context/ViewportContext';
 import PreventPinchZoom from '../shared/components/PreventPinchZoom';
 import AppRouter from './router';
+import './app.css';
 
 export default function AppTree() {
   return (
     <ThemeProvider>
       <PreferencesProvider>
-        <AppProvider>
-          <AppStatusProvider>
-            <HomeSetupProvider>
-              <ViewportProvider>
-                <PreventPinchZoom />
-                <AppRouter />
-              </ViewportProvider>
-            </HomeSetupProvider>
-          </AppStatusProvider>
-        </AppProvider>
+        <SimplifiedModeProvider>
+          <AppProvider>
+            <AppStatusProvider>
+              <HomeSetupProvider>
+                <ViewportProvider>
+                  <PreventPinchZoom />
+                  <AppRouter />
+                </ViewportProvider>
+              </HomeSetupProvider>
+            </AppStatusProvider>
+          </AppProvider>
+        </SimplifiedModeProvider>
       </PreferencesProvider>
     </ThemeProvider>
   );

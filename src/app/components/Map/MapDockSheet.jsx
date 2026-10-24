@@ -11,16 +11,20 @@
 
 import { memo } from 'react';
 import { useMrmsContext } from '../../context/MrmsContext';
+import { useFireDangerContext } from '../../context/FireDangerContext';
 import { useRadarSiteContext } from '../../context/RadarSiteContext';
 import { useSatelliteContext } from '../../context/SatelliteContext';
 import DockSheet from './DockSheet';
 import MrmsPanel from './MrmsPanel';
+import FireDangerPanel from './FireDangerPanel';
 import RadarSitePanel from './RadarSitePanel';
 import SatellitePanel from './SatellitePanel';
 import SPCOutlookSelector from './SPCOutlookSelector';
 import FireWeatherOutlookSelector from './FireWeatherOutlookSelector';
 import NdgdSmokeTimeSlider from './NdgdSmokeTimeSlider';
 import NhcTropicalControls from '../LayerControl/NhcTropicalControls';
+import AwcControls from '../LayerControl/AwcControls';
+import { useAwcContext } from '../../context/AwcContext';
 
 /** A station's scan is loading. */
 const radarSiteLoading = (r) => Boolean(r.site) && (r.status === 'idle' || (r.status === 'loading' && !r.scan));
@@ -41,27 +45,37 @@ const MapDockSheet = memo(function MapDockSheet({
   const mrms = useMrmsContext();
   const radarSite = useRadarSiteContext();
   const satellite = useSatelliteContext();
+  const fireDanger = useFireDangerContext();
+  const awc = useAwcContext();
   const isWildfire = activeMapTab === 'wildfire';
   const isWeatherish = activeMapTab === 'weather' || activeMapTab === 'allhazard';
 
   const tabs = [];
   if (mrms?.active) {
-    tabs.push({ id: 'mrms', label: 'MRMS Radar', loading: Boolean(mrms.loading && !mrms.manifest), content: <MrmsPanel /> });
+    tabs.push({ id: 'mrms', label: 'Composite Radar', loading: Boolean(mrms.loading && !mrms.manifest), content: <MrmsPanel /> });
   }
   if (radarSite?.active) {
-    tabs.push({ id: 'radarSite', label: 'Radar Site', loading: radarSiteLoading(radarSite), content: <RadarSitePanel /> });
+    tabs.push({ id: 'radarSite', label: 'Individual Radar Site', loading: radarSiteLoading(radarSite), content: <RadarSitePanel /> });
   }
   if (satellite?.active) {
     tabs.push({
-      id: 'satellite', label: 'Satellite', loading: Boolean(satellite.loading),
+      id: 'satellite', label: 'Satellite Imagery', loading: Boolean(satellite.loading),
       content: <SatellitePanel overlays={satelliteOverlays} />,
     });
   }
   if (isWeatherish && layers.nhcTropical) {
     tabs.push({ id: 'nhcTropical', label: 'NHC Tropical', content: <NhcTropicalControls /> });
   }
+  if (isWeatherish && layers.awc) {
+    const awcLoading = Boolean(awc && Object.values(awc.status).some((s) => s.loading));
+    // Many more switches than the other drawers: may reach 3/8 of the way up the screen instead of a third.
+    tabs.push({ id: 'awc', label: 'Aviation Weather', loading: awcLoading, maxShare: 3 / 8, content: <AwcControls /> });
+  }
   if (isWeatherish && layers.spcWeatherOutlooks) {
     tabs.push({ id: 'spcOutlooks', label: 'SPC Outlook', loading: Boolean(spc.loading), content: <SPCOutlookSelector {...spc} /> });
+  }
+  if (fireDanger?.anyOn) {
+    tabs.push({ id: 'fireDanger', label: 'Fire Danger', loading: Boolean(fireDanger.sfp.loading), content: <FireDangerPanel /> });
   }
   if (isWildfire && layers.fireWeatherOutlooks) {
     tabs.push({ id: 'fireWxOutlooks', label: 'Fire Weather', content: <FireWeatherOutlookSelector {...fireWx} /> });

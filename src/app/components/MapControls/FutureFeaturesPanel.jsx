@@ -1,16 +1,15 @@
 /**
  * FutureFeaturesPanel.jsx
  * App menu slide-in panel — opened from the top-left hamburger corner button.
- * Map style, the map legend, Help, membership/donation links, saved places,
- * and appearance.
+ * Home, Simplified Sentinel, map style, the map legend, membership/donation links,
+ * saved places, appearance and preferences, and Help at the very bottom.
  */
 
-import { memo, useState } from 'react';
+import { Children, Fragment, memo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import {
-  Home, Map as MapIcon, HelpCircle, HeartHandshake, MapPin, Satellite, Mountain, Info, ChevronDown,
-} from 'lucide-react';
+import { ChevronDown } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
+import { useSimplifiedMode } from '../../context/SimplifiedModeContext';
 import { useTheme } from '../../context/ThemeContext';
 import { usePreferences } from '../../context/PreferencesContext';
 import { useViewport } from '../../context/ViewportContext';
@@ -18,14 +17,13 @@ import { getMainOrigin } from '../../../shared/utils/getAppOrigin';
 
 const DONATE_URL = 'https://givebutter.com/national-wildfire-tracking-team-dvi6jx';
 
-function MenuRow({ icon: Icon, iconClassName, label, sublabel, onClick, href, sameTab, to, trailing, ariaExpanded }) {
+function MenuRow({ label, sublabel, onClick, href, sameTab, to, trailing, ariaExpanded, ariaPressed }) {
   const className =
     'w-full flex items-center gap-3 px-4 py-3 text-left transition-colors ' +
     'hover:bg-sentinel-100 dark:hover:bg-sentinel-800/60';
 
   const content = (
     <>
-      <Icon size={22} className={iconClassName || 'text-sentinel-500 dark:text-sentinel-300'} strokeWidth={1.75} />
       <div className="flex-1 min-w-0">
         <div className="font-semibold text-sentinel-900 dark:text-white text-[15px]">{label}</div>
         {sublabel && (
@@ -55,7 +53,7 @@ function MenuRow({ icon: Icon, iconClassName, label, sublabel, onClick, href, sa
     );
   }
   return (
-    <button type="button" onClick={onClick} className={className} aria-expanded={ariaExpanded}>
+    <button type="button" onClick={onClick} className={className} aria-expanded={ariaExpanded} aria-pressed={ariaPressed}>
       {content}
     </button>
   );
@@ -67,6 +65,21 @@ function SectionLabel({ children }) {
       {children}
     </div>
   );
+}
+
+/** The thin line between options and sections, inset from both edges. */
+function Hairline() {
+  return <div aria-hidden className="mx-4 h-px bg-sentinel-200 dark:bg-sentinel-700/70" />;
+}
+
+/** Options with a hairline between each, none above or below. */
+function RowGroup({ children }) {
+  return Children.toArray(children).map((row, i) => (
+    <Fragment key={row.key ?? i}>
+      {i > 0 && <Hairline />}
+      {row}
+    </Fragment>
+  ));
 }
 
 /** One labeled preference row, with an optional helper line underneath the control. */
@@ -93,6 +106,7 @@ function SegmentedControl({ value, onChange, options }) {
           key={opt.value}
           type="button"
           onClick={() => onChange(opt.value)}
+          aria-pressed={value === opt.value}
           className={`px-2.5 py-1 text-xs font-semibold rounded-md transition-colors ${
             value === opt.value
               ? 'bg-fire-600/25 ring-1 ring-inset ring-fire-600/50 text-sentinel-900 dark:text-white'
@@ -106,15 +120,12 @@ function SegmentedControl({ value, onChange, options }) {
   );
 }
 
-/** iOS-style on/off switch. */
-function PrefSwitch({ checked, onChange }) {
+/** The iOS-style on/off track: PrefSwitch's look, also drawn inside a whole-row toggle. */
+function SwitchTrack({ checked }) {
   return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={checked}
-      onClick={() => onChange(!checked)}
-      className={`h-6 w-11 shrink-0 rounded-full p-0.5 transition-colors ${
+    <span
+      aria-hidden
+      className={`block h-6 w-11 shrink-0 rounded-full p-0.5 transition-colors ${
         checked ? 'bg-fire-600/25 ring-1 ring-inset ring-fire-600/50' : 'bg-sentinel-300 dark:bg-sentinel-700'
       }`}
     >
@@ -123,6 +134,21 @@ function PrefSwitch({ checked, onChange }) {
           checked ? 'translate-x-5' : 'translate-x-0'
         }`}
       />
+    </span>
+  );
+}
+
+/** iOS-style on/off switch. */
+function PrefSwitch({ checked, onChange }) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      onClick={() => onChange(!checked)}
+      className="shrink-0 rounded-full"
+    >
+      <SwitchTrack checked={checked} />
     </button>
   );
 }
@@ -155,7 +181,6 @@ function LegendDisclosure({ children }) {
   return (
     <div>
       <MenuRow
-        icon={Info}
         label="Legend"
         sublabel="Colors and symbols for the layers on the map"
         onClick={() => setOpen((o) => !o)}
@@ -177,11 +202,16 @@ function LegendDisclosure({ children }) {
   );
 }
 
-const FutureFeaturesPanel = memo(function FutureFeaturesPanel({ mapType = 'satellite', onMapTypeChange, legend = null }) {
+// Header to map bottom, its width (--left-panel-width, set by LiveTrackerPage)
+// ending just short of the bottom bar. underBar: the screen is too narrow for
+// that gap, so the bar sits over the panel's bottom corner and its options
+// scroll under it (data-under-bar, app-rules.css).
+const FutureFeaturesPanel = memo(function FutureFeaturesPanel({ mapType = 'satellite', onMapTypeChange, legend = null, underBar = false }) {
   const { futurePanelOpen, toggleFuturePanel } = useApp();
-  const { theme, setTheme } = useTheme();
+  const { preference, setPreference } = useTheme();
   const { prefs, updatePrefs } = usePreferences();
   const { viewport, setViewport } = useViewport();
+  const { simplified, setSimplified } = useSimplifiedMode();
 
   const closePanel = () => {
     toggleFuturePanel();
@@ -194,123 +224,124 @@ const FutureFeaturesPanel = memo(function FutureFeaturesPanel({ mapType = 'satel
   };
 
   return (
+    // data-map-control: dragged popups stay off it (usePopupDrag)
     <aside
+      data-map-control=""
+      data-under-bar={underBar ? '' : undefined}
       className={`
         absolute inset-y-0 left-0 z-40
         flex flex-col
         bg-white/95 dark:bg-sentinel-900/95 backdrop-blur-sm
         border-r border-sentinel-200 dark:border-sentinel-700
         transition-transform duration-300 ease-in-out
-        w-full sm:w-80
-        sm:max-[1199px]:bottom-[var(--map-bottom-stack,0px)] sm:max-[1199px]:border-b sm:max-[1199px]:rounded-br-2xl
+        w-full sm:w-[var(--left-panel-width,19rem)]
         ${futurePanelOpen ? 'translate-x-0' : '-translate-x-full'}
       `}
     >
       {/* Left-padded on phones to clear the floating corner-button column, which only shifts out of the way at sm+ */}
-      <div className="flex-1 overflow-y-auto py-2 pl-16 sm:pl-0">
-        <MenuRow icon={Home} label="Home" href={getMainOrigin()} sameTab onClick={closePanel} />
-        <MenuRow
-          icon={isSatellite ? Satellite : MapIcon}
-          label="Map"
-          sublabel={isSatellite ? 'Satellite view' : 'Street map view'}
-          onClick={() => onMapTypeChange?.(isSatellite ? 'rendered' : 'satellite')}
-        />
-        <MenuRow
-          icon={Mountain}
-          iconClassName={isPitched ? 'text-fire-500' : undefined}
-          label="3D Terrain"
-          sublabel={isPitched ? 'On' : 'Off'}
-          onClick={toggleTerrainTilt}
-        />
-        {legend && <LegendDisclosure>{legend}</LegendDisclosure>}
-        <MenuRow icon={HelpCircle} label="Help" href={`${getMainOrigin()}/about`} sameTab onClick={closePanel} />
+      <div className="flex-1 overflow-y-auto py-2 pl-16 sm:pl-0 scrollbar-visible">
+        <RowGroup>
+          <MenuRow label="Home" href={getMainOrigin()} sameTab onClick={closePanel} />
+          <MenuRow
+            label="Simplified Sentinel"
+            sublabel="Only the essential layers, with no Models tab or hazard sidebar"
+            onClick={() => setSimplified(!simplified)}
+            ariaPressed={simplified}
+            trailing={<SwitchTrack checked={simplified} />}
+          />
+          <MenuRow
+            label="Map"
+            sublabel={isSatellite ? 'Satellite view' : 'Street map view'}
+            onClick={() => onMapTypeChange?.(isSatellite ? 'rendered' : 'satellite')}
+          />
+          <MenuRow
+            label="3D Terrain"
+            sublabel={isPitched ? 'On' : 'Off'}
+            onClick={toggleTerrainTilt}
+          />
+          {legend && <LegendDisclosure>{legend}</LegendDisclosure>}
+        </RowGroup>
+        <Hairline />
 
         <SectionLabel>Support Our Mission</SectionLabel>
         <MenuRow
-          icon={HeartHandshake}
-          iconClassName="text-pink-500"
           label="Donate"
           href={DONATE_URL}
           onClick={closePanel}
         />
+        <Hairline />
 
         <SectionLabel>Settings</SectionLabel>
         <MenuRow
-          icon={MapPin}
           label="Places"
           to="/manage-zipcodes"
           onClick={closePanel}
         />
-
-        <SectionLabel>Radar Settings</SectionLabel>
-        <PrefRow
-          label="Storm Motion Vectors"
-          description="For storms under an active Severe Thunderstorm or Tornado Warning that reports motion: a point at its current position, a line to where it will be in one hour, with tick marks at 30 and 60 minutes."
-        >
-          <PrefSwitch
-            checked={prefs.stormMotionVectors}
-            onChange={(v) => updatePrefs({ stormMotionVectors: v })}
-          />
-        </PrefRow>
+        <Hairline />
 
         <SectionLabel>Preferences</SectionLabel>
 
-        <PrefRow label="Dark Mode">
-          <SegmentedControl
-            value={theme === 'dark' ? 'on' : 'off'}
-            onChange={(v) => setTheme(v === 'on' ? 'dark' : 'light')}
-            options={[{ value: 'off', label: 'Off' }, { value: 'on', label: 'On' }]}
-          />
-        </PrefRow>
+        <RowGroup>
+          <PrefRow label="Dark Mode" description="Auto matches your device's light or dark setting.">
+            <SegmentedControl
+              value={preference === 'auto' ? 'auto' : preference === 'dark' ? 'on' : 'off'}
+              onChange={(v) => setPreference(v === 'auto' ? 'auto' : v === 'on' ? 'dark' : 'light')}
+              options={[{ value: 'auto', label: 'Auto' }, { value: 'off', label: 'Off' }, { value: 'on', label: 'On' }]}
+            />
+          </PrefRow>
 
-        <PrefRow label="Data Picker">
-          <SegmentedControl
-            value={prefs.dataPickerAnchor}
-            onChange={(v) => updatePrefs({ dataPickerAnchor: v })}
-            options={[{ value: 'center', label: 'Center' }, { value: 'mouse', label: 'Mouse' }]}
-          />
-        </PrefRow>
+          <PrefRow label="Data Picker">
+            <SegmentedControl
+              value={prefs.dataPickerAnchor}
+              onChange={(v) => updatePrefs({ dataPickerAnchor: v })}
+              options={[{ value: 'center', label: 'Center' }, { value: 'mouse', label: 'Mouse' }]}
+            />
+          </PrefRow>
 
-        <PrefRow label="Time Format">
-          <SegmentedControl
-            value={prefs.timeFormat}
-            onChange={(v) => updatePrefs({ timeFormat: v })}
-            options={[{ value: '12h', label: '12-hour' }, { value: '24h', label: '24-hour' }]}
-          />
-        </PrefRow>
+          <PrefRow label="Time Format">
+            <SegmentedControl
+              value={prefs.timeFormat}
+              onChange={(v) => updatePrefs({ timeFormat: v })}
+              options={[{ value: '12h', label: '12-hour' }, { value: '24h', label: '24-hour' }]}
+            />
+          </PrefRow>
 
-        <PrefRow
-          label="Map Popup UI"
-          description="'Single' shows one item at a time in map popups — swipe, drag or use the dots to flick between items."
-        >
-          <SegmentedControl
-            value={prefs.mapPopupMode}
-            onChange={(v) => updatePrefs({ mapPopupMode: v })}
-            options={[{ value: 'list', label: 'List' }, { value: 'single', label: 'Single' }]}
-          />
-        </PrefRow>
+          <PrefRow
+            label="Map Popup UI"
+            description="'Single' shows one item at a time in map popups — swipe, drag or use the dots to flick between items."
+          >
+            <SegmentedControl
+              value={prefs.mapPopupMode}
+              onChange={(v) => updatePrefs({ mapPopupMode: v })}
+              options={[{ value: 'list', label: 'List' }, { value: 'single', label: 'Single' }]}
+            />
+          </PrefRow>
 
-        <PrefRow label="Popup Spotlight">
-          <PrefSwitch checked={prefs.popupSpotlight} onChange={(v) => updatePrefs({ popupSpotlight: v })} />
-        </PrefRow>
+          <PrefRow label="Popup Spotlight">
+            <PrefSwitch checked={prefs.popupSpotlight} onChange={(v) => updatePrefs({ popupSpotlight: v })} />
+          </PrefRow>
 
-        <PrefRow
-          label="Spotlight Opacity"
-          description="Dims the map outside a clicked polygon to make it stand out."
-        >
-          <PrefSlider
-            value={prefs.spotlightOpacity}
-            onChange={(v) => updatePrefs({ spotlightOpacity: v })}
-            disabled={!prefs.popupSpotlight}
-          />
-        </PrefRow>
+          <PrefRow
+            label="Spotlight Opacity"
+            description="Dims the map outside a clicked polygon to make it stand out."
+          >
+            <PrefSlider
+              value={prefs.spotlightOpacity}
+              onChange={(v) => updatePrefs({ spotlightOpacity: v })}
+              disabled={!prefs.popupSpotlight}
+            />
+          </PrefRow>
 
-        <PrefRow
-          label="Popup Drag Handle"
-          description="Adds a grip to map popups so you can drag them aside and see the map underneath."
-        >
-          <PrefSwitch checked={prefs.popupDragHandle} onChange={(v) => updatePrefs({ popupDragHandle: v })} />
-        </PrefRow>
+          <PrefRow
+            label="Popup Draggability"
+            description="Drag any popup or details panel aside, by any part of it, to see the map underneath."
+          >
+            <PrefSwitch checked={prefs.popupDragHandle} onChange={(v) => updatePrefs({ popupDragHandle: v })} />
+          </PrefRow>
+        </RowGroup>
+        <Hairline />
+
+        <MenuRow label="Help" href={`${getMainOrigin()}/about`} sameTab onClick={closePanel} />
       </div>
     </aside>
   );

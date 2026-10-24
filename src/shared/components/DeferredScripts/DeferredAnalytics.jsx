@@ -1,6 +1,8 @@
 import { useEffect } from 'react';
 
-const GTM_ID = 'GTM-546TW8NQ';
+// GA4 is loaded directly with gtag.js. There's no Tag Manager container:
+// GTM-546TW8NQ only re-loaded this same GA tag and re-sent saved_location,
+// doubling the download and the main-thread work for no extra data.
 const GA_MEASUREMENT_ID = 'G-JV1EY1VHRQ';
 
 function appendScriptOnce({ src, id, async = true, defer = false }) {
@@ -25,14 +27,6 @@ function initAnalytics() {
   window.gtag = window.gtag || function gtag() {
     window.dataLayer.push(arguments);
   };
-
-  window.dataLayer.push({ 'gtm.start': Date.now(), event: 'gtm.js' });
-
-  appendScriptOnce({
-    src: `https://www.googletagmanager.com/gtm.js?id=${GTM_ID}`,
-    id: 'nwtt-gtm-script',
-    async: true,
-  });
 
   appendScriptOnce({
     src: `https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`,
@@ -71,6 +65,7 @@ function scheduleDeferredAnalyticsLoad() {
 
   const teardown = () => {
     removeInteractionListeners();
+    window.removeEventListener('load', startIdleClock);
     clearScheduledTasks();
     if (!window.__nwttAnalyticsLoaded) {
       window.__nwttAnalyticsScheduled = false;
@@ -88,18 +83,29 @@ function scheduleDeferredAnalyticsLoad() {
     window.addEventListener('scroll', onUserInteraction, { once: true, passive: true });
   };
 
-  addInteractionListeners();
-
-  timeoutId = window.setTimeout(() => {
-    teardown();
-    initAnalytics();
-  }, 5000);
-
-  if ('requestIdleCallback' in window) {
-    idleCallbackId = window.requestIdleCallback(() => {
+  // The idle/timeout clock starts once the page has loaded. Started earlier,
+  // the browser's first idle moment comes while the page's own chunks and
+  // hero image are still downloading, and gtag.js (~200 KB) competes with them.
+  function startIdleClock() {
+    timeoutId = window.setTimeout(() => {
       teardown();
       initAnalytics();
-    }, { timeout: 7000 });
+    }, 5000);
+
+    if ('requestIdleCallback' in window) {
+      idleCallbackId = window.requestIdleCallback(() => {
+        teardown();
+        initAnalytics();
+      }, { timeout: 7000 });
+    }
+  }
+
+  addInteractionListeners();
+
+  if (document.readyState === 'complete') {
+    startIdleClock();
+  } else {
+    window.addEventListener('load', startIdleClock, { once: true });
   }
 
   return teardown;

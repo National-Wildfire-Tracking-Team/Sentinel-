@@ -1,0 +1,5 @@
+/* The marketing site's stylesheet, inlined into index.html at build time:
+   index.css compiled against only the code the marketing site renders
+   (tailwind.site.config.js). The tracker adds src/app/app.css on top. */
+@import "./index.css";
+@config "../tailwind.site.config.js";

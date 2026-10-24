@@ -31,7 +31,7 @@ const FREE_FEATURES = [
   { icon: <MapPin size={14} />,         label: '4 saved locations with notifications' },
   { icon: <MapPin size={14} />,         label: 'Saved counties with notifications', soon: true },
   { icon: <Radar size={14} />,          label: 'MRMS composite radar' },
-  { icon: <Radar size={14} />,          label: 'NWS Level II radar sites', soon: true },
+  { icon: <Radar size={14} />,          label: 'NWS Level II radar sites' },
   { icon: <Ruler size={14} />,          label: 'Polygon & area drawing tools' },
   { icon: <Radio size={14} />,          label: 'NWS outlooks' },
   { icon: <Radio size={14} />,          label: 'SPC outlooks' },
@@ -45,7 +45,7 @@ const FREE_FEATURES = [
   { icon: <Wind size={14} />,           label: 'Red Flag Warnings, Fire Weather Watches & SPC Fire Weather Outlooks' },
   { icon: <Flame size={14} />,          label: 'Nationwide active fire perimeters & incident info' },
   { icon: <Target size={14} />,         label: 'Satellite hotspot detection' },
-  { icon: <CloudLightning size={14} />, label: 'Basic lightning detection', soon: true },
+  { icon: <CloudLightning size={14} />, label: 'Basic lightning detection' },
   { icon: <Home size={14} />,           label: 'Home-location report' },
 ];
 
@@ -56,8 +56,8 @@ const PLUS_FEATURES = [
   { icon: <Bell size={14} />,           label: 'Custom alert rules (wind, humidity, distance, dry lightning)', soon: true },
   { icon: <CloudLightning size={14} />, label: 'Lightning replay', soon: true },
   { icon: <History size={14} />,        label: '50-frame radar loops & 30-day archive', soon: true },
-  { icon: <Columns size={14} />,        label: 'Multi-pane map view', soon: true },
-  { icon: <Leaf size={14} />,           label: 'Live fuels & fire danger', soon: true },
+  { icon: <Columns size={14} />,        label: 'Multi-pane map view' },
+  { icon: <Leaf size={14} />,           label: 'Fire Danger & Fuels (fire potential, NFDRS stations, fuel moisture, fuel models & alerts)' },
   { icon: <Search size={14} />,         label: 'Historical fire search', soon: true },
 ];
 

@@ -53,18 +53,21 @@ describe('saved-location plan limits', () => {
 });
 
 describe('notification migration security', () => {
-  const sql = latestMigrationDefining('get_monitored_saved_locations');
-
+  // Each check reads the newest migration that (re)defines that function or index.
   it.each(['get_monitored_saved_locations()', 'user_plan_for(uuid)'])(
     '%s is callable only by service_role',
     (signature) => {
+      const sql = latestMigrationDefining(signature.split('(')[0]);
       expect(sql).toContain(`revoke execute on function public.${signature} from public, anon, authenticated;`);
       expect(sql).toContain(`grant execute on function public.${signature} to service_role;`);
     },
   );
 
   it('de-duplicates per user, saved location, kind, and event', () => {
-    expect(sql).toMatch(/unique index[^;]*notification_log\(user_id, saved_location_id, kind, subject_key\)/);
+    const withIndex = readdirSync(MIGRATIONS).filter((f) => f.endsWith('.sql')).sort().reverse()
+      .map((f) => readFileSync(join(MIGRATIONS, f), 'utf8'))
+      .find((sql) => /unique index[^;]*notification_log\(user_id, saved_location_id, kind, subject_key\)/.test(sql));
+    expect(withIndex).toBeTruthy();
     const clients = readFileSync(join(HERE, '../../supabase/functions/_shared/notificationSyncClients.js'), 'utf8');
     expect(clients).toContain("'user_id,saved_location_id,kind,subject_key'");
   });
