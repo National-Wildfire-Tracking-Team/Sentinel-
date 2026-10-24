@@ -80,17 +80,6 @@ if (mrmsEnabled) {
   });
 }
 
-const lightningEnabled = ctx('lightning') === 'enabled';
-let lightning;
-if (lightningEnabled) {
-  lightning = new LightningStack(app, 'SentinelLightning', {
-    env,
-    description: 'Sentinel lightning: GOES GLM flashes from NOAA on AWS Open Data (Lambda + S3, us-east-1)',
-    alarmEmail: ctx('alarmEmail'),
-    distributionId: ctx('distributionId') || undefined,
-  });
-}
-
 const fireDangerEnabled = ctx('fireDanger') === 'enabled';
 let fireDanger;
 if (fireDangerEnabled) {
@@ -123,7 +112,6 @@ const dataServices = new DataServicesStack(app, 'SentinelDataServices', {
   monthlyBudgetUsd: Number(ctx('monthlyBudgetUsd')),
   weatherModelsFunctionUrl: weatherModels?.functionUrl.url,
   mrms: mrmsEnabled,
-  lightning: lightningEnabled,
   fireDanger: fireDangerEnabled,
   supabaseUrl: ctx('supabaseUrl'),
   supabaseAnonKey: ctx('supabaseAnonKey'),
@@ -131,7 +119,6 @@ const dataServices = new DataServicesStack(app, 'SentinelDataServices', {
 });
 // Deploying the distribution deploys SentinelMrms first (its bucket backs /mrms/*), as CI deploys only SentinelDataServices.
 if (mrms) dataServices.addDependency(mrms);
-if (lightning) dataServices.addDependency(lightning);
 if (fireDanger) dataServices.addDependency(fireDanger);
 // SentinelHafs deploys first too: the distribution reads its Function URL (a same-region stack export).
 
