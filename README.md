@@ -138,22 +138,24 @@ npm run preview # preview production build
 ### Branch Workflow
 
 ```
-dev → stage → Main
-     (staging)  (production)
+feature branch → Weeklyupdates → Main
+                 (weekly roll-up)  (production)
 ```
 
 ### PR Validation
 
-All pull requests automatically run:
+All pull requests, whatever their base branch, automatically run:
 - Lint (ESLint)
 - Build (Vite)
-- Tests (Vitest)
-- Typecheck (TypeScript)
-- Coverage (Vitest v8)
-- E2E Tests (Playwright) - only when targeting Main, stage, or dev
+- Tests with coverage (Vitest v8)
+- E2E Tests (Playwright)
+- Python service tests (weather-models, fire-danger, MRMS, HAFS)
+- AWS infrastructure (CDK synth + assertions)
+
+The `Main` ruleset requires every one of these checks, E2E included, to pass
+before a PR can merge into `Main`.
 
 ### Deployment
 
-- **stage/dev**: Netlify auto-deploys on branch push
 - **Main**: Netlify auto-deploys to production on merge
 # Slackbot
