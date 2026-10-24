@@ -186,7 +186,7 @@ test.describe('LoginPage – Invalid Credentials', () => {
     await submitLoginForm(page);
 
     await expect(
-      page.getByText(/invalid credentials/i),
+      page.getByText(/invalid email or password/i),
     ).toBeVisible();
   });
 
@@ -207,7 +207,7 @@ test.describe('LoginPage – Invalid Credentials', () => {
     await submitLoginForm(page);
 
     await expect(
-      page.getByText(/confirm your email/i),
+      page.getByText(/hasn't been confirmed yet/i),
     ).toBeVisible();
   });
 
@@ -482,7 +482,7 @@ test.describe('LoginPage – Forgot Password', () => {
   });
 
   test('sends reset link and shows success message', async ({ page }) => {
-    await page.route('**/auth/v1/recover', (route) =>
+    await page.route('**/auth/v1/recover**', (route) =>
       route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -500,7 +500,7 @@ test.describe('LoginPage – Forgot Password', () => {
   });
 
   test('shows error on reset failure', async ({ page }) => {
-    await page.route('**/auth/v1/recover', (route) =>
+    await page.route('**/auth/v1/recover**', (route) =>
       route.fulfill({
         status: 400,
         contentType: 'application/json',
@@ -600,7 +600,7 @@ test.describe('LoginPage – Submit Button States', () => {
     await submitLoginForm(page);
 
     // Wait for error to appear (request completed)
-    await expect(page.getByText(/invalid credentials/i)).toBeVisible();
+    await expect(page.getByText(/invalid email or password/i)).toBeVisible();
     await expect(
       page.getByRole('button', { name: /log in$/i }),
     ).toBeVisible();
@@ -848,7 +848,7 @@ test.describe('LoginPage – Inline Error Feedback', () => {
     await fillPassword(page, 'wrongpass');
     await submitLoginForm(page);
 
-    await expect(page.getByText(/invalid credentials/i)).toBeVisible();
+    await expect(page.getByText(/invalid email or password/i)).toBeVisible();
     await expect(page).toHaveURL(/\/login/);
   });
 });

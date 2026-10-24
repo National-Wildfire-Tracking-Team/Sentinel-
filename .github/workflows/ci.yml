@@ -33,21 +33,33 @@ jobs:
       # instrumentation enabled, so it supersedes a plain `npm run test` —
       # running both would execute the same tests twice.
       - run: npm run test:coverage
-      - name: Determine if E2E should run
-        id: e2e-gate
-        run: echo "run=${{ github.event.pull_request.base.ref == 'Main' || github.event.pull_request.base.ref == 'stage' || github.event.pull_request.base.ref == 'dev' }}" >> "$GITHUB_OUTPUT"
+
+  e2e:
+    # Its own job so Main's ruleset can require E2E by name on every PR.
+    name: E2E tests (Playwright)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      VITE_SUPABASE_URL: https://placeholder.supabase.co
+      VITE_SUPABASE_ANON_KEY: placeholder-anon-key
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run build
       - uses: actions/cache@v5
         id: playwright-cache
-        if: steps.e2e-gate.outputs.run == 'true'
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
       - run: npx playwright install chromium
-        if: steps.e2e-gate.outputs.run == 'true' && steps.playwright-cache.outputs.cache-hit != 'true'
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
       - run: npm run test:e2e
-        if: steps.e2e-gate.outputs.run == 'true'
       - uses: actions/upload-artifact@v6
-        if: always() && steps.e2e-gate.outputs.run == 'true'
+        if: always()
         with:
           name: playwright-report
           path: playwright-report/
@@ -67,19 +79,6 @@ jobs:
       # never read the real HRRR/GFS buckets.
       - run: uv run --python 3.13 --with-requirements requirements-dev.txt pytest
 
-  lightning:
-    name: Lightning service (Python)
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    defaults:
-      run:
-        working-directory: cloud/lightning
-    steps:
-      - uses: actions/checkout@v5
-      - uses: astral-sh/setup-uv@v7
-      # Offline: the tests write synthetic GLM files and never read NOAA's buckets.
-      - run: uv run --python 3.13 --with-requirements requirements-dev.txt pytest
-
   fire-danger:
     name: Fire danger service (Python)
     runs-on: ubuntu-latest
@@ -91,6 +90,32 @@ jobs:
       - uses: actions/checkout@v5
       - uses: astral-sh/setup-uv@v7
       # Offline: the tests replay recorded FEMS responses and never call FEMS.
+      - run: uv run --python 3.13 --with-requirements requirements-dev.txt pytest
+
+  mrms:
+    name: MRMS service (Python)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: cloud/mrms
+    steps:
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v7
+      # Offline: the tests write synthetic MRMS GRIB2 files and never read NOAA's buckets.
+      - run: uv run --python 3.13 --with-requirements requirements-dev.txt pytest
+
+  hafs:
+    name: HAFS service (Python)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: cloud/hafs
+    steps:
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v7
+      # Offline: synthetic HAFS GRIB2 messages and a stand-in for NOAA's bucket.
       - run: uv run --python 3.13 --with-requirements requirements-dev.txt pytest
 
   infra:
