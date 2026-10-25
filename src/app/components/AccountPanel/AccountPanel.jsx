@@ -5,16 +5,33 @@
  */
 
 import { useEffect, useRef, useState, memo } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
 import { useAuth } from '../../../shared/context/AuthContext';
+import { supabase } from '../../../shared/api/supabaseClient';
 import { LogOut, MapPin, Settings, User, X } from 'lucide-react';
 import LoginModal from '../Auth/LoginModal';
 import MapAddressSearchPanel from '../Auth/MapAddressSearchPanel';
 import { useConfirmSignOut } from '../../../shared/hooks/useConfirmSignOut';
 
+/** Whether the just-signed-in user has any saved location. Unknown counts as none. */
+async function hasSavedLocations() {
+  try {
+    const { count, error } = await supabase
+      .from('saved_locations')
+      .select('id', { count: 'exact', head: true });
+    if (error) throw error;
+    return (count ?? 0) > 0;
+  } catch (err) {
+    console.warn('[AccountPanel] Could not check saved locations:', err?.message);
+    return false;
+  }
+}
+
 const AccountPanel = memo(function AccountPanel() {
   const { accountPanelOpen, toggleAccountPanel } = useApp();
+  const navigate = useNavigate();
+  const location = useLocation();
   const { isAuthenticated, user } = useAuth();
   const { requestSignOut, signOutDialog, confirmOpen } = useConfirmSignOut(toggleAccountPanel);
 
@@ -35,9 +52,16 @@ const AccountPanel = memo(function AccountPanel() {
     return () => document.removeEventListener('mousedown', handler);
   }, [accountPanelOpen, showLoginModal, showAddressSetup, confirmOpen, toggleAccountPanel]);
 
-  const handleLoginSuccess = () => {
+  // A returning member with saved locations gets the post-login Overview
+  // (LiveTrackerPage); a new one is walked through saving a first location.
+  const handleLoginSuccess = async () => {
     setShowLoginModal(false);
-    setShowAddressSetup(true);
+    if (await hasSavedLocations()) {
+      toggleAccountPanel();
+      navigate(`${location.pathname}${location.search}`, { replace: true, state: { overview: true } });
+    } else {
+      setShowAddressSetup(true);
+    }
   };
 
   const handleAddressSetupReturn = () => {

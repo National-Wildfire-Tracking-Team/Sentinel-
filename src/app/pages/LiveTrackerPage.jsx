@@ -1552,14 +1552,16 @@ export default function LiveTrackerPage() {
   }, [anyLoading, setRefreshed]);
 
   // ── Post-login Overview ──
-  // LoginPage sends { overview: true } in router state when it lands here.
-  // The flag is cleared from history right away so a reload or Back doesn't
-  // bring the Overview up again.
+  // LoginPage sends { overview: true } in router state when it lands here, and
+  // the map's own Sign In (AccountPanel) sends it while the map is already
+  // open. The flag is cleared from history right away so a reload or Back
+  // doesn't bring the Overview up again.
   const location = useLocation();
   const navigate = useNavigate();
   const [overviewOpen, setOverviewOpen] = useState(() => Boolean(location.state?.overview));
   useEffect(() => {
     if (location.state?.overview) {
+      setOverviewOpen(true);
       navigate(`${location.pathname}${location.search}`, { replace: true, state: null });
     }
   }, [location.state, location.pathname, location.search, navigate]);
