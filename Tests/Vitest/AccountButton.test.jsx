@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, useLocation } from 'react-router-dom';
 import { useApp } from '../../src/app/context/AppContext';
 import { useAuth } from '../../src/shared/context/AuthContext';
 import AccountButton from '../../src/app/components/MapControls/AccountButton';
@@ -25,11 +25,27 @@ vi.mock('../../src/app/context/ViewportContext', () => ({
   useViewport: vi.fn(() => ({ viewport: {}, setViewport: vi.fn() })),
 }));
 vi.mock('../../src/app/components/Auth/LoginModal', () => ({
-  default: () => <div>Login modal</div>,
+  default: ({ onLoginSuccess }) => <button type="button" onClick={onLoginSuccess}>Finish login</button>,
 }));
 vi.mock('../../src/app/components/Auth/MapAddressSearchPanel', () => ({
-  default: () => null,
+  default: () => <div>Saved Locations setup</div>,
 }));
+
+const { savedLocationsCount } = vi.hoisted(() => ({ savedLocationsCount: { value: 0, error: null } }));
+vi.mock('../../src/shared/api/supabaseClient', async (importOriginal) => ({
+  ...(await importOriginal()),
+  supabase: {
+    from: () => ({
+      select: async () => ({ count: savedLocationsCount.value, error: savedLocationsCount.error }),
+    }),
+  },
+}));
+
+/** Shows the router state so a test can see the Overview being requested. */
+function LocationStateProbe() {
+  const { state } = useLocation();
+  return <output aria-label="router state">{JSON.stringify(state)}</output>;
+}
 
 const toggleAccountPanel = vi.fn();
 const signOut = vi.fn();
@@ -167,6 +183,41 @@ describe('AccountPanel', () => {
     renderWithRouter(<AccountPanel />);
     const panel = screen.getByText('Account').closest('.absolute');
     expect(panel).toHaveClass('top-[68px]', 'right-4');
+  });
+
+  describe('after signing in from the map', () => {
+    const signInFromMap = () => {
+      mockApp({ accountPanelOpen: true });
+      renderWithRouter(<><AccountPanel /><LocationStateProbe /></>);
+      fireEvent.click(screen.getByRole('button', { name: /Sign In/ }));
+      fireEvent.click(screen.getByRole('button', { name: 'Finish login' }));
+    };
+
+    beforeEach(() => {
+      savedLocationsCount.value = 0;
+      savedLocationsCount.error = null;
+    });
+
+    it('opens the post-login Overview for a member with saved locations', async () => {
+      savedLocationsCount.value = 1;
+      signInFromMap();
+      await waitFor(() => expect(screen.getByLabelText('router state')).toHaveTextContent('{"overview":true}'));
+      expect(toggleAccountPanel).toHaveBeenCalledTimes(1);
+      expect(screen.queryByText('Saved Locations setup')).toBeNull();
+    });
+
+    it('walks a member with no saved locations through saving one', async () => {
+      signInFromMap();
+      expect(await screen.findByText('Saved Locations setup')).toBeInTheDocument();
+      expect(screen.getByLabelText('router state')).toHaveTextContent('null');
+    });
+
+    it('falls back to the Saved Locations setup when the check fails', async () => {
+      savedLocationsCount.error = { message: 'offline' };
+      vi.spyOn(console, 'warn').mockImplementation(() => {});
+      signInFromMap();
+      expect(await screen.findByText('Saved Locations setup')).toBeInTheDocument();
+    });
   });
 
   it('closes on outside click but not on the trigger', () => {
