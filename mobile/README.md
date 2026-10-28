@@ -15,19 +15,25 @@ with colours taken from the web's Tailwind and CSS tokens (`src/theme.ts`).
 | `src/app/index.tsx` | The live map screen: header, corner buttons, zoom stack, bottom bar, panels and detail sheets |
 | `src/app/places.tsx` | My Places: Home Setup, saved locations with alert radius, followed fires |
 | `src/app/account.tsx` | Supabase email/password sign-in and account info |
-| `src/map/SentinelMap.tsx` | Mapbox map: fire dots and flame clusters, perimeters, evacuation zones, places, NOAA overlays, MRMS radar, lightning |
+| `src/map/SentinelMap.tsx` | Mapbox map: fire dots and flame clusters, perimeters, evacuation zones, places, raster overlays, MRMS radar, lightning, radar-site sweeps and the GeoJSON layers |
+| `src/map/featureSources.ts`, `featureStyles.ts`, `rasterSources.ts` | Each GeoJSON layer's loader and refresh, its web paint values, and the tile overlays (WFPI, LANDFIRE fuels, GOES) |
+| `src/map/radarSweepImage.ts`, `src/hooks/useRadarSite.ts` | Individual Radar Site: Level 3 scans drawn by an SkSL shader into a map-aligned image (the web's WebGL sweep layer) |
+| `src/map/WindParticles.tsx` | Wind particles: a Skia overlay stepped on the UI thread by a Reanimated frame callback |
+| `src/components/FeatureSheet.tsx`, `RadarSitePanel.tsx` | Details for a tapped station, camera, gauge, TFR, hotspot or fire danger feature; radar site controls |
 | `src/map/catalog.ts` | The web's layer catalog and tab sections; `NATIVE_LAYERS` lists what the app draws so far |
 | `src/components/SidebarPanel.tsx`, `IncidentList.tsx`, `AlertsList.tsx` | The web sidebar: stat pills, feed tabs, incident cards, NWS alerts |
 | `src/components/IncidentSheet.tsx` | The web's IncidentSidebar: situation, evacuations, Updates / Shelters / Info, Share and Follow |
 | `src/components/LayerPanel.tsx`, `MenuPanel.tsx`, `MapChrome.tsx` | The layer card, menu, corner buttons and zoom stack |
-| `src/data/` | Data loaders: incidents (AWS merge service), evacuation zones (Cal OES, IPAWS, reporter zones), NOAA ArcGIS overlays, MRMS, lightning, NWS alerts |
+| `src/data/` | Data loaders: incidents (AWS merge service), evacuation zones (Cal OES, IPAWS, reporter zones), NOAA ArcGIS overlays, MRMS, lightning, NWS alerts, fire activity and smoke, fire danger and fuels, monitoring and aviation, radar sites, the wind field |
+| `src/lib/nexrad/` | The web's NEXRAD Level 3 and bzip2 decoders, copied unchanged |
 | `src/context/`, `src/hooks/` | Home Setup and near-me, display preferences, saved locations, follows, per-incident realtime data |
 
 ### Data sources
 
-- **AWS data services** (`EXPO_PUBLIC_DATA_SERVICES_URL`): `/fire-perimeters-merge`, `/mrms`, `/nws-alerts`.
+- **AWS data services** (`EXPO_PUBLIC_DATA_SERVICES_URL`): `/fire-perimeters-merge`, `/mrms`, `/nws-alerts`, `/fire-danger` (NFDRS stations), `/weather-models/fields` (wind), `/california-land-ownership-proxy`.
 - **The website's `/api/*` proxies** (`app.nationalwildfiretrackingteam.org/api`): Cal OES evacuation zones and FEMA IPAWS.
 - **NOAA ArcGIS MapServers**, called directly (no CORS on native): NWS alerts, NHC, storm reports, SPC and WPC outlooks, drought, FEMA flood zones. The web reaches the same servers through `/api/nws/*`.
+- **Other public services, called directly** (the web goes through its `/api/*` proxies for most): NASA FIRMS (the keyless 48-hour CSVs), NOAA NESDIS NGFS, CAL FIRE FRAP, NDGD smoke, AirNow, NWCG significant fire potential, NWCC fuel samples, USGS WFPI, LANDFIRE, NASA GIBS (GOES), RAWS, Caltrans CCTV, NOAA river gauges and NWPS, FAA TFRs, aviationweather.gov, USGS National Map, CMRA and EIA infrastructure, api.weather.gov radar status, and the Unidata NEXRAD Level 3 bucket.
 - **Supabase**, with the same anon key and RLS as the website. Reads `incident_updates`, `incident_evacuations`, `incident_shelters`, `reporter_evac_zones`, `profiles`, `subscriptions` and the `lightning` storage bucket. Writes only the signed-in user's own rows in `incident_follows`, `saved_locations`, `home_setups` and `display_preferences`, the same way the website does. No schema or backend changes.
 
 ## Setup

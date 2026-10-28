@@ -3,6 +3,7 @@ import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { AuthProvider } from '@/auth/AuthContext';
+import { AlertSettingsProvider } from '@/context/AlertSettingsContext';
 import { HomeSetupProvider } from '@/context/HomeSetupContext';
 import { PreferencesProvider } from '@/context/PreferencesContext';
 import { colors } from '@/theme';
@@ -20,6 +21,7 @@ export default function RootLayout() {
         <AuthProvider>
           <PreferencesProvider>
           <HomeSetupProvider>
+          <AlertSettingsProvider>
           <StatusBar style="light" />
           <Stack screenOptions={{ headerShown: false }}>
             <Stack.Screen name="index" />
@@ -42,6 +44,7 @@ export default function RootLayout() {
               }}
             />
           </Stack>
+          </AlertSettingsProvider>
           </HomeSetupProvider>
           </PreferencesProvider>
         </AuthProvider>

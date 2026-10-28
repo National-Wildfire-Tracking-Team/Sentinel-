@@ -10,35 +10,56 @@ import { Alert, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'r
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Location from 'expo-location';
 import { router, useLocalSearchParams } from 'expo-router';
-import { CircleUserRound, Flame, LocateFixed, Menu, Navigation, RefreshCw, X } from 'lucide-react-native';
+import { ChevronLeft, ChevronRight, CircleUserRound, Flame, LocateFixed, Menu, Navigation, RefreshCw, X } from 'lucide-react-native';
 import Constants from 'expo-constants';
 
 import { useAuth } from '@/auth/AuthContext';
+import { useAlertSettings } from '@/context/AlertSettingsContext';
+import { usePlan } from '@/auth/usePlan';
 import { BottomSheet } from '@/components/BottomSheet';
 import { EvacZoneSheet } from '@/components/EvacZoneSheet';
+import { FeatureSheet, type FeatureSelection } from '@/components/FeatureSheet';
 import { IncidentSheet } from '@/components/IncidentSheet';
 import { LayerPanel } from '@/components/LayerPanel';
 import { MapBottomBar } from '@/components/MapBottomBar';
 import { CornerButton, ZoomControl } from '@/components/MapChrome';
 import { MenuPanel } from '@/components/MenuPanel';
 import { PointInfoSheet, type PointInfo } from '@/components/PointInfoSheet';
+import { MeasurementPanel, measureShape, type MeasureMode, type MeasureState } from '@/components/MeasurementPanel';
+import { RadarSitePanel } from '@/components/RadarSitePanel';
 import { SidebarPanel, type FeedTab } from '@/components/SidebarPanel';
 import { Banner, EmptyState } from '@/components/ui';
 import { isMapboxConfigured } from '@/config/env';
 import { useHomeSetup } from '@/context/HomeSetupContext';
-import { ARCGIS_LAYERS, arcgisKeyFor, arcgisTileUrl, identifyArcgis } from '@/data/arcgisLayers';
+import { ARCGIS_LAYERS, arcgisKeyFor, arcgisTileUrl, identifyArcgis, type IdentifyResult } from '@/data/arcgisLayers';
+import type { Viewport } from '@/data/arcgisQuery';
+import { STATION_LAYER_FIELD, STATION_LAYER_KEYS, fetchFuelModelAt } from '@/data/fireDanger';
+import { smokeHours } from '@/data/fireLayers';
+import type { WindField } from '@/data/windField';
 import { incidentsToFeatureCollection } from '@/data/incidents';
 import { fetchAlertsAtPoint } from '@/data/weatherAlerts';
 import { useEvacZones } from '@/hooks/useEvacZones';
+import { useFeatureLayers, type FeatureLayerData } from '@/hooks/useFeatureLayers';
+import { useRadarSite } from '@/hooks/useRadarSite';
 import { useIncidents } from '@/hooks/useIncidents';
 import { useSavedLocations } from '@/hooks/useSavedLocations';
 import { useLightning, useMrms, useWeatherAlerts } from '@/hooks/useWeatherData';
 import { circlePolygon, haversineMiles } from '@/lib/geocode';
-import { TAB_PRESETS, type LayerState, type MapTab } from '@/map/catalog';
+import { FIRE_DANGER_LAYER_KEYS, TAB_PRESETS, type LayerState, type MapTab } from '@/map/catalog';
+import { CATALOG_SOURCES } from '@/map/featureSources';
+import { alertPolygonStyles, smokeStyles, stationStyles } from '@/map/featureStyles';
+import { RASTER_OVERLAY_KEYS, rasterOverlaysFor } from '@/map/rasterSources';
+import { HAS_SKIA } from '@/lib/skia';
 import type { BasemapId } from '@/map/layers';
 import { SentinelMap, type SentinelMapHandle } from '@/map/SentinelMap';
 import { accent, fire, sentinel, sentinelText } from '@/theme';
 import { formatRelative } from '@/utils/format';
+
+// Wind particles draw with Skia; an app build without it skips them.
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const WindParticles: typeof import('@/map/WindParticles').WindParticles | null = HAS_SKIA ? require('@/map/WindParticles').WindParticles : null;
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const fetchWindField: typeof import('@/data/windField').fetchWindField | null = HAS_SKIA ? require('@/data/windField').fetchWindField : null;
 
 type Panel =
   | { kind: 'none' }
@@ -47,7 +68,8 @@ type Panel =
   | { kind: 'menu' }
   | { kind: 'incident'; id: string }
   | { kind: 'evac'; zone: Record<string, any> }
-  | { kind: 'point'; info: PointInfo };
+  | { kind: 'point'; info: PointInfo }
+  | { kind: 'feature'; selection: FeatureSelection };
 
 const HEADER_HEIGHT = 56;
 const BAR_SPACE = 76;
@@ -61,6 +83,7 @@ export default function MapScreen() {
   const insets = useSafeAreaInsets();
   const { height } = useWindowDimensions();
   const { user } = useAuth();
+  const plan = usePlan();
   const { incidents: allIncidents, perimeters, loading, refreshing, error, lastUpdated, refresh } = useIncidents();
   const { home, nearby, setNearby } = useHomeSetup();
   const { locations } = useSavedLocations();
@@ -82,6 +105,21 @@ export default function MapScreen() {
   // The sidebar's stat pills count alerts too, so load them whenever it is open.
   const weatherAlerts = useWeatherAlerts(panel.kind === 'feed');
   const lastFeatureTap = useRef(0);
+  // Measurement tool (ruler / hexagon in the layer card): map taps place points while it's on.
+  const [measure, setMeasure] = useState<MeasureState | null>(null);
+  const measuring = measure != null;
+
+  // Layers that are on and allowed on this plan (the web turns locked layers off).
+  const enabledKeys = useMemo(
+    () =>
+      Object.keys(layers).filter(k => {
+        if (!layers[k]) return false;
+        if (FIRE_DANGER_LAYER_KEYS.has(k)) return plan.hasFireDangerAccess;
+        if (k === 'criticalInfrastructure' || k === 'landOwnership') return plan.hasProInfrastructureAccess;
+        return true;
+      }),
+    [layers, plan.hasFireDangerAccess, plan.hasProInfrastructureAccess],
+  );
 
   // NOAA overlays for the layers that are on; they refresh on their own cadence.
   const [clock, setClock] = useState(() => Date.now());
@@ -90,38 +128,117 @@ export default function MapScreen() {
     return () => clearInterval(timer);
   }, []);
   const rasterKeys = useMemo(
-    () =>
-      Object.keys(layers)
-        .filter(k => layers[k])
-        .map(k => arcgisKeyFor(k, tab))
-        .filter((k): k is string => Boolean(k)),
-    [layers, tab],
+    () => enabledKeys.map(k => arcgisKeyFor(k)).filter((k): k is string => Boolean(k)),
+    [enabledKeys],
   );
-  const rasterLayers = useMemo(
+  const rasterLayers = useMemo(() => {
+    const tenMinuteBucket = Math.floor(clock / 600_000);
+    const overlays = enabledKeys.filter(k => RASTER_OVERLAY_KEYS.has(k)).flatMap(k => rasterOverlaysFor(k, tenMinuteBucket));
+    const noaa = rasterKeys.map(key => {
+      const def = ARCGIS_LAYERS[key];
+      return { key, url: arcgisTileUrl(def, clock), opacity: def.opacity, minZoom: def.minZoom };
+    });
+    return [...overlays, ...noaa];
+  }, [enabledKeys, rasterKeys, clock]);
+
+  // The settled camera, for layers loaded by area and the wind particles.
+  const [viewport, setViewport] = useState<Viewport | null>(null);
+
+  // Individual Radar Site: station pills and the selected station's sweep.
+  const radarSitesOn = enabledKeys.includes('radarSites');
+  const radarSite = useRadarSite(radarSitesOn);
+
+  // Wind particles: the current HRRR hour, refreshed every 15 minutes; paused while the map moves.
+  const windOn = enabledKeys.includes('windParticles') && WindParticles != null;
+  const [windField, setWindField] = useState<WindField | null>(null);
+  const [cameraMoving, setCameraMoving] = useState(false);
+  useEffect(() => {
+    if (!windOn) return;
+    let cancelled = false;
+    const run = () =>
+      fetchWindField!('hrrr')
+        .then(f => !cancelled && setWindField(f))
+        .catch(() => {});
+    const first = setTimeout(run, 0);
+    const timer = setInterval(run, 15 * 60_000);
+    return () => {
+      cancelled = true;
+      clearTimeout(first);
+      clearInterval(timer);
+    };
+  }, [windOn]);
+  const onViewportChange = useCallback((view: Viewport) => {
+    setViewport(view);
+    setCameraMoving(false);
+  }, []);
+
+  // GeoJSON layers (stations, cameras, gauges, TFRs, fire detections, …).
+  const sourceKeys = useMemo(() => [...new Set(enabledKeys.flatMap(k => CATALOG_SOURCES[k] ?? []))], [enabledKeys]);
+  const featureData = useFeatureLayers(sourceKeys, viewport);
+  const stationKey = STATION_LAYER_KEYS.find(k => enabledKeys.includes(k));
+  const hours = useMemo(() => smokeHours(featureData.data.ndgdSmokeForecast), [featureData.data.ndgdSmokeForecast]);
+  // The forecast hour shown: starts at the hour nearest now, like the web's slider at its first hour.
+  const [smokeHourPick, setSmokeHourPick] = useState<number | null>(null);
+  const smokeHour = useMemo(() => {
+    if (hours.length === 0) return null;
+    if (smokeHourPick != null && hours.includes(smokeHourPick)) return smokeHourPick;
+    return hours.reduce((best, h) => (Math.abs(h - clock) < Math.abs(best - clock) ? h : best), hours[0]);
+  }, [hours, smokeHourPick, clock]);
+  // Alert settings: hide types that are off and apply each type's colour, thickness and fill.
+  const { settingsFor, overrides: alertOverrides } = useAlertSettings();
+  const alertPolygons = useMemo<GeoJSON.FeatureCollection | undefined>(() => {
+    const fc = featureData.data.nwsAlerts;
+    if (!fc) return undefined;
+    const features: GeoJSON.Feature[] = [];
+    for (const f of fc.features) {
+      const s = settingsFor(String(f.properties?.code));
+      if (!s.enabled) continue;
+      features.push({ ...f, properties: { ...f.properties, color: s.color, lineWidth: s.lineWidth, fillOpacity: s.fillOpacity } });
+    }
+    return { type: 'FeatureCollection', features };
+  }, [featureData.data.nwsAlerts, settingsFor, alertOverrides]); // eslint-disable-line react-hooks/exhaustive-deps
+  const featureLayers = useMemo<FeatureLayerData[]>(
     () =>
-      rasterKeys.map(key => {
-        const def = ARCGIS_LAYERS[key];
-        return { key, url: arcgisTileUrl(def, clock), opacity: def.opacity, minZoom: def.minZoom };
-      }),
-    [rasterKeys, clock],
+      sourceKeys
+        .filter(k => featureData.data[k])
+        .map(k => ({
+          key: k,
+          data: k === 'nwsAlerts' && alertPolygons ? alertPolygons : featureData.data[k],
+          specs:
+            k === 'fireDangerStations' && stationKey
+              ? stationStyles(STATION_LAYER_FIELD[stationKey])
+              : k === 'ndgdSmokeForecast'
+                ? smokeStyles(smokeHour)
+                : k === 'nwsAlerts'
+                  ? // The Wildfire tab's alerts row is Red Flag Warnings only.
+                    alertPolygonStyles(tab === 'wildfire' ? ['FW.W'] : null)
+                  : undefined,
+        })),
+    [sourceKeys, featureData.data, stationKey, smokeHour, tab, alertPolygons],
   );
 
   const onMapPress = useCallback(
     (lng: number, lat: number, zoom: number) => {
+      if (measuring) {
+        setMeasure(m => (m ? { ...m, points: [...m.points, [lng, lat]] } : m));
+        return;
+      }
       // A tap on a fire or zone also reaches the map; that sheet wins.
       if (Date.now() - lastFeatureTap.current < 600) return;
       const wantAlerts = Boolean(layers.weatherAlerts);
-      if (!wantAlerts && rasterKeys.length === 0) {
+      const wantFuel = enabledKeys.includes('fuelModels');
+      if (!wantAlerts && !wantFuel && rasterKeys.length === 0) {
         setPanel({ kind: 'none' });
         return;
       }
       const base: PointInfo = { lat, lng, loading: true, alerts: [], features: [] };
       setPanel({ kind: 'point', info: base });
       setSheetIndex(0);
-      const identifyKeys = rasterKeys.filter(k => k !== 'weatherAlerts' && k !== 'redFlagWarnings');
+      const identifyKeys = rasterKeys;
       Promise.allSettled([
         wantAlerts ? fetchAlertsAtPoint(lat, lng) : Promise.resolve([]),
         ...identifyKeys.map(k => identifyArcgis(ARCGIS_LAYERS[k], lng, lat, zoom)),
+        wantFuel ? fuelModelResult(lat, lng) : Promise.resolve([]),
       ]).then(([alertsResult, ...featureResults]) => {
         let alerts = alertsResult.status === 'fulfilled' ? (alertsResult.value as Awaited<ReturnType<typeof fetchAlertsAtPoint>>) : [];
         if (tab === 'wildfire') alerts = alerts.filter(a => a.event === 'Red Flag Warning');
@@ -133,7 +250,7 @@ export default function MapScreen() {
         );
       });
     },
-    [layers.weatherAlerts, rasterKeys, tab],
+    [layers.weatherAlerts, enabledKeys, rasterKeys, tab, measuring],
   );
 
   // Near-me (web HomeNearbyStrip): fires within the Home radius of the live position.
@@ -173,7 +290,7 @@ export default function MapScreen() {
   }, [panel.kind, height]);
 
   // Detail panels are bottom sheets (the web's mobile IncidentSidebar); the feed, menu and layers are overlays.
-  const sheetOpen = panel.kind === 'incident' || panel.kind === 'evac' || panel.kind === 'point';
+  const sheetOpen = panel.kind === 'incident' || panel.kind === 'evac' || panel.kind === 'point' || panel.kind === 'feature';
   const overlayOpen = panel.kind === 'feed' || panel.kind === 'menu' || panel.kind === 'layers';
   const mapBottomInset = sheetOpen ? snapPoints[0] : BAR_SPACE + insets.bottom;
   const topInset = insets.top + HEADER_HEIGHT;
@@ -190,13 +307,15 @@ export default function MapScreen() {
 
   const selectIncident = useCallback(
     (id: string) => {
+      // While measuring, the tap places a point instead (the map's own press handles it).
+      if (measuring) return;
       const inc = allIncidents.find(i => i.id === id);
       if (!inc) return;
       lastFeatureTap.current = Date.now();
       openPanel({ kind: 'incident', id });
       mapRef.current?.flyTo(inc.lng, inc.lat, inc.acres >= 5000 ? 9 : 10.5);
     },
-    [allIncidents, openPanel],
+    [allIncidents, openPanel, measuring],
   );
 
   const changeTab = useCallback((next: MapTab) => {
@@ -289,15 +408,41 @@ export default function MapScreen() {
         topInset={topInset}
         onSelectIncident={selectIncident}
         rasterLayers={rasterLayers}
+        featureLayers={featureLayers}
+        onViewportChange={onViewportChange}
+        onCameraMove={windOn ? () => setCameraMoving(true) : undefined}
+        radarSites={radarSitesOn ? { shape: radarSite.sitesShape, selectedId: radarSite.selectedId } : null}
+        radarSweep={radarSite.image ? { ...radarSite.image, opacity: radarSite.opacity } : null}
+        measureShape={measure ? measureShape(measure) : null}
+        onRadarSitePress={id => {
+          if (measuring) return;
+          lastFeatureTap.current = Date.now();
+          radarSite.toggleSite(id);
+        }}
+        onFeaturePress={(sourceKey, feature) => {
+          if (measuring) return;
+          lastFeatureTap.current = Date.now();
+          const center = featureCenter(feature);
+          openPanel({ kind: 'feature', selection: { sourceKey, properties: feature.properties ?? {}, lng: center[0], lat: center[1] } });
+        }}
         radar={layers.mrms ? radar.value : null}
         lightning={layers.lightning ? lightning.value : null}
         onSelectEvacZone={zone => {
+          if (measuring) return;
           lastFeatureTap.current = Date.now();
           openPanel({ kind: 'evac', zone });
         }}
         onMapPress={onMapPress}
         onMapError={setMapError}
       />
+
+      {windOn && WindParticles ? (
+        <WindParticles
+          field={windField}
+          moving={cameraMoving}
+          view={viewport ? { center: viewport.center, zoom: viewport.zoom, heading: viewport.heading ?? 0, pitch: viewport.pitch ?? 0 } : null}
+        />
+      ) : null}
 
       {/* Sidebar and menu panels sit under the corner buttons, like the web's at phone width. */}
       {panel.kind === 'feed' ? (
@@ -376,8 +521,20 @@ export default function MapScreen() {
         </>
       ) : null}
 
+      {/* Measurement results, between the corner buttons (web MeasurementPanel at phone width). */}
+      {measure && !sheetOpen ? (
+        <View style={[styles.measurePanel, { top: topInset + 16 }]}>
+          <MeasurementPanel
+            measure={measure}
+            onUndo={() => setMeasure(m => (m ? { ...m, points: m.points.slice(0, -1) } : m))}
+            onClear={() => setMeasure(m => (m ? { ...m, points: [] } : m))}
+            onClose={() => setMeasure(null)}
+          />
+        </View>
+      ) : null}
+
       {/* Near-me strip (web HomeNearbyStrip) */}
-      {nearMe && !sheetOpen && !overlayOpen ? (
+      {nearMe && !sheetOpen && !overlayOpen && !measure ? (
         <View style={[styles.nearStrip, { top: topInset + 16 }]}>
           <Navigation size={14} color={fire[400]} />
           <Pressable style={{ flex: 1 }} onPress={() => openPanel({ kind: 'feed' })} accessibilityRole="button">
@@ -411,13 +568,63 @@ export default function MapScreen() {
         </View>
       ) : null}
 
+      {radarSitesOn && !sheetOpen && !overlayOpen ? (
+        <View style={[styles.radarPanel, { bottom: barBottom + 64 }]}>
+          <RadarSitePanel radar={radarSite} />
+        </View>
+      ) : null}
+
+      {smokeHour != null && hours.length > 1 && !sheetOpen && !overlayOpen && !radarSitesOn ? (
+        <View style={[styles.smokeChip, { bottom: barBottom + 64 }]}>
+          <Pressable
+            onPress={() => setSmokeHourPick(hours[Math.max(0, hours.indexOf(smokeHour) - 1)])}
+            disabled={hours.indexOf(smokeHour) === 0}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel="Earlier smoke forecast hour"
+            style={styles.smokeStep}
+          >
+            <ChevronLeft size={18} color={hours.indexOf(smokeHour) === 0 ? sentinelText[500] : accent.white} />
+          </Pressable>
+          <View style={{ flex: 1, alignItems: 'center' }}>
+            <Text style={styles.smokeTitle}>Smoke forecast</Text>
+            <Text style={styles.smokeTime}>
+              {new Date(smokeHour).toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
+            </Text>
+          </View>
+          <Pressable
+            onPress={() => setSmokeHourPick(hours[Math.min(hours.length - 1, hours.indexOf(smokeHour) + 1)])}
+            disabled={hours.indexOf(smokeHour) === hours.length - 1}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel="Later smoke forecast hour"
+            style={styles.smokeStep}
+          >
+            <ChevronRight size={18} color={hours.indexOf(smokeHour) === hours.length - 1 ? sentinelText[500] : accent.white} />
+          </Pressable>
+        </View>
+      ) : null}
+
       {panel.kind === 'layers' ? (
         <View style={[styles.layersWrap, { bottom: barBottom + 64 }]}>
           <LayerPanel
             tab={tab}
             layers={layers}
-            onToggle={(key, on) => setLayers(prev => ({ ...prev, [key]: on }))}
+            onToggle={(key, on) =>
+              setLayers(prev => {
+                const next = { ...prev, [key]: on };
+                // The station layers share one map layer, so only one is on at a time (as on the web).
+                if (on && STATION_LAYER_KEYS.includes(key)) for (const k of STATION_LAYER_KEYS) if (k !== key) next[k] = false;
+                return next;
+              })
+            }
             maxHeight={height - topInset - barBottom - 140}
+            measureMode={measure?.mode ?? null}
+            onMeasure={(mode: MeasureMode | null) => {
+              // Like the web, a new mode starts fresh; the card closes so the map is free to tap.
+              setMeasure(mode ? { mode, points: [] } : null);
+              if (mode) closePanel();
+            }}
           />
         </View>
       ) : null}
@@ -444,10 +651,34 @@ export default function MapScreen() {
           {panel.kind === 'incident' && selected && <IncidentSheet incident={selected} onClose={closePanel} />}
           {panel.kind === 'evac' && <EvacZoneSheet zone={panel.zone} onClose={closePanel} />}
           {panel.kind === 'point' && <PointInfoSheet info={panel.info} onClose={closePanel} />}
+          {panel.kind === 'feature' && <FeatureSheet selection={panel.selection} onClose={closePanel} />}
         </BottomSheet>
       ) : null}
     </View>
   );
+}
+
+/** A fuel model reading at a tapped point, shaped like an ArcGIS identify result. */
+async function fuelModelResult(lat: number, lng: number): Promise<IdentifyResult[]> {
+  const fuel = await fetchFuelModelAt(lat, lng);
+  if (!fuel) return [];
+  return [
+    {
+      title: 'Fuel model',
+      layerName: `${fuel.model} · ${fuel.name}`,
+      attributes: { 'Fuel group': fuel.group, Burnable: fuel.burnable ? 'Yes' : 'No', Dataset: fuel.dataset },
+    },
+  ];
+}
+
+/** Where to anchor a tapped feature's sheet: its point, or the first vertex of a line or area. */
+function featureCenter(feature: GeoJSON.Feature): [number, number] {
+  let g: any = feature.geometry;
+  if (!g) return [0, 0];
+  if (g.type === 'GeometryCollection') g = g.geometries[0];
+  let c: any = g.coordinates;
+  while (Array.isArray(c) && Array.isArray(c[0])) c = c[0];
+  return [Number(c?.[0]) || 0, Number(c?.[1]) || 0];
 }
 
 const shadow = { shadowColor: '#000', shadowOpacity: 0.5, shadowRadius: 14, shadowOffset: { width: 0, height: 8 } };
@@ -505,5 +736,26 @@ const styles = StyleSheet.create({
   version: { position: 'absolute', right: 8, color: sentinelText[300], fontSize: 11, fontVariant: ['tabular-nums'] },
   banner: { position: 'absolute', left: 12, right: 12 },
   layersWrap: { position: 'absolute', left: 16, right: 16 },
+  smokeChip: {
+    position: 'absolute',
+    left: 16,
+    // Clears the zoom stack on the right.
+    right: 72,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: sentinel[600],
+    backgroundColor: 'rgba(10,12,14,0.92)',
+    ...shadow,
+  },
+  measurePanel: { position: 'absolute', left: 72, right: 72 },
+  radarPanel: { position: 'absolute', left: 16, right: 72 },
+  smokeStep: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  smokeTitle: { color: sentinelText[300], fontSize: 11, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.8 },
+  smokeTime: { color: accent.white, fontSize: 14, fontWeight: '600', marginTop: 1 },
   barWrap: { position: 'absolute', left: 0, right: 0, alignItems: 'center' },
 });

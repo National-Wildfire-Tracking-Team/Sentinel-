@@ -6,17 +6,18 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { router } from 'expo-router';
-import { CloudSun, Flame, Gauge, ShieldAlert, TrendingUp, Wind } from 'lucide-react-native';
+import { CloudSun, Flame, Gauge, ShieldAlert, SlidersHorizontal, TrendingUp, Wind } from 'lucide-react-native';
 
 import { useHomeSetup } from '@/context/HomeSetupContext';
 import type { Incident } from '@/data/incidents';
 import type { WeatherAlert } from '@/data/weatherAlerts';
 import type { MapTab } from '@/map/catalog';
 import { accent, fire, sentinel, sentinelText } from '@/theme';
+import { AlertSettingsPanel } from './AlertSettingsPanel';
 import { AlertsList } from './AlertsList';
 import { IncidentList } from './IncidentList';
 
-export type FeedTab = 'fires' | 'alerts';
+export type FeedTab = 'fires' | 'alerts' | 'settings';
 
 interface Props {
   tab: MapTab;
@@ -71,7 +72,10 @@ export function SidebarPanel(props: Props) {
         ];
 
   const tabs: { id: FeedTab | 'danger'; label: string; Icon: typeof Flame }[] = isWeather
-    ? [{ id: 'alerts', label: 'Alerts', Icon: CloudSun }]
+    ? [
+        { id: 'alerts', label: 'Alerts', Icon: CloudSun },
+        { id: 'settings', label: 'Alert settings', Icon: SlidersHorizontal },
+      ]
     : isAllHazard
       ? [
           { id: 'fires', label: `Fires (${fireCount})`, Icon: Flame },
@@ -81,7 +85,8 @@ export function SidebarPanel(props: Props) {
           { id: 'fires', label: `Incidents (${fireCount})`, Icon: Flame },
           { id: 'danger', label: 'Fire Danger', Icon: Gauge },
         ];
-  const activeFeed: FeedTab = isWeather ? 'alerts' : feedTab;
+  // The Weather tab has no fires feed; its second tab is Alert settings.
+  const activeFeed: FeedTab = isWeather ? (feedTab === 'settings' ? 'settings' : 'alerts') : feedTab === 'settings' ? 'alerts' : feedTab;
 
   const header = (
     <View>
@@ -131,7 +136,9 @@ export function SidebarPanel(props: Props) {
 
   return (
     <View style={[styles.panel, { top }]}>
-      {activeFeed === 'alerts' ? (
+      {activeFeed === 'settings' ? (
+        <AlertSettingsPanel header={header} activeEvents={alerts.value.map(a => a.event)} />
+      ) : activeFeed === 'alerts' ? (
         <AlertsList
           alerts={alerts.value}
           loading={alerts.updatedAt === null && !alerts.error}

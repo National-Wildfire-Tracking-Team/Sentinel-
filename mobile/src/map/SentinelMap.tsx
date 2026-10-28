@@ -11,8 +11,12 @@ import { StyleSheet } from 'react-native';
 import Mapbox from '@rnmapbox/maps';
 
 import { ENV } from '@/config/env';
+import type { Viewport } from '@/data/arcgisQuery';
 import { mrmsRasterColor, type MrmsFrame } from '@/data/mrms';
+import type { FeatureLayerData } from '@/hooks/useFeatureLayers';
 import { colors } from '@/theme';
+import { FEATURE_STYLES, type StyleLayerSpec } from './featureStyles';
+import type { SweepImage } from './radarSweepImage';
 import { BASEMAPS, CONUS_BOUNDS, type BasemapId } from './layers';
 
 Mapbox.setAccessToken(ENV.mapboxToken || null);
@@ -36,12 +40,27 @@ interface Props {
   evacZones: GeoJSON.FeatureCollection;
   /** Home, saved locations and the near-me radius. */
   places: GeoJSON.FeatureCollection;
-  /** NOAA ArcGIS raster overlays to draw, bottom to top. */
-  rasterLayers: { key: string; url: string; opacity: number; minZoom?: number }[];
+  /** Raster overlays (ArcGIS exports, XYZ/WMS tiles) to draw, bottom to top. */
+  rasterLayers: { key: string; url: string; opacity: number; minZoom?: number; maxZoom?: number; tileSize?: number }[];
+  /** GeoJSON layers (stations, cameras, gauges, TFRs, …), styled from featureStyles. */
+  featureLayers: FeatureLayerData[];
+  /** A tap on one of those features. */
+  onFeaturePress: (sourceKey: string, feature: GeoJSON.Feature) => void;
+  /** The settled camera, for layers loaded by area. */
+  onViewportChange: (view: Viewport) => void;
+  /** The camera started or is still moving (wind particles pause). */
+  onCameraMove?: () => void;
   /** Latest MRMS radar frame, when radar is on. */
   radar: MrmsFrame | null;
   /** GLM lightning flashes, when lightning is on. */
   lightning: GeoJSON.FeatureCollection | null;
+  /** NEXRAD/TDWR station pills (Individual Radar Site), when that layer is on. */
+  radarSites: { shape: GeoJSON.FeatureCollection; selectedId: string | null } | null;
+  /** The selected station's sweep, drawn as a map image. */
+  radarSweep: (SweepImage & { opacity: number }) | null;
+  onRadarSitePress: (id: string) => void;
+  /** The measurement tool's line, area and vertices (MeasurementPanel.measureShape). */
+  measureShape: GeoJSON.FeatureCollection | null;
   selectedId: string | null;
   selectedFireKey: string | null;
   /** Extra bottom padding (px) so camera moves keep targets above sheets and the bottom bar. */
@@ -54,10 +73,22 @@ interface Props {
   onMapError: (message: string) => void;
 }
 
+const PILL_STRETCH = {
+  stretchX: [[16, 32]] as [number, number][],
+  stretchY: [[15, 17]] as [number, number][],
+  content: [9.6, 2, 38.4, 30] as [number, number, number, number],
+};
+
 const FLAME_IMAGES = {
   'fire-cluster-red': require('@/assets/map/flame-red.png'),
   'fire-cluster-active': require('@/assets/map/flame-active.png'),
   'fire-cluster-contained': require('@/assets/map/flame-contained.png'),
+  camera: require('@/assets/map/camera.png'),
+  'camera-down': require('@/assets/map/camera-down.png'),
+  // Station pills stretch around their ID (RadarSitesLayer.jsx pillImage); 48 × 32 px at @2x.
+  'radar-pill': { image: require('@/assets/map/radar-pill.png'), ...PILL_STRETCH },
+  'radar-pill-selected': { image: require('@/assets/map/radar-pill-selected.png'), ...PILL_STRETCH },
+  'radar-pill-down': { image: require('@/assets/map/radar-pill-down.png'), ...PILL_STRETCH },
 };
 
 const CLUSTER_MAX_ZOOM = 8;
@@ -130,8 +161,16 @@ export const SentinelMap = forwardRef<SentinelMapHandle, Props>(function Sentine
     evacZones,
     places,
     rasterLayers,
+    featureLayers,
+    onFeaturePress,
+    onViewportChange,
+    onCameraMove,
     radar,
     lightning,
+    radarSites,
+    radarSweep,
+    onRadarSitePress,
+    measureShape,
     selectedId,
     selectedFireKey,
     bottomInset,
@@ -218,6 +257,17 @@ export const SentinelMap = forwardRef<SentinelMapHandle, Props>(function Sentine
         const zoom = (await mapView.current?.getZoom()) ?? 4;
         onMapPress(lng, lat, zoom);
       }}
+      onMapIdle={state => {
+        const { bounds, zoom, center, heading, pitch } = state.properties;
+        onViewportChange({
+          bounds: [bounds.sw[0], bounds.sw[1], bounds.ne[0], bounds.ne[1]],
+          zoom,
+          center: [center[0], center[1]],
+          heading,
+          pitch,
+        });
+      }}
+      onCameraChanged={onCameraMove ? () => onCameraMove() : undefined}
       onMapLoadingError={() => onMapError('The map style failed to load. Check your connection.')}
     >
       <Mapbox.Camera
@@ -231,7 +281,13 @@ export const SentinelMap = forwardRef<SentinelMapHandle, Props>(function Sentine
       <Mapbox.Images images={FLAME_IMAGES} />
 
       {rasterLayers.map(layer => (
-        <Mapbox.RasterSource key={`${layer.key}:${layer.url}`} id={`wx-${layer.key}`} tileUrlTemplates={[layer.url]} tileSize={512}>
+        <Mapbox.RasterSource
+          key={`${layer.key}:${layer.url}`}
+          id={`wx-${layer.key}`}
+          tileUrlTemplates={[layer.url]}
+          tileSize={layer.tileSize ?? 512}
+          maxZoomLevel={layer.maxZoom}
+        >
           <Mapbox.RasterLayer
             id={`wx-${layer.key}-layer`}
             minZoomLevel={layer.minZoom}
@@ -252,6 +308,19 @@ export const SentinelMap = forwardRef<SentinelMapHandle, Props>(function Sentine
               rasterFadeDuration: 0,
               rasterOpacity: 0.85,
             }}
+          />
+        </Mapbox.ImageSource>
+      ) : null}
+
+      {radarSweep ? (
+        <Mapbox.ImageSource
+          id="radar-site-sweep"
+          url={radarSweep.uri}
+          coordinates={radarSweep.coordinates}
+        >
+          <Mapbox.RasterLayer
+            id="radar-site-sweep-layer"
+            style={{ rasterOpacity: radarSweep.opacity, rasterFadeDuration: 0, rasterResampling: 'nearest' }}
           />
         </Mapbox.ImageSource>
       ) : null}
@@ -280,6 +349,10 @@ export const SentinelMap = forwardRef<SentinelMapHandle, Props>(function Sentine
           />
         </Mapbox.ShapeSource>
       ) : null}
+
+      {featureLayers.map(layer => (
+        <FeatureLayer key={layer.key} sourceKey={layer.key} data={layer.data} specs={layer.specs} onPress={onFeaturePress} />
+      ))}
 
       {showUserLocation && <Mapbox.LocationPuck puckBearingEnabled puckBearing="heading" pulsing={{ isEnabled: true }} />}
 
@@ -425,6 +498,106 @@ export const SentinelMap = forwardRef<SentinelMapHandle, Props>(function Sentine
           />
         </Mapbox.ShapeSource>
       )}
+      {measureShape ? (
+        <Mapbox.ShapeSource id="measure" shape={measureShape}>
+          <Mapbox.FillLayer id="measure-polygon-fill" filter={['==', ['get', 'kind'], 'area']} style={{ fillColor: '#f97316', fillOpacity: 0.18 }} />
+          <Mapbox.LineLayer
+            id="measure-line-layer"
+            filter={['==', ['get', 'kind'], 'line']}
+            style={{ lineColor: '#f97316', lineWidth: 2.5, lineDasharray: [3, 1.5] }}
+          />
+          <Mapbox.CircleLayer
+            id="measure-points-halo"
+            filter={['==', ['get', 'kind'], 'vertex']}
+            style={{ circleRadius: 8, circleColor: '#ffffff', circleOpacity: 0.25 }}
+          />
+          <Mapbox.CircleLayer
+            id="measure-points-fill"
+            filter={['==', ['get', 'kind'], 'vertex']}
+            style={{ circleRadius: 5, circleColor: '#f97316', circleStrokeColor: '#ffffff', circleStrokeWidth: 2 }}
+          />
+        </Mapbox.ShapeSource>
+      ) : null}
+
+      {radarSites ? (
+        <Mapbox.ShapeSource
+          id="radar-sites"
+          shape={radarSites.shape}
+          hitbox={{ width: 36, height: 30 }}
+          onPress={event => {
+            const id = event.features[0]?.properties?.id;
+            if (id) onRadarSitePress(String(id));
+          }}
+        >
+          <Mapbox.SymbolLayer
+            id="radar-sites-pill"
+            style={{
+              textField: ['get', 'id'] as any,
+              textFont: TEXT_FONT,
+              textSize: 10,
+              textLetterSpacing: 0.04,
+              textColor: '#ffffff',
+              iconImage: [
+                'case',
+                ['==', ['get', 'id'], radarSites.selectedId ?? ''],
+                'radar-pill-selected',
+                ['get', 'down'],
+                'radar-pill-down',
+                'radar-pill',
+              ] as any,
+              iconTextFit: 'both',
+              iconTextFitPadding: [1, 3, 1, 3],
+              // The selected station wins collisions; the rest thin out when zoomed out.
+              symbolSortKey: ['case', ['==', ['get', 'id'], radarSites.selectedId ?? ''], 0, 1] as any,
+              iconPadding: 1,
+            }}
+          />
+        </Mapbox.ShapeSource>
+      ) : null}
     </Mapbox.MapView>
   );
 });
+
+/** One GeoJSON source and its style layers from featureStyles. */
+function FeatureLayer({
+  sourceKey,
+  data,
+  specs: override,
+  onPress,
+}: {
+  sourceKey: string;
+  data: GeoJSON.FeatureCollection;
+  specs?: StyleLayerSpec[];
+  onPress: (sourceKey: string, feature: GeoJSON.Feature) => void;
+}) {
+  const specs = override ?? FEATURE_STYLES[sourceKey] ?? [];
+  const hitIds = specs.filter(s => s.hit).map(s => s.id);
+  return (
+    <Mapbox.ShapeSource
+      id={`feature-${sourceKey}`}
+      shape={data}
+      hitbox={{ width: 30, height: 30 }}
+      onPress={event => {
+        // Prefer a feature from a tappable layer; fall back to the first hit.
+        const feature = event.features.find(f => f.properties && Object.keys(f.properties).length > 0) ?? event.features[0];
+        if (feature && hitIds.length) onPress(sourceKey, feature);
+      }}
+    >
+      {specs.map(spec => renderStyleLayer(spec))}
+    </Mapbox.ShapeSource>
+  );
+}
+
+function renderStyleLayer(spec: StyleLayerSpec) {
+  const common = { id: spec.id, minZoomLevel: spec.minZoom, filter: spec.filter, style: spec.style as any };
+  switch (spec.type) {
+    case 'circle':
+      return <Mapbox.CircleLayer key={spec.id} {...common} />;
+    case 'symbol':
+      return <Mapbox.SymbolLayer key={spec.id} {...common} />;
+    case 'fill':
+      return <Mapbox.FillLayer key={spec.id} {...common} />;
+    case 'line':
+      return <Mapbox.LineLayer key={spec.id} {...common} />;
+  }
+}
