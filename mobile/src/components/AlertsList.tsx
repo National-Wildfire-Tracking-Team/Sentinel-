@@ -6,6 +6,8 @@ import React, { useMemo, useState } from 'react';
 import { FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Search } from 'lucide-react-native';
 
+import { useAlertSettings } from '@/context/AlertSettingsContext';
+import { alertCode } from '@/data/alertStyles';
 import { nwsAlertColor } from '@/data/nwsColors';
 import type { WeatherAlert } from '@/data/weatherAlerts';
 import { accent, radius, sentinel, sentinelText } from '@/theme';
@@ -24,14 +26,18 @@ interface Props {
 
 export function AlertsList({ alerts, loading, error, only, header }: Props) {
   const [query, setQuery] = useState('');
+  const { settingsFor, overrides } = useAlertSettings();
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return alerts.filter(a => {
       if (only && !only.includes(a.event)) return false;
+      // Types turned off in Alert settings are hidden here too.
+      const code = alertCode(null, null, a.event);
+      if (code && !settingsFor(code).enabled) return false;
       if (!q) return true;
       return a.event.toLowerCase().includes(q) || a.area.toLowerCase().includes(q) || a.sender.toLowerCase().includes(q);
     });
-  }, [alerts, query, only]);
+  }, [alerts, query, only, settingsFor, overrides]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (loading && alerts.length === 0) return <LoadingState message="Loading NWS alerts…" />;
   if (error && alerts.length === 0) return <ErrorState message={error} />;
@@ -73,7 +79,10 @@ export function AlertsList({ alerts, loading, error, only, header }: Props) {
 
 export function AlertCard({ alert }: { alert: WeatherAlert }) {
   const [open, setOpen] = useState(false);
-  const color = nwsAlertColor(alert.event);
+  // The colour from Alert settings, as on the map; the NWS palette for types it doesn't list.
+  const { settingsFor } = useAlertSettings();
+  const code = alertCode(null, null, alert.event);
+  const color = code ? settingsFor(code).color : nwsAlertColor(alert.event);
   return (
     <Pressable
       onPress={() => setOpen(o => !o)}

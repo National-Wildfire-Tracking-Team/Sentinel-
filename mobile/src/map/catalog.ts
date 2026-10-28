@@ -21,7 +21,7 @@ export const LAYER_DEFS: Record<string, LayerDef> = {
   satellite: { label: 'Satellite Imagery', sublabel: 'NOAA GOES-East/West · bands, regions & loops', color: '#8b5cf6' },
   fireBehaviorModeling: { label: 'Fire Behavior Modeling', sublabel: 'Spread projection · select a fire', color: '#ff3b1f' },
   fireRiskOutlook: { label: 'Significant Fire Potential', sublabel: 'NWCG 7-day outlook · official · by area', color: '#f97316' },
-  wfpi: { label: 'Fire Potential Index (gridded)', sublabel: 'USGS WFPI 7-day forecast', color: '#f97316' },
+  wfpi: { label: 'Fire Potential Index (gridded)', sublabel: 'USGS WFPI 7-day forecast · a USGS model, not NFDRS', color: '#ef4444' },
   fdErc: { label: 'Energy Release Component', sublabel: 'ERC at NFDRS stations · FEMS', color: '#f97316' },
   fdBi: { label: 'Burning Index', sublabel: 'BI at NFDRS stations · FEMS', color: '#f97316' },
   fdSc: { label: 'Spread Component', sublabel: 'SC at NFDRS stations · FEMS', color: '#f97316' },
@@ -50,7 +50,7 @@ export const LAYER_DEFS: Record<string, LayerDef> = {
   floodHazard: { label: 'Flood Hazard', sublabel: 'FEMA National Flood Hazard Layer · zoom in for zones', color: '#00c8f0' },
   nhcTropical: { label: 'NHC Tropical', sublabel: 'Storms, outlook, wind & surge', color: '#4dffff' },
   mrms: { label: 'Composite Radar', sublabel: 'NOAA Multi-Radar/Multi-Sensor · 2-min updates', color: '#22c55e' },
-  radarSites: { label: 'Individual Radar Site', sublabel: 'NEXRAD & TDWR stations', color: '#9ca3af' },
+  radarSites: { label: 'Individual Radar Site', sublabel: 'NEXRAD & TDWR stations · tap a site for its radar', color: '#9ca3af' },
   lightning: { label: 'Lightning', sublabel: 'NOAA GOES satellites · last 15 minutes', color: '#ffe14d' },
   aqi: { label: 'AQI Heatmap', sublabel: 'EPA AirNow gradient overlay', color: '#3b82f6' },
   smoke: { label: 'Smoke Forecast', sublabel: 'NOAA HRRR', color: '#94a3b8' },
@@ -82,7 +82,8 @@ export const TAB_SECTIONS: Record<Exclude<MapTab, 'models'>, LayerSection[]> = {
     {
       id: 'wf-activity',
       title: 'Fire activity',
-      rows: [RED_FLAG_ROW, 'evacZones', 'incidentLocations', 'fireHotspots', 'ngfsDetections', 'calFireHistoricalPerimeters', 'satellite', 'fireBehaviorModeling'],
+      // The web also lists Fire Behavior Modeling here; the app leaves it out.
+      rows: [RED_FLAG_ROW, 'evacZones', 'incidentLocations', 'fireHotspots', 'ngfsDetections', 'calFireHistoricalPerimeters', 'satellite'],
     },
     {
       id: 'wf-fire-danger',
@@ -98,7 +99,7 @@ export const TAB_SECTIONS: Record<Exclude<MapTab, 'models'>, LayerSection[]> = {
     {
       id: 'ah-fire',
       title: 'Fire activity',
-      rows: ['incidentLocations', 'evacZones', 'fireHotspots', 'ngfsDetections', 'calFireHistoricalPerimeters', 'fireBehaviorModeling'],
+      rows: ['incidentLocations', 'evacZones', 'fireHotspots', 'ngfsDetections', 'calFireHistoricalPerimeters'],
     },
     {
       id: 'ah-weather',
@@ -127,7 +128,7 @@ export const TAB_SECTIONS: Record<Exclude<MapTab, 'models'>, LayerSection[]> = {
   ],
 };
 
-/** Layers the app draws today. Phase 1: the wildfire core. */
+/** Layers the app draws today; the rest show as Soon in the layer panel. */
 export const NATIVE_LAYERS = new Set([
   // Phase 1: wildfire core
   'incidentLocations',
@@ -147,6 +148,33 @@ export const NATIVE_LAYERS = new Set([
   'wpcFronts',
   'droughtOutlook',
   'floodHazard',
+  // Phase 4: fire activity, fire danger & fuels, smoke, monitoring, aviation, infrastructure
+  'fireHotspots',
+  'ngfsDetections',
+  'calFireHistoricalPerimeters',
+  'satellite',
+  'fireRiskOutlook',
+  'wfpi',
+  'fdErc',
+  'fdBi',
+  'fdSc',
+  'fdDeadFm',
+  'fdLiveFm',
+  'lfmSamples',
+  'fuelModels',
+  'ndgdSmokeForecast',
+  'aqi',
+  'waterGauges',
+  'rawsStations',
+  'airNowMonitors',
+  'wildfireCameras',
+  'tfrs',
+  'awc',
+  'criticalInfrastructure',
+  'schoolsUniversities',
+  'landOwnership',
+  'radarSites',
+  'windParticles',
 ]);
 
 /** Plan named on locked rows (LayerControl.jsx lockedLayerPlans and infraLayers). */

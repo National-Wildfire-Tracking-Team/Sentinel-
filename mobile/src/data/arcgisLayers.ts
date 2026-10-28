@@ -21,22 +21,8 @@ export interface ArcgisLayerDef {
   title: string;
 }
 
-const RED_FLAG = "prod_type = 'Red Flag Warning'";
-
+// NWS alerts are drawn as styled polygons (data/alertPolygons.ts), not MapServer images.
 export const ARCGIS_LAYERS: Record<string, ArcgisLayerDef> = {
-  weatherAlerts: {
-    url: `${NOAA}/eventdriven/rest/services/WWA/watch_warn_adv/MapServer`,
-    opacity: 0.55,
-    refreshMinutes: 2,
-    title: 'NWS alert',
-  },
-  redFlagWarnings: {
-    url: `${NOAA}/eventdriven/rest/services/WWA/watch_warn_adv/MapServer`,
-    layerDefs: { 0: RED_FLAG, 1: RED_FLAG },
-    opacity: 0.6,
-    refreshMinutes: 2,
-    title: 'Red Flag Warning',
-  },
   nhcTropical: {
     url: `${NOAA}/tropical/rest/services/tropical/NHC_tropical_weather/MapServer`,
     opacity: 0.85,
@@ -115,9 +101,8 @@ export const ARCGIS_LAYERS: Record<string, ArcgisLayerDef> = {
   },
 };
 
-/** The ArcGIS layer a catalog key draws on a tab; the Wildfire tab's alerts row is Red Flag only. */
-export function arcgisKeyFor(layerKey: string, tab: string): string | null {
-  if (layerKey === 'weatherAlerts' && tab === 'wildfire') return 'redFlagWarnings';
+/** The ArcGIS layer a catalog key draws, if it's one of these. */
+export function arcgisKeyFor(layerKey: string): string | null {
   return ARCGIS_LAYERS[layerKey] ? layerKey : null;
 }
 

@@ -7,7 +7,7 @@
  */
 import React, { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { ChevronDown, ChevronRight, Lock } from 'lucide-react-native';
+import { ChevronDown, ChevronRight, Hexagon, Lock, Ruler } from 'lucide-react-native';
 
 import { usePlan } from '@/auth/usePlan';
 import {
@@ -20,15 +20,20 @@ import {
   type MapTab,
 } from '@/map/catalog';
 import { accent, sentinel, sentinelText } from '@/theme';
+import type { MeasureMode } from './MeasurementPanel';
 
 interface Props {
   tab: MapTab;
   layers: LayerState;
   onToggle: (key: string, on: boolean) => void;
   maxHeight: number;
+  /** The measurement tool's mode, when it's on. */
+  measureMode: MeasureMode | null;
+  /** Ruler / hexagon in the header: start that mode, or stop it if it's already on. */
+  onMeasure: (mode: MeasureMode | null) => void;
 }
 
-export function LayerPanel({ tab, layers, onToggle, maxHeight }: Props) {
+export function LayerPanel({ tab, layers, onToggle, maxHeight, measureMode, onMeasure }: Props) {
   const plan = usePlan();
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
 
@@ -43,7 +48,30 @@ export function LayerPanel({ tab, layers, onToggle, maxHeight }: Props) {
   return (
     <View style={[styles.card, { maxHeight }]}>
       <View style={styles.header}>
-        <Text style={styles.headerText}>Map Layers</Text>
+        <Text style={styles.headerText}>{tab === 'models' ? 'Model Layers' : 'Map Layers'}</Text>
+        <View style={styles.measureButtons}>
+          {(
+            [
+              ['distance', Ruler, 'Measure distance'],
+              ['polygon', Hexagon, 'Measure area'],
+            ] as const
+          ).map(([mode, Icon, label]) => {
+            const active = measureMode === mode;
+            return (
+              <Pressable
+                key={mode}
+                onPress={() => onMeasure(active ? null : mode)}
+                accessibilityRole="button"
+                accessibilityLabel={label}
+                accessibilityState={{ selected: active }}
+                hitSlop={4}
+                style={({ pressed }) => [styles.measureButton, active && styles.measureActive, pressed && !active && { backgroundColor: sentinel[700] }]}
+              >
+                <Icon size={14} color={active ? accent.white : sentinelText[200]} />
+              </Pressable>
+            );
+          })}
+        </View>
       </View>
       {tab === 'models' ? (
         <Text style={styles.empty}>HRRR, GFS and HAFS model forecasts are coming to the app in a later phase.</Text>
@@ -125,7 +153,19 @@ const styles = StyleSheet.create({
     shadowRadius: 24,
     shadowOffset: { width: 0, height: 12 },
   },
-  header: { paddingHorizontal: 12, paddingTop: 12, paddingBottom: 8, borderBottomWidth: 1, borderBottomColor: sentinel[700] },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 12,
+    paddingTop: 10,
+    paddingBottom: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: sentinel[700],
+  },
+  measureButtons: { flexDirection: 'row', gap: 4 },
+  measureButton: { width: 30, height: 30, borderRadius: 6, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'transparent' },
+  measureActive: { backgroundColor: 'rgba(255,90,0,0.25)', borderColor: 'rgba(255,90,0,0.5)' },
   headerText: { color: accent.white, fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 1 },
   body: { paddingVertical: 8, paddingHorizontal: 8, gap: 8 },
   section: { gap: 6 },
