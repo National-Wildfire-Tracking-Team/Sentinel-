@@ -19,6 +19,8 @@ const initialState = {
     ngfsDetections:    false,
     /** CAL FIRE FRAP historical fire perimeter scars */
     calFireHistoricalPerimeters: false,
+    /** CAL Fire WUI data */
+    wui:      false,
     incidentLocations: false,
     aqi:               false,
     weatherAlerts:     false,
