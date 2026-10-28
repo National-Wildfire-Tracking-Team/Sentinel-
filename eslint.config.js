@@ -124,6 +124,8 @@ export default [
       'server/**',
       'scripts/**',
       'netlify/**',
+      // The Expo app has its own ESLint config and dependencies (cd mobile && npm run lint).
+      'mobile/**',
       '*.config.js',
       'test-results/**',
       'playwright-report/**',
