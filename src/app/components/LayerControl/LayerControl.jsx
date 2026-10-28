@@ -23,6 +23,7 @@ function stationSublabel(text) {
 const LAYER_DEFS = {
   fireHotspots:      { label: 'Fire Hotspots',       sublabel: 'NASA FIRMS satellite',          color: '#ff4500' },
   ngfsDetections:    { label: 'GOES Fire Detections', sublabel: 'NOAA NESDIS NGFS satellite',   color: '#ffa500' },
+  wui:      { label: 'California WUI', sublabel: 'CAL Fire Wildland-Urban Interface', color: '#9A7885' },
   calFireHistoricalPerimeters: { label: 'Historical Fire Perimeters', sublabel: 'CAL FIRE FRAP · past fire scars', color: '#92400e' },
   incidentLocations: { label: 'Active Fires',        sublabel: 'WFIGS locations & perimeters · NWTT verified', color: '#f59e0b' },
   evacZones:         { label: 'Evacuation Zones',    sublabel: 'Cal OES + IPAWS + field-reported zones', color: '#ef4444' },
@@ -106,7 +107,7 @@ const TAB_SECTIONS = {
       title: 'Fire activity',
       groups: [
         {
-          layers: ['incidentLocations', 'evacZones', 'fireHotspots', 'ngfsDetections', 'calFireHistoricalPerimeters', 'fireBehaviorModeling'],
+          layers: ['incidentLocations', 'evacZones', 'fireHotspots', 'ngfsDetections', 'wui', 'calFireHistoricalPerimeters', 'fireBehaviorModeling'],
         },
       ],
     },
@@ -153,7 +154,7 @@ const TAB_SECTIONS = {
             RED_FLAG_ROW,
             'evacZones',
             'incidentLocations',
-            'fireHotspots', 'ngfsDetections', 'calFireHistoricalPerimeters', 'satellite',
+            'fireHotspots', 'ngfsDetections', 'wui', 'calFireHistoricalPerimeters', 'satellite',
             'fireBehaviorModeling',
           ],
         },
