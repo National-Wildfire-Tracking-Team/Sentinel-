@@ -77,7 +77,6 @@ export default function PrivacyPolicyPage() {
         path="/privacy-policy"
       />
       <div className="max-w-4xl mx-auto">
-        <p className="text-fire-400 text-sm font-semibold uppercase tracking-wider mb-2">Legal</p>
         <h1 className="text-4xl md:text-5xl font-bold mb-4">Privacy Policy</h1>
         <p className="text-sentinel-300 leading-relaxed mb-6">
           Effective date: April 8, 2026. This policy describes how the National Wildfire Tracking Team

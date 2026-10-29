@@ -140,3 +140,201 @@ body:not(:has(.viewport-bleed)) {
 @media (prefers-reduced-motion: reduce) {
   .btn-glass-fire:active { transform: none; }
 }
+
+/* ─── Cookie consent banner (shared/components/CookieConsent) ───────────────
+   A glass card floating over the page's bottom edge on every site — the
+   marketing pages and the tracker's map alike — so it carries its own light
+   and dark palette rather than the marketing site's --sentinel-* variables
+   (which stay dark on the tracker). It rises from the bottom edge and leaves
+   back down it. */
+.cookie-consent-layer {
+  padding-bottom: max(1rem, env(safe-area-inset-bottom, 0px));
+}
+.cookie-consent {
+  --cc-bg: rgba(250, 250, 252, 0.82);
+  --cc-border: rgba(0, 0, 0, 0.08);
+  --cc-highlight: rgba(255, 255, 255, 0.7);
+  --cc-text: #1d1d1f;
+  --cc-muted: #515154;
+  --cc-link: #b13505;                     /* fire-700, darkened for 4.5:1 on the glass */
+  --cc-secondary: rgba(0, 0, 0, 0.06);
+  --cc-secondary-hover: rgba(0, 0, 0, 0.1);
+  --cc-switch-off: rgb(174 174 178);    /* sentinel-500, light */
+  color: var(--cc-text);
+  background-color: var(--cc-bg);
+  border: 1px solid var(--cc-border);
+  /* A large surface reads as thick material: strong blur, deep shadow, and a
+     bright top edge where light catches it. */
+  box-shadow:
+    inset 0 1px 0 var(--cc-highlight),
+    0 2px 8px rgba(0, 0, 0, 0.08),
+    0 16px 48px rgba(0, 0, 0, 0.2);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  letter-spacing: 0.005em; /* small tracking bump keeps text crisp over the blur */
+  opacity: 1;
+  transform: none;
+  transition:
+    opacity 400ms cubic-bezier(0.32, 0.72, 0, 1),
+    transform 400ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+html.dark .cookie-consent {
+  --cc-bg: rgba(22, 26, 31, 0.8);
+  --cc-border: rgba(255, 255, 255, 0.1);
+  --cc-highlight: rgba(255, 255, 255, 0.06);
+  --cc-text: #f5f5f7;
+  --cc-muted: #a1a1a6;
+  --cc-link: #ff9938;
+  --cc-secondary: rgba(255, 255, 255, 0.1);
+  --cc-secondary-hover: rgba(255, 255, 255, 0.16);
+  --cc-switch-off: rgb(45 53 64);       /* sentinel-500, dark */
+}
+@starting-style {
+  .cookie-consent {
+    opacity: 0;
+    transform: translateY(1.5rem) scale(0.98);
+  }
+}
+.cookie-consent[data-state="closed"] {
+  opacity: 0;
+  transform: translateY(1.5rem) scale(0.98);
+  pointer-events: none;
+  transition-duration: 250ms;
+  transition-timing-function: cubic-bezier(0.4, 0, 1, 1);
+}
+.cookie-consent-status { color: var(--cc-muted); }
+.cookie-consent-link {
+  color: var(--cc-link);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  white-space: nowrap;
+}
+.cookie-consent-btn {
+  min-height: 44px;
+  padding: 0.625rem 1.125rem;
+  border: 1px solid transparent; /* same height as Accept, which has a visible edge */
+  border-radius: 0.5rem; /* rounded-lg, like the header's buttons */
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.25;
+  white-space: nowrap;
+  transition: transform 100ms ease-out, background-color 150ms ease;
+}
+.cookie-consent-btn:active { transform: scale(0.97); }
+/* Both answers are the same size and equally easy to reach; only the fill
+   differs. Accept wears the header's Sentinel button (.btn-glass-fire): the
+   active nav pill's fire tint with a fire edge. */
+.cookie-consent-btn--primary {
+  background-color: rgba(255, 90, 0, 0.15);
+  border: 1px solid rgba(255, 90, 0, 0.3);
+  color: var(--cc-text);
+}
+.cookie-consent-btn--primary:hover { background-color: rgba(255, 90, 0, 0.25); }
+.cookie-consent-btn--secondary {
+  background-color: var(--cc-secondary);
+  color: var(--cc-text);
+}
+.cookie-consent-btn--secondary:hover { background-color: var(--cc-secondary-hover); }
+.cookie-consent-close { color: var(--cc-muted); }
+.cookie-consent-close:hover {
+  color: var(--cc-text);
+  background-color: var(--cc-secondary);
+}
+.cookie-consent :is(button, a):focus-visible {
+  outline: 2px solid #ff7410; /* fire-500 */
+  outline-offset: 2px;
+}
+/* Cookie Settings rows match the live map's layer toggles (LayerToggle in
+   LayerControl.jsx): the whole row is the switch, and the switch is the same
+   small track — fire tint with a fire ring when on, gray when off. */
+.cookie-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  padding: 0.5rem 0.625rem;
+  /* Bleeds into the card's padding so the label lines up with the heading. */
+  margin: 0 -0.625rem;
+  width: calc(100% + 1.25rem);
+  border-radius: 0.5rem;
+  text-align: left;
+  transition: background-color 150ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+.cookie-toggle:hover { background-color: var(--cc-secondary); }
+.cookie-toggle:active { background-color: var(--cc-secondary-hover); }
+.cookie-consent .cookie-toggle:focus-visible { outline-offset: -2px; }
+.cookie-switch {
+  position: relative;
+  flex-shrink: 0;
+  width: 2.25rem;
+  height: 1.25rem;
+  border-radius: 9999px;
+  background-color: var(--cc-switch-off);
+  transition: background-color 200ms cubic-bezier(0.4, 0, 0.2, 1), box-shadow 200ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+.cookie-switch[data-on="true"] {
+  background-color: rgba(255, 90, 0, 0.25);      /* fire-600/25 */
+  box-shadow: inset 0 0 0 1px rgba(255, 90, 0, 0.5); /* ring-fire-600/50 */
+}
+.cookie-switch-thumb {
+  position: absolute;
+  top: 0.125rem;
+  left: 0.125rem;
+  width: 1rem;
+  height: 1rem;
+  border-radius: 9999px;
+  background-color: #fff;
+  box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+  transition: transform 200ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+.cookie-switch[data-on="true"] .cookie-switch-thumb { transform: translateX(1rem); }
+@media (max-width: 639px) {
+  /* Stacked full-width buttons on phones; the long label may wrap. */
+  .cookie-consent-btn { white-space: normal; }
+}
+@media (prefers-reduced-motion: reduce) {
+  /* A cross-fade in place of the rise and fall. */
+  .cookie-consent,
+  .cookie-consent[data-state="closed"] {
+    transform: none;
+    transition: opacity 200ms ease;
+  }
+  @starting-style {
+    .cookie-consent { transform: none; }
+  }
+  .cookie-consent-btn:active { transform: none; }
+  .cookie-switch-thumb { transition: none; }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .cookie-consent {
+    --cc-bg: #fafafc;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+  html.dark .cookie-consent { --cc-bg: #16191f; }
+  .cookie-consent-btn--primary { background-color: #ffe6d9; } /* the fire tint, made solid */
+  html.dark .cookie-consent-btn--primary { background-color: #3a1d0e; }
+}
+@media (prefers-contrast: more) {
+  .cookie-consent {
+    --cc-bg: #fff;
+    --cc-border: #1d1d1f;
+    --cc-muted: #1d1d1f;
+    --cc-secondary: transparent;
+    border-width: 2px;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+  html.dark .cookie-consent {
+    --cc-bg: #000;
+    --cc-border: #f5f5f7;
+    --cc-muted: #f5f5f7;
+  }
+  .cookie-consent-btn--secondary { border: 2px solid var(--cc-text); }
+  .cookie-switch { box-shadow: inset 0 0 0 2px var(--cc-text); }
+  .cookie-consent-btn--primary {
+    background-color: #cc3d02;
+    border: 2px solid var(--cc-text);
+    color: #fff;
+  }
+}

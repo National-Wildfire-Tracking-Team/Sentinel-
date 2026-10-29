@@ -50,6 +50,7 @@ import { useNationalMapColleges } from '../hooks/useNationalMapColleges';
 import { useCaliforniaLandOwnership, isWithinLandOwnershipRange } from '../hooks/useCaliforniaLandOwnership';
 import { useFloodHazards } from '../hooks/useFloodHazards';
 import { usePlan } from '../../shared/hooks/usePlan';
+import { useCookieConsent } from '../../shared/hooks/useCookieConsent';
 import { useWaterGauges } from '../hooks/useWaterGauges';
 import { useStormMotionVectors } from '../hooks/useStormMotionVectors';
 import { useCaliforniaCameras } from '../hooks/useCaliforniaCameras';
@@ -403,6 +404,7 @@ export default function LiveTrackerPage() {
   const { home, nearbyActive, isHomeSetupComplete, openHomeSetup, homeSetupOpen, clearNearby } = useHomeSetup();
   const { viewport, setViewport, flyToFire } = useViewport();
   const { simplified } = useSimplifiedMode();
+  const cookieConsent = useCookieConsent();
   const { hasProInfrastructureAccess, hasFireBehaviorModelingAccess, hasEvacuationRoutesAccess, hasFireDangerAccess } = usePlan();
   const criticalInfraEntitled = hasProInfrastructureAccess;
   const { locations: savedLocations } = useSavedLocations();
@@ -484,20 +486,27 @@ export default function LiveTrackerPage() {
   // Remembers each wildfire/weather/allhazard tab's own layer toggles across
   // switches — populated in handleTabChange (below) right before leaving a
   // tab, so switching back restores exactly what was on instead of
-  // re-applying that tab's default preset every time.
+  // re-applying that tab's default preset every time. With Saved Toggles off
+  // (Cookie Settings, or Decline on the cookie banner) there's no such
+  // memory: every tab opens on its preset.
   const layerSnapshotsRef = useRef({});
   const satelliteLinkRef = useRef(Boolean(parseSatelliteQuery(window.location.search)));
+  const rememberTabLayers = cookieConsent?.savedToggles !== false;
+
+  useEffect(() => {
+    if (!rememberTabLayers) layerSnapshotsRef.current = {};
+  }, [rememberTabLayers]);
 
   const handleTabChange = useCallback((newTab) => {
     if (newTab === activeMapTab) return;
-    if (activeMapTab !== MAP_TABS.locations) {
+    if (rememberTabLayers && activeMapTab !== MAP_TABS.locations) {
       // routeToSafety is never restored as on: each activation spends ORS quota.
       // eslint-disable-next-line no-unused-vars
       const { routeToSafety: _routeToSafety, ...snapshot } = layers;
       layerSnapshotsRef.current[activeMapTab] = snapshot;
     }
     setActiveMapTab(newTab);
-  }, [activeMapTab, layers]);
+  }, [activeMapTab, layers, rememberTabLayers]);
 
   // Models tab hooks: a map click sets the forecast point, and an incident's
   // "Open in Models" switches here (closing the detail panel over the map).

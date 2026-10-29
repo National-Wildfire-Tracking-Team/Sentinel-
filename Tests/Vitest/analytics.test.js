@@ -5,6 +5,7 @@ import {
   trackSignUp,
   trackSavedLocation,
 } from '../../src/shared/utils/analytics';
+import { ACCEPT_ALL, CONSENT_KEY, DECLINE_ALL, writeCookieConsent } from '../../src/shared/utils/cookieConsent';
 
 // gtag pushes its `arguments` object, so compare as a plain array.
 const lastPush = () => Array.from(window.dataLayer.at(-1));
@@ -12,12 +13,16 @@ const lastPush = () => Array.from(window.dataLayer.at(-1));
 function resetAnalyticsGlobals() {
   delete window.gtag;
   delete window.dataLayer;
+  document.cookie = `${CONSENT_KEY}=; Path=/; Max-Age=0`;
+  window.localStorage.removeItem(CONSENT_KEY);
 }
 
 beforeEach(resetAnalyticsGlobals);
 afterEach(resetAnalyticsGlobals);
 
 describe('analytics', () => {
+  beforeEach(() => writeCookieConsent(ACCEPT_ALL));
+
   it('trackEvent installs the gtag stub and queues the event when gtag is missing', () => {
     expect(window.gtag).toBeUndefined();
     trackEvent('test_event', { foo: 'bar' });
@@ -65,5 +70,18 @@ describe('analytics', () => {
   it('trackSavedLocation sends saved_location with no parameters', () => {
     trackSavedLocation();
     expect(lastPush()).toEqual(['event', 'saved_location', {}]);
+  });
+});
+
+describe('analytics without Third Party Performance Tracking on', () => {
+  it('queues nothing once tracking is off', () => {
+    writeCookieConsent(DECLINE_ALL);
+    trackEvent('test_event');
+    expect(window.dataLayer).toBeUndefined();
+  });
+
+  it('queues nothing before the visitor answers the cookie banner (GA only counts the visit)', () => {
+    trackEvent('test_event');
+    expect(window.dataLayer).toBeUndefined();
   });
 });

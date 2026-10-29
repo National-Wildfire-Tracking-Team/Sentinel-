@@ -1,9 +1,27 @@
 import { useEffect } from 'react';
+import { useCookieConsent } from '../../hooks/useCookieConsent';
+import { readCookieConsent } from '../../utils/cookieConsent';
+import { sharedCookieDomain } from '../../utils/getAppOrigin';
 
 // GA4 is loaded directly with gtag.js. There's no Tag Manager container:
 // GTM-546TW8NQ only re-loaded this same GA tag and re-sent saved_location,
 // doubling the download and the main-thread work for no extra data.
 const GA_MEASUREMENT_ID = 'G-JV1EY1VHRQ';
+// gtag.js checks this window flag before every hit; true stops it sending
+// and setting cookies for the rest of the page's life.
+const GA_DISABLE_KEY = `ga-disable-${GA_MEASUREMENT_ID}`;
+
+// Google Consent Mode: with analytics_storage denied, gtag.js sets no
+// cookies and keeps no ID across visits, sending only cookieless pings that
+// count a visit. The site runs no ads, so the ad signals are always denied.
+function consentState(analyticsGranted) {
+  return {
+    analytics_storage: analyticsGranted ? 'granted' : 'denied',
+    ad_storage: 'denied',
+    ad_user_data: 'denied',
+    ad_personalization: 'denied',
+  };
+}
 
 function appendScriptOnce({ src, id, async = true, defer = false }) {
   if (typeof document === 'undefined') return;
@@ -27,6 +45,9 @@ function initAnalytics() {
   window.gtag = window.gtag || function gtag() {
     window.dataLayer.push(arguments);
   };
+
+  // Read at load time: the visitor may have answered the banner since this was scheduled.
+  window.gtag('consent', 'default', consentState(readCookieConsent()?.analytics === true));
 
   appendScriptOnce({
     src: `https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`,
@@ -111,13 +132,53 @@ function scheduleDeferredAnalyticsLoad() {
   return teardown;
 }
 
+/**
+ * Deletes the _ga / _ga_<container> cookies GA set before the visitor
+ * declined. GA writes them on the parent domain, so clear both that and any
+ * host-only copy.
+ */
+function clearAnalyticsCookies() {
+  const domain = sharedCookieDomain();
+  document.cookie
+    .split('; ')
+    .map((pair) => pair.split('=')[0])
+    .filter((name) => name === '_ga' || name.startsWith('_ga_'))
+    .forEach((name) => {
+      const expired = `${name}=; Path=/; Max-Age=0`;
+      document.cookie = expired;
+      if (domain) document.cookie = `${expired}; Domain=${domain}`;
+    });
+}
+
+/**
+ * GA is third-party performance tracking, a non-essential cookie:
+ *   - before the visitor answers the cookie banner, it loads cookieless
+ *     (consent denied) so a visit is still counted, and nothing else is kept;
+ *   - turned on (Accept, or the Cookie Settings toggle), it runs in full;
+ *   - turned off (Decline, or the toggle), it never loads, and a gtag.js
+ *     already on the page stops and its cookies are deleted.
+ */
 export default function DeferredAnalytics() {
+  const consent = useCookieConsent();
+  const granted = consent?.analytics === true;
+  const refused = consent !== null && !consent.analytics;
+
   useEffect(() => {
+    if (refused) {
+      window[GA_DISABLE_KEY] = true;
+      clearAnalyticsCookies();
+      return undefined;
+    }
+    window[GA_DISABLE_KEY] = false;
+    if (window.__nwttAnalyticsLoaded) {
+      window.gtag('consent', 'update', consentState(granted));
+      return undefined;
+    }
     const cleanup = scheduleDeferredAnalyticsLoad();
     return () => {
       cleanup?.();
     };
-  }, []);
+  }, [granted, refused]);
 
   return null;
 }

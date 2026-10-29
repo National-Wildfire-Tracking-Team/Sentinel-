@@ -13,9 +13,10 @@
  * ignored and everyone starts on Auto.
  */
 
+import { sharedCookieDomain } from './getAppOrigin';
+
 export const THEME_KEY = 'nwtt-appearance';
 
-const KNOWN_SUBDOMAIN_PREFIXES = ['app.', 'reporter.'];
 const ONE_YEAR = 60 * 60 * 24 * 365;
 const LIGHT_QUERY = '(prefers-color-scheme: light)';
 
@@ -24,16 +25,6 @@ const THEME_COLORS = { light: '#ffffff', dark: '#0a0c0e' };
 
 function parseTheme(value) {
   return value === 'light' || value === 'dark' ? value : null;
-}
-
-/** Cookie domain shared by the bare host and its subdomains, or null on hosts like localhost. */
-function sharedCookieDomain() {
-  const { hostname } = window.location;
-  const prefix = KNOWN_SUBDOMAIN_PREFIXES.find((p) => hostname.startsWith(p));
-  const base = prefix ? hostname.slice(prefix.length) : hostname;
-  // Browsers refuse a Domain attribute without a dot (localhost), so fall back
-  // to a host-only cookie there; the per-origin localStorage still applies.
-  return base.includes('.') ? base : null;
 }
 
 /** The theme picked by hand ('light' | 'dark'), or null to follow the device. */
