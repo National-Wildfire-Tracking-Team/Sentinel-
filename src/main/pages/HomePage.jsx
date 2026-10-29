@@ -30,18 +30,32 @@ const capabilities = [
   },
 ];
 
-// Oldest first. Each entry gets its own clickable card under "Weekly Newsletter".
+// Newest first. Each entry gets its own clickable card under "Weekly Newsletter";
+// `archived` ones move into the Archive box at the bottom of the list.
 const newsletters = [
   {
-    title: 'v1.00.01 First Update',
+    title: 'v1.00.04 Update',
     sections: [
       {
-        heading: 'Model Feature Added',
-        body: 'HRRR, GFS, and HAFS forecasting models are now live on the Sentinel platform. Model types can be compared between each other and offer history as well as forecasts up to 384 hours out.',
+        heading: 'International Fire Tracking',
+        body: 'Sentinel now tracks active fires around the world, not just in the United States. With Active Fires on, satellite fire detections from GOES, VIIRS and Meteosat MTG show up on every continent, grouped and colored the same way as U.S. fires. Gas flares, oil rigs, refineries, steel mills and power plants are filtered out so they are not mistaken for wildfires. Click any international fire to see which satellites detected it, its peak fire power and how confident the detection is.',
+      },
+    ],
+  },
+  {
+    title: 'v1.00.03 Update',
+    sections: [
+      {
+        heading: 'Fire Danger Sidebar Tab',
+        body: 'The Wildfire sidebar now has a Fire Danger tab next to Incidents. It sums up current station readings in plain language, shows the week ahead, and ranks states and stations by fire danger. Click any state or station to fly the map straight there.',
       },
       {
-        heading: 'Navigation Feature Now Live for Pro Users',
-        body: 'Pro subscribers now have access to navigation tools built directly into the Sentinel Platform. The navigation tool offers point to point routing as well as a beta for shortest route from current location to safe zone. More features coming soon.',
+        heading: 'Aviation Weather Now Available for All Users',
+        body: 'Aviation Weather Center data is now on the Weather and All Hazards tabs. Airport weather (METAR and TAF) with flight rules and wind barbs, SIGMETs, AIRMETs, PIREPs, winds aloft and more each have their own switch in the toolkit drawer.',
+      },
+      {
+        heading: 'Fire Danger & Fuels Added for Plus and Pro Users',
+        body: 'A new Fire Danger & Fuels section is now on the Wildfire and All Hazards tabs. It brings together the NWCG 7-day Significant Fire Potential outlook, NFDRS station readings for Energy Release Component, Burning Index and fuel moisture, the USGS Fire Potential Index forecast, live fuel moisture field samples, and LANDFIRE fuel types.',
       },
     ],
   },
@@ -63,23 +77,38 @@ const newsletters = [
     ],
   },
   {
-    title: 'v1.00.03 Update',
+    title: 'v1.00.01 First Update',
+    archived: true,
     sections: [
       {
-        heading: 'Fire Danger Sidebar Tab',
-        body: 'The Wildfire sidebar now has a Fire Danger tab next to Incidents. It sums up current station readings in plain language, shows the week ahead, and ranks states and stations by fire danger. Click any state or station to fly the map straight there.',
+        heading: 'Model Feature Added',
+        body: 'HRRR, GFS, and HAFS forecasting models are now live on the Sentinel platform. Model types can be compared between each other and offer history as well as forecasts up to 384 hours out.',
       },
       {
-        heading: 'Aviation Weather Now Available for All Users',
-        body: 'Aviation Weather Center data is now on the Weather and All Hazards tabs. Airport weather (METAR and TAF) with flight rules and wind barbs, SIGMETs, AIRMETs, PIREPs, winds aloft and more each have their own switch in the toolkit drawer.',
-      },
-      {
-        heading: 'Fire Danger & Fuels Added for Plus and Pro Users',
-        body: 'A new Fire Danger & Fuels section is now on the Wildfire and All Hazards tabs. It brings together the NWCG 7-day Significant Fire Potential outlook, NFDRS station readings for Energy Release Component, Burning Index and fuel moisture, the USGS Fire Potential Index forecast, live fuel moisture field samples, and LANDFIRE fuel types.',
+        heading: 'Navigation Feature Now Live for Pro Users',
+        body: 'Pro subscribers now have access to navigation tools built directly into the Sentinel Platform. The navigation tool offers point to point routing as well as a beta for shortest route from current location to safe zone. More features coming soon.',
       },
     ],
   },
 ];
+
+const currentNewsletters = newsletters.filter((issue) => !issue.archived);
+const archivedNewsletters = newsletters.filter((issue) => issue.archived);
+
+const NEWSLETTER_CARD =
+  'group w-full flex items-center gap-3 px-5 py-4 rounded-2xl bg-sentinel-800 border border-fire-600/40 hover:border-fire-600/70 hover:bg-sentinel-800/80 text-left transition-colors active:scale-[0.99] active:duration-100';
+
+function NewsletterCard({ issue, onOpen }) {
+  return (
+    <button type="button" onClick={() => onOpen(issue)} aria-haspopup="dialog" className={NEWSLETTER_CARD}>
+      <span className="flex-1 min-w-0 truncate font-semibold text-white">{issue.title}</span>
+      <ChevronRight
+        size={18}
+        className="shrink-0 text-sentinel-300 group-hover:text-white group-hover:translate-x-0.5 transition"
+      />
+    </button>
+  );
+}
 
 const stats = [
   { value: '50', label: 'States Covered' },
@@ -89,7 +118,20 @@ const stats = [
 
 export default function HomePage() {
   const [openNewsletter, setOpenNewsletter] = useState(null);
-  const closeNewsletter = useCallback(() => setOpenNewsletter(null), []);
+  const [archiveOpen, setArchiveOpen] = useState(false);
+  // An issue opened from the Archive popup returns to it when closed.
+  const [fromArchive, setFromArchive] = useState(false);
+  const closeNewsletter = useCallback(() => {
+    setOpenNewsletter(null);
+    if (fromArchive) setArchiveOpen(true);
+    setFromArchive(false);
+  }, [fromArchive]);
+  const closeArchive = useCallback(() => setArchiveOpen(false), []);
+  const openArchivedNewsletter = useCallback((issue) => {
+    setArchiveOpen(false);
+    setFromArchive(true);
+    setOpenNewsletter(issue);
+  }, []);
 
   return (
     <div className="min-h-screen">
@@ -195,27 +237,42 @@ export default function HomePage() {
             Weekly Newsletter
           </h2>
           <ul className="mt-6 max-w-3xl mx-auto space-y-3">
-            {newsletters.map((issue) => (
+            {currentNewsletters.map((issue) => (
               <li key={issue.title}>
+                <NewsletterCard issue={issue} onOpen={setOpenNewsletter} />
+              </li>
+            ))}
+            {archivedNewsletters.length > 0 && (
+              <li>
                 <button
                   type="button"
-                  onClick={() => setOpenNewsletter(issue)}
+                  onClick={() => setArchiveOpen(true)}
                   aria-haspopup="dialog"
-                  className="group w-full flex items-center gap-3 px-5 py-4 rounded-2xl bg-sentinel-800 border border-fire-600/40 hover:border-fire-600/70 hover:bg-sentinel-800/80 text-left transition-colors active:scale-[0.99] active:duration-100"
+                  className={NEWSLETTER_CARD}
                 >
-                  <span className="flex-1 min-w-0 truncate font-semibold text-white">
-                    {issue.title}
-                  </span>
+                  <span className="flex-1 min-w-0 truncate font-semibold text-white">Archive</span>
+                  <span className="shrink-0 text-sm text-sentinel-300 tabular-nums">{archivedNewsletters.length}</span>
                   <ChevronRight
                     size={18}
+                    aria-hidden
                     className="shrink-0 text-sentinel-300 group-hover:text-white group-hover:translate-x-0.5 transition"
                   />
                 </button>
               </li>
-            ))}
+            )}
           </ul>
         </div>
       </section>
+
+      <NewsletterModal open={archiveOpen} title="Archive" onClose={closeArchive}>
+        <ul className="space-y-3">
+          {archivedNewsletters.map((issue) => (
+            <li key={issue.title}>
+              <NewsletterCard issue={issue} onOpen={openArchivedNewsletter} />
+            </li>
+          ))}
+        </ul>
+      </NewsletterModal>
 
       <NewsletterModal
         open={openNewsletter !== null}
