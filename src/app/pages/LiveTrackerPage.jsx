@@ -21,6 +21,7 @@ import { useFireHotspots } from '../hooks/useFireHotspots';
 import { useNgfsDetections } from '../hooks/useNgfsDetections';
 import { useMergedFireData, getFireMatchKey, pointInGeometry, pointNearGeometry, pointNearPerimeter, pointsNearSameFire } from '../hooks/useMergedFireData';
 import { useAQIData } from '../hooks/useAQIData';
+import { useWUIData } from '../hooks/useWUIData';
 import { useWeatherAlerts } from '../hooks/useWeatherAlerts';
 import { useIncidents } from '../hooks/useIncidents';
 import { useCalFireIncidents } from '../hooks/useCalFireIncidents';
@@ -101,6 +102,7 @@ import SatelliteStormFocus from '../components/Map/SatelliteStormFocus';
 import { drawsCentroidDot } from '../components/Map/layers/perimeterCentroids';
 import { ndgdForecastHours } from '../utils/ndgdSmokeHours';
 import { FIRE_DANGER_LAYER_KEYS } from '../api/fireDanger/stations';
+import Map, { Source, Layer } from 'react-map-gl';
 // Lazy-loaded: each only ever mounts once the user has actually selected the
 // corresponding fire/gauge/camera, so their code shouldn't ship in
 // the initial bundle for sessions that never open one.
@@ -640,6 +642,13 @@ export default function LiveTrackerPage() {
     geoJSON: aqiGeoJSON,
     refresh: refreshAQI,
   } = useAQIData(layers.aqi);
+
+  // CAL Fire Wildland-Urban Interface
+  const {
+    wuiGeoJSON,
+    wuiLoading,
+    wuiError,
+  } = useWUIData(layers.wui);
 
   const {
     geoJSON: alertsGeoJSON,
@@ -1822,6 +1831,7 @@ export default function LiveTrackerPage() {
             nearbyRadiusGeoJSON={nearbyMapGeoJSON.radius}
             fireBehaviorModelingGeoJSON={fireBehaviorModelingGeoJSON}
             aqiGeoJSON={aqiGeoJSON}
+            wuiGeoJSON-{wuiGeoJSON}
             alertsGeoJSON={nearbyMapGeoJSON.alerts}
             stormMotionVectorsGeoJSON={stormMotionVectorsGeoJSON}
             stormMotionVectorsVisible={STORM_MOTION_VECTORS}
