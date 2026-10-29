@@ -9,6 +9,16 @@ function baseHostname(hostname) {
   return prefix ? hostname.slice(prefix.length) : hostname;
 }
 
+/**
+ * Cookie domain shared by the bare host and its subdomains, so a cookie
+ * written on one is read on all three — or null on hosts like localhost,
+ * where browsers refuse a Domain attribute without a dot.
+ */
+export function sharedCookieDomain() {
+  const base = baseHostname(window.location.hostname);
+  return base.includes('.') ? base : null;
+}
+
 function withSubdomain(prefix, hostname) {
   return hostname === 'localhost' ? `${prefix}localhost` : `${prefix}${hostname}`;
 }

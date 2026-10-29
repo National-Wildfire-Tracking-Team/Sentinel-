@@ -80,6 +80,12 @@ async function main() {
     await waitForServer(BASE_URL);
     browser = await chromium.launch();
     const page = await browser.newPage();
+    // Keeps the cookie banner out of the saved HTML. It's each visitor's own
+    // to answer; saved into the page, it would flash up on first paint even
+    // for visitors who already answered, and crawlers would index it.
+    await page.addInitScript(() => {
+      window.__NWTT_PRERENDER__ = true;
+    });
 
     for (const route of ROUTES) {
       await page.goto(`${BASE_URL}${route}`, { waitUntil: 'domcontentloaded' });

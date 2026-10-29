@@ -7,10 +7,17 @@
  * window.dataLayer using the same stub shape DeferredAnalytics installs
  * (window.gtag = window.gtag || push-to-dataLayer) — once the real
  * scripts load, the queued event is processed like any other.
+ *
+ * Engagement events are sent only with third-party performance tracking on.
+ * Before the visitor answers the cookie banner GA only counts the visit
+ * (see DeferredAnalytics), and with tracking off it never loads at all.
  */
+
+import { readCookieConsent } from './cookieConsent';
 
 export function trackEvent(eventName, params = {}) {
   if (typeof window === 'undefined') return;
+  if (readCookieConsent()?.analytics !== true) return;
 
   window.dataLayer = window.dataLayer || [];
   window.gtag = window.gtag || function gtag() {

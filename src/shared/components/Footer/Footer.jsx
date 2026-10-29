@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { Flame } from 'lucide-react';
 import { getAppOrigin } from '../../utils/getAppOrigin';
+import { openCookieSettings } from '../../utils/cookieConsent';
 
 export default function Footer() {
   return (
@@ -40,6 +41,9 @@ export default function Footer() {
               </li>
               <li>
                 <Link to="/privacy-policy" className="text-sentinel-300 hover:text-fire-400 text-sm transition-colors">Privacy Policy</Link>
+              </li>
+              <li>
+                <button type="button" onClick={openCookieSettings} className="text-sentinel-300 hover:text-fire-400 text-sm transition-colors">Cookie Settings</button>
               </li>
             </ul>
           </div>

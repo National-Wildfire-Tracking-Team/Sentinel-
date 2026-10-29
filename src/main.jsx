@@ -13,6 +13,7 @@ import { createRoot } from 'react-dom/client';
 import './site.css';
 import ErrorBoundary from './shared/components/ErrorBoundary';
 import DeferredAnalytics from './shared/components/DeferredScripts/DeferredAnalytics';
+import CookieConsent from './shared/components/CookieConsent/CookieConsent';
 import { ErrorLogger } from './shared/services/error-logger';
 import { AuthProvider } from './shared/context/AuthContext';
 
@@ -54,6 +55,7 @@ createRoot(document.getElementById('root')).render(
   <StrictMode>
     <ErrorBoundary>
       <DeferredAnalytics />
+      <CookieConsent />
       {/* The marketing site has no sign-in, so it only loads the Supabase
           client for a visitor who could already be signed in. */}
       <AuthProvider deferClient={!isAppHost && !isReporterHost}>

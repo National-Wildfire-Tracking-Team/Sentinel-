@@ -1,5 +1,6 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import Footer from '../../src/shared/components/Footer/Footer';
 
@@ -51,5 +52,15 @@ describe('Footer', () => {
     const links = screen.getAllByRole('link', { name: /Terms of Service/i });
     expect(links).toHaveLength(1);
     expect(links[0]).toHaveAttribute('href', '/terms');
+  });
+
+  it('opens Cookie Settings from the quick links', async () => {
+    const onOpen = vi.fn();
+    window.addEventListener('nwtt:cookie-settings', onOpen);
+    renderWithRouter(<Footer />);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Cookie Settings' }));
+    expect(onOpen).toHaveBeenCalledTimes(1);
+    window.removeEventListener('nwtt:cookie-settings', onOpen);
   });
 });
