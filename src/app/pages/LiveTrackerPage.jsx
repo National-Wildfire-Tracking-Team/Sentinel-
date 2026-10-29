@@ -60,6 +60,7 @@ import { summarizeOverview, QUICK_FILTERS } from '../utils/overviewSummary';
 import { featureCollectionsBounds, polygonCentroid } from '../utils/geoUtils';
 import { incidentsToGeoJSON } from '../api/inciweb';
 import { mergeIrwinAndCalFireIncidents } from '../utils/mergeIncidents';
+import { useGlobalFires } from '../hooks/useGlobalFires';
 import { incidentIdsFor, joinAliasIds, parseAliasIds } from '../utils/incidentAliases';
 import { officialIdsForReport, reportIdsForName } from '../utils/reportIncidentLinks';
 import { parseLatestAcreage, parseLatestContainment } from '../utils/formatUtils';
@@ -631,6 +632,13 @@ export default function LiveTrackerPage() {
     refresh: refreshCalFireIncidents,
   } = useCalFireIncidents(true, wildfireDataEnabled);
 
+  // Satellite fire clusters outside the US (kanari.io). Fetched only while
+  // the Active Fires layer is on; they join the incident dots below.
+  const {
+    geoJSON: globalFiresGeoJSON,
+    refresh: refreshGlobalFires,
+  } = useGlobalFires(wildfireDataEnabled && Boolean(layers.incidentLocations));
+
   // CAL FIRE FRAP historical fire perimeters
   const {
     geoJSON: calFireHistoricalPerimetersGeoJSON,
@@ -1009,11 +1017,18 @@ export default function LiveTrackerPage() {
   }, [freshPerimetersGeoJSON, reporterReports, approvedReports]);
 
   // Incident dots: drop 100%-contained fires stale for 3+ days, and unconditionally
-  // drop any dot that hasn't been updated in 30 days.
+  // drop any dot that hasn't been updated in 30 days. Global satellite fires
+  // (kanari.io, outside the US) are dots too and go through every rule below.
   const freshIncidentDotsGeoJSON = useMemo(() => {
-    const containedFiltered = filterStaleContainedGeoJSON(incidentDotsGeoJSON, 'PercentContained', 'ModifiedOnDateTime');
+    const allDots = globalFiresGeoJSON?.features?.length
+      ? {
+          type: 'FeatureCollection',
+          features: [...(incidentDotsGeoJSON?.features || []), ...globalFiresGeoJSON.features],
+        }
+      : incidentDotsGeoJSON;
+    const containedFiltered = filterStaleContainedGeoJSON(allDots, 'PercentContained', 'ModifiedOnDateTime');
     return filterByMaxAge(containedFiltered, 'ModifiedOnDateTime', ONE_MONTH_MS);
-  }, [incidentDotsGeoJSON]);
+  }, [incidentDotsGeoJSON, globalFiresGeoJSON]);
 
   // ── Apply feed filter to map fire layers ──
   const isFocused = feedFilter === 'focused';
@@ -1603,6 +1618,7 @@ export default function LiveTrackerPage() {
     refreshAlerts();
     refreshIncidents();
     refreshCalFireIncidents();
+    refreshGlobalFires();
     if (weatherDataEnabled && layers.stormReports) {
       refreshStormReports();
     }
@@ -1635,7 +1651,7 @@ export default function LiveTrackerPage() {
     if (weatherDataEnabled && layers.wpcFronts) refreshWpcFronts();
     if (weatherDataEnabled && layers.weatherAlerts) refreshWpcMpd();
   }, [
-    refreshHotspots, refreshNgfs, refreshPerimeters, refreshAlerts, refreshIncidents, refreshCalFireIncidents, refreshStormReports,
+    refreshHotspots, refreshNgfs, refreshPerimeters, refreshAlerts, refreshIncidents, refreshCalFireIncidents, refreshGlobalFires, refreshStormReports,
     refreshDamageAssessment,
     refreshSpcMd, refreshSpcOutlooks, refreshUserReports, refreshEvacZones, refreshReporterEvacZones,
     refreshAQI, refreshRAWS, refreshAirNowMonitors, refreshDroughtOutlook, refreshNdgdSmokeForecast, refreshFireWeatherOutlooks,

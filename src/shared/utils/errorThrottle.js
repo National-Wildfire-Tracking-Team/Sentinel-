@@ -36,6 +36,10 @@ const FRIENDLY_MESSAGES = {
   'NHC': {
     'generic': 'Storm data temporarily unavailable.',
   },
+  'Kanari': {
+    'unavailable': 'Global satellite fire data temporarily unavailable.',
+    'generic': 'Unable to load global satellite fire data.',
+  },
 };
 
 /**

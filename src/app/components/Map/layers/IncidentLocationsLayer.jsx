@@ -24,6 +24,7 @@
 import { memo, useEffect, useMemo, useState } from 'react';
 import { Source, Layer, useMap } from 'react-map-gl';
 import { MIN_FIRE_ACRES, drawsCentroidDot } from './perimeterCentroids';
+import { isKanariFire } from '../../../api/kanariFires';
 
 const EMPTY_GEOJSON = { type: 'FeatureCollection', features: [] };
 
@@ -175,7 +176,10 @@ const IncidentLocationsLayer = memo(function IncidentLocationsLayer({
     const incidents = (geoJSON?.features || []).filter((f) => Number(f.properties?.acres) >= MIN_ACRES);
     // Only the perimeters that draw a dot (see drawsCentroidDot).
     const centroids = (perimeterCentroidsGeoJSON?.features || []).filter((f) => drawsCentroidDot(f.properties));
-    const dots = (fireDotsGeoJSON?.features || []).filter((f) => Number(f.properties?.GISAcres) >= MIN_ACRES);
+    // Satellite clusters (kanari.io) have no reported size to test, so the
+    // acreage cut can't apply to them; they're shown, not given a made-up area.
+    const dots = (fireDotsGeoJSON?.features || []).filter((f) =>
+      isKanariFire(f.properties) || Number(f.properties?.GISAcres) >= MIN_ACRES);
     if (!incidents.length && !centroids.length && !dots.length) return EMPTY_GEOJSON;
     return {
       type: 'FeatureCollection',

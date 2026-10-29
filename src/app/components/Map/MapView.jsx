@@ -304,6 +304,12 @@ function buildFeatureRecord(feature, lngLat, alerts, { floodPanel = null, fireDa
         source:     p._source || null,
         url:        p._detailUrl || null,
         aliasIds:   parseAliasIds(p._aliasIds),
+        // Satellite clusters (kanari.io) only.
+        satellites: p._satellites || null,
+        detections: p._detections ?? null,
+        sensors:    p._sensors || null,
+        maxFrp:     p._maxFrp ?? null,
+        confidence: p._confidence || null,
       };
 
     case 'incident-locations-circle': {
