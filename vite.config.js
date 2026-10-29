@@ -7,6 +7,7 @@ import { ROUTES as WEATHER_GOV_ROUTES } from './netlify/edge-functions/weather-g
 import { ROUTES as ARCGIS_ROUTES } from './netlify/edge-functions/arcgis-proxy.js';
 import { ROUTES as AWC_ROUTES } from './netlify/edge-functions/awc-proxy.js';
 import { ROUTES as TFR_ROUTES } from './netlify/edge-functions/faa-tfr-proxy.js';
+import { fetchGlobalFires } from './netlify/functions/kanari-fires/kanari-fires.mjs';
 
 // Dev/preview twin of netlify/edge-functions/nws-mapservices-proxy.js: one
 // proxy entry per route, so /api/nws/<key>/... reaches the same upstream
@@ -240,8 +241,35 @@ function preloadRouteChunks() {
   };
 }
 
+// Dev/preview twin of netlify/functions/kanari-fires (/api/kanari/fires). Holds
+// the result for 2 minutes like the CDN does, so a dev server also stays
+// within Kanari's once-a-minute polling guidance.
+function kanariFiresDevProxy() {
+  let cached = null;
+  let cachedAt = 0;
+  const handler = async (req, res, next) => {
+    if (!req.url.startsWith('/api/kanari/fires')) return next();
+    res.setHeader('Content-Type', 'application/json');
+    try {
+      if (!cached || Date.now() - cachedAt > 120_000) {
+        cached = JSON.stringify(await fetchGlobalFires());
+        cachedAt = Date.now();
+      }
+      res.end(cached);
+    } catch (err) {
+      res.statusCode = 502;
+      res.end(JSON.stringify({ error: err.message }));
+    }
+  };
+  return {
+    name: 'kanari-fires-dev-proxy',
+    configureServer: (server) => { server.middlewares.use(handler); },
+    configurePreviewServer: (server) => { server.middlewares.use(handler); },
+  };
+}
+
 export default defineConfig({
-  plugins: [react(), inlineEntryCss(), preloadRouteChunks()],
+  plugins: [react(), inlineEntryCss(), preloadRouteChunks(), kanariFiresDevProxy()],
   define: {
     global: 'globalThis',
   },

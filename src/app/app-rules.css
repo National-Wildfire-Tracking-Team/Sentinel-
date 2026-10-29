@@ -308,6 +308,17 @@ html:not(.dark):not(.site-theme) .btn-glass-fire-adaptive:hover {
   border-top-color: rgb(var(--sentinel-600) / var(--bar-round));
 }
 
+/* On phones the drawer tab strip widens the bottom bar over the Mapbox logo's
+   corner; --zoom-lift (LiveTrackerPage) lifts the logo clear of it, as it does
+   the zoom buttons. The logo must stay visible (Mapbox terms). */
+[data-map-area] .mapboxgl-ctrl-bottom-left {
+  bottom: var(--zoom-lift, 0px);
+  transition: bottom 200ms ease-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-map-area] .mapboxgl-ctrl-bottom-left { transition: none; }
+}
+
 /* Radar Site drawer sliders (RadarSitePanel): the track is drawn behind the
    input, so the input itself is just a white thumb. Two .radar-range--dual
    inputs share one track; only their thumbs take the pointer. */

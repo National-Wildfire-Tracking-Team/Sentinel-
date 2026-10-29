@@ -183,6 +183,7 @@ function normalizeState(state) {
 function officialSourceLabel(fire) {
   if (fire.source === 'CAL_FIRE') return 'CAL FIRE';
   if (fire.source === 'FIRIS') return 'FIRIS';
+  if (fire.source === 'KANARI') return fire.satellites || 'Satellite';
   return 'NIFC / IRWIN';
 }
 

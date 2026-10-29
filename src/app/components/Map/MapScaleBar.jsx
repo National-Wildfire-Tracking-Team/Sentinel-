@@ -9,6 +9,9 @@
  * edge (high enough to clear the Mapbox logo in the corner). On phones the
  * centered bottom bar leaves only a narrow strip to its left, so the scale's
  * maximum length shrinks to fit that strip rather than running under the bar.
+ * When the bar fills the width (it widens under the drawer tab strip), there
+ * is no strip at all, so the scale sits just above the bar and its docked
+ * tabs/drawers instead (`stackHeight`).
  *
  * While a left sidebar is open (covering that corner), the scale moves to the
  * right of the bar, beside the zoom / bug-report buttons — when there's room
@@ -45,7 +48,10 @@ export default function MapScaleBar({ map, maxWidth = MAX_SCALE_WIDTH, className
   return <div ref={hostRef} className={`sentinel-scale flex ${className}`} />;
 }
 
-export function MapScaleDock({ map, bottomBarWidth = 0, bottomBarHeight = 0, besidePanel = false }) {
+// The Mapbox logo's height plus its corner margin.
+const MAPBOX_LOGO_CLEARANCE = 36;
+
+export function MapScaleDock({ map, bottomBarWidth = 0, bottomBarHeight = 0, stackHeight = 0, besidePanel = false }) {
   const viewportWidth = useViewportWidth();
   const roomOnRight = besidePanel ? scaleRoomRightOfBar(viewportWidth, bottomBarWidth) : 0;
 
@@ -71,6 +77,20 @@ export function MapScaleDock({ map, bottomBarWidth = 0, bottomBarHeight = 0, bes
     ? (viewportWidth - bottomBarWidth) / 2 - left - GAP_TO_BAR - SCALE_CHROME
     : MAX_SCALE_WIDTH;
   const maxWidth = Math.round(Math.min(MAX_SCALE_WIDTH, Math.max(MIN_SCALE_WIDTH, room)));
+
+  // No room beside the bar: above everything docked on it, and above the
+  // Mapbox logo, which lifts there too (app-rules.css).
+  if (room < MIN_SCALE_WIDTH) {
+    return (
+      <div
+        key="above-bar"
+        className="absolute z-20 pointer-events-none animate-fade-in"
+        style={{ left, bottom: bottomBarHeight + stackHeight + GAP_TO_BAR + MAPBOX_LOGO_CLEARANCE }}
+      >
+        <MapScaleBar map={map} maxWidth={MAX_SCALE_WIDTH} />
+      </div>
+    );
+  }
 
   return (
     <div

@@ -60,6 +60,7 @@ import { summarizeOverview, QUICK_FILTERS } from '../utils/overviewSummary';
 import { featureCollectionsBounds, polygonCentroid } from '../utils/geoUtils';
 import { incidentsToGeoJSON } from '../api/inciweb';
 import { mergeIrwinAndCalFireIncidents } from '../utils/mergeIncidents';
+import { useGlobalFires } from '../hooks/useGlobalFires';
 import { incidentIdsFor, joinAliasIds, parseAliasIds } from '../utils/incidentAliases';
 import { officialIdsForReport, reportIdsForName } from '../utils/reportIncidentLinks';
 import { parseLatestAcreage, parseLatestContainment } from '../utils/formatUtils';
@@ -93,7 +94,9 @@ import AccountButton from '../components/MapControls/AccountButton';
 import AccountPanel from '../components/AccountPanel/AccountPanel';
 import Legend from '../components/Legend/Legend';
 import { MapScaleDock } from '../components/Map/MapScaleBar';
-import { RIGHT_PANEL_BOTTOM, leftPanelLayout, rightPanelMaxWidth, useViewportWidth } from '../components/Map/mapEdgeLayout';
+import {
+  GAP_TO_BAR, RIGHT_PANEL_BOTTOM, ZOOM_BUTTON, ZOOM_RIGHT, leftPanelLayout, rightPanelMaxWidth, useViewportWidth,
+} from '../components/Map/mapEdgeLayout';
 import { APP_VERSION } from '../version';
 import MapDockSheet from '../components/Map/MapDockSheet';
 import ModelFieldTimeline from '../components/WeatherModels/ModelFieldTimeline';
@@ -631,6 +634,13 @@ export default function LiveTrackerPage() {
     refresh: refreshCalFireIncidents,
   } = useCalFireIncidents(true, wildfireDataEnabled);
 
+  // Satellite fire clusters outside the US (kanari.io). Fetched only while
+  // the Active Fires layer is on; they join the incident dots below.
+  const {
+    geoJSON: globalFiresGeoJSON,
+    refresh: refreshGlobalFires,
+  } = useGlobalFires(wildfireDataEnabled && Boolean(layers.incidentLocations));
+
   // CAL FIRE FRAP historical fire perimeters
   const {
     geoJSON: calFireHistoricalPerimetersGeoJSON,
@@ -1009,11 +1019,18 @@ export default function LiveTrackerPage() {
   }, [freshPerimetersGeoJSON, reporterReports, approvedReports]);
 
   // Incident dots: drop 100%-contained fires stale for 3+ days, and unconditionally
-  // drop any dot that hasn't been updated in 30 days.
+  // drop any dot that hasn't been updated in 30 days. Global satellite fires
+  // (kanari.io, outside the US) are dots too and go through every rule below.
   const freshIncidentDotsGeoJSON = useMemo(() => {
-    const containedFiltered = filterStaleContainedGeoJSON(incidentDotsGeoJSON, 'PercentContained', 'ModifiedOnDateTime');
+    const allDots = globalFiresGeoJSON?.features?.length
+      ? {
+          type: 'FeatureCollection',
+          features: [...(incidentDotsGeoJSON?.features || []), ...globalFiresGeoJSON.features],
+        }
+      : incidentDotsGeoJSON;
+    const containedFiltered = filterStaleContainedGeoJSON(allDots, 'PercentContained', 'ModifiedOnDateTime');
     return filterByMaxAge(containedFiltered, 'ModifiedOnDateTime', ONE_MONTH_MS);
-  }, [incidentDotsGeoJSON]);
+  }, [incidentDotsGeoJSON, globalFiresGeoJSON]);
 
   // ── Apply feed filter to map fire layers ──
   const isFocused = feedFilter === 'focused';
@@ -1603,6 +1620,7 @@ export default function LiveTrackerPage() {
     refreshAlerts();
     refreshIncidents();
     refreshCalFireIncidents();
+    refreshGlobalFires();
     if (weatherDataEnabled && layers.stormReports) {
       refreshStormReports();
     }
@@ -1635,7 +1653,7 @@ export default function LiveTrackerPage() {
     if (weatherDataEnabled && layers.wpcFronts) refreshWpcFronts();
     if (weatherDataEnabled && layers.weatherAlerts) refreshWpcMpd();
   }, [
-    refreshHotspots, refreshNgfs, refreshPerimeters, refreshAlerts, refreshIncidents, refreshCalFireIncidents, refreshStormReports,
+    refreshHotspots, refreshNgfs, refreshPerimeters, refreshAlerts, refreshIncidents, refreshCalFireIncidents, refreshGlobalFires, refreshStormReports,
     refreshDamageAssessment,
     refreshSpcMd, refreshSpcOutlooks, refreshUserReports, refreshEvacZones, refreshReporterEvacZones,
     refreshAQI, refreshRAWS, refreshAirNowMonitors, refreshDroughtOutlook, refreshNdgdSmokeForecast, refreshFireWeatherOutlooks,
@@ -1774,6 +1792,10 @@ export default function LiveTrackerPage() {
   }, [modelsTimeShowing]);
 
   const totalDockedHeight = dockSheetHeight + (modelsTimeShowing ? modelsTimeHeight : 0);
+  // On phones the drawer tab strip widens the bar into the zoom buttons' corner:
+  // lift them above the bar and everything docked on it until it's gone.
+  const barReachesZoom = dockSheetHeight > 0
+    && mapBottomBarSize.width > viewportWidth - 2 * (ZOOM_RIGHT + ZOOM_BUTTON + GAP_TO_BAR);
   const layerPanelDockClearance = totalDockedHeight ? totalDockedHeight + 8 : 0;
 
   return (
@@ -1803,6 +1825,7 @@ export default function LiveTrackerPage() {
         className={`flex-1 relative overflow-x-clip ${MODEL_COLOR_VARS}`}
         style={{
           '--map-bottom-stack': `${mapBottomBarSize.height + totalDockedHeight + 24}px`,
+          '--zoom-lift': barReachesZoom ? `${mapBottomBarSize.height + totalDockedHeight + GAP_TO_BAR}px` : undefined,
           '--left-panel-width': leftPanel ? `${leftPanel.width}px` : undefined,
           // Above the left sidebars (z-40) while one is open under the bar.
           '--bar-z': barOverLeftPanel && leftPanelOpen ? 45 : undefined,
@@ -1955,6 +1978,7 @@ export default function LiveTrackerPage() {
             onMeasureClose={onMeasureClose}
             dockedPanelClearance={layerPanelDockClearance}
             dockedAttached={modelsTimeShowing}
+            dockTabsShowing={dockSheetHeight > 0}
             simplified={simplified}
           />
 
@@ -2005,6 +2029,7 @@ export default function LiveTrackerPage() {
             map={mapInstance}
             bottomBarWidth={mapBottomBarSize.width}
             bottomBarHeight={mapBottomBarSize.height}
+            stackHeight={totalDockedHeight}
             besidePanel={leftPanelOpen}
           />
 

@@ -16,6 +16,7 @@ import {
 } from '../../utils/formatUtils';
 import IncidentTimeline from '../IncidentTimeline/IncidentTimeline';
 import ModelForecastSummary from '../WeatherModels/ModelForecastSummary';
+import { KANARI_URL } from '../../api/kanariFires';
 import { buildEvacuations, deriveSituation, incidentSummary } from './incidentDetailModel';
 import {
   EvacuationCard, EvacuationNotes, InfoGroup, ShareFollowFooter, SheetHandle, ShelterList, TabButton,
@@ -65,6 +66,9 @@ function InfoTab({ fire, summary, updatedAt }) {
         rows={[
           ['Size', summary.acres != null && formatAcres(summary.acres)],
           ['Containment', summary.containment != null && `${summary.containment}%`],
+          ['Satellite detections', fire.detections != null && `${fire.detections}${fire.sensors ? ` (${fire.sensors})` : ''}`],
+          ['Peak fire power', fire.maxFrp != null && `${fire.maxFrp} MW`],
+          ['Detection confidence', fire.confidence],
           ['Structures destroyed', fire.destroyed > 0 && String(fire.destroyed)],
           ['Structures damaged', fire.damaged > 0 && String(fire.damaged)],
         ]}
@@ -81,8 +85,22 @@ function InfoTab({ fire, summary, updatedAt }) {
         rows={[
           ['Data source', summary.isReport ? 'NWTT reporter' : summary.sourceLabel],
           ['Note', summary.isReport && 'Submitted by an NWTT reporter. Verify with official sources before taking action.'],
-          ['Incident page', !summary.isReport && fire.id && (
+          // Satellite clusters (kanari.io) have no incident page of their own.
+          ['Incident page', !summary.isReport && fire.id && fire.source !== 'KANARI' && (
             <Link to={`/fire/${fire.id}`} className={infoLink}>Open full incident page</Link>
+          )],
+          // Kanari's terms ask for a linked credit wherever its clusters appear.
+          ['Processed by', fire.source === 'KANARI' && (
+            <a href={KANARI_URL} target="_blank" rel="noopener noreferrer" className={infoLink}>kanari.io</a>
+          )],
+          // Industrial heat sources are masked out with these datasets (kanari-fires function).
+          ['Industrial mask', fire.source === 'KANARI' && (
+            <>
+              <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer" className={infoLink}>
+                © OpenStreetMap contributors
+              </a>
+              {', WRI Global Power Plant Database'}
+            </>
           )],
           ['Official page', fire.url && (
             <a href={fire.url} target="_blank" rel="noopener noreferrer" className={infoLink}>
