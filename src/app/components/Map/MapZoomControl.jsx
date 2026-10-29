@@ -34,7 +34,9 @@ const MapZoomControl = memo(function MapZoomControl({ mapRef }) {
   return (
     <div
       data-map-control=""
-      className={`absolute bottom-4 right-4 z-20 flex flex-col items-end transition-opacity ${
+      // --zoom-lift (LiveTrackerPage): clear of a bottom bar wide enough to reach this corner.
+      style={{ bottom: 'calc(1rem + var(--zoom-lift, 0px))' }}
+      className={`absolute right-4 z-20 flex flex-col items-end transition-[opacity,bottom] duration-200 ease-out motion-reduce:transition-none ${
         layerPanelOpen ? 'max-sm:opacity-0 max-sm:pointer-events-none' : ''
       }`}
     >

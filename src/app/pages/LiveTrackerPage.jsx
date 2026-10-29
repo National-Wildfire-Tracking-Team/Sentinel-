@@ -94,7 +94,9 @@ import AccountButton from '../components/MapControls/AccountButton';
 import AccountPanel from '../components/AccountPanel/AccountPanel';
 import Legend from '../components/Legend/Legend';
 import { MapScaleDock } from '../components/Map/MapScaleBar';
-import { RIGHT_PANEL_BOTTOM, leftPanelLayout, rightPanelMaxWidth, useViewportWidth } from '../components/Map/mapEdgeLayout';
+import {
+  GAP_TO_BAR, RIGHT_PANEL_BOTTOM, ZOOM_BUTTON, ZOOM_RIGHT, leftPanelLayout, rightPanelMaxWidth, useViewportWidth,
+} from '../components/Map/mapEdgeLayout';
 import { APP_VERSION } from '../version';
 import MapDockSheet from '../components/Map/MapDockSheet';
 import ModelFieldTimeline from '../components/WeatherModels/ModelFieldTimeline';
@@ -1790,6 +1792,10 @@ export default function LiveTrackerPage() {
   }, [modelsTimeShowing]);
 
   const totalDockedHeight = dockSheetHeight + (modelsTimeShowing ? modelsTimeHeight : 0);
+  // On phones the drawer tab strip widens the bar into the zoom buttons' corner:
+  // lift them above the bar and everything docked on it until it's gone.
+  const barReachesZoom = dockSheetHeight > 0
+    && mapBottomBarSize.width > viewportWidth - 2 * (ZOOM_RIGHT + ZOOM_BUTTON + GAP_TO_BAR);
   const layerPanelDockClearance = totalDockedHeight ? totalDockedHeight + 8 : 0;
 
   return (
@@ -1819,6 +1825,7 @@ export default function LiveTrackerPage() {
         className={`flex-1 relative overflow-x-clip ${MODEL_COLOR_VARS}`}
         style={{
           '--map-bottom-stack': `${mapBottomBarSize.height + totalDockedHeight + 24}px`,
+          '--zoom-lift': barReachesZoom ? `${mapBottomBarSize.height + totalDockedHeight + GAP_TO_BAR}px` : undefined,
           '--left-panel-width': leftPanel ? `${leftPanel.width}px` : undefined,
           // Above the left sidebars (z-40) while one is open under the bar.
           '--bar-z': barOverLeftPanel && leftPanelOpen ? 45 : undefined,
@@ -1971,6 +1978,7 @@ export default function LiveTrackerPage() {
             onMeasureClose={onMeasureClose}
             dockedPanelClearance={layerPanelDockClearance}
             dockedAttached={modelsTimeShowing}
+            dockTabsShowing={dockSheetHeight > 0}
             simplified={simplified}
           />
 
@@ -2021,6 +2029,7 @@ export default function LiveTrackerPage() {
             map={mapInstance}
             bottomBarWidth={mapBottomBarSize.width}
             bottomBarHeight={mapBottomBarSize.height}
+            stackHeight={totalDockedHeight}
             besidePanel={leftPanelOpen}
           />
 

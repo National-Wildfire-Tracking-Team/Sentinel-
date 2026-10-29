@@ -13,6 +13,7 @@ const TABS = [
 ];
 
 beforeEach(() => {
+  window.localStorage.clear(); // no remembered tab order
   window.matchMedia = vi.fn(() => ({ matches: true })); // reduced motion: settle instantly
   globalThis.ResizeObserver ??= class { observe() {} disconnect() {} };
   // jsdom has no layout: give tabs and content a measured height
@@ -27,61 +28,79 @@ describe('DockSheet', () => {
     expect(onSettledHeight).toHaveBeenLastCalledWith(0);
   });
 
-  it('shows one same-width tab per layer, centered, and opens with the tab that was pulled', async () => {
+  it('shows one tab per layer on the bar, and fills the same panel with controls when open', async () => {
     const onSettledHeight = vi.fn();
     const { container } = render(<DockSheet tabs={TABS} onSettledHeight={onSettledHeight} />);
     const mrms = screen.getByRole('button', { name: 'Open MRMS Radar controls' });
     const site = screen.getByRole('button', { name: 'Open Radar Site controls' });
-    expect(mrms.firstChild.className).toBe(site.firstChild.className); // same fixed-width notch
-    expect(mrms.parentElement.className).toMatch(/justify-center/);
-    expect(onSettledHeight).toHaveBeenLastCalledWith(64); // tab row only
+    expect(mrms.closest('[data-dock-tab]').className).toBe(site.closest('[data-dock-tab]').className); // same tab style
+    const panel = container.querySelector('[data-dock-panel]');
+    expect(panel.style.height).toBe(''); // closed: just the tabs, at their natural height
+    expect(onSettledHeight).toHaveBeenLastCalledWith(64);
 
     fireEvent.click(site); // keyboard-style activation (detail 0)
     const grabber = await screen.findByRole('button', { name: 'Close Radar Site controls' });
     expect(grabber).toHaveAttribute('aria-expanded', 'true');
     expect(screen.getByText('Radar Site controls')).toBeInTheDocument();
-    expect(onSettledHeight).toHaveBeenLastCalledWith(64 + 128); // tabs + sheet (grabber + content)
-    // Open: the tabs are hidden; the sheet's own gray bar is the handle
-    expect(screen.queryByRole('button', { name: 'Open MRMS Radar controls' })).not.toBeInTheDocument();
-    expect(container.querySelector('[data-dock-tab="mrms"]').style.opacity).toBe('0');
-    expect(container.querySelector('[data-dock-tab="radarSite"]').style.opacity).toBe('0');
+    // Open: the one panel is as tall as the controls (grabber + content); the tabs are hidden in it
+    expect(panel.style.height).toBe('128px');
+    expect(onSettledHeight).toHaveBeenLastCalledWith(128);
+    expect(site.closest('[aria-hidden]')).toHaveAttribute('aria-hidden', 'true');
+    expect(site).toHaveAttribute('tabindex', '-1');
 
     fireEvent.keyDown(grabber, { key: 'ArrowDown' });
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Open MRMS Radar controls' })).toBeInTheDocument());
-    expect(container.querySelector('[data-dock-tab="mrms"]').style.opacity).toBe('1');
+    await waitFor(() => expect(panel.style.height).toBe(''));
+    expect(onSettledHeight).toHaveBeenLastCalledWith(64);
 
     fireEvent.click(mrms);
     await screen.findByText('MRMS controls');
   });
 
-  it('folds the bar corners square before the sheet rises, and only follows while held', async () => {
-    const { container } = render(<DockSheet tabs={TABS} />);
-    const grabber = screen.getByRole('button', { name: 'Open Radar Site controls' });
-    grabber.setPointerCapture = vi.fn();
-    const body = container.querySelector('#map-dock-sheet');
-    const fold = () => container.style.getPropertyValue('--dock-sheet-fold');
+  it("turns a tab's layer off with its ×, without opening the panel", () => {
+    const onCloseTab = vi.fn();
+    const { container } = render(<DockSheet tabs={TABS} onCloseTab={onCloseTab} />);
+    const close = screen.getByRole('button', { name: 'Turn off Radar Site' });
+    fireEvent.pointerDown(close, { pointerId: 1, button: 0, buttons: 1, clientY: 500 });
+    fireEvent.click(close);
+    expect(onCloseTab).toHaveBeenCalledWith('radarSite');
+    expect(container.querySelector('[data-dock-panel]').style.height).toBe('');
+  });
 
-    fireEvent.pointerDown(grabber, { pointerId: 1, button: 0, buttons: 1, clientY: 500 });
-    fireEvent.pointerMove(grabber, { pointerId: 1, buttons: 1, clientY: 490 });
-    expect(body.style.height).toBe('0px'); // first 20px only fold the corners
-    expect(fold()).toBe('0.5');
-    // The pulled tab's notch is fading with the fold; the other tab is hidden
-    expect(grabber.style.opacity).toBe('0.5');
-    expect(container.querySelector('[data-dock-tab="mrms"]').style.opacity).toBe('0');
-    fireEvent.pointerMove(grabber, { pointerId: 1, buttons: 1, clientY: 470 });
-    expect(fold()).toBe('1');
-    expect(body.style.height).toBe('10px');
+  it('has no × when nothing can turn the layer off', () => {
+    render(<DockSheet tabs={TABS} />);
+    expect(screen.queryByRole('button', { name: /^Turn off/ })).not.toBeInTheDocument();
+  });
+
+  it("raises the panel's top with the pull, fading the tabs out and the controls in, and only follows while held", async () => {
+    const { container } = render(<DockSheet tabs={TABS} />);
+    const tab = container.querySelector('[data-dock-tab="radarSite"]');
+    const panel = container.querySelector('[data-dock-panel]');
+    const controls = container.querySelector('#map-dock-sheet');
+    const tabsLayer = tab.closest('[aria-hidden]');
+
+    fireEvent.pointerDown(tab, { pointerId: 1, button: 0, buttons: 1, clientY: 500 });
+    fireEvent.pointerMove(tab, { pointerId: 1, buttons: 1, clientY: 470 });
+    // 30px pulled: the top edge has risen 30px off the tabs' height; no gap, one panel
+    expect(panel.style.height).toBe('94px');
+    const early = 30 / 96; // the crossfade runs over 1.5 tab-heights
+    expect(Number(tabsLayer.style.opacity)).toBeCloseTo(1 - early * 2);
+    expect(controls.style.opacity).toBe('0'); // the controls only come in from a third of the way
+    fireEvent.pointerMove(tab, { pointerId: 1, buttons: 1, clientY: 440 });
+    const later = 60 / 96;
+    expect(panel.style.height).toBe('124px');
+    expect(tabsLayer.style.visibility).toBe('hidden'); // tabs gone by halfway
+    expect(Number(controls.style.opacity)).toBeCloseTo((later - 1 / 3) * 1.5);
     expect(screen.getByText('Radar Site controls')).toBeInTheDocument(); // pulled by its tab
 
     // Release missed: the next move with no buttons down ends the drag instead of following
-    fireEvent.pointerMove(grabber, { pointerId: 1, buttons: 0, clientY: 300 });
-    await waitFor(() => expect(['0px', '128px']).toContain(body.style.height));
-    const settled = body.style.height;
-    fireEvent.pointerMove(grabber, { pointerId: 1, buttons: 0, clientY: 200 });
-    expect(body.style.height).toBe(settled);
+    fireEvent.pointerMove(tab, { pointerId: 1, buttons: 0, clientY: 300 });
+    await waitFor(() => expect(['', '128px']).toContain(panel.style.height));
+    const settled = panel.style.height;
+    fireEvent.pointerMove(tab, { pointerId: 1, buttons: 0, clientY: 200 });
+    expect(panel.style.height).toBe(settled);
   });
 
-  it('names its tab under the gray bar, even when it is the only one', () => {
+  it('names each tab, even when it is the only one', () => {
     const { rerender } = render(<DockSheet tabs={[TABS[0]]} />);
     expect(screen.getByRole('button', { name: 'Open MRMS Radar controls' })).toHaveTextContent('MRMS Radar');
     rerender(<DockSheet tabs={TABS} />);
@@ -92,23 +111,36 @@ describe('DockSheet', () => {
   it('stays where a gentle drag leaves it, part-way open', () => {
     const onSettledHeight = vi.fn();
     const { container } = render(<DockSheet tabs={TABS} onSettledHeight={onSettledHeight} />);
-    const grabber = screen.getByRole('button', { name: 'Open Radar Site controls' });
-    grabber.setPointerCapture = vi.fn();
-    const body = container.querySelector('#map-dock-sheet');
+    const tab = container.querySelector('[data-dock-tab="radarSite"]');
+    const panel = container.querySelector('[data-dock-panel]');
     let now = 0;
     const clock = vi.spyOn(performance, 'now').mockImplementation(() => now);
-    const move = (y, t) => { now = t; fireEvent.pointerMove(grabber, { pointerId: 1, buttons: 1, clientY: y }); };
-    fireEvent.pointerDown(grabber, { pointerId: 1, button: 0, buttons: 1, clientY: 500 });
-    move(480, 100); move(440, 300); move(420, 600); // slow
+    const move = (y, t) => { now = t; fireEvent.pointerMove(tab, { pointerId: 1, buttons: 1, clientY: y }); };
+    fireEvent.pointerDown(tab, { pointerId: 1, button: 0, buttons: 1, clientY: 500 });
+    move(490, 100); move(470, 300); move(450, 600); // slow
     now = 900; // held still, then let go
-    fireEvent.pointerUp(grabber, { pointerId: 1, clientY: 420 });
+    fireEvent.pointerUp(tab, { pointerId: 1, clientY: 450 });
     clock.mockRestore();
-    expect(body.style.height).toBe('60px'); // 80px pulled − 20px fold, not snapped to 128
-    expect(onSettledHeight).toHaveBeenLastCalledWith(64 + 60);
+    expect(panel.style.height).toBe('114px'); // risen 50px and left there, not snapped to 128
+    expect(onSettledHeight).toHaveBeenLastCalledWith(114);
     expect(screen.getByRole('button', { name: 'Close Radar Site controls' })).toHaveAttribute('aria-expanded', 'true');
-    // The controls scroll inside the part-open sheet, with a scroll indicator on the right
-    expect(body.querySelector('.overflow-y-auto')).toContainElement(screen.getByText('Radar Site controls'));
-    expect(body.querySelector('[data-dock-scrollbar]')).toBeInTheDocument();
+    // The controls scroll inside the part-open panel, with a scroll indicator on the right
+    const controls = container.querySelector('#map-dock-sheet');
+    expect(controls.querySelector('.overflow-y-auto')).toContainElement(screen.getByText('Radar Site controls'));
+    expect(controls.querySelector('[data-dock-scrollbar]')).toBeInTheDocument();
+  });
+
+  it('closes when let go having barely risen', () => {
+    const { container } = render(<DockSheet tabs={TABS} />);
+    const tab = container.querySelector('[data-dock-tab="radarSite"]');
+    let now = 0;
+    const clock = vi.spyOn(performance, 'now').mockImplementation(() => now);
+    fireEvent.pointerDown(tab, { pointerId: 1, button: 0, buttons: 1, clientY: 500 });
+    now = 300; fireEvent.pointerMove(tab, { pointerId: 1, buttons: 1, clientY: 480 }); // 20px: under 28
+    now = 900;
+    fireEvent.pointerUp(tab, { pointerId: 1, clientY: 480 });
+    clock.mockRestore();
+    expect(container.querySelector('[data-dock-panel]').style.height).toBe('');
   });
 
   it('never grows past the bottom third of the screen', async () => {
@@ -118,7 +150,7 @@ describe('DockSheet', () => {
       const { container } = render(<DockSheet tabs={TABS} bottomOffset={16} />);
       fireEvent.click(screen.getByRole('button', { name: 'Open Radar Site controls' }));
       await screen.findByRole('button', { name: 'Close Radar Site controls' });
-      expect(container.querySelector('#map-dock-sheet').style.height).toBe('96px'); // not the 128px of content
+      expect(container.querySelector('[data-dock-panel]').style.height).toBe('96px'); // not the 128px of content
     } finally {
       window.innerHeight = tall;
     }
@@ -135,7 +167,7 @@ describe('DockSheet', () => {
     const tabs = [TABS[0], { id: 'awc', label: 'Aviation Weather', maxShare: 3 / 8, content: <div>Aviation controls</div> }];
     try {
       const { container, rerender } = render(<DockSheet tabs={tabs} bottomOffset={16} />);
-      const body = container.querySelector('#map-dock-sheet');
+      const body = container.querySelector('[data-dock-panel]');
       fireEvent.click(screen.getByRole('button', { name: 'Open Aviation Weather controls' }));
       const grabber = await screen.findByRole('button', { name: 'Close Aviation Weather controls' });
       expect(body.style.height).toBe('344px');
@@ -158,11 +190,11 @@ describe('DockSheet', () => {
     }
   });
 
-  it('shows at most five tabs at once', () => {
-    const many = ['A', 'B', 'C', 'D', 'E', 'F'].map((l) => ({ id: l, label: `Layer ${l}`, content: <div>{l}</div> }));
+  it('shows every docked layer as a tab (up to nine)', () => {
+    const many = 'ABCDEFGHIJ'.split('').map((l) => ({ id: l, label: `Layer ${l}`, content: <div>{l}</div> }));
     const { container } = render(<DockSheet tabs={many} />);
-    expect(container.querySelectorAll('[data-dock-tab]')).toHaveLength(5);
-    expect(screen.queryByRole('button', { name: 'Open Layer F controls' })).not.toBeInTheDocument();
+    expect(container.querySelectorAll('[data-dock-tab]')).toHaveLength(9);
+    expect(screen.queryByRole('button', { name: 'Open Layer J controls' })).not.toBeInTheDocument();
   });
 
   it('closes when the open tab\'s layer is switched off', async () => {
@@ -170,8 +202,87 @@ describe('DockSheet', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Open Radar Site controls' }));
     await screen.findByRole('button', { name: 'Close Radar Site controls' });
     rerender(<DockSheet tabs={[TABS[0]]} />);
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Open MRMS Radar controls' })).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Open MRMS Radar controls' })).toHaveAttribute('tabindex', '0'));
     expect(screen.queryByRole('button', { name: /Radar Site/ })).not.toBeInTheDocument();
+  });
+});
+
+describe('DockSheet tab reordering', () => {
+  const THREE = [
+    { id: 'a', label: 'Alpha', content: <div>A</div> },
+    { id: 'b', label: 'Bravo', content: <div>B</div> },
+    { id: 'c', label: 'Charlie', content: <div>C</div> },
+  ];
+  const order = (container) => [...container.querySelectorAll('[data-dock-tab]')].map((el) => el.dataset.dockTab);
+
+  beforeEach(() => {
+    // Lay tabs out left to right in DOM order: 96px wide, 4px apart.
+    Object.defineProperty(HTMLElement.prototype, 'offsetLeft', {
+      configurable: true,
+      get() { return this.dataset?.dockTab ? [...this.parentElement.children].indexOf(this) * 100 : 0; },
+    });
+    Object.defineProperty(HTMLElement.prototype, 'offsetWidth', {
+      configurable: true,
+      get() { return this.dataset?.dockTab ? 96 : 0; },
+    });
+  });
+
+  const slide = (el, dxs) => {
+    fireEvent.pointerDown(el, { pointerId: 1, button: 0, buttons: 1, clientX: 50, clientY: 500 });
+    dxs.forEach((dx) => fireEvent.pointerMove(el, { pointerId: 1, buttons: 1, clientX: 50 + dx, clientY: 500 }));
+    fireEvent.pointerUp(el, { pointerId: 1, clientX: 50 + dxs[dxs.length - 1], clientY: 500 });
+  };
+
+  it('moves a tab slid sideways past its neighbour, and remembers the order', () => {
+    const { container } = render(<DockSheet tabs={THREE} />);
+    const a = container.querySelector('[data-dock-tab="a"]');
+    slide(a, [10, 80, 160]); // its middle (48 + 160) passes Bravo's (148), not Charlie's (248)
+    expect(order(container)).toEqual(['b', 'a', 'c']);
+    expect(JSON.parse(window.localStorage.getItem('sentinel:dockTabOrder'))).toEqual(['b', 'a', 'c']);
+    // Sliding sideways never opens the panel
+    expect(container.querySelector('[data-dock-panel]').style.height).toBe('');
+
+    // A fresh mount keeps the remembered order
+    const again = render(<DockSheet tabs={THREE} />);
+    expect(order(again.container)).toEqual(['b', 'a', 'c']);
+  });
+
+  it('springs a tab back to its slot when it is not slid far enough', () => {
+    const { container } = render(<DockSheet tabs={THREE} />);
+    const a = container.querySelector('[data-dock-tab="a"]');
+    slide(a, [10, 30]);
+    expect(order(container)).toEqual(['a', 'b', 'c']);
+    expect(a.style.transform).toBe(''); // reduced motion: straight home
+  });
+
+  it('packs to the left: a tab slid past the last one lands at the end, against it', () => {
+    const { container } = render(<DockSheet tabs={THREE} />);
+    slide(container.querySelector('[data-dock-tab="a"]'), [10, 400]);
+    expect(order(container)).toEqual(['b', 'c', 'a']);
+  });
+
+  it('still opens the sheet when a tab is pulled up', async () => {
+    const { container } = render(<DockSheet tabs={THREE} />);
+    const b = container.querySelector('[data-dock-tab="b"]');
+    fireEvent.pointerDown(b, { pointerId: 1, button: 0, buttons: 1, clientX: 50, clientY: 500 });
+    fireEvent.pointerMove(b, { pointerId: 1, buttons: 1, clientX: 52, clientY: 480 });
+    fireEvent.pointerMove(b, { pointerId: 1, buttons: 1, clientX: 54, clientY: 450 });
+    expect(container.querySelector('[data-dock-panel]').style.height).toBe('114px');
+    expect(order(container)).toEqual(['a', 'b', 'c']);
+  });
+
+  it('moves the focused tab with Shift+arrow keys', () => {
+    const { container } = render(<DockSheet tabs={THREE} />);
+    fireEvent.keyDown(screen.getByRole('button', { name: 'Open Charlie controls' }), { key: 'ArrowLeft', shiftKey: true });
+    expect(order(container)).toEqual(['a', 'c', 'b']);
+    fireEvent.keyDown(screen.getByRole('button', { name: 'Open Alpha controls' }), { key: 'ArrowLeft', shiftKey: true });
+    expect(order(container)).toEqual(['a', 'c', 'b']); // already first
+  });
+
+  it('puts a newly docked layer at the end', () => {
+    window.localStorage.setItem('sentinel:dockTabOrder', JSON.stringify(['c', 'a']));
+    const { container } = render(<DockSheet tabs={THREE} />);
+    expect(order(container)).toEqual(['c', 'a', 'b']);
   });
 });
 
