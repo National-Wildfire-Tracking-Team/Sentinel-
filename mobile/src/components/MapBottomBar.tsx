@@ -1,27 +1,32 @@
 /**
  * Floating bottom toolbar, as on the web (src/app/components/BottomBar/MapBottomBar.jsx): the layers
  * button, then the All Hazards / Wildfire / Weather / Models switcher. Like the web below the `sm`
- * breakpoint, tabs show icons only; each keeps the web's active color.
+ * breakpoint, tabs lead with icons; each keeps the web's active color. A short label sits under each
+ * icon (the web relies on hover titles, which a phone doesn't have), and the layers button shows how
+ * many layers are on.
  */
 import React from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { AlertTriangle, CloudSun, Flame, Layers, Wind } from 'lucide-react-native';
 
 import type { MapTab } from '@/map/catalog';
 import { accent, chrome, radius, sentinel, sentinelText } from '@/theme';
+import { CountBadge } from './MapChrome';
 
 interface Props {
   tab: MapTab;
   onTabChange: (tab: MapTab) => void;
   layersOpen: boolean;
   onLayersPress: () => void;
+  /** Layers currently on, shown as a badge on the layers button. */
+  layerCount?: number;
 }
 
-const TABS: { id: MapTab; label: string; Icon: typeof Flame }[] = [
-  { id: 'allhazard', label: 'All Hazards', Icon: AlertTriangle },
-  { id: 'wildfire', label: 'Wildfire', Icon: Flame },
-  { id: 'weather', label: 'Weather', Icon: CloudSun },
-  { id: 'models', label: 'Models', Icon: Wind },
+const TABS: { id: MapTab; label: string; short: string; Icon: typeof Flame }[] = [
+  { id: 'allhazard', label: 'All Hazards', short: 'Hazards', Icon: AlertTriangle },
+  { id: 'wildfire', label: 'Wildfire', short: 'Wildfire', Icon: Flame },
+  { id: 'weather', label: 'Weather', short: 'Weather', Icon: CloudSun },
+  { id: 'models', label: 'Models', short: 'Models', Icon: Wind },
 ];
 
 const ACTIVE_STYLE: Record<MapTab, object> = {
@@ -31,20 +36,22 @@ const ACTIVE_STYLE: Record<MapTab, object> = {
   models: { backgroundColor: accent.indigo600 },
 };
 
-export function MapBottomBar({ tab, onTabChange, layersOpen, onLayersPress }: Props) {
+export function MapBottomBar({ tab, onTabChange, layersOpen, onLayersPress, layerCount = 0 }: Props) {
   return (
     <View style={styles.bar}>
       <Pressable
         onPress={onLayersPress}
         accessibilityRole="button"
-        accessibilityLabel="Map layers"
+        accessibilityLabel={layerCount ? `Map layers, ${layerCount} on` : 'Map layers'}
         accessibilityState={{ expanded: layersOpen }}
         style={({ pressed }) => [styles.button, layersOpen && styles.layersActive, pressed && styles.pressed]}
       >
         <Layers size={18} color={accent.slate100} />
+        <Text style={styles.label}>Layers</Text>
+        <CountBadge count={layerCount} />
       </Pressable>
       <View style={styles.divider} />
-      {TABS.map(({ id, label, Icon }) => {
+      {TABS.map(({ id, label, short, Icon }) => {
         const active = tab === id;
         // Web: inactive tabs are text-sentinel-200; the All Hazards triangle is sentinel-300 until active (yellow-300).
         const iconColor = active ? (id === 'allhazard' ? accent.yellow300 : accent.white) : id === 'allhazard' ? sentinelText[300] : sentinelText[200];
@@ -58,6 +65,9 @@ export function MapBottomBar({ tab, onTabChange, layersOpen, onLayersPress }: Pr
             style={({ pressed }) => [styles.button, active && ACTIVE_STYLE[id], pressed && !active && styles.pressed]}
           >
             <Icon size={18} color={iconColor} />
+            <Text style={[styles.label, active && styles.labelActive]} numberOfLines={1}>
+              {short}
+            </Text>
           </Pressable>
         );
       })}
@@ -80,13 +90,16 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 10 },
   },
   button: {
-    minWidth: 48,
-    height: 40,
-    paddingHorizontal: 12,
+    minWidth: 52,
+    height: 48,
+    paddingHorizontal: 6,
+    gap: 2,
     borderRadius: radius.lg,
     alignItems: 'center',
     justifyContent: 'center',
   },
+  label: { color: sentinelText[300], fontSize: 10, fontWeight: '600', letterSpacing: 0.1 },
+  labelActive: { color: accent.white },
   layersActive: { backgroundColor: sentinel[700] },
   pressed: { backgroundColor: sentinel[700] },
   divider: { width: StyleSheet.hairlineWidth, alignSelf: 'stretch', marginVertical: 4, backgroundColor: sentinel[600] },

@@ -5,7 +5,7 @@
  */
 import React, { useMemo, useState } from 'react';
 import { FlatList, Pressable, RefreshControl, StyleSheet, Text, TextInput, View } from 'react-native';
-import { ArrowDownWideNarrow, Flame, MapPin, Search, Users } from 'lucide-react-native';
+import { ArrowDownWideNarrow, Flame, MapPin, Radio, Search, Users } from 'lucide-react-native';
 
 import type { Incident } from '@/data/incidents';
 import { accent, fire, sentinel, sentinelText } from '@/theme';
@@ -133,12 +133,14 @@ function IncidentCard({ incident, selected, onPress }: { incident: Incident; sel
   const pct = Math.max(0, Math.min(100, incident.contained ?? 0));
   const color = containmentToColor(pct);
   const place = [incident.county && `${incident.county} Co.`, incident.state].filter(Boolean).join(', ');
+  // Posted by an NWTT reporter and not in an official feed yet.
+  const fieldReport = incident.source === 'NWTT_REPORT';
   return (
     <Pressable
       onPress={onPress}
       style={({ pressed }) => [styles.card, selected ? styles.cardSelected : pressed && styles.cardPressed]}
       accessibilityRole="button"
-      accessibilityLabel={`${incident.name}, ${formatAcres(incident.acres)}, ${Math.round(pct)}% contained`}
+      accessibilityLabel={`${incident.name}${fieldReport ? ', field report' : ''}, ${formatAcres(incident.acres)}, ${Math.round(pct)}% contained`}
     >
       <View style={styles.cardTop}>
         <View style={[styles.chip, { backgroundColor: active ? 'rgba(255,90,0,0.2)' : sentinel[700] }]}>
@@ -149,10 +151,20 @@ function IncidentCard({ incident, selected, onPress }: { incident: Incident; sel
         </Text>
         <Text style={[styles.pill, active ? styles.pillActive : styles.pillContained]}>{active ? 'Active' : 'Contained'}</Text>
       </View>
-      {place ? (
+      {place || fieldReport ? (
         <View style={styles.placeRow}>
-          <MapPin size={12} color={sentinelText[400]} />
-          <Text style={styles.place}>{place}</Text>
+          {place ? (
+            <>
+              <MapPin size={12} color={sentinelText[400]} />
+              <Text style={styles.place}>{place}</Text>
+            </>
+          ) : null}
+          {fieldReport ? (
+            <View style={styles.reportTag}>
+              <Radio size={10} color={fire[300]} />
+              <Text style={styles.reportText}>Field report</Text>
+            </View>
+          ) : null}
         </View>
       ) : null}
       <View style={styles.stats}>
@@ -232,6 +244,16 @@ const styles = StyleSheet.create({
   pillContained: { color: sentinelText[200], backgroundColor: sentinel[700] },
   placeRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 },
   place: { color: sentinelText[400], fontSize: 12 },
+  reportTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    backgroundColor: 'rgba(255,90,0,0.15)',
+  },
+  reportText: { color: fire[300], fontSize: 10, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.6 },
   stats: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 8 },
   acres: { color: accent.white, fontSize: 12, fontWeight: '600', fontVariant: ['tabular-nums'] },
   dot: { color: sentinelText[500], fontSize: 12 },

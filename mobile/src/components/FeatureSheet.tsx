@@ -22,6 +22,7 @@ import {
   type MetarDetail,
   type TfrDetail,
 } from '@/data/monitoringLayers';
+import { HAZARD_CATEGORY_LABELS } from '@/hooks/useHazardEvents';
 import { FLIGHT_CATEGORY_COLORS, FLOOD_COLORS } from '@/map/featureStyles';
 import { accent, fire, radius, sentinel, sentinelText } from '@/theme';
 import { formatDateTime, formatRelative } from '@/utils/format';
@@ -44,6 +45,23 @@ export function FeatureSheet({ selection, onClose }: { selection: FeatureSelecti
   let subtitle: string | null = null;
 
   switch (selection.sourceKey) {
+    case 'hazardEvents':
+      title = p.title || 'Event report';
+      subtitle = `Event report · ${HAZARD_CATEGORY_LABELS[p.category] ?? 'Hazard'} · NWTT field reporter`;
+      body = (
+        <>
+          <RowList
+            rows={[
+              ['Severity', p.severity ? String(p.severity).replace(/^\w/, (c: string) => c.toUpperCase()) : null],
+              ['Reported', p.created_at ? `${formatDateTime(p.created_at)} (${formatRelative(p.created_at)})` : null],
+            ]}
+          />
+          {p.description ? <Text style={styles.body}>{p.description}</Text> : null}
+          <Text style={styles.note}>Posted by an NWTT field reporter. Verify with official sources before taking action.</Text>
+        </>
+      );
+      break;
+
     case 'fireHotspots': {
       const frp = Number(p.frp) || 0;
       title = 'Fire Hotspot Detection';

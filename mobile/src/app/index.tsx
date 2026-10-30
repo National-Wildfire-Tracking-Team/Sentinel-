@@ -6,11 +6,11 @@
  * fire, zone and spot details open as a bottom sheet like the web's mobile incident sheet.
  */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Location from 'expo-location';
 import { router, useLocalSearchParams } from 'expo-router';
-import { ChevronLeft, ChevronRight, CircleUserRound, Flame, LocateFixed, Menu, Navigation, RefreshCw, X } from 'lucide-react-native';
+import { ChevronLeft, ChevronRight, CircleUserRound, Flame, LocateFixed, Menu, Navigation, X } from 'lucide-react-native';
 import Constants from 'expo-constants';
 
 import { useAuth } from '@/auth/AuthContext';
@@ -22,7 +22,7 @@ import { FeatureSheet, type FeatureSelection } from '@/components/FeatureSheet';
 import { IncidentSheet } from '@/components/IncidentSheet';
 import { LayerPanel } from '@/components/LayerPanel';
 import { MapBottomBar } from '@/components/MapBottomBar';
-import { CornerButton, ZoomControl } from '@/components/MapChrome';
+import { CornerButton, RefreshButton, ZoomControl } from '@/components/MapChrome';
 import { MenuPanel } from '@/components/MenuPanel';
 import { PointInfoSheet, type PointInfo } from '@/components/PointInfoSheet';
 import { MeasurementPanel, measureShape, type MeasureMode, type MeasureState } from '@/components/MeasurementPanel';
@@ -34,12 +34,15 @@ import { useHomeSetup } from '@/context/HomeSetupContext';
 import { ARCGIS_LAYERS, arcgisKeyFor, arcgisTileUrl, identifyArcgis, type IdentifyResult } from '@/data/arcgisLayers';
 import type { Viewport } from '@/data/arcgisQuery';
 import { STATION_LAYER_FIELD, STATION_LAYER_KEYS, fetchFuelModelAt } from '@/data/fireDanger';
+import { mergeReporterIncidents } from '@/data/fireReports';
 import { smokeHours } from '@/data/fireLayers';
 import type { WindField } from '@/data/windField';
 import { incidentsToFeatureCollection } from '@/data/incidents';
 import { fetchAlertsAtPoint } from '@/data/weatherAlerts';
 import { useEvacZones } from '@/hooks/useEvacZones';
 import { useFeatureLayers, type FeatureLayerData } from '@/hooks/useFeatureLayers';
+import { useFireReports } from '@/hooks/useFireReports';
+import { useHazardEvents } from '@/hooks/useHazardEvents';
 import { useRadarSite } from '@/hooks/useRadarSite';
 import { useIncidents } from '@/hooks/useIncidents';
 import { useSavedLocations } from '@/hooks/useSavedLocations';
@@ -84,7 +87,13 @@ export default function MapScreen() {
   const { height } = useWindowDimensions();
   const { user } = useAuth();
   const plan = usePlan();
-  const { incidents: allIncidents, perimeters, loading, refreshing, error, lastUpdated, refresh } = useIncidents();
+  const { incidents: feedIncidents, perimeters, loading, refreshing, error, lastUpdated, refresh } = useIncidents();
+  // Reporter incidents from the dashboard: merged into matching fires (their updates, acreage and
+  // containment show there) or shown on their own until an official feed lists the fire.
+  const fireReports = useFireReports();
+  const allIncidents = useMemo(() => mergeReporterIncidents(feedIncidents, fireReports), [feedIncidents, fireReports]);
+  // Reporter event reports (hazmat, flooding, …): always shown, on every tab, as on the web.
+  const hazardEvents = useHazardEvents();
   const { home, nearby, setNearby } = useHomeSetup();
   const { locations } = useSavedLocations();
   const params = useLocalSearchParams<{ incident?: string }>();
@@ -215,6 +224,10 @@ export default function MapScreen() {
                   : undefined,
         })),
     [sourceKeys, featureData.data, stationKey, smokeHour, tab, alertPolygons],
+  );
+  const mapFeatureLayers = useMemo<FeatureLayerData[]>(
+    () => (hazardEvents.features.length ? [...featureLayers, { key: 'hazardEvents', data: hazardEvents }] : featureLayers),
+    [featureLayers, hazardEvents],
   );
 
   const onMapPress = useCallback(
@@ -408,7 +421,7 @@ export default function MapScreen() {
         topInset={topInset}
         onSelectIncident={selectIncident}
         rasterLayers={rasterLayers}
-        featureLayers={featureLayers}
+        featureLayers={mapFeatureLayers}
         onViewportChange={onViewportChange}
         onCameraMove={windOn ? () => setCameraMoving(true) : undefined}
         radarSites={radarSitesOn ? { shape: radarSite.sitesShape, selectedId: radarSite.selectedId } : null}
@@ -479,16 +492,7 @@ export default function MapScreen() {
           <Flame size={22} color={fire[600]} />
           <Text style={styles.brandName}>Sentinel</Text>
         </View>
-        <Pressable
-          onPress={refresh}
-          accessibilityRole="button"
-          accessibilityLabel="Refresh data"
-          accessibilityState={{ busy: refreshing || loading }}
-          hitSlop={8}
-          style={({ pressed }) => [styles.refresh, pressed && { backgroundColor: sentinel[700] }]}
-        >
-          <RefreshCw size={18} color={refreshing || loading ? sentinelText[500] : sentinelText[200]} />
-        </Pressable>
+        <RefreshButton busy={refreshing || loading} onPress={refresh} />
       </View>
 
       {/* Corner buttons (web MapCornerButtons.jsx, AccountButton.jsx) */}
@@ -550,9 +554,17 @@ export default function MapScreen() {
         </View>
       ) : null}
 
+      {/* First load: say the fires are on their way rather than showing an empty map. */}
+      {loading && allIncidents.length === 0 && !sheetOpen && !overlayOpen && !measure && !nearMe ? (
+        <View style={[styles.loadingPill, { top: topInset + 20 }]} pointerEvents="none" accessibilityLiveRegion="polite">
+          <ActivityIndicator size="small" color={fire[400]} />
+          <Text style={styles.loadingText}>Loading fires…</Text>
+        </View>
+      ) : null}
+
       {/* Zoom stack and version (web MapZoomControl.jsx) */}
       {!sheetOpen && !overlayOpen ? (
-        <View style={[styles.zoomWrap, { bottom: barBottom + 4 }]} pointerEvents="box-none">
+        <View style={[styles.zoomWrap, { bottom: barBottom + 72 }]} pointerEvents="box-none">
           <ZoomControl
             onZoomIn={() => mapRef.current?.zoomBy(1)}
             onZoomOut={() => mapRef.current?.zoomBy(-1)}
@@ -569,13 +581,13 @@ export default function MapScreen() {
       ) : null}
 
       {radarSitesOn && !sheetOpen && !overlayOpen ? (
-        <View style={[styles.radarPanel, { bottom: barBottom + 64 }]}>
+        <View style={[styles.radarPanel, { bottom: barBottom + 72 }]}>
           <RadarSitePanel radar={radarSite} />
         </View>
       ) : null}
 
       {smokeHour != null && hours.length > 1 && !sheetOpen && !overlayOpen && !radarSitesOn ? (
-        <View style={[styles.smokeChip, { bottom: barBottom + 64 }]}>
+        <View style={[styles.smokeChip, { bottom: barBottom + 72 }]}>
           <Pressable
             onPress={() => setSmokeHourPick(hours[Math.max(0, hours.indexOf(smokeHour) - 1)])}
             disabled={hours.indexOf(smokeHour) === 0}
@@ -606,7 +618,7 @@ export default function MapScreen() {
       ) : null}
 
       {panel.kind === 'layers' ? (
-        <View style={[styles.layersWrap, { bottom: barBottom + 64 }]}>
+        <View style={[styles.layersWrap, { bottom: barBottom + 72 }]}>
           <LayerPanel
             tab={tab}
             layers={layers}
@@ -636,6 +648,7 @@ export default function MapScreen() {
             onTabChange={changeTab}
             layersOpen={panel.kind === 'layers'}
             onLayersPress={() => togglePanel('layers')}
+            layerCount={enabledKeys.length}
           />
         </View>
       ) : null}
@@ -701,7 +714,6 @@ const styles = StyleSheet.create({
   },
   brand: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   brandName: { color: accent.white, fontSize: 18, fontWeight: '700', letterSpacing: -0.3 },
-  refresh: { width: 36, height: 36, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
   cornerLeft: { position: 'absolute', left: 16, gap: 12 },
   cornerRight: { position: 'absolute', right: 16 },
   bang: { color: accent.white, fontSize: 18, fontWeight: '900', lineHeight: 20 },
@@ -734,7 +746,23 @@ const styles = StyleSheet.create({
   nearText: { color: accent.white, fontSize: 14, fontWeight: '600' },
   zoomWrap: { position: 'absolute', right: 16 },
   version: { position: 'absolute', right: 8, color: sentinelText[300], fontSize: 11, fontVariant: ['tabular-nums'] },
-  banner: { position: 'absolute', left: 12, right: 12 },
+  // Clears the zoom stack on the right.
+  banner: { position: 'absolute', left: 12, right: 64 },
+  loadingPill: {
+    position: 'absolute',
+    alignSelf: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 14,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: sentinel[600],
+    backgroundColor: 'rgba(10,12,14,0.9)',
+    ...shadow,
+  },
+  loadingText: { color: sentinelText[100], fontSize: 13, fontWeight: '600' },
   layersWrap: { position: 'absolute', left: 16, right: 16 },
   smokeChip: {
     position: 'absolute',

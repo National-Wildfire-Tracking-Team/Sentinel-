@@ -44,6 +44,8 @@ export interface Incident {
   detailUrl: string | null;
   aliasIds: string[];
   hasPerimeter: boolean;
+  /** The NWTT reporter incident (fire_reports.id) merged into this fire, if any (data/fireReports.ts). */
+  reportId?: string;
 }
 
 export interface IncidentData {

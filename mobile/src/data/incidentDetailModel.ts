@@ -145,6 +145,8 @@ export function buildEvacuations(rows: EvacuationRow[]): Evacuations | null {
 const SOURCE_LABELS: Record<string, string> = {
   CAL_FIRE: 'CAL FIRE',
   FIRIS: 'FIRIS',
+  // A reporter-added fire no official feed lists yet (data/fireReports.ts).
+  NWTT_REPORT: 'NWTT field reporter',
 };
 
 /** Header, metrics and Info fields for an official incident (incidentSummary on the web). */

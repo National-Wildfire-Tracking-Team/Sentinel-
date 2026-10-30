@@ -86,6 +86,10 @@ const FLAME_IMAGES = {
   camera: require('@/assets/map/camera.png'),
   'camera-down': require('@/assets/map/camera-down.png'),
   // Station pills stretch around their ID (RadarSitesLayer.jsx pillImage); 48 × 32 px at @2x.
+  'hazard-wildfire': require('@/assets/map/hazard-wildfire.png'),
+  'hazard-hazmat': require('@/assets/map/hazard-hazmat.png'),
+  'hazard-hazard': require('@/assets/map/hazard-hazard.png'),
+  'hazard-flooding': require('@/assets/map/hazard-flooding.png'),
   'radar-pill': { image: require('@/assets/map/radar-pill.png'), ...PILL_STRETCH },
   'radar-pill-selected': { image: require('@/assets/map/radar-pill-selected.png'), ...PILL_STRETCH },
   'radar-pill-down': { image: require('@/assets/map/radar-pill-down.png'), ...PILL_STRETCH },
