@@ -4,6 +4,13 @@ const WUI_QUERY_URL =
 
 'https://services5.arcgis.com/nPtzMLkb4jZLRdvG/ArcGIS/rest/services/CAL_FIRE_FHSZ_and_WUI_2024_2025/FeatureServer/2/query';
 
+// The service's max page size.
+const PAGE_SIZE = 2000;
+
+// The WUI is a 30 m grid: a statewide view is ~36k cells. Below this zoom
+// the layer is cleared instead of paging through all of them.
+const MIN_ZOOM = 8;
+
 const EMPTY_GEOJSON = {
   type: 'FeatureCollection',
   features: [],
@@ -38,6 +45,12 @@ export function useWUIData(map, enabled) {
       controller?.abort();
       controller = new AbortController();
 
+      if (map.getZoom() < MIN_ZOOM) {
+        setWuiGeoJSON(EMPTY_GEOJSON);
+        setWuiLoading(false);
+        return;
+      }
+
       const bounds = map.getBounds();
 
       const params = {
@@ -55,7 +68,7 @@ export function useWUIData(map, enabled) {
           returnGeometry: 'true',
           outSR: '4326',
           f: 'geojson',
-          resultRecordCount: '1000',
+          resultRecordCount: String(PAGE_SIZE),
       };
 
       setWuiLoading(true);
@@ -96,7 +109,7 @@ export function useWUIData(map, enabled) {
 
           if (
             data.exceededTransferLimit === true ||
-            data.features.length === 1000
+            data.features.length === PAGE_SIZE
             ) {
               offset += data.features.length;
           } else {

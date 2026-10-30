@@ -17,6 +17,7 @@ import { nwsAlertColor } from '../../utils/nwsColors';
 import { categoryColor } from '../../api/nhcTropicalWeather';
 import { awcAccentColor } from '../../api/awc/awc';
 import { tfrTypeStyle } from '../../api/tfr';
+import { wuiHazardColor } from '../../utils/colorUtils';
 import SpotlightMaskLayer from './layers/SpotlightMaskLayer';
 import { usePopupDrag } from './usePopupDrag';
 
@@ -36,6 +37,7 @@ const TYPE_LABELS = {
   'transmission-line': 'Transmission line',
   'gas-pipeline': 'Gas pipeline',
   'national-map-college': 'School / university',
+  wui: 'Wildland-Urban Interface',
   'flood-hazard': 'FEMA flood hazard',
   'nhc-storm': 'Tropical cyclone',
   'fire-danger-point': 'Fire danger & fuels',
@@ -58,6 +60,7 @@ function getAccentColor(item) {
   if (item.type === 'fire-danger-point' && item.sfp?.sfpColor) return item.sfp.sfpColor;
   if (item.type === 'awc') return awcAccentColor(item) ?? DEFAULT_ACCENT;
   if (item.type === 'tfr') return tfrTypeStyle(item.tfrType).color;
+  if (item.type === 'wui') return wuiHazardColor(item.hazard);
   return DEFAULT_ACCENT;
 }
 
