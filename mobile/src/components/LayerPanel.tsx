@@ -5,8 +5,9 @@
  * ring when on, sentinel-500 when off, white knob). Plan-locked rows show a lock and the plan;
  * rows the app can't draw yet are dimmed and marked Soon.
  */
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import Animated, { interpolateColor, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { ChevronDown, ChevronRight, Hexagon, Lock, Ruler } from 'lucide-react-native';
 
 import { usePlan } from '@/auth/usePlan';
@@ -19,7 +20,7 @@ import {
   type LayerState,
   type MapTab,
 } from '@/map/catalog';
-import { accent, sentinel, sentinelText } from '@/theme';
+import { accent, fire, sentinel, sentinelText } from '@/theme';
 import type { MeasureMode } from './MeasurementPanel';
 
 interface Props {
@@ -80,6 +81,10 @@ export function LayerPanel({ tab, layers, onToggle, maxHeight, measureMode, onMe
           {TAB_SECTIONS[tab].map(section => {
             const isCollapsed = collapsed[section.id];
             const Chevron = isCollapsed ? ChevronRight : ChevronDown;
+            const onCount = section.rows.filter(row => {
+              const key = rowKey(row);
+              return NATIVE_LAYERS.has(key) && !lockedPlan(key) && Boolean(layers[key]);
+            }).length;
             return (
               <View key={section.id} style={styles.section}>
                 <Pressable
@@ -90,6 +95,7 @@ export function LayerPanel({ tab, layers, onToggle, maxHeight, measureMode, onMe
                 >
                   <Chevron size={14} color={sentinelText[300]} />
                   <Text style={styles.sectionTitle}>{section.title}</Text>
+                  {onCount > 0 ? <Text style={styles.sectionCount}>{onCount} on</Text> : null}
                 </Pressable>
                 {isCollapsed ? null : (
                   <View style={styles.rows}>
@@ -123,9 +129,7 @@ export function LayerPanel({ tab, layers, onToggle, maxHeight, measureMode, onMe
                               {sublabel}
                             </Text>
                           </View>
-                          <View style={[styles.switch, on ? styles.switchOn : styles.switchOff, disabled && { opacity: 0.4 }]}>
-                            <View style={[styles.knob, on && styles.knobOn]} />
-                          </View>
+                          <Switch on={on} disabled={disabled} />
                         </Pressable>
                       );
                     })}
@@ -137,6 +141,24 @@ export function LayerPanel({ tab, layers, onToggle, maxHeight, measureMode, onMe
         </ScrollView>
       )}
     </View>
+  );
+}
+
+/** The web's `w-9 h-5` toggle; the knob slides and the track fades between off and on. */
+function Switch({ on, disabled }: { on: boolean; disabled: boolean }) {
+  const progress = useSharedValue(on ? 1 : 0);
+  useEffect(() => {
+    progress.set(withTiming(on ? 1 : 0, { duration: 160 }));
+  }, [on, progress]);
+  const track = useAnimatedStyle(() => ({
+    backgroundColor: interpolateColor(progress.get(), [0, 1], [sentinel[500], 'rgba(255,90,0,0.25)']),
+    borderColor: interpolateColor(progress.get(), [0, 1], ['rgba(255,90,0,0)', 'rgba(255,90,0,0.5)']),
+  }));
+  const knob = useAnimatedStyle(() => ({ transform: [{ translateX: progress.get() * 15 }] }));
+  return (
+    <Animated.View style={[styles.switch, track, disabled && { opacity: 0.4 }]}>
+      <Animated.View style={[styles.knob, knob]} />
+    </Animated.View>
   );
 }
 
@@ -171,6 +193,7 @@ const styles = StyleSheet.create({
   section: { gap: 6 },
   sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 8, paddingVertical: 6 },
   sectionTitle: { color: sentinelText[100], fontSize: 13, fontWeight: '600' },
+  sectionCount: { marginLeft: 'auto', color: fire[400], fontSize: 11, fontWeight: '600' },
   rows: { borderRadius: 8, backgroundColor: sentinel[900], borderWidth: 1, borderColor: sentinel[700], overflow: 'hidden' },
   row: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 10, paddingVertical: 8 },
   rowDivider: { borderTopWidth: 1, borderTopColor: sentinel[700] },
@@ -193,10 +216,7 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     overflow: 'hidden',
   },
-  switch: { width: 36, height: 20, borderRadius: 10, justifyContent: 'center' },
-  switchOn: { backgroundColor: 'rgba(255,90,0,0.25)', borderWidth: 1, borderColor: 'rgba(255,90,0,0.5)' },
-  switchOff: { backgroundColor: sentinel[500] },
-  knob: { position: 'absolute', left: 2, width: 16, height: 16, borderRadius: 8, backgroundColor: '#ffffff' },
-  knobOn: { left: 17 },
+  switch: { width: 36, height: 20, borderRadius: 10, borderWidth: 1, justifyContent: 'center' },
+  knob: { position: 'absolute', left: 1, width: 16, height: 16, borderRadius: 8, backgroundColor: '#ffffff' },
   empty: { color: sentinelText[200], fontSize: 14, lineHeight: 20, padding: 16 },
 });

@@ -228,6 +228,31 @@ export function stationStyles(field: StationField): StyleLayerSpec[] {
 }
 
 export const FEATURE_STYLES: Record<string, StyleLayerSpec[]> = {
+  // Reporter event reports (HazardEventsLayer.jsx): a pin per category, titled from zoom 7.
+  hazardEvents: [
+    {
+      id: 'hazard-events-circle',
+      type: 'symbol',
+      hit: true,
+      style: {
+        iconImage: ['match', ['get', 'category'], 'wildfire', 'hazard-wildfire', 'hazmat', 'hazard-hazmat', 'flooding', 'hazard-flooding', 'hazard-hazard'],
+        // The pin PNGs are 32 pt; the web draws its 64 px pin at 0.35–0.75.
+        iconSize: zoomRamp(4, 0.7, 8, 1.1, 12, 1.5),
+        iconAnchor: 'bottom',
+        iconAllowOverlap: true,
+        iconIgnorePlacement: true,
+        textField: ['step', ['zoom'], '', 7, ['get', 'title']],
+        textFont: ['DIN Pro Medium', 'Arial Unicode MS Bold'],
+        textSize: 11,
+        textAnchor: 'top',
+        textOffset: [0, 0.6],
+        textMaxWidth: 10,
+        textOptional: true,
+        ...HALO,
+      },
+    },
+  ],
+
   fireHotspots: [
     {
       id: 'fire-hotspots-circle',
