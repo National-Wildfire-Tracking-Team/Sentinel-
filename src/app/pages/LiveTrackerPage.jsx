@@ -21,6 +21,7 @@ import { useFireHotspots } from '../hooks/useFireHotspots';
 import { useNgfsDetections } from '../hooks/useNgfsDetections';
 import { useMergedFireData, getFireMatchKey, pointInGeometry, pointNearGeometry, pointNearPerimeter, pointsNearSameFire } from '../hooks/useMergedFireData';
 import { useAQIData } from '../hooks/useAQIData';
+import { useWUIData } from '../hooks/useWUIData';
 import { useWeatherAlerts } from '../hooks/useWeatherAlerts';
 import { useIncidents } from '../hooks/useIncidents';
 import { useCalFireIncidents } from '../hooks/useCalFireIncidents';
@@ -659,6 +660,9 @@ export default function LiveTrackerPage() {
     geoJSON: aqiGeoJSON,
     refresh: refreshAQI,
   } = useAQIData(layers.aqi);
+
+  // CAL Fire Wildland-Urban Interface
+  const { wuiGeoJSON } = useWUIData(mapInstance, layers.wui);
 
   const {
     geoJSON: alertsGeoJSON,
@@ -1854,6 +1858,7 @@ export default function LiveTrackerPage() {
             nearbyRadiusGeoJSON={nearbyMapGeoJSON.radius}
             fireBehaviorModelingGeoJSON={fireBehaviorModelingGeoJSON}
             aqiGeoJSON={aqiGeoJSON}
+            wuiGeoJSON={wuiGeoJSON}
             alertsGeoJSON={nearbyMapGeoJSON.alerts}
             stormMotionVectorsGeoJSON={stormMotionVectorsGeoJSON}
             stormMotionVectorsVisible={STORM_MOTION_VECTORS}
