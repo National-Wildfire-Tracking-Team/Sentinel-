@@ -44,7 +44,7 @@ export function useWUIData(mapRef, enabled) {
           bounds.getEast(),
           bounds.getNorth(),
           ].join(','),
-          geometryType: 'esriGeometryEvenlope',
+          geometryType: 'esriGeometryEnvelope',
           inSR: '4326',
           spatialRel: 'esriSpatialRelIntersects',
           outFields: '*',
@@ -68,7 +68,7 @@ export function useWUIData(mapRef, enabled) {
           });
 
           const response = await fetch(
-            `${WUI_QUERY_URL}?${queryParams}`
+            `${WUI_QUERY_URL}?${queryParams}`,
             { signal: controller.signal }
           );
 
@@ -76,11 +76,11 @@ export function useWUIData(mapRef, enabled) {
             throw new Error(`CAL Fire returned HTTP ${response.status}`);
           }
 
-          const data = await response.json():
+          const data = await response.json();
 
           if (data.error) {
             throw new Error(
-              data.error.message || 'CAL Fire QUI query failed.'
+              data.error.message || 'CAL Fire WUI query failed.'
             );
           }
 
@@ -99,10 +99,10 @@ export function useWUIData(mapRef, enabled) {
             break;
           }
 
-          if (cancelled || currentRequest !== requestId0 return;
+          if (cancelled || currentRequest !== requestId) return;
         }
 
-        if (cancelled || currentRequest !== requestId return;
+        if (cancelled || currentRequest !== requestId) return;
 
         setWuiGeoJSON({
           type: 'FeatureCollection',
@@ -133,7 +133,7 @@ export function useWUIData(mapRef, enabled) {
     }
 
     return () => {
-      cancelled: true,
+      cancelled = true;
       requestId++;
       clearTimeout(debounceTimer);
       controller?.abort();
