@@ -9,20 +9,24 @@ const EMPTY_GEOJSON = {
   features: [],
 };
 
-export function useWUIData(mapRef, enabled) {
+/**
+ * Fetches CAL FIRE WUI polygons for the current viewport, refetching on pan/zoom.
+ * @param {object|null} map  maplibre/mapbox map instance (from the map's onLoad event)
+ * @param {boolean} enabled
+ */
+export function useWUIData(map, enabled) {
   const [wuiGeoJSON, setWuiGeoJSON] = useState(EMPTY_GEOJSON);
   const [wuiLoading, setWuiLoading] = useState(false);
   const [wuiError, setWuiError] = useState(null);
 
   useEffect(() => {
-    if (!enabled || !mapRef?.current) {
+    if (!enabled || !map) {
       setWuiGeoJSON(EMPTY_GEOJSON);
       setWuiError(null);
       setWuiLoading(false);
       return;
     }
 
-    const map = mapRef.current.getMap();
     let cancelled = false;
     let controller = null;
     let requestId = 0;
@@ -125,22 +129,19 @@ export function useWUIData(mapRef, enabled) {
       debounceTimer = setTimeout(loadWUI, 350);
     }
 
-    map.on('load', scheduleLoad);
+    // The instance is only handed over after the map's 'load' event, so
+    // fetch the initial viewport right away and then follow pan/zoom.
     map.on('moveend', scheduleLoad);
-
-    if (map.loaded()) {
-      scheduleLoad();
-    }
+    scheduleLoad();
 
     return () => {
       cancelled = true;
       requestId++;
       clearTimeout(debounceTimer);
       controller?.abort();
-      map.off('load', scheduleLoad);
       map.off('moveend', scheduleLoad);
     };
-  }, [mapRef, enabled]);
+  }, [map, enabled]);
 
   return { wuiGeoJSON, wuiLoading, wuiError };
 }
