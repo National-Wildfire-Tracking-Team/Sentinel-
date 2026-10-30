@@ -63,6 +63,7 @@ import NhcWindHazardsLayer from './layers/NhcWindHazardsLayer';
 import WaterGaugesLayer from './layers/WaterGaugesLayer';
 import CaliforniaCamerasLayer from './layers/CaliforniaCamerasLayer';
 import CalFirePerimetersLayer from './layers/CalFirePerimetersLayer';
+import WUILayer from './layers/WUILayer';
 import HazardEventsLayer from './layers/HazardEventsLayer';
 import DamageAssessmentLayer from './layers/DamageAssessmentLayer';
 import MrmsLayer from './layers/MrmsLayer';
@@ -237,6 +238,18 @@ function buildFeatureRecord(feature, lngLat, alerts, { floodPanel = null, fireDa
         lat: lngLat.lat,
         lng: lngLat.lng,
         ftype: p.FTYPE,
+        properties: p,
+      };
+
+    case 'calfire-wui-fill':
+      return {
+        type:   'wui',
+        id:     p.OBJECTID ?? p.FID ?? `${lngLat.lng},${lngLat.lat}`,
+        name:   p.HAZ_DESC && p.HAZ_DESC !== 'Not Zoned' ? `${p.HAZ_DESC} fire hazard` : 'Wildland-Urban Interface',
+        lat:    lngLat.lat,
+        lng:    lngLat.lng,
+        hazard: p.HAZ_DESC,
+        wuiClass: p.WUI_DESC,
         properties: p,
       };
 
@@ -541,6 +554,7 @@ const STORM_CLICK_LAYERS = {
  * @param {object|null} props.incidentDotsGeoJSON
  * @param {object|null} props.fireBehaviorModelingGeoJSON
  * @param {object|null} props.aqiGeoJSON
+ * @param {object|null} props.wuiGeoJSON
  * @param {object|null} props.alertsGeoJSON
  * @param {object|null} props.stormMotionVectorsGeoJSON
  * @param {boolean}     [props.stormMotionVectorsVisible]
@@ -597,6 +611,7 @@ export default function MapView({
   incidentDotsGeoJSON,
   fireBehaviorModelingGeoJSON,
   aqiGeoJSON,
+  wuiGeoJSON,
   alertsGeoJSON,
   stormMotionVectorsGeoJSON,
   stormMotionVectorsVisible,
@@ -842,6 +857,7 @@ export default function MapView({
     if (layers.rawsStations && rawsGeoJSON)                                                               ids.push('raws-stations-circle');
     if ((isWildfireTab || isAllHazardTab) && layers.airNowMonitors && airNowMonitorsGeoJSON)              ids.push('airnow-monitors-circle');
     if ((isWildfireTab || isAllHazardTab) && layers.droughtOutlook && droughtOutlookGeoJSON)              ids.push('drought-outlook-fill');
+    if ((isWildfireTab || isAllHazardTab) && layers.wui && wuiGeoJSON?.features?.length)                  ids.push('calfire-wui-fill');
     if ((isWildfireTab || isAllHazardTab) && layers.ndgdSmokeForecast && ndgdSmokeFilteredGeoJSON?.features?.length) {
       ids.push('ndgd-smoke-forecast-fill');
     }
@@ -895,6 +911,7 @@ export default function MapView({
       layers.rawsStations, layers.airNowMonitors, layers.droughtOutlook, layers.ndgdSmokeForecast, layers.fireWeatherOutlooks,
       layers.damageAssessment,
       layers.ngfsDetections, ngfsGeoJSON,
+      layers.wui, wuiGeoJSON,
       hotspotsGeoJSON, perimetersGeoJSON, incidentsGeoJSON, incidentDotsGeoJSON, aqiGeoJSON, alertsGeoJSON, spcOutlooksGeoJSON,
       stormReportsGeoJSON, userReportsGeoJSON, evacZonesGeoJSON,
       damageAssessmentPointsGeoJSON, damageAssessmentLinesGeoJSON, damageAssessmentPolygonsGeoJSON,
@@ -1500,6 +1517,12 @@ export default function MapView({
         <CaliforniaCamerasLayer
           geoJSON={californiaCamerasGeoJSON}
           visible={isWildfireTab && layers.wildfireCameras}
+        />
+
+        {/* CAL FIRE Wildland-Urban Interface */}
+        <WUILayer
+          geoJSON={wuiGeoJSON}
+          visible={(isWildfireTab || isAllHazardTab) && layers.wui}
         />
 
         {/* CAL FIRE FRAP historical fire perimeter scars */}

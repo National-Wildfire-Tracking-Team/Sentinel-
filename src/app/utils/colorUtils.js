@@ -118,3 +118,14 @@ export function containmentToColor(pct) {
 // Official NWS palette lives in utils/nwsColors.js; re-export the lookup so
 // callers of alertTypeToColor() pick up every supported event type.
 export { nwsAlertColor as alertTypeToColor } from './nwsColors';
+
+/** CAL FIRE fire hazard severity (WUI layer HAZ_DESC) → accent color. */
+const WUI_HAZARD_COLORS = {
+  'Very High': '#dc2626',
+  High:        '#f97316',
+  Moderate:    '#eab308',
+};
+
+export function wuiHazardColor(hazard) {
+  return WUI_HAZARD_COLORS[hazard] ?? '#6b7280';
+}

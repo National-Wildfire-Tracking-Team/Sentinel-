@@ -14,7 +14,7 @@ import {
 import { useApp } from '../../context/AppContext';
 import { useAppStatus } from '../../context/AppStatusContext';
 import { formatAcres, formatContainment, formatFRP, formatDate, formatPersonnel, formatRelativeTime, formatClockTime, withClock } from '../../utils/formatUtils';
-import { frpToLabel, containmentToColor, getAQICategory } from '../../utils/colorUtils';
+import { frpToLabel, containmentToColor, getAQICategory, wuiHazardColor } from '../../utils/colorUtils';
 import { nwsAlertColor } from '../../utils/nwsColors';
 import IncidentTimeline from '../IncidentTimeline/IncidentTimeline';
 import IncidentSidebar from './IncidentSidebar';
@@ -1101,6 +1101,59 @@ function NationalMapCollegeDetail({ fire }) {
   );
 }
 
+const WUI_CLASS_DESCRIPTIONS = {
+  Interface:        'Homes border wildland vegetation along a clear line.',
+  Intermix:         'Homes are scattered within wildland vegetation.',
+  'Influence Zone': 'Wildland within reach of embers that can ignite nearby homes.',
+};
+
+const WUI_HAZARD_DESCRIPTIONS = {
+  'Very High': 'Highest CAL FIRE hazard class: expect extreme fire behavior and heavy ember exposure.',
+  High:        'Elevated likelihood of damaging fire behavior and ember exposure.',
+  Moderate:    'Wildfire can occur, with lower expected intensity than High or Very High zones.',
+  'Not Zoned': 'Not assigned a fire hazard severity zone by CAL FIRE.',
+};
+
+function WUIDetail({ fire }) {
+  const hazard = fire.hazard || 'Not Zoned';
+  const color = wuiHazardColor(hazard);
+
+  return (
+    <>
+      <div className="mb-4 flex items-start gap-2">
+        <div className="mt-0.5 p-1.5 rounded-lg border" style={{ backgroundColor: `${color}26`, borderColor: `${color}4d` }}>
+          <Home size={16} style={{ color }} />
+        </div>
+        <div>
+          <h3 className="font-bold text-white text-lg leading-tight">{fire.wuiClass || 'Wildland-Urban Interface'}</h3>
+          <p className="text-sentinel-400 text-[11px] mt-1">CAL FIRE Wildland-Urban Interface (2025)</p>
+        </div>
+      </div>
+
+      <div className="rounded-xl border p-3 mb-4" style={{ borderColor: `${color}66`, backgroundColor: `${color}1a` }}>
+        <div className="text-[10px] uppercase tracking-widest text-sentinel-400 mb-1">Fire hazard severity</div>
+        <div className="text-xl font-bold" style={{ color }}>{hazard}</div>
+        <p className="text-xs text-sentinel-300 mt-1.5">{WUI_HAZARD_DESCRIPTIONS[hazard]}</p>
+      </div>
+
+      {WUI_CLASS_DESCRIPTIONS[fire.wuiClass] && (
+        <p className="text-xs text-sentinel-300 mb-4">
+          <span className="text-sentinel-100 font-medium">{fire.wuiClass}:</span> {WUI_CLASS_DESCRIPTIONS[fire.wuiClass]}
+        </p>
+      )}
+
+      {Number.isFinite(fire.lat) && Number.isFinite(fire.lng) && (
+        <div className="text-xs text-sentinel-400">
+          Location:{' '}
+          <span className="text-sentinel-200 font-mono">
+            {fire.lat.toFixed(5)}, {fire.lng.toFixed(5)}
+          </span>
+        </div>
+      )}
+    </>
+  );
+}
+
 // ─── FEMA Flood Hazard Detail ─────────────────────────────────────────────────
 
 function FloodHazardDetail({ fire }) {
@@ -1559,6 +1612,7 @@ const FireDetailPanel = memo(function FireDetailPanel({ nhc = null }) {
              selectedFire.type === 'transmission-line'        ? 'Critical Infrastructure' :
              selectedFire.type === 'gas-pipeline'            ? 'Critical Infrastructure' :
              selectedFire.type === 'national-map-college'    ? 'School / University' :
+             selectedFire.type === 'wui'                     ? 'Wildland-Urban Interface' :
              selectedFire.type === 'flood-hazard'            ? 'Flood Hazard' :
              selectedFire.type === 'hazard-event'            ? 'Event Report' :
              selectedFire.type === 'nhc-invest'              ? 'NHC Invest' :
@@ -1603,6 +1657,7 @@ const FireDetailPanel = memo(function FireDetailPanel({ nhc = null }) {
           {selectedFire.type === 'transmission-line'       && <TransmissionLineDetail fire={selectedFire} />}
           {selectedFire.type === 'gas-pipeline'            && <GasPipelineDetail     fire={selectedFire} />}
           {selectedFire.type === 'national-map-college'    && <NationalMapCollegeDetail fire={selectedFire} />}
+          {selectedFire.type === 'wui'                     && <WUIDetail              fire={selectedFire} />}
           {selectedFire.type === 'flood-hazard'            && <FloodHazardDetail       fire={selectedFire} />}
           {selectedFire.type === 'hazard-event'            && <HazardEventDetail       fire={selectedFire} />}
           {selectedFire.type === 'nhc-invest'              && <NhcInvestDetail        fire={selectedFire} />}
@@ -1613,7 +1668,7 @@ const FireDetailPanel = memo(function FireDetailPanel({ nhc = null }) {
           {![
             'hotspot', 'perimeter', 'incident', 'aqi', 'weather-alert', 'user-report',
             'evacuation-zone', 'reporter-evacuation-zone', 'transmission-line',
-            'gas-pipeline', 'national-map-college', 'flood-hazard', 'hazard-event', 'nhc-invest', 'nhc-watch-warning',
+            'gas-pipeline', 'national-map-college', 'wui', 'flood-hazard', 'hazard-event', 'nhc-invest', 'nhc-watch-warning',
             'fire-danger-point', 'awc', 'tfr',
           ].includes(selectedFire.type) && (
             <div className="flex flex-col items-center justify-center py-10 text-center gap-3">
