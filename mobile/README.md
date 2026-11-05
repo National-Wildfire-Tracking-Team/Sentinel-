@@ -89,6 +89,20 @@ npx eas-cli@latest build --profile development --platform ios
 
 Install the build from the QR code or link that EAS prints, then run `npm start` on your Mac.
 
+## Releasing to TestFlight
+
+The app is `Sentinel: All-Hazard Intel` in App Store Connect (Apple ID 6831216639) and
+`@nwtt/sentinel-mobile` on EAS. Signing credentials and the `EXPO_PUBLIC_*` values live in EAS.
+
+```bash
+npm run release:ios
+```
+
+This builds the `production` profile on EAS (the build number increments automatically), downloads
+the `.ipa` to `~/Downloads` and opens it in Transporter: click **Deliver**. We upload with Transporter
+rather than `eas submit`, whose queue stalls on our plan. The build appears under TestFlight once
+Apple finishes processing it (10–30 minutes).
+
 ## Checks
 
 ```bash
