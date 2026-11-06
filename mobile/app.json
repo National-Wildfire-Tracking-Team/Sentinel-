@@ -2,6 +2,10 @@
   "expo": {
     "name": "Sentinel",
     "slug": "sentinel-mobile",
+    "platforms": [
+      "ios",
+      "android"
+    ],
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/sentinel-app-icon.png",
@@ -10,6 +14,7 @@
     "backgroundColor": "#0a0c0e",
     "ios": {
       "bundleIdentifier": "org.nationalwildfiretrackingteam.sentinel",
+      "appleTeamId": "5QLC79W89G",
       "supportsTablet": false,
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
@@ -34,6 +39,12 @@
       "expo-dev-client",
       "@rnmapbox/maps",
       [
+        "expo-notifications",
+        {
+          "color": "#ff5a00"
+        }
+      ],
+      [
         "expo-location",
         {
           "locationWhenInUsePermission": "Sentinel uses your location to show wildfires near you."
@@ -46,7 +57,8 @@
           "image": "./assets/images/sentinel-app-icon.png",
           "imageWidth": 120
         }
-      ]
+      ],
+      "expo-image"
     ],
     "experiments": {
       "typedRoutes": true,

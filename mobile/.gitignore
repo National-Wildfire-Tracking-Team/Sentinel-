@@ -39,5 +39,5 @@ yarn-error.*
 example
 
 # generated native folders
-/ios
+# ios/ is committed so Xcode Cloud can build it; re-run `npx expo prebuild -p ios` after native config changes.
 /android
